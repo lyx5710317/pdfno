@@ -5,14 +5,19 @@ import path from 'node:path';
 test('desktop: selection, isolated drafts, mock cancel/failure, save/restart and native bridge', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'pdfno-desktop-'));
   const launch = () =>
-    electron.launch({ args: ['.', `--user-data-dir=${directory}`], timeout: 15000 });
+    electron.launch({
+      args: ['.', `--user-data-dir=${directory}`],
+      timeout: 15000,
+    });
   let app = await launch();
   try {
     let page = await app.firstWindow();
+    await page.setViewportSize({ width: 1024, height: 768 });
     await expect(
       page.getByRole('heading', { name: '在原文里，留下理解。' }),
     ).toBeVisible();
     await page.getByRole('button', { name: 'JA · 少しずつ、読む' }).click();
+    await expect(page.getByLabel('阅读导航')).toHaveCount(0);
     await page
       .getByRole('button', { name: '选择段落 ja-1', exact: true })
       .click();

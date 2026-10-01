@@ -55,8 +55,8 @@ export default function App() {
   const [spaces, setSpaces] = useState<Record<string, Workspace>>(() =>
     Object.fromEntries(documents.map((d) => [d.id, initial()])),
   );
-  const [left, setLeft] = useState<'outline' | 'search' | 'notes' | null>(
-    'outline',
+  const [left, setLeft] = useState<'outline' | 'search' | 'notes' | null>(() =>
+    window.innerWidth > 1200 ? 'outline' : null,
   );
   const [right, setRight] = useState(true);
   const [wide, setWide] = useState(360);
@@ -83,6 +83,15 @@ export default function App() {
   const ws = spaces[active];
   const patch = (bookId: string, change: Partial<Workspace>) =>
     setSpaces((all) => ({ ...all, [bookId]: { ...all[bookId], ...change } }));
+  useEffect(() => {
+    const narrow = window.matchMedia('(max-width: 1200px)');
+    const collapse = () => {
+      if (narrow.matches) setLeft(null);
+    };
+    collapse();
+    narrow.addEventListener('change', collapse);
+    return () => narrow.removeEventListener('change', collapse);
+  }, []);
   useEffect(() => {
     let mounted = true;
     loadNotes()
@@ -117,6 +126,7 @@ export default function App() {
     setActive(bookId);
     patch(bookId, { page });
     setScreen('reader');
+    if (window.innerWidth <= 1200) setLeft(null);
   }
   function goBack() {
     const previous = history.at(-1);
