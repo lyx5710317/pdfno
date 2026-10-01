@@ -23,7 +23,8 @@
     "native:check": "node scripts/check-native.mjs",
     "notices": "node scripts/notices.mjs",
     "format": "prettier --write src electron shared scripts tests *.ts *.mjs *.json index.html",
-    "check:source": "node scripts/check-source.mjs"
+    "check:source": "node scripts/check-source.mjs",
+    "electron:install": "install-electron"
   },
   "dependencies": {
     "react": "19.3.0",

@@ -25,6 +25,7 @@ Use Node **24.15+** (tested with 24.21.0), npm and Xcode command-line tools. `.n
 
 ```sh
 npm ci
+npm run electron:install
 npm run native:build
 npm run native:check
 npm run dev
@@ -55,7 +56,7 @@ npm run notices
 npm run check:source
 ```
 
-Desktop tests launch the locally installed Electron using a temporary isolated user-data directory; no separate browser download is needed. They require a macOS graphical session. Check [validation evidence](docs/VALIDATION.md) for actual results and untested areas.
+Run `npm run electron:install` before desktop tests so a first-time runtime download does not consume their 30-second timeout. Desktop tests launch the locally installed Electron using a temporary isolated user-data directory; no separate browser download is needed. They require a macOS graphical session. Check [validation evidence](docs/VALIDATION.md) for actual results and untested areas.
 
 ## Architecture
 

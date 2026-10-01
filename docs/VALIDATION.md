@@ -32,6 +32,12 @@ Initial desktop launches timed out before any UI assertion. Moving ESM ready-dep
 - Intel hardware runtime, signed DMG, Gatekeeper/notarisation, clean application install/upgrade, auto-update and native entitlements.
 - Full VoiceOver, keyboard-only workflow, pointer selection across complex markup, system split view/fullscreen/multi-window, retained source after app restart, persistent layout/preferences.
 - Manual web-only development-mode smoke test; the verified desktop path is `npm run build` then `npm start`.
-- Cloud CI results were not assumed from local checks; inspect the repository's Actions results separately.
+- Cloud CI results are recorded below; they are independent of local verification.
 
 The local screenshot under ignored `test-results/desktop-workspace.png` contains only self-authored fixtures and isolated test notes. It was visually inspected for layout; it is not a private desktop screenshot and is not published as a production reader/AI result.
+
+## Cloud CI follow-up
+
+Initial [run 36897686384](https://github.com/lyx5710317/pdfno/actions/runs/36897686384) on `b77d5c6` failed only in the native job's desktop test. Linux source checks, macOS Xcode build, native protocol and renderer build all passed. The desktop log shows the initial Electron binary download starting inside the test and exhausting its 30-second limit before UI assertions.
+
+The corrective change adds `npm run electron:install` as a separate native CI step with a five-minute installation bound, before desktop tests. The test timeout and assertions stay unchanged. No application functionality, renderer security settings, dependencies or account permissions change. Final cloud status must be verified on the new commit.

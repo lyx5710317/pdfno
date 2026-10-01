@@ -28,6 +28,9 @@ jobs:
         with:
           node-version-file: .nvmrc
       - run: npm ci
+      - name: Install Electron runtime before timed desktop tests
+        run: npm run electron:install
+        timeout-minutes: 5
       - run: npm run native:build
       - run: npm run native:check
       - run: npm run build
