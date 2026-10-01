@@ -5,7 +5,7 @@ import path from 'node:path';
 test('desktop: selection, isolated drafts, mock cancel/failure, save/restart and native bridge', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'pdfno-desktop-'));
   const launch = () =>
-    electron.launch({ args: ['.', `--user-data-dir=${directory}`] });
+    electron.launch({ args: ['.', `--user-data-dir=${directory}`], timeout: 15000 });
   let app = await launch();
   try {
     let page = await app.firstWindow();

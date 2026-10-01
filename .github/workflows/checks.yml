@@ -35,3 +35,12 @@ jobs:
       - run: npm run native:check
       - run: npm run build
       - run: npm run test:e2e
+        env:
+          DEBUG: pw:browser
+      - name: Retain self-authored desktop test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-test-diagnostics
+          path: test-results/
+          retention-days: 1
