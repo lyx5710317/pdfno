@@ -1,3 +1,5 @@
+> Historical baseline document. The Electron/CLI implementation below has been retired with recoverable backups. Current source, commands and capability evidence: [README](../README.md), [native tasks](NATIVE-TASKS.md), [validation](VALIDATION.md).
+
 # P0 audit · 2026-10-01
 
 Historical snapshot. The 2026-10-02 user decision replaces the future Koodo/Electron route with Swift native UI + PDFKit and a separately selected EPUB adapter. No old code is removed. Later research found **public Kookit core source**; the closed-source architecture-table entry concerns `kookit-extra.min.mjs`, and core publication does not settle the extra bundles or their provenance. Read the [updated engine evidence](EPUB-ENGINE-AUDIT.md) and [current ADR](ADR-0002-NATIVE-APPLE.md) before using the original unresolved-source wording below. The format inventory and reported historical test scope remain useful.

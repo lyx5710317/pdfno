@@ -1,3 +1,5 @@
+> 这是 N0 文档阶段的设计快照，下面的“本轮只文档/旧源码保留”描述该历史阶段。最新明确授权和实际实现已由 [v0.3 主规格](PDFno_AI_Development_Spec_v0.3_Native.md)、[任务状态](NATIVE-TASKS.md) 与 [迁移记录](NATIVE-MIGRATION.md) 接续；临时开发最低版本为 macOS14/iOS17。历史状态不作为当前执行限制。
+
 # PDFno 原生 Apple 应用实施与迁移计划
 
 日期：2026-10-02

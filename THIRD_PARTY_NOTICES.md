@@ -1,24 +1,13 @@
 # Third-party notices
 
-Dependencies are installed from the public npm registry and pinned by `package-lock.json`; they are not vendored. Retain their license and NOTICE files when distributing any future compiled package. `npm run notices` generates `docs/dependency-inventory.json` from the lockfile, including transitive packages and declared license values. Metadata alone is not a complete distribution audit.
+Current native source has **no external Swift package or npm runtime dependency**. Its local `PDFnoKit` package and original fixtures are PDFno-authored AGPL-3.0-or-later source.
 
-| Direct dependency | Purpose | Declared license |
-| --- | --- | --- |
-| React / React DOM | Renderer | MIT |
-| Electron | Desktop runtime | MIT, with bundled Chromium/Node notices and other component licenses |
-| Vite / React plugin | Build and development | MIT |
-| TypeScript | Type checking | Apache-2.0 |
-| ESLint / typescript-eslint / Prettier | Lint / formatting | MIT |
-| Vitest / jsdom | Unit tests / DOM fixtures | MIT |
-| Playwright Test | Desktop automation | Apache-2.0 |
-| DefinitelyTyped type packages | Development types | MIT |
+The applications link Apple system frameworks: SwiftUI, Foundation, AppKit/UIKit, PDFKit, UniformTypeIdentifiers and CryptoKit. Swift/Xcode/SDK/test tools are installed system/toolchain components. No Apple SDK, framework implementation, bundled font, certificate or provisioning file is redistributed. Future compiled distribution requires review of the applicable platform/toolchain terms and notices.
 
-Exact versions and npm-declared licenses are recorded in the inventory. Electron's binary includes its own `LICENSE` and `LICENSES.chromium.html`; preserve both in future packages. No distributable application binary is published by this source-only skeleton task. Apple Foundation, Swift runtime and SDK are system/toolchain dependencies; no Apple SDK, certificate or provisioning file is redistributed.
+The original PDF fixture references the standard PDF font Helvetica by name, without embedding a font program. Original text and fixture generator provenance appear in `SOURCE-NOTICES.md`.
 
-## Excluded / pending
+## Historical dependencies and unselected candidates
 
-No Kookit product is included. Public Kookit core rendering source has been located with an AGPL-3.0-or-later declaration; this does not settle the separate `kookit-extra` products or establish provenance for existing minified bundles. The original broad closed-source wording is qualified by the [updated audit](docs/EPUB-ENGINE-AUDIT.md). No dictionaries, OCR/conversion engines, proprietary binaries, bundled fonts or UPDF assets are included. No private Bookno/JapaneseLearningApp/NihongoFlow code is included. Future additions need a file-level source, license and distribution record before integration.
+React, Electron, Vite, TypeScript, ESLint, Vitest, jsdom and Playwright were used by the retired demo. Their pinned npm metadata remains in `docs/historical/dependency-inventory.json` and their lockfile in Git history/external recovery material. They are no longer current installation or execution requirements. Historical MIT/Apache/Chromium notices must still be retained if an old compiled demo is separately redistributed; npm metadata alone is not a distribution audit.
 
-## Native direction: research only
-
-The documentation revision of 2026-10-02 selects PDFKit as the future PDF framework and preserves AGPL-3.0-or-later for PDFno source. Apple PDFKit/WebKit/CloudKit are future system-framework links, not redistributed SDKs or source dependencies added here. EPUB candidates remain uninstalled: Readium Swift 3.11.0 (BSD-3-Clause), foliate-js (MIT), and epub.js (BSD-2-Clause). Their actual selected transitive libraries, embedded assets and distribution notices still require a complete audit before integration. The npm lockfile and inventory are unchanged; this list is not a declaration that new third-party code ships in PDFno.
+No Koodo/Kookit engine, dictionary, OCR/conversion engine, private Bookno code, UPDF asset or proprietary binary is included. EPUB comparison candidates remain uninstalled: Readium Swift 3.11.0 (BSD-3-Clause), foliate-js (MIT), epub.js (BSD-2-Clause); Kookit public core declares AGPL-3.0-or-later, separate extra bundles are unverified. Audit each selected version's actual dependencies, assets, corresponding source and platform distribution before future integration. See `docs/EPUB-ENGINE-AUDIT.md`.

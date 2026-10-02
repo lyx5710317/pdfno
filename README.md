@@ -1,95 +1,38 @@
 # PDFno
 
-Mac-first language-learning reader, with long-term support for Mac, iPhone and iPad.
+原生 Mac、iPhone、iPad 阅读器，使用 **SwiftUI + AppKit/UIKit + PDFKit**，源码保持 **AGPL-3.0-or-later**。这是首个可运行的本地 PDF 开发切片，尚未发行。
 
-**Approved direction (2026-10-02): Swift native UI + PDFKit for PDF; an independently selected EPUB adapter.** New development on the React/Electron route is stopped. This revision updates documents only; the existing demo and Swift command-line bridge are preserved. No native GUI app targets or EPUB dependency have been created.
+现在可以导入 PDF、按文件 SHA-256 去重并保存原书副本；用 PDFKit 阅读、选字、翻页、目录和文本搜索；保存选区高亮与笔记、回到来源、恢复阅读进度。高亮只投影到内存中的 PDFDocument，原书副本不被改写。损坏或来自新版本的本地数据会停止保存，并保留原文件。书库目前使用系统书籍图标，封面生成、缩略图与多文档工作区仍待实现。
 
-Start with [the approved architecture decision](docs/ADR-0002-NATIVE-APPLE.md), [native Apple implementation and migration plan](docs/NATIVE-APPLE-PLAN.md), and [EPUB platform/license audit](docs/EPUB-ENGINE-AUDIT.md). Implementation details in those plans are proposals unless explicitly marked approved or implemented. The original functional goals and **AGPL-3.0-or-later** choice remain.
+**EPUB、漫画、其他格式、AI/BYOK、问答、双语翻译、日语假名、英日语法、Bookno API、iCloud、OCR、格式转换和 Apple Pencil 尚未接入。** EPUB 适配边界已保留，引擎没有选定。完整功能目标和三端规划见 [v0.3 主规格](docs/PDFno_AI_Development_Spec_v0.3_Native.md)、[实施状态](docs/NATIVE-TASKS.md) 和 [引擎审计](docs/EPUB-ENGINE-AUDIT.md)。
 
-**This is a runnable development skeleton, not a working PDF/EPUB reader or an AI product.** It uses self-authored Japanese and English text fixtures and local mock events. No books are uploaded and no model service is called.
+## 在 Xcode 中运行
 
-## Implemented in the preserved demo
+打开 `apple/PDFno.xcworkspace`。选择 **PDFnoMac** 并运行于本机；选择 **PDFnoMobile** 并运行于 iPhone 或 iPad Simulator。两者是独立 application targets，移动 target 同时支持 iPhone/iPad；Mac 使用 AppKit，未采用 Catalyst。共享 `PDFnoKit` 包含 Domain、Services、Readers、UI 四个 targets，没有外部 Swift 包依赖。
 
-- Library, document tabs, outline, text search, return navigation, font size and light/dark appearance.
-- Canonical single-block text selection that excludes author ruby annotations; code point offsets and immutable source snapshots, with fingerprint validation on return.
-- Per-document tasks and per-mode note drafts. Local mock success, rate limit, partial result and cancellable waiting scenarios.
-- Versioned local notes, stable IDs, revision conflict checks, atomic JSON replacement and a previous-version backup. Corrupt or newer stores are preserved and saving stops.
-- Sandboxed Electron renderer, restrictive production CSP, fixed IPC channels, main-frame sender checks, denied permissions/navigation/new windows; only the two fixed source/license links may open in the system browser.
-- Native capability query integrated with Electron. The unsigned Swift bridge builds through Xcode and explicitly reports Keychain as not integrated and iCloud as disabled.
+临时开发基线为 **macOS 14 / iOS 17 / iPadOS 17，Swift 6，Xcode 16.4+**。这些版本适合当前 SwiftUI API，并为候选 CKSyncEngine 留出兼容范围；CloudKit 尚未启用。最终发行设备范围可以调整。工程只使用本机 ad hoc 签名 `-`，未设置开发者 team、证书、账号、entitlements 或云容器；Simulator 不需要开发者账号。真机安装和发行需要另行配置与验证。
 
-## Not implemented
+打开应用后，点击「打开示例 PDF」即可试读自制两页样例，或点击「导入 PDF」使用系统文件选择器。未解锁的加密 PDF 会明确拒绝；当前文件上限为 200 MiB。PDF 没有文字层时不能选字和搜索。选中文字后打开「高亮与笔记」，可以保存引文和自己的笔记。
 
-Real PDF/EPUB/comic/other-file reading or import; real BYOK, model requests, translation, grammar or dictionary generation; complete highlight editing, SQLite migrations, OCR, conversion, Bookno transport/cover exchange, iCloud sync, signed application packaging and automatic updates.
-
-The original PDF/EPUB/comic/other-format goals remain inventoried in [P0 audit](docs/P0-AUDIT.md) and the native plan. PDFKit is the approved PDF framework; it does not supply all those formats. Koodo is now a historical architecture and format reference, rather than the future main-app foundation. Public Kookit core source has been found and its AGPL declaration checked; this does not resolve the separate `kookit-extra` bundles or prove their corresponding source. No Koodo/Kookit implementation, binaries, dictionaries, bundled fonts, UPDF assets or private project code are included. See the audit for the corrected boundary.
-
-## Run the preserved demo on macOS
-
-These commands run the existing React/Electron demo and capability-only CLI. They do not build the planned SwiftUI/PDFKit application. Its future `apple/` Xcode application workspace is described in the native plan and does not exist yet.
-
-Use Node **24.15+** (tested with 24.21.0), npm and Xcode command-line tools. `.nvmrc` records the tested Node version. Nothing in setup requests new certificates or cloud credentials.
+## 构建与验证
 
 ```sh
-npm ci
-npm run electron:install
-npm run native:build
-npm run native:check
-npm run dev
+swift test --package-path apple/Packages/PDFnoKit --scratch-path .build/PDFnoKit
+python3 scripts/check-native-source.py
+xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/Mac CODE_SIGNING_ALLOWED=NO build
+xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMobile -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath .build/Mobile CODE_SIGNING_ALLOWED=NO build
 ```
 
-For the built app:
+在 Xcode 的 Test 菜单，或对所选 scheme 执行 `xcodebuild test`，运行真实 UI smoke。测试使用独立临时书库和自制样例，不读用户书库。Mac XCTest runner 需要本机 ad hoc 签名；使用 `CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-`。Simulator destination 选择本机已安装的设备，不复制其他机器的 UUID。实际设备、工具链、命令和未测范围记录在 [验证报告](docs/VALIDATION.md)。GitHub Actions 检查公开源文件、Swift 测试、Mac 构建/界面流程与轻量移动编译。当前顺序已调整为先把 Mac 做好，再据共享内容完善 iPhone/iPad；移动端功能完备不是这阶段门槛。
 
-```sh
-npm run build
-npm start
-```
+工程与样例可通过 `python3 scripts/generate-apple-project.py` 确定性再生。它不下载依赖或配置账号；修改生成的 pbxproj/scheme 时须同步更新该脚本。
 
-Open `native/PDFno.xcworkspace` in Xcode and run the shared `PDFnoBridge` scheme, whose argument is `capabilities`. The main user interface remains in Electron. The bridge also has a Swift Package manifest for source editing; Electron uses the Xcode build output at `native/build/Build/Products/Release/PDFnoBridge`.
+## 数据与迁移
 
-For browser-only exploration use `npm run dev:web`; native capabilities are unavailable, and demo notes use that browser origin's localStorage. Electron notes use the dedicated PDFno application support directory (`app.getPath('userData')/library/notes-v1.json`). No API key field is exposed until secure native credential storage is integrated.
+Mac 数据目录为用户 Application Support 下的 `PDFnoNative`；移动端使用自己的 app 容器。`library-v1.json` 保存书目、进度和笔记，`Originals/<sha256>.pdf` 保存导入副本；每次有效更新先备份上一版 manifest，再原子替换。单窗口 repository actor 管理本地写入，尚未承诺跨进程写入、SQLite 事务、云冲突或崩溃后自动修复。手工恢复前退出应用并复制 manifest、backup 和 Originals；校验备份后再恢复。旧 Electron notes/localStorage 不会被读取或重写；需要单独的 legacy-demo 只读导入器，旧文本 fingerprint 不能转成虚构 PDF 坐标。
 
-## Verify
+用户已授权旧 Electron/React/Node/CLI 骨架退役。移出文件、未跟踪元数据和运行缓存有仓库外备份，完整 Git 历史保留；[迁移与恢复记录](docs/NATIVE-MIGRATION.md) 给出保留/移出理由及回滚方式。历史审计文档保留并标明时态。原 `PDFnoBridge.xcodeproj` 只是 CLI 辅助工程，不是当前原生阅读器主应用。
 
-```sh
-npm run lint
-npm run typecheck
-npm test
-npm run build
-npm run native:build
-npm run native:check
-npm run test:e2e
-npm run notices
-npm run check:source
-```
+## 许可证与来源
 
-Run `npm run electron:install` before desktop tests so a first-time runtime download does not consume their 30-second timeout. Desktop tests launch the locally installed Electron using a temporary isolated user-data directory; no separate browser download is needed. They require a macOS graphical session. Check [validation evidence](docs/VALIDATION.md) for actual results and untested areas.
-
-## Existing architecture and planned replacement
-
-`src/reader` is the format capability / demo adapter boundary. `src/domain` owns source anchors, provider contracts, mock task events and future module contracts. `src/services` routes notes to desktop IPC or browser demo storage. `electron` owns local file persistence, IPC checks and the fixed native executable invocation. `native` is an unsigned Swift command-line tool, with no entitlements or cloud containers. It has no arbitrary file, shell or key operation.
-
-The approved future app uses a native macOS target and an iOS target supporting iPhone/iPad, with shared Swift domain/storage/services, a PDFKit adapter, and an independently evaluated EPUB adapter. The new application code is planned under a separate `apple/` directory in this repository; existing directories and stores are retained until an explicit migration and retirement step. File access, Keychain and synchronization will be native services, with book content kept outside their trust boundary.
-
-UI borrowings are limited to the workspace organisation described in the development specification: document tabs, separate navigation and learning panes, contextual actions and explicit task/source status. Visual assets are newly authored; system fonts are referenced without bundling font files. Bookno family design tokens still need approved evidence.
-
-## Data and recovery
-
-Note schema version 1 is a skeleton format, not Koodo or Bookno data. Never point the app at those databases. A successful update keeps `notes-v1.json.backup` before atomic replacement. If parsing, schema or revision validation fails, the original file is preserved. Stop PDFno before manual recovery, keep copies of both files, verify the backup through `parseStore`, and replace only after reviewing its contents. A future schema migrator and in-app recovery preview remain open tasks. Browser demo storage is separate and has no desktop backup guarantee.
-
-## Native roadmap
-
-1. Complete the documentation change before adding application code; preserve the current runnable baseline.
-2. In a subsequent implementation slice, create real macOS and iPhone/iPad Xcode app targets and shared Swift modules in `apple/`.
-3. Validate native local import and PDFKit reading, selection, geometry, note persistence and recovery using legal fixtures.
-4. Evaluate EPUB engines on all three devices, choose an adapter with recorded license/dependency evidence, then implement it. Readium Swift's iOS support does not establish native macOS support.
-5. Port source/task behavior, establish versioned repositories and a reviewed importer for legacy demo data; integrate native Keychain and controlled BYOK only within its own approved scope.
-6. Decide iCloud record/asset scope, implement local conflict/retry behavior, then validate PDFno-owned CloudKit on real devices. Agree Bookno's separate exchange contract and evaluate each conversion direction independently.
-7. Complete three-device accessibility/recovery testing and separately review signing, distribution terms, notarisation and application release gates.
-
-These are planned steps, not claims of completed features or a release date. See [native tasks](docs/NATIVE-TASKS.md) and [ADR 0002](docs/ADR-0002-NATIVE-APPLE.md). [ADR 0001](docs/ADR-0001-ENGINE-BOUNDARY.md) remains the historical demo decision; its future-route section is superseded.
-
-## Sources and license
-
-PDFno source is Copyright (C) 2026 PDFno contributors, released under **AGPL-3.0-or-later**, without warranty; the [full license](LICENSE) accompanies the source. [SOURCE-NOTICES](SOURCE-NOTICES.md) distinguishes references from copied code and [third-party notices](THIRD_PARTY_NOTICES.md) cover direct dependencies. The [locked dependency inventory](docs/dependency-inventory.json) records all npm entries and license metadata.
-
-The historical reference is [Koodo Reader](https://github.com/koodo-reader/koodo-reader/tree/90e659f0188795f9a4f6e1ccc1727fd3793fe4a4), whose root license is AGPLv3. Its architecture table marks `kookit-extra.min.mjs` closed source; the separately published [Kookit core](https://github.com/koodo-reader/kookit/tree/95f602ed62d204af0de9278cf53212c309b34bfc) has public rendering source and an AGPL-3.0-or-later package declaration. These are distinct evidence boundaries. No implementation or engine binary from either is vendored here. UPDF is an interface-organisation reference only. PDFno is independent; no official Koodo/UPDF identity, signing account or service is used. Apple system frameworks and prospective EPUB dependencies are discussed in the native documents; none is newly bundled by this documentation revision.
+[LICENSE](LICENSE)、[SOURCE-NOTICES](SOURCE-NOTICES.md)、[THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md) 记录 AGPL、原创样例和系统框架边界。没有复制 UPDF 私有代码/图片/字体，未引入 Koodo/Kookit、私有 Bookno 代码、字典或 EPUB 引擎。UPDF 仅提供已脱敏的信息组织参考，PDFno 使用自己的名称与系统视觉元素。旧 npm 依赖清单作为 [历史记录](docs/historical/dependency-inventory.json) 留存，不是当前运行依赖。

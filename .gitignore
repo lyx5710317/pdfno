@@ -1,15 +1,22 @@
+# Local Xcode/Swift build output and generated user metadata
+.build/
+DerivedData/
+**/.swiftpm/
+**/xcuserdata/
+*.xcuserstate
+*.xcresult
+.DS_Store
+# Local credentials, private inputs and recovery material
+.env*
+*.pem
+*.p12
+*.mobileprovision
+*.key
+.private/
+# Historical runtime output; never publish local caches
 node_modules/
 dist/
 native/build/
 native/.build/
 playwright-report/
 test-results/
-.DS_Store
-.env*
-*.pem
-*.p12
-*.mobileprovision
-*.key
-*.xcuserstate
-xcuserdata/
-.private/

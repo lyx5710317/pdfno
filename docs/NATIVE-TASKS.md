@@ -1,20 +1,24 @@
-# Native/Xcode tasks
+# Native implementation status
 
-As of 2026-10-02, the approved future product is Swift native UI + PDFKit, with an independently selected EPUB adapter and long-term Mac/iPhone/iPad support. This revision is **documentation only**. See [ADR 0002](ADR-0002-NATIVE-APPLE.md), [the implementation/migration plan](NATIVE-APPLE-PLAN.md), and [EPUB audit](EPUB-ENGINE-AUDIT.md). The current `native/` project remains a CLI; no GUI app target has been created.
+Date: 2026-10-02. Swift native UI + PDFKit, independent EPUB selection, Mac/iPhone/iPad and AGPL remain confirmed. Latest approved delivery order: complete the Mac version first, then adapt its content/interaction to iPhone and iPad. Keep both targets and shared identities/models; mobile UI completeness is not this phase’s delivery gate. Current capability is a local PDF development slice; the full [v0.3 specification](PDFno_AI_Development_Spec_v0.3_Native.md) remains the requirements inventory.
 
-## Preserved legacy bridge
+| Scope | Current evidence / gap |
+| --- | --- |
+| N0 specification | Complete original v0.2 read and rewritten to v0.3; original 77 requirements/tests/UAT IDs, 17 format goals and 7 conversion rows retained. Public copy removes personal metadata. |
+| N1 real apps | `apple/PDFno.xcworkspace`, Mac/Mobile application targets and shared schemes. Mobile supports families 1,2; native Mac uses AppKit, not Catalyst. Local SwiftPM package has Domain/Services/Readers/UI targets and tests. |
+| N2 PDF subset | Native file importer, managed hash-deduplicated originals, PDFKit view/page controls/search/outline/text selection, frozen PDF line geometry + hash/edition anchors, in-memory highlight projection, local notes/progress, revision guard and atomic manifest/backup. 12 Swift tests and the full Mac UI reading/note/restart flow passed locally. Actual results in VALIDATION. |
+| N2 remaining | Real cover/thumbnails, complete document workspace, large-file/search cancellation, full multi-column/rotated/CropBox/multi-page selection fixture matrix, note editing/deletion, crash-injection recovery, robust extraction context/offset model and broader accessibility. |
+| N3 EPUB | Protocol/capability/locator boundary only. No engine installed or selected. Readium's iOS declaration is not proof of native Mac support. |
+| N4 learning | Ported pure Unicode/ruby/task-state/provider-validation contracts. No actual provider stream, Keychain, endpoint/key/model settings, AI, translation, kana/grammar generation or cache service. |
+| N5 migration | Old source/config/cache backed up then retired under explicit authorization. Old notes/localStorage left untouched; automatic reviewed legacy-demo importer remains unimplemented. |
+| N6 iCloud | No CloudKit entitlement, container, identity, transport or device sync. Local only. |
+| N7 Bookno/formats/conversion | Independent API and original goals preserved in specification. No transport, shared private database, engine, comic reader, OCR, converter or asset exchange implemented. |
+| N8 release | No release, signing account, certificate, provisioning registration, notarisation, app-store packaging or real-device installation. Local ad hoc signing only; final release device range open. |
 
-| ID | State | Concrete deliverable / exit criterion |
-| --- | --- | --- |
-| N00 | Implemented | `PDFno.xcworkspace`, real command-line target and shared `PDFnoBridge` scheme; unsigned universal Xcode build |
-| N01 | Implemented | `capabilities` JSON protocol and fixed-path Electron invocation; unknown operations exit 64 |
-| N02 | Replanned | Keychain belongs to the future native service, not new Electron bridge work; access contract and device policy remain open |
-| N03 | Replanned | Plan native three-device iCloud; decide content/backend and obtain explicit permission before container/entitlement changes |
-| N04 | Frozen | No new bridge/Electron packaging development; existing fixed capability invocation is retained |
-| N05 | Replanned | Native app signing/channel/recovery gates follow A8; no existing identity or entitlements are silently changed |
+Provisional adjustable developer baseline: macOS 14 / iOS/iPadOS 17, Swift 6, Xcode 16.4+. This supports current SwiftUI APIs and leaves CKSyncEngine compatibility; it does not enable cloud behavior. Two development bundle IDs are local placeholders, no registered identity is claimed.
 
-The Electron UI queries only capabilities. N00/N01 do not mean Keychain, iCloud or a native GUI is integrated. There is no dummy SwiftUI wrapper, certificate request, provisioning update or persistent token setup. The executable lives only under ignored build output.
+Retired CLI N00/N01 were capability helpers, never native reading evidence. Their prior behavior is recoverable at baseline `2c40a8f`; current runtime has no dependency on them or Electron. See [migration/recovery](NATIVE-MIGRATION.md) and [validation](VALIDATION.md).
 
-## Future native app tasks
+Mobile builds are retained as compile evidence. Dedicated mobile UI refinements and acceptance now follow the Mac milestone; any earlier failures remain honestly documented, not treated as a reason to delay Mac delivery.
 
-A0 documentation is the current scope. A1 creates two real app targets in a new `apple/` directory; A2 validates local PDFKit reading; A3 evaluates EPUB; A4–A8 cover learning, migration, iCloud, Bookno/conversion and release gates. These targets/modules do not exist yet. Deliverables and exit criteria are defined in [the native plan](NATIVE-APPLE-PLAN.md#8-实施任务与验收门槛).
+Next implementable slice: strengthen Mac PDF selection/anchor and cover/thumbnail behavior with broader original fixtures and explicit performance/accessibility checks. EPUB benchmarking and each external integration need a separate scoped decision; the complete future product is not implied by this working slice.

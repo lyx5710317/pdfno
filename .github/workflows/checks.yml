@@ -1,46 +1,30 @@
-name: Source checks
+name: Native checks
 on: [push, pull_request]
 permissions:
   contents: read
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
-  source:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-        env:
-          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
-      - run: npm run notices
-      - run: git diff --exit-code docs/dependency-inventory.json
   native:
-    runs-on: macos-latest
+    runs-on: macos-15
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-      - run: npm ci
-      - name: Install Electron runtime before timed desktop tests
-        run: npm run electron:install
-        timeout-minutes: 5
-      - run: npm run native:build
-      - run: npm run native:check
-      - run: npm run build
-      - run: npm run test:e2e
-        env:
-          DEBUG: pw:browser
-      - name: Retain self-authored desktop test diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: desktop-test-diagnostics
-          path: test-results/
-          retention-days: 1
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Source and original fixture guards
+        run: |
+          python3 scripts/check-native-source.py
+          python3 scripts/generate-apple-project.py
+          git diff --exit-code -- apple/PDFno.xcodeproj apple/PDFno.xcworkspace apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures
+      - name: Swift domain, storage and PDFKit tests
+        run: swift test --package-path apple/Packages/PDFnoKit --scratch-path .build/PDFnoKit
+      - name: Native Mac build
+        run: xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/Mac CODE_SIGNING_ALLOWED=NO build
+      - name: Native iPhone and iPad simulator build
+        run: xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMobile -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath .build/Mobile CODE_SIGNING_ALLOWED=NO build
+      - name: Mac PDF reading, notes and restart smoke
+        run: xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/Mac -resultBundlePath .build/CI-Mac.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 240 test

@@ -1,3 +1,5 @@
+> Historical baseline document. The Electron/CLI implementation below has been retired with recoverable backups. Current source, commands and capability evidence: [README](../README.md), [native tasks](NATIVE-TASKS.md), [validation](VALIDATION.md).
+
 # ADR 0001 · Temporary engine boundary
 
 Status: historical implementation decision for the preserved foundation. Its future engine/fork direction is superseded by [ADR 0002](ADR-0002-NATIVE-APPLE.md), approved 2026-10-02: Swift native UI, PDFKit, independently selected EPUB adapter, long-term Mac/iPhone/iPad support.

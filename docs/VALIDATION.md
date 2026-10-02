@@ -1,64 +1,45 @@
-# Validation evidence · 2026-10-01
+# Native validation evidence
 
-The original results below concern the preserved React/Electron demo and CLI. The approved future native route is described in [ADR 0002](ADR-0002-NATIVE-APPLE.md); this document's native-app planning update is recorded at the end. Historical passed tests do not validate the future SwiftUI/PDFKit application.
+Date: 2026-10-02. Delivery priority is **Mac first, mobile adaptation afterward**. Two real app targets and shared contracts are retained; a mobile build is not a promise of a complete iPhone/iPad product. No release or real-account/cloud operation occurred.
 
-Scope: source skeleton and self-authored demo text, not a licensed reading engine or production AI.
+## Environment and current evidence
 
-| Check | Actual outcome | Evidence / scope |
-| --- | --- | --- |
-| Official `npm ci` | PASSED | Clean installation of locked dependencies with Node 24.21.0 / npm 10.8.2 |
-| `npm run lint` | PASSED | Final source and tests; initial error handling / formatter conflict corrected |
-| `npm run typecheck` (also inside build) | PASSED | Strict TypeScript 6.0.3 |
-| `npm test` | PASSED | 3 files, 11 tests: ruby/Unicode offsets, duplicate quotes, immutable snapshots, invalid spans, cancellation/partial/failure, note revision/backup/restart, corruption protection, origin/traversal/endpoint checks |
-| `npm run build` | PASSED | Vite 8.3.2 production renderer; final build has no Node file-system imports |
-| `npm run native:build -- -quiet` | PASSED | Xcode 27.0 / Swift 6.4, generic macOS destination, unsigned universal arm64+x86_64 CLI |
-| `npm run native:check` | PASSED | Exact capability JSON; unsupported operation rejects with exit 64 |
-| `npm run test:e2e` | PASSED | 1 actual Electron 44.5.1 test, 5 seconds; fixture selection, separate mode drafts, A/B task isolation, cancel/rate-limit, local note save/restart, Swift query and 760px narrow view |
-| `npm run notices` | PASSED | 211 locked dependency entries, all declared licenses recorded |
-| Official npm audit | PASSED | Clean install reports 0 known vulnerabilities; this is not a general security guarantee |
-| Complete AGPL comparison | PASSED | Git blob SHA matches pinned upstream `f23ede7e4a57a42d4afea20c01b244991fa344a5` |
-| Staged diff / source scan | PASSED before publication | Text-file inventory, known secret/personal-path patterns, excluded assets, official lock URL/integrity check; see publication commit |
+Local environment: MacBook Air, Apple silicon, macOS 27.0 (26A428), Xcode 27.0 (27A266a), Swift 6.4, macOS/iOS SDK 27.0. Adjustable deployment settings are macOS 14 and iOS/iPadOS 17; tests on the latest local runtime do not establish oldest-version compatibility. GitHub uses its actually reported `macos-15` toolchain.
 
-## Corrections during validation
+| Check | Actual result / scope |
+| --- | --- |
+| Real Xcode workspace | `xcodebuild -list -workspace apple/PDFno.xcworkspace` resolves the local PDFnoKit package and both shared app schemes. pbxproj has two application and two UI-testing product types; mobile device family is 1,2. |
+| Shared Swift package | **12 tests passed**. Exact Unicode scalar/UTF-16 boundary preservation, author-ruby separation, repeated quotes, immutable task source/terminal event guard, provider endpoint contract, strict store fields/IDs, deduplicated original import, restart progress, note revisions, corrupt/future-store refusal and changed-source refusal. |
+| Real PDFKit integration | Included in those tests: open the original two-page PDF, outline, text search, PDF-space selection geometry, exact hash/edition restore, in-memory annotations without duplicate projection, JSON/new-PDFDocument round trip and invalid-PDF refusal. |
+| Mac app build | **Passed** Debug native macOS build; ad hoc build also launches. Initial Debug app/package architecture mismatch was corrected with consistent ONLY_ACTIVE_ARCH settings. |
+| Mac application run | Direct isolated-store launch produced a real PDFno window, 1180 × 780; XCTest also verifies sample import and page controls. **Full Mac UI acceptance passed**: 1 real UI test, 0 failures, 26.859 seconds; local result bundle `.build/Mac-Acceptance.xcresult`. It verifies sample import, page controls, search selection, note/highlight save, source return, process termination/relaunch, reading position and note survival. |
+| Mobile app compile | **Passed** iOS Simulator build for the common iPhone/iPad target. No Catalyst or browser-wrapped main app. |
+| Earlier mobile UI experiments | iPhone first-run sample/read/page/search/highlight/source flow passed. Later expanded restart attempts exposed restoration/element-role issues; the restoration guard and generic library-row lookup were revised, but final mobile UI acceptance was not established. User then prioritised Mac; no additional mobile refinement/run is required for this stage. |
+| Source/privacy/provenance guard | Passed: no detected personal paths, Library IDs, credential patterns, unreviewed binaries, caches/user metadata or old runtime in public candidate files. Two PDFs are the same original generated fixture. This is a narrow guard, not a comprehensive security audit. |
+| Reproducible generated files | Project, schemes, workspace and both original PDF copies regenerate byte-for-byte. No network dependency or signing account involved. |
+| Recoverable retirement | Completed after 43 baseline tracked retirement hashes and native metadata/concurrent-change checks. External recovery holds old runtime/config/cache and Git bundle; historical inventory retained unchanged. Unknown files and user data untouched. |
+| Repository/CI | Ordinary commit/push and exact-SHA CI are verified after publication; use the final delivery's commit/run receipt. Historical skeleton CI is not this implementation's evidence. |
 
-The first dependency attempt selected TypeScript 7, which did not satisfy lint tooling's peer range; 6.0.3 resolves the constraint. The host's default mirror does not implement security audits, so final resolution/installation and audit used the official registry and a clean lock. A browser import of the combined file repository initially generated a warning; pure schema validation now lives in `shared`.
+Original PDF fixture: **1,850 bytes**, SHA-256 `0364d0ca9f7317a7bbcb546faafbdd19d4b3a4ebc31afbee38d7bb30d14f0847`. Text/layout/outline are PDFno-authored AGPL fixtures, no private book or font program.
 
-Initial desktop launches timed out before any UI assertion. Moving ESM ready-dependent initialisation into `app.whenReady().then(...)` fixed the lifecycle; subsequent full desktop tests passed, including restart. No renderer isolation or sandbox was disabled to make the test pass. A non-fatal macOS sandbox-extension diagnostic appeared in debug startup logs; the tested renderer still uses `sandbox:true`, `contextIsolation:true` and `nodeIntegration:false`. Playwright also reports a non-fatal colour-environment warning.
+## Commands and diagnostics
 
-## NOT RUN / retained limitations
+```sh
+swift test --package-path apple/Packages/PDFnoKit --scratch-path .build/PDFnoKit
+python3 scripts/check-native-source.py
+xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/Mac CODE_SIGNING_ALLOWED=NO build
+xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMobile -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath .build/Mobile CODE_SIGNING_ALLOWED=NO build
+xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/Mac -resultBundlePath .build/Mac-Acceptance.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 240 test
+```
 
-- Full upstream Koodo build and all genuine PDF/EPUB/comic import/render/annotation tests: engine rights/source unresolved; no engine in this skeleton.
-- Genuine PDF coordinate round-trips, EPUB CFI/reflow, scans/OCR, vertical writing and complex ruby or multi-block selection; demo supports a single block only.
-- Real BYOK connectivity, paid model responses and semantic language quality; no API keys collected and no model requests made.
-- Bookno receiver/API/cover transport, iCloud multi-device conflict/recovery, conversion quality; interfaces/statuses only.
-- Intel hardware runtime, signed DMG, Gatekeeper/notarisation, clean application install/upgrade, auto-update and native entitlements.
-- Full VoiceOver, keyboard-only workflow, pointer selection across complex markup, system split view/fullscreen/multi-window, retained source after app restart, persistent layout/preferences.
-- Manual web-only development-mode smoke test; the verified desktop path is `npm run build` then `npm start`.
-- Cloud CI results are recorded below; they are independent of local verification.
+UI tests isolate the store using a fresh UUID session and the bundled original PDF. Test actions use Mac clicks, mobile taps and each platform's text accessibility value. Mac search input uses the original query and restores clipboard data in memory, avoiding changes to the user's input-method settings. No clipboard content is logged or included in artifacts.
 
-The local screenshot under ignored `test-results/desktop-workspace.png` contains only self-authored fixtures and isolated test notes. It was visually inspected for layout; it is not a private desktop screenshot and is not published as a production reader/AI result.
+Earlier local Mac UI attempts failed because an unsigned XCTest runner was killed, inactive app windows needed explicit activation, macOS controls were incorrectly sent touch actions, and `.label` was used for Mac text whose value lives in `.value`. Actual Mac list issues were also corrected: search results use PDFSelection identity rather than colliding page integers, and library rows use native List selection rather than embedded plain buttons. These failures are preserved in ignored result bundles; they are not counted as passing runs. The correct test uses local ad hoc signing `-`, never a developer account or certificate. Desktop connection interruptions were checked against real process/worktree state; reconnecting was never treated as action success.
 
-## Cloud CI follow-up
+Local logs/results are ignored under `.build/` and temporary files. They may include desktop automation metadata and are not committed or automatically uploaded. CI reports status/logs for the exact published SHA without distributing an app binary.
 
-Initial [run 36897686384](https://github.com/lyx5710317/pdfno/actions/runs/36897686384) on `b77d5c6` failed only in the native job's desktop test. Linux source checks, macOS Xcode build, native protocol and renderer build all passed. The desktop log shows the initial Electron binary download starting inside the test and exhausting its 30-second limit before UI assertions.
+## Remaining acceptance gaps
 
-The corrective change adds `npm run electron:install` as a separate native CI step with a five-minute installation bound, before desktop tests. The test timeout and assertions stay unchanged. No application functionality, renderer security settings, dependencies or account permissions change. Final cloud status must be verified on the new commit.
+Real-device iPhone/iPad and oldest deployment versions; VoiceOver/keyboard coverage, dynamic text, contrast and Pencil; sandbox signing/security-scoped bookmarks, passwords, malformed/encrypted/large/multi-column/rotated/CropBox/cross-page PDF matrix; performance and cancellable search/import; actual covers/thumbnails/tabs; note edit/delete; interrupted-write/fsync/file-coordination/cross-process recovery; automatic legacy migration; all EPUB/AI/BYOK/Keychain/translation/grammar/kana/Bookno/iCloud/comic/OCR/conversion behavior; signed distribution/notarisation and AGPL distribution review remain unvalidated/unimplemented as appropriate. No full T01–T22 or UAT01–UAT15 completion is claimed.
 
-Follow-up trace from [run 36899300704](https://github.com/lyx5710317/pdfno/actions/runs/36899300704) showed that launch and the home-page assertion passed; the remaining timeout occurred while clicking the first paragraph. A local 1024px reproduction confirmed the open responsive navigation overlay intercepted pointer events. The workspace now initially collapses navigation on narrow windows, collapses when crossing that breakpoint, and closes the temporary pane after navigation. The same desktop test explicitly exercises a 1024px initial view and retains its 760px check, without force clicks or weakened assertions. Source snapshots, drafts and tasks are preserved.
-
-## Native-route documentation revision · 2026-10-02
-
-Scope: documents only, based on the user's explicit Swift native UI + PDFKit decision, with EPUB independently evaluated and long-term Mac/iPhone/iPad support. The implementation plan includes real future app targets, platform adaptation, source/credential boundaries, CloudKit record/asset/conflict planning, and a reversible importer for legacy demo data. It does not create or validate these implementations.
-
-| Check | Actual outcome | Scope |
-| --- | --- | --- |
-| Current baseline / remote | PASSED | Local main and remote main started at `cbd17f38314b626a72059ae1168a2eedef3e1998`; existing untracked Xcode workspace metadata was retained and excluded from staging |
-| Primary framework evidence | PASSED, static | Apple official documentation metadata lists PDFKit/PDFView and WKWebView for macOS/iOS/iPadOS; CKSyncEngine availability supports the proposed macOS 14/iOS 17 baseline. No framework runtime test was performed |
-| EPUB source/license/platform evidence | PASSED, static | Fixed Readium 3.11.0 tag resolved to commit, root BSD-3-Clause and iOS/UIKit package inspected; fixed foliate-js MIT and epub.js BSD-2-Clause source declarations inspected. Complete transitive/distribution review and three-device compatibility remain open |
-| Local documentation links / anchors | PASSED | 11 Markdown documents, 27 local links/anchors initially checked; no missing target or heading |
-| Staged whitespace / change scope | PASSED | Documentation-only file scope; no new `apple/` application directory, source/config/lockfile changes or staged Xcode local metadata |
-| Source / notice / secret scan | PASSED | 57 tracked/staged text files; repository scan found no scanned secret/personal-path patterns, excluded binaries or private assets; complete AGPL text and existing lock integrity remained valid |
-| New native apps, PDFKit/EPUB reading, cloud and migration tests | NOT RUN | No implementation/project exists for these planned features; no engine installed, entitlement enabled, private data migrated or model called |
-| Local legacy lint/typecheck/unit/build/desktop checks | NOT RE-RUN for this document change | Application source, dependencies and bridge are unchanged. Existing CI still runs the preserved demo's source/native/desktop checks; its final commit/run result is reported with publication, not counted as native-app validation |
-
-This revision qualifies the earlier Kookit source wording: public core rendering source is available, while the separate `kookit-extra` bundle/source boundary is unresolved. The old route is stopped because the user chose the native architecture, not because all Kookit code is unavailable. Detailed pinned references appear in [the EPUB audit](EPUB-ENGINE-AUDIT.md).
+[Historical demo validation](historical/VALIDATION-LEGACY.md) retains the earlier Electron/CLI evidence. Its commands and successful old CI apply only to recoverable old source, not the current native runtime.
