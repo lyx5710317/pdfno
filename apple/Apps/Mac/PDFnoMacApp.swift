@@ -4,8 +4,9 @@ import PDFnoUI
 
 @main struct PDFnoMacApp: App {
     var body: some Scene {
-        Window("PDFno", id: "library") { LibraryWorkspace().frame(minWidth: 720, minHeight: 520) }
+        WindowGroup("PDFno", id: "library") { LibraryWorkspace().frame(minWidth: 720, minHeight: 520) }
             .defaultSize(width: 1180, height: 780)
+            .commands { CommandGroup(replacing: .newItem) {} }
         Settings { FeatureStatusView() }
     }
 }
