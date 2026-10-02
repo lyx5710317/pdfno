@@ -1,5 +1,7 @@
 # P0 audit · 2026-10-01
 
+Historical snapshot. The 2026-10-02 user decision replaces the future Koodo/Electron route with Swift native UI + PDFKit and a separately selected EPUB adapter. No old code is removed. Later research found **public Kookit core source**; the closed-source architecture-table entry concerns `kookit-extra.min.mjs`, and core publication does not settle the extra bundles or their provenance. Read the [updated engine evidence](EPUB-ENGINE-AUDIT.md) and [current ADR](ADR-0002-NATIVE-APPLE.md) before using the original unresolved-source wording below. The format inventory and reported historical test scope remain useful.
+
 ## Local baseline
 
 The existing Codex-registered `pdfno` project was located and used. It was empty, with no Git checkout, remote, existing source, `AGENTS.md` or `.agents/skills`. No existing work was overwritten. The sibling specification was not substituted for the authoritative Library file. Library version 1 was materialised through the current supported helper and read as internal version 0.2; its 94,484 bytes and hash are recorded in SOURCE-NOTICES.
@@ -13,7 +15,7 @@ All references are pinned to `90e659f0188795f9a4f6e1ccc1727fd3793fe4a4` on the K
 | Evidence | Static finding | Consequence |
 | --- | --- | --- |
 | [LICENSE](https://github.com/koodo-reader/koodo-reader/blob/90e659f0188795f9a4f6e1ccc1727fd3793fe4a4/LICENSE) | Complete GNU AGPLv3 root text | Retain text/notices when using covered source; not proof for every embedded asset |
-| [CLAUDE.md](https://github.com/koodo-reader/koodo-reader/blob/90e659f0188795f9a4f6e1ccc1727fd3793fe4a4/CLAUDE.md), architecture / important reminders | Kookit ESM marked closed source; source referenced elsewhere | Engine modification/redistribution and corresponding source remain unconfirmed |
+| [CLAUDE.md](https://github.com/koodo-reader/koodo-reader/blob/90e659f0188795f9a4f6e1ccc1727fd3793fe4a4/CLAUDE.md), architecture / important reminders | Architecture-table entry `kookit-extra.min.mjs` marked closed source; reminders list multiple bundles | Extra-product rights and bundle/source correspondence remain unconfirmed; public core source is now recorded in the updated audit |
 | [engine directory](https://github.com/koodo-reader/koodo-reader/tree/90e659f0188795f9a4f6e1ccc1727fd3793fe4a4/src/assets/lib) | Three minified products; no separate license or full engine source in this directory | No engine product included here; this is an unresolved boundary, not a finding of illegality |
 | [package.json](https://github.com/koodo-reader/koodo-reader/blob/90e659f0188795f9a4f6e1ccc1727fd3793fe4a4/package.json) | Electron, React, native SQLite, engine in package files; upstream signing and account settings | Do not reuse upstream identity, entitlements, accounts or binaries |
 | [bookUtil.ts lines 1–140](https://github.com/koodo-reader/koodo-reader/blob/90e659f0188795f9a4f6e1ccc1727fd3793fe4a4/src/utils/file/bookUtil.ts#L1) | Imports engine utilities, local file/database/sync services | A superficial fork could retain hidden engine and official service dependencies |

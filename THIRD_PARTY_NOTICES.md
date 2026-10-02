@@ -17,4 +17,8 @@ Exact versions and npm-declared licenses are recorded in the inventory. Electron
 
 ## Excluded / pending
 
-Kookit minified engines have unconfirmed redistribution and corresponding-source rights and are excluded. No dictionaries, OCR/conversion engines, proprietary binaries, bundled fonts or UPDF assets are included. No private Bookno/JapaneseLearningApp/NihongoFlow code is included. Future additions need a file-level source, license and distribution record before integration.
+No Kookit product is included. Public Kookit core rendering source has been located with an AGPL-3.0-or-later declaration; this does not settle the separate `kookit-extra` products or establish provenance for existing minified bundles. The original broad closed-source wording is qualified by the [updated audit](docs/EPUB-ENGINE-AUDIT.md). No dictionaries, OCR/conversion engines, proprietary binaries, bundled fonts or UPDF assets are included. No private Bookno/JapaneseLearningApp/NihongoFlow code is included. Future additions need a file-level source, license and distribution record before integration.
+
+## Native direction: research only
+
+The documentation revision of 2026-10-02 selects PDFKit as the future PDF framework and preserves AGPL-3.0-or-later for PDFno source. Apple PDFKit/WebKit/CloudKit are future system-framework links, not redistributed SDKs or source dependencies added here. EPUB candidates remain uninstalled: Readium Swift 3.11.0 (BSD-3-Clause), foliate-js (MIT), and epub.js (BSD-2-Clause). Their actual selected transitive libraries, embedded assets and distribution notices still require a complete audit before integration. The npm lockfile and inventory are unchanged; this list is not a declaration that new third-party code ships in PDFno.

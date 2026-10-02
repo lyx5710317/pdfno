@@ -1,5 +1,7 @@
 # Validation evidence · 2026-10-01
 
+The original results below concern the preserved React/Electron demo and CLI. The approved future native route is described in [ADR 0002](ADR-0002-NATIVE-APPLE.md); this document's native-app planning update is recorded at the end. Historical passed tests do not validate the future SwiftUI/PDFKit application.
+
 Scope: source skeleton and self-authored demo text, not a licensed reading engine or production AI.
 
 | Check | Actual outcome | Evidence / scope |
@@ -43,3 +45,20 @@ Initial [run 36897686384](https://github.com/lyx5710317/pdfno/actions/runs/36897
 The corrective change adds `npm run electron:install` as a separate native CI step with a five-minute installation bound, before desktop tests. The test timeout and assertions stay unchanged. No application functionality, renderer security settings, dependencies or account permissions change. Final cloud status must be verified on the new commit.
 
 Follow-up trace from [run 36899300704](https://github.com/lyx5710317/pdfno/actions/runs/36899300704) showed that launch and the home-page assertion passed; the remaining timeout occurred while clicking the first paragraph. A local 1024px reproduction confirmed the open responsive navigation overlay intercepted pointer events. The workspace now initially collapses navigation on narrow windows, collapses when crossing that breakpoint, and closes the temporary pane after navigation. The same desktop test explicitly exercises a 1024px initial view and retains its 760px check, without force clicks or weakened assertions. Source snapshots, drafts and tasks are preserved.
+
+## Native-route documentation revision · 2026-10-02
+
+Scope: documents only, based on the user's explicit Swift native UI + PDFKit decision, with EPUB independently evaluated and long-term Mac/iPhone/iPad support. The implementation plan includes real future app targets, platform adaptation, source/credential boundaries, CloudKit record/asset/conflict planning, and a reversible importer for legacy demo data. It does not create or validate these implementations.
+
+| Check | Actual outcome | Scope |
+| --- | --- | --- |
+| Current baseline / remote | PASSED | Local main and remote main started at `cbd17f38314b626a72059ae1168a2eedef3e1998`; existing untracked Xcode workspace metadata was retained and excluded from staging |
+| Primary framework evidence | PASSED, static | Apple official documentation metadata lists PDFKit/PDFView and WKWebView for macOS/iOS/iPadOS; CKSyncEngine availability supports the proposed macOS 14/iOS 17 baseline. No framework runtime test was performed |
+| EPUB source/license/platform evidence | PASSED, static | Fixed Readium 3.11.0 tag resolved to commit, root BSD-3-Clause and iOS/UIKit package inspected; fixed foliate-js MIT and epub.js BSD-2-Clause source declarations inspected. Complete transitive/distribution review and three-device compatibility remain open |
+| Local documentation links / anchors | PASSED | 11 Markdown documents, 27 local links/anchors initially checked; no missing target or heading |
+| Staged whitespace / change scope | PASSED | Documentation-only file scope; no new `apple/` application directory, source/config/lockfile changes or staged Xcode local metadata |
+| Source / notice / secret scan | PASSED | 57 tracked/staged text files; repository scan found no scanned secret/personal-path patterns, excluded binaries or private assets; complete AGPL text and existing lock integrity remained valid |
+| New native apps, PDFKit/EPUB reading, cloud and migration tests | NOT RUN | No implementation/project exists for these planned features; no engine installed, entitlement enabled, private data migrated or model called |
+| Local legacy lint/typecheck/unit/build/desktop checks | NOT RE-RUN for this document change | Application source, dependencies and bridge are unchanged. Existing CI still runs the preserved demo's source/native/desktop checks; its final commit/run result is reported with publication, not counted as native-app validation |
+
+This revision qualifies the earlier Kookit source wording: public core rendering source is available, while the separate `kookit-extra` bundle/source boundary is unresolved. The old route is stopped because the user chose the native architecture, not because all Kookit code is unavailable. Detailed pinned references appear in [the EPUB audit](EPUB-ENGINE-AUDIT.md).
