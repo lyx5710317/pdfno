@@ -1,10 +1,10 @@
 # PDFno AI 开发技术规格
 
-版本：**0.3 原生 Apple 架构评审稿**  
-修订与官方来源核验日期：**2026-10-02**  
-项目标识：`pdfno`；产品显示名：`PDFno`  
-目标：原生 macOS、iPhone、iPad；Mac 优先交付，先完善 Mac 再适配 iPhone/iPad；长期三端目标保留  
-用途：产品需求、技术边界、分阶段实现和验收的共同依据  
+版本：**0.3 原生 Apple 架构评审稿**
+修订与官方来源核验日期：**2026-10-02**
+项目标识：`pdfno`；产品显示名：`PDFno`
+目标：原生 macOS、iPhone、iPad；Mac 优先交付，先完善 Mac 再适配 iPhone/iPad；长期三端目标保留
+用途：产品需求、技术边界、分阶段实现和验收的共同依据
 公开源码版：已移除私人路径、Library 标识及私有项目 URL；实施状态见 `NATIVE-TASKS.md` / `VALIDATION.md`。
 
 ## 0 阅读与执行规则

@@ -1,0 +1,2 @@
+# Original PDF fixtures are binary documents, including fixed-width xref records.
+*.pdf binary
