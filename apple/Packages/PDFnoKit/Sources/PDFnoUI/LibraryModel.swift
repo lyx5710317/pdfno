@@ -19,7 +19,12 @@ public final class LibraryModel: ObservableObject {
     public init() {
         // UI smoke runs use an isolated store, never the user's library.
         let root: URL
-        if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
+        if let token = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"] {
+            // A malformed test token still gets a fresh isolated directory;
+            // it must never fall through to the real user library.
+            let value = UUID(uuidString: token) ?? UUID()
+            root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-UITests-" + value.uuidString)
+        } else if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
             let arguments = ProcessInfo.processInfo.arguments
             let value = arguments.firstIndex(of: "--ui-test-session").flatMap { index in
                 arguments.indices.contains(index + 1) ? UUID(uuidString: arguments[index + 1]) : nil

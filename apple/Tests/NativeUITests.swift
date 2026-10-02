@@ -37,7 +37,9 @@ final class NativeUITests: XCTestCase {
     @MainActor
     func testLocalPDFReadingAndNoteFlow() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing", "--ui-test-session", UUID().uuidString]
+        // Keep a bare UUID out of macOS launch arguments: AppKit may interpret
+        // positional arguments as files and suppress the initial library window.
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch()
         app.activate()
         let sample = app.buttons["open-sample"]
@@ -45,7 +47,7 @@ final class NativeUITests: XCTestCase {
             // Only the isolated PDFno test application is described here. Do not
             // dump the desktop, other applications, clipboard or user library.
             print("PDFno isolated startup: state=\(app.state.rawValue), windows=\(app.windows.count), buttons=\(app.buttons.count)")
-            print(app.debugDescription)
+            for window in app.windows.allElementsBoundByIndex { print(window.debugDescription) }
             XCTFail("The isolated PDFno library must expose its original sample action")
             return
         }
@@ -77,7 +79,13 @@ final class NativeUITests: XCTestCase {
         press(app.buttons["return-to-source"].firstMatch)
         XCTAssertTrue(position.waitForExistence(timeout: 5))
         XCTAssertTrue(textValue(position).contains("1 / 2"))
+        // macOS application screenshots can include the whole desktop. Keep
+        // this attachment confined to the isolated original-fixture window.
+        #if os(macOS)
+        let image = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        #else
         let image = XCTAttachment(screenshot: app.screenshot())
+        #endif
         image.name = "Original sample in native PDFKit reader"
         image.lifetime = .keepAlways
         add(image)
