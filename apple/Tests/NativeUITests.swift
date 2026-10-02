@@ -42,7 +42,7 @@ final class NativeUITests: XCTestCase {
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch()
         app.activate()
-        let sample = app.buttons["open-sample"]
+        let sample = app.buttons["open-sample"].firstMatch
         guard sample.waitForExistence(timeout: 15) else {
             // Only the isolated PDFno test application is described here. Do not
             // dump the desktop, other applications, clipboard or user library.
@@ -54,23 +54,25 @@ final class NativeUITests: XCTestCase {
         let ready = expectation(for: NSPredicate(format: "enabled == true AND hittable == true"), evaluatedWith: sample)
         wait(for: [ready], timeout: 15)
         press(sample)
-        let position = app.staticTexts["page-position"]
+        let position = app.staticTexts["page-position"].firstMatch
         XCTAssertTrue(position.waitForExistence(timeout: 15))
         XCTAssertTrue(textValue(position).contains("1 / 2"))
-        press(app.buttons["next-page"])
+        // macOS 15 exposes the toolbar wrapper and its child as buttons with
+        // the same app-owned identifier. Both represent the same action.
+        press(app.buttons["next-page"].firstMatch)
         XCTAssertTrue(textValue(position).contains("2 / 2"))
-        press(app.buttons["previous-page"])
+        press(app.buttons["previous-page"].firstMatch)
         XCTAssertTrue(textValue(position).contains("1 / 2"))
-        press(app.buttons["reader-navigation"])
-        let input = app.textFields["search-input"]
+        press(app.buttons["reader-navigation"].firstMatch)
+        let input = app.textFields["search-input"].firstMatch
         XCTAssertTrue(input.waitForExistence(timeout: 5))
         enterSearch("window", into: input)
-        press(app.buttons["search-submit"])
+        press(app.buttons["search-submit"].firstMatch)
         let result = app.buttons["search-result"].firstMatch
         XCTAssertTrue(result.waitForExistence(timeout: 5))
         press(result)
-        press(app.buttons["reader-notes"])
-        let save = app.buttons["save-note"]
+        press(app.buttons["reader-notes"].firstMatch)
+        let save = app.buttons["save-note"].firstMatch
         XCTAssertTrue(save.waitForExistence(timeout: 5), "PDFKit selection must survive opening notes")
         press(save)
         let quote = app.staticTexts["saved-note-quote"].firstMatch
@@ -89,7 +91,7 @@ final class NativeUITests: XCTestCase {
         image.name = "Original sample in native PDFKit reader"
         image.lifetime = .keepAlways
         add(image)
-        press(app.buttons["next-page"])
+        press(app.buttons["next-page"].firstMatch)
         XCTAssertTrue(textValue(position).contains("2 / 2"))
         app.terminate()
         app.launch()
@@ -101,7 +103,7 @@ final class NativeUITests: XCTestCase {
         press(book)
         XCTAssertTrue(position.waitForExistence(timeout: 10))
         XCTAssertTrue(textValue(position).contains("2 / 2"), "Reading position must persist after process restart")
-        press(app.buttons["reader-notes"])
+        press(app.buttons["reader-notes"].firstMatch)
         XCTAssertTrue(quote.waitForExistence(timeout: 5), "Note must survive process restart")
         press(app.buttons["return-to-source"].firstMatch)
         XCTAssertTrue(textValue(position).contains("1 / 2"))
