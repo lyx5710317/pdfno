@@ -41,7 +41,14 @@ final class NativeUITests: XCTestCase {
         app.launch()
         app.activate()
         let sample = app.buttons["open-sample"]
-        XCTAssertTrue(sample.waitForExistence(timeout: 15))
+        guard sample.waitForExistence(timeout: 15) else {
+            // Only the isolated PDFno test application is described here. Do not
+            // dump the desktop, other applications, clipboard or user library.
+            print("PDFno isolated startup: state=\(app.state.rawValue), windows=\(app.windows.count), buttons=\(app.buttons.count)")
+            print(app.debugDescription)
+            XCTFail("The isolated PDFno library must expose its original sample action")
+            return
+        }
         let ready = expectation(for: NSPredicate(format: "enabled == true AND hittable == true"), evaluatedWith: sample)
         wait(for: [ready], timeout: 15)
         press(sample)
