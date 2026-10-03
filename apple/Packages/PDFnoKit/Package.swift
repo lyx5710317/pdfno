@@ -17,7 +17,7 @@ let package = Package(
         .target(name: "PDFnoReaders", dependencies: ["PDFnoDomain"], resources: [.copy("Resources/EPUB")]),
         .target(name: "PDFnoUI", dependencies: ["PDFnoDomain", "PDFnoServices", "PDFnoReaders"],
                 resources: [.copy("Resources/study-sample.pdf"), .copy("Resources/study-sample.epub")]),
-        .testTarget(name: "PDFnoKitTests", dependencies: ["PDFnoDomain", "PDFnoServices", "PDFnoReaders"],
+        .testTarget(name: "PDFnoKitTests", dependencies: ["PDFnoDomain", "PDFnoServices", "PDFnoReaders", "PDFnoUI"],
                     resources: [.copy("Fixtures")])
     ]
 )

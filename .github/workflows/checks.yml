@@ -30,11 +30,11 @@ jobs:
           python3 scripts/check-native-source.py
           python3 scripts/generate-apple-project.py
           git diff --exit-code -- apple/PDFno.xcodeproj apple/PDFno.xcworkspace apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures
-      - name: Swift domain, storage, PDFKit and EPUB isolation tests
+      - name: Swift source, storage, PDFKit, EPUB and offline AI isolation tests
         run: swift test --package-path apple/Packages/PDFnoKit --scratch-path .build/PDFnoKit
       - name: Native Mac build
         run: xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/Mac CODE_SIGNING_ALLOWED=NO build
       - name: Native iPhone and iPad simulator build
         run: xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMobile -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath .build/Mobile CODE_SIGNING_ALLOWED=NO build
-      - name: Mac PDF and EPUB selection, ruby, notes and restart
+      - name: Mac PDF, EPUB and explicit mock AI consent, citations and restart
         run: xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/Mac -resultBundlePath .build/CI-Mac.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 240 test

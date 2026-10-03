@@ -43,7 +43,8 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
     @Published public private(set) var busy = false
     @Published public private(set) var error: String?
     private var generation = UUID()
-    private var documentVersion = 0
+    public private(set) var documentVersion = 0
+    public var readerSessionID: UUID { generation }
     private var pendingOpen: [String: Any]?
     private var pending: [UUID: CheckedContinuation<String, Error>] = [:]
     public func close() {

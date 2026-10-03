@@ -12,6 +12,7 @@ public struct OutlineItem: Identifiable {
 
 @MainActor
 public final class PDFReaderSession: ObservableObject {
+    @Published public private(set) var readerSessionID = UUID()
     @Published public private(set) var document: PDFDocument?
     @Published public private(set) var book: BookRecord?
     @Published public private(set) var pageIndex = 0
@@ -26,7 +27,7 @@ public final class PDFReaderSession: ObservableObject {
         guard let pdf = PDFDocument(data: data), !pdf.isLocked, pdf.pageCount == book.pageCount else {
             throw ReaderError.invalidPDF
         }
-        self.document = pdf; self.book = book; pageIndex = book.lastPageIndex
+        readerSessionID = UUID(); self.document = pdf; self.book = book; pageIndex = book.lastPageIndex
         capturedSelection = nil; searchMatches = []; projected = []; outline = []
         func walk(_ node: PDFOutline) {
             for index in 0..<node.numberOfChildren {
@@ -138,7 +139,7 @@ public enum ReaderError: LocalizedError {
     public var errorDescription: String? { "PDF 无法打开或需要密码。当前版本不处理加密文件，请使用已解锁副本。" }
 }
 
-/// Adapter boundary reserved for independent EPUB selection; always unavailable today.
+/// Minimal candidate-comparison contract. The current Mac reader uses EPUBReaderSession.
 public protocol EPUBEngineAdapter: Sendable {
     var engineIdentifier: String { get }
     var capability: ReaderCapability { get }

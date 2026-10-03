@@ -80,7 +80,11 @@ public enum FeatureAvailability {
     #else
     public static let epub = ReaderCapability(available: false, reason: "移动 EPUB 阅读尚未验收")
     #endif
-    public static let ai = ReaderCapability(available: false, reason: "AI / BYOK 尚未接入")
+    #if os(macOS)
+    public static let ai = ReaderCapability(available: true, reason: "仅本地 mock 选文闭环／配置预览；真实远程请求未启用")
+    #else
+    public static let ai = ReaderCapability(available: false, reason: "移动选文 AI 尚未适配")
+    #endif
     public static let cloud = ReaderCapability(available: false, reason: "iCloud 容器未配置")
     public static let bookno = ReaderCapability(available: false, reason: "Bookno API 尚未接入")
     public static let conversion = ReaderCapability(available: false, reason: "格式转换尚未实现")

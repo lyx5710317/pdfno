@@ -64,6 +64,8 @@ public struct LearningTaskState: Sendable {
 
 public enum ProviderValidation {
     public static func validate(endpoint: String, model: String) -> Bool {
+        guard endpoint.utf8.count <= 2048, !endpoint.unicodeScalars.contains(where: { $0.value <= 32 || $0.value == 127 }),
+              !model.unicodeScalars.contains(where: { $0.value < 32 || $0.value == 127 }) else { return false }
         guard let url = URLComponents(string: endpoint), let host = url.host, !host.isEmpty,
               url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
               !model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, model.count <= 200 else { return false }

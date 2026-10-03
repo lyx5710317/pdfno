@@ -6,7 +6,9 @@
 
 Mac 已接入 **Kookit public core 的重排 EPUB**：目录、翻页、横竖排、作者 ruby、真实选区、高亮笔记、原文回跳和重开恢复。EPUB 使用受限 WKWebView 内容模块；书库与工具栏保持 Swift 原生，PDF 继续 PDFKit。移动 EPUB 阅读、固定版式、全面图片/字体保真和搜索尚未验收。
 
-**漫画、其他格式、AI/BYOK、问答、双语翻译、日语假名、英日语法、Bookno API、iCloud、OCR、格式转换和 Apple Pencil 尚未接入。** 其他格式优先沿独立 Kookit adapter 路线逐项审计与验收，不因 EPUB 接入自动开放。完整功能目标和三端规划见 [v0.3 主规格](docs/PDFno_AI_Development_Spec_v0.3_Native.md)、[实施状态](docs/NATIVE-TASKS.md) 和 [引擎审计](docs/EPUB-ENGINE-AUDIT.md)。
+Mac 的「模型与 BYOK 设置」已提供服务类型、endpoint、最终 API 路径和 model 配置预览。「选文 AI」明确确认固定选文后，可用**本地 mock**演示翻译／解释、来源引用、独立用户笔记和重启恢复。mock 不联网，输出不是真实译文或语法质量证据。真实远程请求和持久密钥配置尚未启用；临时安全输入不写入普通文件或持久钥匙串。设置本身不发送请求。
+
+**漫画、其他格式、真实 BYOK 服务、文档问答、页／章节双语翻译、生成假名、英日语法质量、Bookno API、iCloud、OCR、格式转换和 Apple Pencil 尚未接入或验收。** 其他格式优先沿独立 Kookit adapter 路线逐项审计与验收，不因 EPUB 接入自动开放。完整功能目标和三端规划见 [v0.3 主规格](docs/PDFno_AI_Development_Spec_v0.3_Native.md)、[实施状态](docs/NATIVE-TASKS.md) 和 [引擎审计](docs/EPUB-ENGINE-AUDIT.md)。
 
 ## 在 Xcode 中运行
 
@@ -38,7 +40,7 @@ xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMobile -configuration
 
 ## 数据与迁移
 
-Mac 数据目录为用户 Application Support 下的 `PDFnoNative`；移动端使用自己的 app 容器。`library-v1.json` 保存书目、进度和笔记，`Originals/<sha256>.pdf` 保存导入副本。EPUB 使用独立 `epub-v1.json` 与 `Originals/<sha256>.epub`，不会改写 PDF schema；每次有效更新先备份上一版 manifest，再原子替换。单窗口 repository actor 管理本地写入，尚未承诺跨进程写入、SQLite 事务、云冲突或崩溃后自动修复。手工恢复前退出应用并复制 manifest、backup 和 Originals；校验备份后再恢复。旧 Electron notes/localStorage 不会被读取或重写；需要单独的 legacy-demo 只读导入器，旧文本 fingerprint 不能转成虚构 PDF 坐标。
+Mac 数据目录为用户 Application Support 下的 `PDFnoNative`；移动端使用自己的 app 容器。`library-v1.json` 保存书目、进度和笔记，`Originals/<sha256>.pdf` 保存导入副本。EPUB 使用独立 `epub-v1.json` 与 `Originals/<sha256>.epub`；学习数据另存 `learning-v1.json`，AI 结果／来源与用户正文分字段，不保存密钥，不改 PDF/EPUB schema；每次有效更新先备份上一版 manifest，再原子替换。单窗口 repository actor 管理本地写入，尚未承诺跨进程写入、SQLite 事务、云冲突或崩溃后自动修复。手工恢复前退出应用并复制 manifest、backup 和 Originals；校验备份后再恢复。旧 Electron notes/localStorage 不会被读取或重写；需要单独的 legacy-demo 只读导入器，旧文本 fingerprint 不能转成虚构 PDF 坐标。
 
 用户已授权旧 Electron/React/Node/CLI 骨架退役。移出文件、未跟踪元数据和运行缓存有仓库外备份，完整 Git 历史保留；[迁移与恢复记录](docs/NATIVE-MIGRATION.md) 给出保留/移出理由及回滚方式。历史审计文档保留并标明时态。原 `PDFnoBridge.xcodeproj` 只是 CLI 辅助工程，不是当前原生阅读器主应用。
 

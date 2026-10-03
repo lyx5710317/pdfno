@@ -65,7 +65,11 @@ struct ContractsTests {
         #else
         #expect(!FeatureAvailability.epub.available)
         #endif
+        #if os(macOS)
+        #expect(FeatureAvailability.ai.available)
+        #else
         #expect(!FeatureAvailability.ai.available)
+        #endif
         #expect(!FeatureAvailability.cloud.available)
         #expect(!FeatureAvailability.bookno.available)
     }

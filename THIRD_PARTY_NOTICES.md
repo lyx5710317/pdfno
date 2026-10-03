@@ -2,7 +2,7 @@
 
 Current native source has **no external Swift package**. The Mac EPUB content adapter includes the independently licensed Kookit core and JS dependencies below. Node/npm/esbuild only build resources; they are not app runtimes. Its local `PDFnoKit` package and original fixtures are PDFno-authored AGPL-3.0-or-later source.
 
-The applications link Apple system frameworks: SwiftUI, Foundation, AppKit/UIKit, PDFKit, WebKit, UniformTypeIdentifiers and CryptoKit. Swift/Xcode/SDK/test tools are installed system/toolchain components. No Apple SDK, framework implementation, bundled font, certificate or provisioning file is redistributed. Future compiled distribution requires review of the applicable platform/toolchain terms and notices.
+The applications link Apple system frameworks: SwiftUI, Foundation, AppKit/UIKit, PDFKit, WebKit, UniformTypeIdentifiers, CryptoKit, Security and LocalAuthentication. Swift/Xcode/SDK/test tools are installed system/toolchain components. No Apple SDK, framework implementation, bundled font, certificate or provisioning file is redistributed. Future compiled distribution requires review of the applicable platform/toolchain terms and notices.
 
 The original PDF fixture references the standard PDF font Helvetica by name, without embedding a font program. Original text and fixture generator provenance appear in `SOURCE-NOTICES.md`.
 

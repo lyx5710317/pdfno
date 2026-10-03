@@ -17,6 +17,7 @@ public final class LibraryModel: ObservableObject {
     public let reader = PDFReaderSession()
     let repository: LibraryRepository
     let epubRepository: EPUBRepository
+    public let learning: AILearningModel
     @Published var epubBooks: [EPUBBook] = []
     @Published var epubNotes: [EPUBNote] = []
     @Published var readingEPUB = false
@@ -40,14 +41,17 @@ public final class LibraryModel: ObservableObject {
         } else { root = LibraryRepository.defaultRoot() }
         repository = LibraryRepository(root: root)
         epubRepository = EPUBRepository(root: root)
+        learning = AILearningModel(root: root)
     }
     func load() async {
         do {
             let state = try await repository.load(); books = state.books; notes = state.notes; canImport = true
             let epubState = try await epubRepository.load(); epubBooks = epubState.books; epubNotes = epubState.notes
+            await learning.load()
         } catch { self.error = error.localizedDescription; canImport = false }
     }
     func importFile(_ url: URL) async {
+        learning.cancel()
         if url.pathExtension.lowercased() == "epub" { await importEPUB(url); return }
         guard canImport, !isBusy else { return }
         isBusy = true; defer { isBusy = false }
@@ -69,6 +73,7 @@ public final class LibraryModel: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
     func open(_ book: BookRecord) async {
+        learning.cancel()
         guard !isBusy else { return }
         isBusy = true; defer { isBusy = false }
         do {
@@ -101,6 +106,7 @@ public final class LibraryModel: ObservableObject {
         catch { self.error = error.localizedDescription }
     }
     func importEPUB(_ url: URL) async {
+        learning.cancel()
         #if os(macOS)
         guard canImport, !isBusy else { return }; isBusy = true; defer { isBusy = false }
         let scoped = url.startAccessingSecurityScopedResource(); defer { if scoped { url.stopAccessingSecurityScopedResource() } }
@@ -116,6 +122,7 @@ public final class LibraryModel: ObservableObject {
         #endif
     }
     func openEPUB(_ book: EPUBBook) async {
+        learning.cancel()
         #if os(macOS)
         guard !isBusy else { return }; isBusy = true; defer { isBusy = false }
         do {
@@ -133,6 +140,31 @@ public final class LibraryModel: ObservableObject {
         if let url = Bundle.module.url(forResource: "study-sample", withExtension: "epub") { await importEPUB(url) }
     }
     #if os(macOS)
+    var currentAIBookID: UUID? { readingEPUB ? epub.book?.id : reader.book?.id }
+    func captureAISource() -> AISourceSnapshot? {
+        if readingEPUB {
+            guard let book = epub.book, let anchor = epub.selection, book.accepts(anchor) else { return nil }
+            return AISourceSnapshot(bookID: book.id, readerSessionID: epub.readerSessionID, documentVersion: epub.documentVersion, anchor: .epub(anchor))
+        }
+        reader.captureSelection()
+        guard let book = reader.book, let anchor = reader.capturedSelection, reader.resolution(of: anchor) == .exact else { return nil }
+        return AISourceSnapshot(bookID: book.id, readerSessionID: reader.readerSessionID, documentVersion: 0, anchor: .pdf(anchor))
+    }
+    func isCurrentAISource(_ source: AISourceSnapshot) -> Bool {
+        guard source.isValid else { return false }
+        switch source.anchor {
+        case .pdf(let anchor): return !readingEPUB && source.bookID == reader.book?.id && source.readerSessionID == reader.readerSessionID && source.documentVersion == 0 && reader.resolution(of: anchor) == .exact
+        case .epub(let anchor): return readingEPUB && source.bookID == epub.book?.id && source.readerSessionID == epub.readerSessionID && source.documentVersion == epub.documentVersion && epub.book?.accepts(anchor) == true
+        }
+    }
+    func returnToAISource(_ source: AISourceSnapshot) async -> Bool {
+        switch source.anchor {
+        case .pdf(let anchor):
+            guard !readingEPUB, reader.book?.id == source.bookID, reader.navigate(to: anchor) == .exact else { learning.error = AIFailure.stale.localizedDescription; return false }; return true
+        case .epub(let anchor):
+            guard readingEPUB, epub.book?.id == source.bookID, epub.book?.accepts(anchor) == true, await epub.command("navigate", anchor: anchor) else { learning.error = AIFailure.stale.localizedDescription; return false }; return true
+        }
+    }
     func saveEPUBNote(_ anchor: EPUBAnchor, text: String) async -> Bool {
         guard let book = epub.book, book.accepts(anchor) else { return false }
         do {

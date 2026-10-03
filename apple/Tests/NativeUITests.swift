@@ -6,6 +6,71 @@ import AppKit
 
 final class NativeUITests: XCTestCase {
     #if os(macOS)
+    @MainActor func testMacAISelectionConsentMockNotesAndRestart() throws {
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launch(); app.activate()
+        let sample = app.buttons["open-sample"].firstMatch
+        XCTAssertTrue(sample.waitForExistence(timeout: 15)); press(sample)
+        press(app.buttons["reader-navigation"].firstMatch)
+        let search = app.textFields["search-input"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5)); enterSearch("window", into: search)
+        press(app.buttons["search-submit"].firstMatch)
+        let match = app.buttons["search-result"].firstMatch
+        XCTAssertTrue(match.waitForExistence(timeout: 5)); press(match)
+        press(app.buttons["reader-ai"].firstMatch)
+        let start = app.buttons["ai-start"].firstMatch
+        XCTAssertTrue(start.waitForExistence(timeout: 5)); XCTAssertFalse(start.isEnabled)
+        let source = app.staticTexts["ai-source-quote"].firstMatch
+        XCTAssertEqual(textValue(source), "window")
+        let consent = app.descendants(matching: .any).matching(identifier: "ai-scope-consent").firstMatch
+        press(consent); XCTAssertTrue(start.isEnabled); press(start)
+        let error = app.staticTexts["ai-error"].firstMatch
+        XCTAssertTrue(error.waitForExistence(timeout: 5)); XCTAssertTrue(textValue(error).contains("未配置"))
+        XCTAssertFalse(app.staticTexts["ai-result"].firstMatch.exists)
+        press(app.buttons["ai-close"].firstMatch)
+        press(app.buttons["ai-settings"].firstMatch)
+        let mock = app.buttons["ai-use-mock"].firstMatch
+        XCTAssertTrue(mock.waitForExistence(timeout: 5)); press(mock)
+        press(app.buttons["ai-settings-save"].firstMatch)
+        press(app.buttons["reader-ai"].firstMatch)
+        XCTAssertTrue(start.waitForExistence(timeout: 5)); XCTAssertFalse(start.isEnabled)
+        press(consent); press(start)
+        let result = app.staticTexts["ai-result"].firstMatch
+        XCTAssertTrue(result.waitForExistence(timeout: 8)); XCTAssertTrue(textValue(result).contains("本地 mock"))
+        let note = app.descendants(matching: .any).matching(identifier: "ai-user-note").firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 5)); enterSearch("Original synthetic AI user note", into: note)
+        press(app.buttons["ai-save-note"].firstMatch)
+        let userNote = app.staticTexts["ai-saved-user-note"].firstMatch
+        XCTAssertTrue(userNote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(userNote), "Original synthetic AI user note")
+        press(app.buttons["ai-result-source"].firstMatch)
+        XCTAssertTrue(textValue(app.staticTexts["page-position"].firstMatch).contains("1 / 2"))
+        app.terminate(); app.launch(); app.activate()
+        let book = app.descendants(matching: .any).matching(identifier: "library-book").firstMatch
+        XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
+        press(app.buttons["reader-ai"].firstMatch)
+        XCTAssertTrue(userNote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(userNote), "Original synthetic AI user note")
+        XCTAssertEqual(textValue(app.staticTexts["ai-saved-quote"].firstMatch), "window")
+        press(app.buttons["ai-saved-source"].firstMatch)
+        let epubSample = app.buttons["open-epub-sample"].firstMatch
+        XCTAssertTrue(epubSample.waitForExistence(timeout: 5)); press(epubSample)
+        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
+        let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
+        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
+        press(app.buttons["epub-ai"].firstMatch)
+        XCTAssertTrue(source.waitForExistence(timeout: 8)); XCTAssertFalse(textValue(source).isEmpty)
+        XCTAssertFalse(userNote.exists, "PDF user notes must not appear under another EPUB book")
+        let kind = app.popUpButtons["ai-kind"].firstMatch
+        XCTAssertTrue(kind.waitForExistence(timeout: 5)); press(kind)
+        press(app.menuItems["选文解释"].firstMatch)
+        press(consent); press(start)
+        XCTAssertTrue(result.waitForExistence(timeout: 8)); XCTAssertTrue(textValue(result).contains("本地 mock"))
+        XCTAssertTrue(textValue(result).contains("解释"))
+        press(app.buttons["ai-save-note"].firstMatch)
+        XCTAssertTrue(app.staticTexts["ai-saved-quote"].firstMatch.waitForExistence(timeout: 8))
+        press(app.buttons["ai-saved-source"].firstMatch)
+        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 10)
+        app.terminate()
+    }
     @MainActor func testMacEPUBSelectionRubyNotesAndRestart() throws {
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate()

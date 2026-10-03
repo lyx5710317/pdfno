@@ -1,6 +1,6 @@
 # PDFno AI 开发技术规格
 
-版本：**0.3 原生 Apple 架构＋Mac EPUB 实施稿**
+版本：**0.3 原生 Apple 架构＋Mac EPUB／选文 AI 离线切片实施稿**
 修订与官方来源核验日期：**2026-10-03**（各历史证据保留原日期）
 项目标识：`pdfno`；产品显示名：`PDFno`
 目标：原生 macOS、iPhone、iPad；Mac 优先交付，先完善 Mac 再适配 iPhone/iPad；长期三端目标保留
@@ -31,6 +31,8 @@
 2026-10-02 的 N0 文档切片已完成，随后用户明确授权创建真正原生 app、最小 PDFKit 闭环、可恢复旧骨架清理与普通 GitHub commit/push。当前执行范围以 `NATIVE-TASKS.md` 和 `NATIVE-MIGRATION.md` 为准；旧文档切片的“不改代码/不提交”不再约束已授权实施。仍不配置开发者账号、证书、entitlements 或云容器，不迁移真实用户数据、不调用付费模型、不配置额外引擎/私有 extra、不发布 release、不关机、不杀其他任务进程。
 
 2026-10-02 用户随后明确确认“Swift＋PDFKit 保留，其他格式优先接 Kookit，并继续 AGPL 开源”，并要求继续开发；2026-10-03 再次要求继续现有 PDFno。当前增加 Mac EPUB 最小片，移动端仍编译保留、后续适配；普通提交/推送按已有授权处理。运行证据与未覆盖范围以 VALIDATION 为准。
+
+EPUB 闭环后，用户授权 Mac BYOK／选文 AI 小切片：原生服务配置、安全凭据接口、选文翻译／解释、明确范围、取消／超时／版本隔离、引用与笔记。实际本片只开放明确标注的本地 mock 和非秘密配置预览；HTTP/Keychain 接口用完全隔离的虚构输入测试，**真实远程请求和持久凭据配置未启用**。不读取既有真实 key、不外发真实书籍、不调用付费 API；真实服务验证须另确定 provider、合法测试数据与费用范围。整页、章节、整书及其他 N4 能力不在本片范围。
 
 ### 0.3 原稿来源、版本与文档权威
 
@@ -413,6 +415,18 @@ protocol ProviderAdapter: Sendable {
 URLSession delegate 默认停止带认证重定向；受允许适配需检查完整 origin(scheme/host/port)，禁止 TLS 降级和跨 origin Authorization 转发。连接测试不读取当前书或 key 到日志。Keychain 服务/access group、iOS accessibility 与 Mac access policy 在实现/签名 ADR 中固定；默认非 synchronizable，不自动启用钥匙串同步。删除 key 清理配置引用但保留历史模型标签，账号切换不把旧凭据/队列迁给新账号。参见 [Apple Keychain services](https://developer.apple.com/documentation/security/keychain-services)。
 
 模型不能调用工具读取其他文件、邮件、系统命令或改变设置；输出仅数据，HTML/Markdown 清洗并使用允许协议。高亮/语法 span 和问答引用须按第 7、10 章校验，不接受模型自报“已验证”。
+
+### 9.1 已实施的 Mac 选文离线切片与未开放边界
+
+2026-10-03 的实际类型为 `AIProviderConfig`、`AISourceSnapshot`、`AIRequest`、`AIConsent`、`AIResult`、`AILearningNote`；完整目标仍是上面的 PROPOSED ProviderAdapter 契约。此片没有 SSE、vision、usage、真实语言质量或文档检索，也不把编译的 HTTP 适配器当作真实 BYOK 服务已通过。详见 ADR 0004 和 VALIDATION。
+
+原生设置有未配置、本地 mock 和 OpenAI-compatible 配置预览。仅 endpoint/model/label/type/generation 保存；临时 SecureField 的值只在会话内，不自动写 Keychain、不读取旧凭据。`KeychainCredentialStore` 只按 UUID 访问 PDFno service 中单个条目，非 synchronizable、无 access group、device-only unlocked accessibility 和非交互 LAContext；测试注入虚构替身，实际系统钥匙串／签名策略尚未验收。UI 没有真实远程发送入口，也没有从真实服务失败自动降级到 mock。
+
+范围是一次固定选文，最多 8000 UTF-16 单位、不加前后文。快照绑定 book/edition/hash/extraction、读者 session/documentVersion 与强类型 PDF／EPUB anchor；确认绑定完整来源及 provider/config generation。服务 actor 有唯一终态，取消／超时不会等待不协作的迟到响应；UI 完成时再次检查来源和当前配置，切书取消，模式切换不发送。模型只返回正文和需逐 scalar 校验的回显引文；引用由原快照生成，回跳仍由 reader 校验。输出为纯文本，无可执行 HTML 或模型工具。
+
+缓存仅内存最多 20 项、成功且已校验的结果；sorted-key 内容包括 source/provider/kind/prompt，排除 requestID、timeout 和密钥，并保守包含 reader session/version。跨请求订阅去重、持久缓存和章节恢复仍待实现。`learning-v1.json` 单独保存配置与用户明确保存的学习笔记；AI 结果／来源与用户正文分字段，生成不覆盖用户文字。未知字段、secret 字段、未来 schema 或损坏状态拒绝写入并保留原稿；既有 PDF/EPUB manifest 不改 schema。旧应用回滚时忽略而保留学习文件。
+
+独立 OpenAI-compatible adapter 用 JSON 数据消息固定 sourceText/kind，原书指令不能改变配置。URLSession ephemeral、无 cookies/cache、拒绝所有认证重定向；实际响应限 64 KiB，正文/schema/quote 校验，错误固定分型且不记录原响应、key、头或书籍文本。只用拦截每个 URL 的 URLProtocol 与虚构凭据验证；ATS/TLS/服务端协议／费用／质量仍需获准真实验证。Mac mock 的真实 UI 闭环与 PDF/EPUB 回归分开报告；移动仅编译，不宣称移动 AI 已适配。
 
 ## 10 假名与日英语法辅助
 
@@ -815,7 +829,7 @@ DOCX→PDF 需独立排版/字体/分页引擎；EPUB→PDF 可研究已选 EPUB
 
 ### 14.8 侧栏模式与任务状态机
 
-**PROPOSED**：布局、模式、来源和后台任务分开建模。右栏关闭是布局变化，不等于取消后台请求；模式切换也不是自动重发。状态由任务服务的真实事件驱动，不能用计时器伪造生成完成。
+**PROPOSED**：布局、模式、来源和后台任务分开建模。关闭界面后的保留／取消策略必须明确，模式切换不是自动重发。当前 Mac 第一片是 modal sheet，“完成”明确取消未完成请求，切书也取消；未来常驻侧栏／多文档后台任务另行定义，不能把此提案当成已运行后台请求。状态由任务服务的真实事件驱动，不能用计时器伪造生成完成；mock 来自真实本地 provider 事件，并始终标示合成数据。
 
 ```text
 WorkspaceView
@@ -838,7 +852,7 @@ WorkspaceView
 | 点击生成 | 校验来源、范围、provider 和授权；满足后入队 | 按固定 taskId 关联响应，防双击重复请求 |
 | 收到流式片段 | 在相应任务视图追加，提供取消 | 引文仍待校验；半成品不能冒充已保存笔记 |
 | 点击停止 | 请求取消、停止未发片段，并显示最终已知结果 | 已发送请求可能计费；取消不删除可读结果 |
-| 切书、切标签或关侧栏 | 保留窗口与文档各自状态；显示后台任务入口 | 不把 A 书回答显示成 B 书结果；不暗中追加范围 |
+| 切书、切标签或关侧栏 | 第一片取消未完成请求；未来持久侧栏如保留后台任务须明确入口 | 不把 A 书回答显示成 B 书结果；不暗中追加范围 |
 | EPUB 重排或 PDF 缩放 | 重新映射显示锚点；任务快照不变 | 页面标签变化不能改变请求文本和缓存键 |
 | 来源文件替换或提取版本改变 | 标记 stale，允许查看旧结果和重新定位 | 不能把旧引用无提示地跳到新版本 |
 | 部分失败后继续 | 只重试仍失败且获准的片段 | 成功片段不重复发送；用户编辑不被覆盖 |

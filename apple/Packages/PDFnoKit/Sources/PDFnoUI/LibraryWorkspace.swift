@@ -9,6 +9,7 @@ public struct LibraryWorkspace: View {
     @StateObject private var model = LibraryModel()
     @State private var importer = false
     @State private var about = false
+    @State private var aiSettings = false
     @State private var compactColumn: NavigationSplitViewColumn = .sidebar
     @State private var selectedBookID: UUID?
     public init() {}
@@ -77,8 +78,14 @@ public struct LibraryWorkspace: View {
         }
         .toolbar {
             ToolbarItem { Button { about = true } label: { Label("功能状态", systemImage: "info.circle") } }
+            #if os(macOS)
+            ToolbarItem { Button { aiSettings = true } label: { Label("模型与 BYOK 设置", systemImage: "slider.horizontal.3") }.accessibilityIdentifier("ai-settings") }
+            #endif
         }
         .sheet(isPresented: $about) { FeatureStatusView() }
+        #if os(macOS)
+        .sheet(isPresented: $aiSettings) { AISettingsView(learning: model.learning) }
+        #endif
         .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("知道了") { model.error = nil }
         } message: { Text(model.error ?? "") }
@@ -112,7 +119,7 @@ public struct FeatureStatusView: View {
                 }
                 Section("后续接入") {
                     Text("EPUB：Mac 本地重排阅读；移动适配与固定版式待验收")
-                    Text("AI / BYOK / 翻译 / 日英学习：尚未接入")
+                    Text("Mac 选文 AI：本地 mock／配置预览；真实 BYOK、翻译质量、页章双语与日英学习待验收")
                     Text("Bookno API：尚未接入")
                     Text("iCloud：未配置容器，数据仅保存在本地")
                     Text("漫画 / 其他格式 / 转换 / OCR / Apple Pencil：尚未实现")
@@ -132,6 +139,7 @@ struct ReaderWorkspace: View {
     @State private var searchText = ""
     @State private var searched = false
     @State private var draft = ""
+    @State private var ai = false
     var body: some View {
         Group {
             if let book = session.book {
@@ -154,6 +162,9 @@ struct ReaderWorkspace: View {
                             .disabled(session.pageIndex >= book.pageCount - 1).accessibilityIdentifier("next-page")
                         Button { notesPanel = true } label: { Label("高亮与笔记", systemImage: "highlighter") }
                             .accessibilityIdentifier("reader-notes")
+                        #if os(macOS)
+                        Button("选文 AI") { model.learning.prepare(model.captureAISource()); ai = true }.accessibilityIdentifier("reader-ai")
+                        #endif
                     }
                 }
                 .onChange(of: session.pageIndex) { _, _ in Task { await model.saveProgress() } }
@@ -167,6 +178,9 @@ struct ReaderWorkspace: View {
         }
         .sheet(isPresented: $navigation) { navigationSheet }
         .sheet(isPresented: $notesPanel) { notesSheet }
+        #if os(macOS)
+        .sheet(isPresented: $ai) { AILearningWorkspace(library: model, learning: model.learning) }
+        #endif
     }
     private var navigationSheet: some View {
         NavigationStack {
