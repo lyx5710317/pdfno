@@ -36,6 +36,7 @@ jobs:
       - name: Source and original fixture guards
         run: |
           python3 scripts/check-native-source.py
+          python3 -B scripts/test-requirement-ledger.py
           python3 scripts/generate-apple-project.py
           git diff --exit-code -- apple/PDFno.xcodeproj apple/PDFno.xcworkspace apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures
       - name: Swift source, storage, PDFKit, EPUB and offline AI isolation tests

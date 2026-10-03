@@ -7,6 +7,8 @@ import json
 import re
 import subprocess
 import sys
+sys.dont_write_bytecode = True
+from requirement_ledger import SPEC_PATH, validate_requirement_ledger
 
 ROOT=Path(__file__).resolve().parents[1]
 raw=subprocess.check_output(['git','ls-files','--cached','--others','--exclude-standard','-z'],cwd=ROOT)
@@ -77,14 +79,7 @@ for workflow in (ROOT/'.github/workflows').glob('*.yml'):
         if not use.startswith('./') and not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+@[0-9a-f]{40}', use):
             failures.append(f'Workflow Action must use a full commit SHA: {workflow.name}: {use}')
 ledger=json.loads((ROOT/'docs/REQUIREMENTS-LEDGER.json').read_text())
-expected_ids={f'{category}{index:02d}' for category,count in {'R':17,'T':22,'U':13,'S':8,'J':8,'UAT':15}.items() for index in range(1,count+1)}
-ids=[item['id'] for item in ledger['items']]
-spec=(ROOT/ledger['spec']).read_text()
-defined=re.findall(r'^\|\s*((?:R|T|U|S|J|UAT)\d{2})(?:\s+[^|]*)?\s*\|', spec, re.M)
-if len(ids)!=83 or len(set(ids))!=83 or set(ids)!=expected_ids or set(defined)!=expected_ids or len(defined)!=83 or ledger['formalCount']!=83:
-    failures.append('Formal requirement ledger differs from the 83 preserved definitions')
-for item in ledger['items']:
-    if item['specRow'] not in spec.splitlines(): failures.append('Requirement definition changed without ledger reconciliation: '+item['id'])
+failures.extend(validate_requirement_ledger(ledger, (ROOT/SPEC_PATH).read_text()))
 for name in ['package.json','package-lock.json','src','electron','shared','native','tests']:
     if (ROOT/name).exists(): failures.append('Retired runtime still present: '+name)
 if failures:

@@ -1,5 +1,7 @@
 # Audit remediation on the frozen 05cbcf5 baseline
 
+This is the historical local implementation record for candidate `216a8de05497ca0962e2bf2993183747d0bff442`. Independent data revalidation subsequently found residual DF-06 word-spacing acceptance and RV-02 ID/definition misbinding; its data findings must not be called fully passed. The narrow follow-up repair and current results are recorded in [DATA-REVALIDATION-FIXES.md](DATA-REVALIDATION-FIXES.md). Security-specialist revalidation was blocked by the platform and remains **unverified**; ordinary functional regressions below do not replace that review. The blocked specialist work is not retried through this follow-up.
+
 This local branch starts at `05cbcf537e0ae85b2831a6b86e500e5d7d2b0a94`. The frozen main branch and both auditors' reports, sources and evidence stay unchanged. This record does not constitute independent revalidation, complete UI acceptance or permission to publish.
 
 Original independent report identities:

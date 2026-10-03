@@ -42,13 +42,29 @@ public struct PDFSourceAnchor: Codable, Sendable, Equatable {
         schemaVersion = 1; self.editionID = editionID; self.fileSHA256 = fileSHA256
         self.quote = quote; self.regions = regions; extractionVersion = "pdfkit-selection-1"
     }
-    /// PDFKit may insert whitespace between line/page selections. Preserve both
-    /// raw forms, requiring their non-whitespace scalars in the same order.
-    /// Hyphens, combining marks and all other text are compared without normalization.
+    /// Only line/page region boundaries permit whitespace separator differences.
+    /// Every scalar inside a region, including word spaces, must match exactly.
+    /// The outer edges, hyphens and Unicode scalar sequences are not normalized.
     public var hasConsistentQuote: Bool {
-        func content(_ text: String) -> [Unicode.Scalar] { text.unicodeScalars.filter { !CharacterSet.whitespacesAndNewlines.contains($0) } }
-        let aggregate = content(quote)
-        return !aggregate.isEmpty && aggregate == regions.flatMap { content($0.quote) }
+        func whitespace(_ scalar: Unicode.Scalar) -> Bool { CharacterSet.whitespacesAndNewlines.contains(scalar) }
+        let aggregate = Array(quote.unicodeScalars)
+        guard !regions.isEmpty, aggregate.contains(where: { !whitespace($0) }) else { return false }
+        var cursor = 0
+        for (index, region) in regions.enumerated() {
+            let scalars = Array(region.quote.unicodeScalars)
+            var lower = 0, upper = scalars.count
+            // Leading/trailing spaces at an internal boundary belong to its
+            // separator. A single region has no such boundary or trimming.
+            if index > 0 { while lower < upper, whitespace(scalars[lower]) { lower += 1 } }
+            if index + 1 < regions.count { while upper > lower, whitespace(scalars[upper - 1]) { upper -= 1 } }
+            guard lower < upper else { return false }
+            if index > 0 { while cursor < aggregate.count, whitespace(aggregate[cursor]) { cursor += 1 } }
+            for scalar in scalars[lower..<upper] {
+                guard cursor < aggregate.count, aggregate[cursor] == scalar else { return false }
+                cursor += 1
+            }
+        }
+        return cursor == aggregate.count
     }
 }
 
