@@ -79,6 +79,9 @@ public enum DOCXHTML {
         }
         function rangeFor(a){const s=point(a.start),e=point(a.end);if(!s||!e)return null;
           const r=document.createRange();r.setStart(...s);r.setEnd(...e);return r;}
+        let explicitNavigation=false,scrollTimer;
+        for(const event of ['wheel','pointerdown','keydown'])
+          document.addEventListener(event,()=>{explicitNavigation=false;},{passive:true});
         window.pdfnoDOCX={
           install(html,expected){const main=document.querySelector('main');main.innerHTML=html;
             latestSelection=null;clearTimeout(selectionTimer);
@@ -89,13 +92,18 @@ public enum DOCXHTML {
             clearTimeout(selectionTimer);
             latestSelection?post('selection',latestSelection):post('clear');return latestSelection;},
           navigate(a){const r=rangeFor(a);if(!r||canonical.slice(a.start,a.end)!==a.quote)return false;
+            // Native navigation owns the exact anchor until a real user scroll
+            // or input; its own scroll event must not replace it with the first
+            // visible block (which can be a different, already visible heading).
+            explicitNavigation=true;clearTimeout(scrollTimer);
             r.startContainer.parentElement?.scrollIntoView({block:'center'});
             if(window.Highlight&&CSS.highlights)CSS.highlights.set('pdfnoReturn',new Highlight(r));return true;},
           notes(items){if(!window.Highlight||!CSS.highlights)return;const ranges=items.map(rangeFor).filter(Boolean);
             CSS.highlights.set('pdfnoNotes',new Highlight(...ranges));}
         };
-        let scrollTimer;
-        window.addEventListener('scroll',()=>{clearTimeout(scrollTimer);scrollTimer=setTimeout(()=>{
+        window.addEventListener('scroll',()=>{clearTimeout(scrollTimer);if(explicitNavigation)return;
+          scrollTimer=setTimeout(()=>{
+          if(explicitNavigation)return;
           const block=blocks.find(b=>b.textContent.length&&b.getBoundingClientRect().bottom>0);
           if(block)post('progress',{start:Number(block.dataset.start)});
         },400);});

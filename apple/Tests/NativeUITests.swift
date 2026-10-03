@@ -48,13 +48,19 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(second.waitForExistence(timeout: 5)); press(second)
         XCTAssertTrue(try webText(in: app, matching: "Second UI heading", prefix: false, timeout: 10).isHittable)
         let store = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent("docx-mammoth-v1.json")
+        var lastProgress: [String: Any]?
         let persisted = expectation(for: NSPredicate { _, _ in
             guard let data = try? Data(contentsOf: store), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let books = object["books"] as? [[String: Any]], let progress = books.first?["progress"] as? [String: Any] else { return false }
+            lastProgress = progress
             return progress["blockID"] as? Int == 4 && progress["quote"] as? String == "S" &&
                 progress["start"] as? Int == ["Original UI chapter", "window — original 日本語🌸 café", "Cell one", "Cell two"].reduce(0) { $0 + $1.utf16.count + 1 }
         }, evaluatedWith: app)
         wait(for: [persisted], timeout: 10)
+        if lastProgress?["blockID"] as? Int != 4 || lastProgress?["quote"] as? String != "S" {
+            print("Original Word progress: manifest exists =", FileManager.default.fileExists(atPath: store.path),
+                  "; block =", lastProgress?["blockID"] ?? "missing", "; start =", lastProgress?["start"] ?? "missing")
+        }
         XCTAssertEqual(try Data(contentsOf: source), bytes)
         app.terminate(); app.launch(); app.activate()
         let book = app.descendants(matching: .any).matching(identifier: "library-docx").firstMatch
@@ -640,7 +646,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(scroll.waitForExistence(timeout: 5))
         for _ in 0..<12 {
             if app.buttons["page-return-source"].firstMatch.isHittable { return }
-            scroll.swipeDown()
+            scroll.scroll(byDeltaX: 0, deltaY: -500)
         }
         XCTAssertTrue(app.buttons["page-return-source"].firstMatch.isHittable)
     }
@@ -649,7 +655,10 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(scroll.waitForExistence(timeout: 5))
         for _ in 0..<12 {
             if element.isHittable { return }
-            scroll.swipeUp()
+            // macOS touch-swipe synthesis did not move this AppKit scroll view.
+            // Pixel scrolling uses the same API as XCTest's successful native
+            // auto-scroll (the fixture log showed +615.5 for this lower field).
+            scroll.scroll(byDeltaX: 0, deltaY: 500)
         }
         XCTAssertTrue(element.isHittable)
     }

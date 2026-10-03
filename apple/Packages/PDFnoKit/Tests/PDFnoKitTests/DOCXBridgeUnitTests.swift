@@ -66,6 +66,9 @@ struct DOCXBridgeUnitTests {
         _ = try await web.evaluateJavaScript("Object.defineProperty(document,'hasFocus',{configurable:true,value:()=>true});document.dispatchEvent(new Event('selectionchange'));true")
         #expect(await reader.captureSelection() == nil)
         #expect(await reader.navigate(to: anchor))
+        _ = try await web.evaluateJavaScript("window.dispatchEvent(new Event('scroll'));true")
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(reader.progress == anchor, "Programmatic navigation must preserve its exact source anchor")
         reader.project([DOCXNote(bookID: book.id, anchor: anchor, userText: "Original isolated note")])
         let token = reader.readerSessionID
         reader.close()

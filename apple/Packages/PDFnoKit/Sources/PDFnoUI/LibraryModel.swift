@@ -1,6 +1,7 @@
 // Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
 import Foundation
 import SwiftUI
+import Combine
 import PDFKit
 import PDFnoDomain
 import PDFnoServices
@@ -29,6 +30,7 @@ public final class LibraryModel: ObservableObject {
     public let epub = EPUBReaderSession()
     public let comic = ComicReaderSession()
     public let docx: DOCXLibraryModel
+    private var docxChanges: AnyCancellable?
     #endif
     public init() {
         // UI smoke runs use an isolated store, never the user's library.
@@ -59,6 +61,11 @@ public final class LibraryModel: ObservableObject {
         } else { learning = AILearningModel(root: root); pageTranslation = PDFPageTranslationModel() }
         #else
         learning = AILearningModel(root: root); pageTranslation = PDFPageTranslationModel()
+        #endif
+        #if os(macOS)
+        // The sidebar reads this nested model even while its reader is inactive.
+        // Forward asynchronous load/restart changes as well as routed imports.
+        docxChanges = docx.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         #endif
     }
     func load() async {
