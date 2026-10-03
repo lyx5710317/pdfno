@@ -18,6 +18,7 @@ jobs:
         run: |
           npm ci --prefix engine-build --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org
           node --test engine-build/loader.test.mjs
+          node --test engine-build/rangy-security.test.mjs
           node engine-build/build.mjs
           node --test engine-build/comics-reader.test.mjs
           node engine-build/build-comics.mjs

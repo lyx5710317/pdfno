@@ -6,6 +6,84 @@ import AppKit
 
 final class NativeUITests: XCTestCase {
     #if os(macOS)
+    @MainActor func testMacDOCXConversionSaveCancelOverwriteRefusalAndRecovery() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Conversion-UI-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appendingPathComponent("Original Body.docx"), broken = root.appendingPathComponent("Broken Body.docx")
+        let types = "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/></Types>"
+        let relationships = "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"original\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/></Relationships>"
+        let xml = "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body><w:p><w:r><w:t>Original 日本語🌸 café &lt;script&gt;&amp;</w:t></w:r></w:p></w:body></w:document>"
+        let bytes = originalZIP([("[Content_Types].xml", Data(types.utf8)), ("_rels/.rels", Data(relationships.utf8)), ("word/document.xml", Data(xml.utf8))])
+        try bytes.write(to: source); try Data("Original invalid DOCX fixture".utf8).write(to: broken)
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launch(); app.activate(); defer { app.terminate() }
+        let entry = app.buttons["document-conversion"].firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 15)); press(entry)
+        let export = app.buttons["conversion-export"].firstMatch, status = app.staticTexts["conversion-status"].firstMatch
+        XCTAssertTrue(export.waitForExistence(timeout: 5)); XCTAssertFalse(export.isEnabled)
+        XCTAssertTrue(app.staticTexts["conversion-warning-bodyOnly"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["conversion-warning-simplifiedLayout"].firstMatch.exists)
+        try chooseInput(source, trigger: app.buttons["conversion-source"].firstMatch, app: app)
+        waitUntilEnabled(export)
+        press(export)
+        XCTAssertTrue(app.buttons["Save"].firstMatch.waitForExistence(timeout: 5) || app.buttons["保存"].firstMatch.exists)
+        app.typeKey(.escape, modifierFlags: []); waitUntilEnabled(export)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path).sorted(), ["Broken Body.docx", "Original Body.docx"])
+        let output = root.appendingPathComponent("Original Output.txt")
+        try chooseOutput(output, defaultName: "Original Body-converted.txt", trigger: export, app: app)
+        waitForText(["已保存副本"], in: status, timeout: 15)
+        let text = try Data(contentsOf: output)
+        XCTAssertTrue(String(decoding: text, as: UTF8.self).contains("Original 日本語🌸 café <script>&"))
+        XCTAssertEqual(try Data(contentsOf: source), bytes)
+        try chooseOutput(output, defaultName: "Original Body-converted.txt", trigger: export, app: app)
+        waitForText(["输出位置已有文件"], in: status, timeout: 15)
+        XCTAssertEqual(try Data(contentsOf: output), text); waitUntilEnabled(export)
+        try chooseInput(broken, trigger: app.buttons["conversion-source"].firstMatch, app: app)
+        let failed = root.appendingPathComponent("Failed Output.txt")
+        try chooseOutput(failed, defaultName: "Broken Body-converted.txt", trigger: export, app: app)
+        waitForText(["归档损坏"], in: status, timeout: 15)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: failed.path)); waitUntilEnabled(export)
+        try chooseInput(source, trigger: app.buttons["conversion-source"].firstMatch, app: app)
+        let htmlChoice = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "简化 HTML")).firstMatch
+        XCTAssertTrue(htmlChoice.waitForExistence(timeout: 5)); press(htmlChoice)
+        let html = root.appendingPathComponent("Original Output.html")
+        try chooseOutput(html, defaultName: "Original Body-converted.html", trigger: export, app: app)
+        waitForText(["已保存副本"], in: status, timeout: 15)
+        let markup = try String(contentsOf: html, encoding: .utf8)
+        XCTAssertTrue(markup.contains("&lt;script&gt;&amp;")); XCTAssertFalse(markup.contains("<script>")); XCTAssertTrue(markup.contains("default-src 'none'"))
+        XCTAssertEqual(try Data(contentsOf: source), bytes)
+        press(app.buttons["conversion-close"].firstMatch)
+        // An isolated DEBUG fixture pauses the real local worker before parsing, making cancellation deterministic.
+        app.terminate(); app.launchEnvironment["PDFNO_UI_TEST_CONVERSION"] = "cancellation-checkpoint"; app.launch(); app.activate()
+        XCTAssertTrue(entry.waitForExistence(timeout: 10)); press(entry)
+        guard app.staticTexts["conversion-fixture"].firstMatch.waitForExistence(timeout: 5) else { XCTFail("Cancellation fixture must be isolated"); return }
+        try chooseInput(source, trigger: app.buttons["conversion-source"].firstMatch, app: app)
+        let cancelled = root.appendingPathComponent("Cancelled Output.txt")
+        try chooseOutput(cancelled, defaultName: "Original Body-converted.txt", trigger: export, app: app)
+        let cancel = app.buttons["conversion-cancel"].firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5)); press(cancel)
+        waitForText(["转换已取消"], in: status, timeout: 10)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: cancelled.path)); waitUntilEnabled(export)
+        XCTAssertEqual(try Data(contentsOf: source), bytes)
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: root.path).contains { $0.hasPrefix(".pdfno-conversion-") })
+    }
+    @MainActor private func chooseOutput(_ url: URL, defaultName: String, trigger: XCUIElement, app: XCUIApplication) throws {
+        let existed = FileManager.default.fileExists(atPath: url.path)
+        press(trigger); app.typeKey("g", modifierFlags: [.command, .shift])
+        let combo = app.comboBoxes.firstMatch, text = app.textFields.firstMatch
+        let location = combo.waitForExistence(timeout: 3) ? combo : text
+        XCTAssertTrue(location.waitForExistence(timeout: 5))
+        enterSearch(url.deletingLastPathComponent().path, into: location); app.typeKey(.return, modifierFlags: [])
+        let name = app.textFields.matching(NSPredicate(format: "value == %@", defaultName)).firstMatch
+        XCTAssertTrue(name.waitForExistence(timeout: 5)); enterSearch(url.lastPathComponent, into: name)
+        let save = app.buttons["Save"].firstMatch.exists ? app.buttons["Save"].firstMatch : app.buttons["保存"].firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 5)); press(save)
+        if existed {
+            let replace = app.buttons["Replace"].firstMatch.exists ? app.buttons["Replace"].firstMatch : app.buttons["替换"].firstMatch
+            XCTAssertTrue(replace.waitForExistence(timeout: 5)); press(replace)
+        }
+    }
     @MainActor func testMacCBZImportSpreadsDirectionPageJumpAndRestart() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-CBZ-UI-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -23,7 +101,7 @@ final class NativeUITests: XCTestCase {
         try chooseInput(archive, trigger: app.buttons["import-pdf"].firstMatch, app: app)
         let position = app.staticTexts["comic-position"].firstMatch
         waitForText(["1 / 7"], in: position, timeout: 25)
-        XCTAssertTrue(app.webViews["comic-content"].firstMatch.exists)
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "comic-content").firstMatch.exists)
         let layout = app.popUpButtons["comic-layout"].firstMatch
         XCTAssertTrue(layout.waitForExistence(timeout: 5)); press(layout); press(app.menuItems["双页"].firstMatch)
         waitForText(["双页"], in: layout, timeout: 10)

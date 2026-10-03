@@ -8,6 +8,10 @@ The 2026-10-02 native implementation creates actual macOS and iPhone/iPad applic
 
 `study-sample.pdf` in UI resources and test fixtures is generated from original English text by `scripts/generate-apple-project.py`. It is the same deterministic two-page document in both locations, with two original outline entries. It uses the standard PDF Helvetica font name without bundling a font file. No private or third-party book is included. Japanese `本 / ほん`, repeated-quote, emoji and combining-mark tests are original fixtures ported from the project's own prior demo. Current intentional Mac screenshot attachments target the isolated application window. Earlier ignored local results used application screenshots that can include the desktop; those diagnostics remain private and are not published or automatically uploaded.
 
+The integrated CBZ slice adds one hash-verified Kookit comic model source at the same fixed commit, with its unchanged AGPL text and a separate source-only native adapter profile. ZIP/ImageIO admission and system zlib usage are original Swift integration, no RAR decoder is bundled. All test PNGs/archives are generated from original colors and XML in the isolated tests; no third-party comic or Word sample is included. The bounded converter is a body-text export service, not the selected Word reading engine. Word candidate branches and page translation are not part of this delivery.
+
+Rangy was minimally upgraded to official1.3.2 for the documented prototype-pollution advisory. Corresponding source identity, original MIT license and bundle provenance are retained; no book exploit or user-data compromise is claimed.
+
 ## Research references
 
 - [Koodo Reader fixed commit](https://github.com/koodo-reader/koodo-reader/tree/90e659f0188795f9a4f6e1ccc1727fd3793fe4a4), package 2.4.5: historical architecture/format/licensing research. The project license text was obtained unchanged from [upstream LICENSE](https://github.com/koodo-reader/koodo-reader/blob/90e659f0188795f9a4f6e1ccc1727fd3793fe4a4/LICENSE). No Koodo application code, assets, extra engine or binaries are vendored. Kookit public core is separately recorded below.

@@ -1,6 +1,6 @@
 # PDFno AI 开发技术规格
 
-版本：**0.3 原生 Apple 架构＋Mac EPUB／DeepSeek 选文 AI／独立短句测试实施稿**
+版本：**0.3 原生 Apple 架构＋Mac EPUB／CBZ／DeepSeek 选文 AI／有限正文转换实施稿**
 修订与官方来源核验日期：**2026-10-03**（各历史证据保留原日期）
 项目标识：`pdfno`；产品显示名：`PDFno`
 目标：原生 macOS、iPhone、iPad；Mac 优先交付，先完善 Mac 再适配 iPhone/iPad；长期三端目标保留
@@ -59,7 +59,7 @@ EPUB 闭环后，用户授权 Mac BYOK／选文 AI 小切片，并在独立 Deep
 | R11 | CONFIRMED | 参考 UPDF 信息结构和交互，自有品牌，兼顾 Bookno 家族 | 14；UAT01–UAT15 |
 | R12 | DECISION | 最终 MVP、定价、收费和发布日期 | 3、19；阶段建议不是承诺 |
 | R13 | CONFIRMED，已解除旧未定 | 长期三端支持已定；不再询问是否支持 iOS。具体最低版本、同步数据与设备实测待定 | 4、12、16 |
-| R14 | DECISION | 首个转换方向、OCR 首版范围、Bookno 单向/双向及传输 | 11、13、19 |
+| R14 | DECISION | 首个高保真互转方向（已有有限DOCX正文TXT/HTML）、OCR 首版范围、Bookno 单向/双向及传输 | 11、13、19 |
 | R15 | CONFIRMED | Swift 原生主界面＋PDFKit，真正 application targets，共享 Swift packages | 4、5；T20 |
 | R16 | CONFIRMED | AI 问答；文档、选区与通用会话范围清晰，引用可校验 | 8、9、14.7；UAT04、UAT12 |
 | R17 | PROPOSED | 三端手势、键盘、无障碍；iPad Apple Pencil 分阶段设计 | 14.11；T19、T22 |
@@ -196,7 +196,7 @@ N3 完整能力验收库存（首片未覆盖项继续保留）：合法 EPUB 2/
 
 ### 5.2.1 当前 Mac EPUB 实现边界
 
-当前源包为 `engine-build/`：23 个原始 Kookit 文件保留 blob 哈希；JSZip 3.10.1、Rangy 1.3.0、Underscore 1.13.8 和 esbuild 0.25.11 的实际 lock 与声明已保存。Node 只用于构建；派生 engine.js 与完整 Notices.txt 进入原生 reader 资源。独立 EPUB 入口替换不受限 fallback loader，强制禁书籍脚本，排除 PDF 引擎/Chinese mapping/extra/其他格式；不引入 Electron。
+当前源包为 `engine-build/`：23 个原始 Kookit 文件保留 blob 哈希；JSZip 3.10.1、Rangy 1.3.2、Underscore 1.13.8 和 esbuild 0.25.11 的实际 lock 与声明已保存。Node 只用于构建；派生 engine.js 与完整 Notices.txt 进入原生 reader 资源。独立 EPUB 入口替换不受限 fallback loader，强制禁书籍脚本，排除 PDF 引擎/Chinese mapping/extra/其他格式；不引入 Electron。
 
 Mac SwiftUI 原生书库、目录、翻页、横竖排和笔记宿主通过受限 WKWebView 承载正文。脚本禁用 frame 的选区由可信父页读取；CSP、资源清洗、逐协议规则、非持久 WebKit store 和原生桥白名单保持有效。桥校验 session/book/edition/hash/documentVersion/requestID，串行导航、超时和取消使旧 generation 失效。首片归档限 20 MiB/1000 条目/单项 4 MiB/实际总解压 50 MiB；静态 PNG/JPEG 有单图 4M/总 16M 像素预算。字体、SVG、动画、固定版式、加密、全面资源保真和移动阅读仍未验收。
 
@@ -208,16 +208,28 @@ Mac SwiftUI 原生书库、目录、翻页、横竖排和笔记宿主通过受�
 
 | 格式目标 | 拟议实现 | 学习/稳定位置 | 阶段与实际缺口 |
 | --- | --- | --- | --- |
-| PDF 文本/扫描/混合 | PDFKit | 页＋原文＋PDF 几何；OCR 另版本 | N2；当前无真实 reader |
+| PDF 文本/扫描/混合 | PDFKit | 页＋原文＋PDF 几何；OCR 另版本 | N2；原生 PDFKit 最小闭环已实现，完整矩阵仍分阶段 |
 | EPUB 2/3 重排/固定 | 独立 Kookit EPUB adapter | 资源/spine/canonical UTF-16 半开 span＋引文/context/hash；逻辑页非主键 | N3；Mac 原创重排样本已接入，固定版式和移动阅读待验收 |
-| CBZ / 图片序列 | 原生图像显示＋经许可 ZIP parser | 图片 hash＋顺序＋归一化区域；无文字默认不开放语法 | N7 可优先试 CBZ；解析器/内存/RTL/双页待测 |
+| CBZ / 图片序列 | 独立固定 Kookit makeComicBook＋受限 Mac WKWebView，Swift ZIP／ImageIO 准入 | 已实现原件hash＋edition＋页路径/index＋方向/layout；区域/OCR后续，无选文AI | N7：Mac静态PNG/JPEG CBZ已接入，真实WebKit/尺寸/左右/单双页/恢复通过；完整应用UI见最终CI，移动与其他漫画容器仍未支持 |
 | CBR / CBT / CB7 | RAR/TAR/7z 各自受控解包 adapter | 同图片定位；气泡检测/OCR 后续 | N7；各库许可证与 iOS 构建能力未定，不能自动执行 Mac CLI |
 | MOBI / AZW3 / AZW | 经审计非 DRM parser，或明确转换后阅读 | 资源/块＋引文，转换生成新 edition | N7；AZW 变体与 DRM 限制明确，不承诺全部可开 |
 | TXT / MD / FB2 | 原生文本/受控渲染＋解析 adapter | 文档 hash、编码/提取版本、块/span | N7；编码、ruby/样式/脚注待验证 |
-| DOCX | 独立 OOXML parse/preview 或转换为新 PDF/EPUB | 源与派生版本分开，不能用预览替代稳定提取 | N7；不承诺 Word 全对象保真 |
+| DOCX | 用户既定 Kookit/Mammoth 独立阅读路线待源码／许可／安全审计；正文转换另有有限服务 | 阅读稳定提取待验收；转换只输出新TXT/HTML、不建edition | N7：Word阅读未合入、不将自写受限OOXML候选替换为正式引擎；正文导出不承诺Word全对象／版式保真 |
 | HTML / XML / XHTML / MHTML / HTM | 受控离线资源与净化 adapter | 资源/结构/提取版本/引文 | N7；远程资源、主动内容、未知 schema 不直接开 |
 
 保留旧格式库存，不把所有类别写成“已有阅读”。各 adapter 运行时返回显示/选择/搜索/批注/OCR/学习/转换能力与理由。学习不可用时已实现 reader 仍能阅读；格式本身未实现则明确说明并保留导入记录，不能伪造打开成功。DRM、加密、损坏、权限受限和无文本有各自可操作状态。PDFKit 不支持 EPUB、漫画或任意格式转换。
+
+### 5.4 已实施的限定 Mac CBZ adapter
+
+2026-10-03 用户授权漫画切片。固定Kookit commit的额外`src/libs/comic-book.js`由COMICS-SOURCE.json记录Git blob/SHA256并在构建时校验，原文与AGPL许可证保留；独立profile没有npm新依赖、RAR worker、WASM或CLI解包。上游模型返回页section/blob，Swift处理归档与图片，Mac原生工具栏／书库保持不变。CBR的实际解码器／许可／资源界限未核清，明确拒绝，未从根AGPL推断decoder许可。详见ADR-CBZ-KOOKIT与CBZ-VALIDATION。
+
+CBZ限100MiB、2000条目、16MiB单项、512MiB实际总解压、24M单图／512M总像素／16000单维；所有条目大小及CRC核验，路径/重复/重叠/链接/加密/分卷/ZIP64拒绝，不解包到文件系统。仅完整单帧PNG/JPEG，ImageIO先查尺寸再下采样为最大2400维PNG，不保留原始元数据；当前一／二页blob有界且及时释放。自然数字完整路径排序跨locale稳定，封面／横向页单独显示，竖向双页和奇数尾页均可达。自动双页要求viewport宽≥900且宽于高，尺寸变化保留逻辑页；方向只改变视觉次序／箭头，不改页序。
+
+独立comics-v1.json与Originals/hash.cbz保护原件，进度绑定edition/hash/index/精确页路径/方向/layout；实际渲染回执匹配session/request才保存。WK非持久store、精确app资源scheme、CSP无网络、无书籍脚本iframe、桥字段校验与截止／取消阻止旧结果；切漫画取消AI并拒绝隐含PDF/EPUB来源。当前没有漫画OCR/AI/笔记/区域锚点、原图缩放连续滚动、ComicInfo重排、移动阅读或其他容器。其存在不使原格式库存全通过。
+
+### 5.5 Rangy 最小安全修复
+
+当前EPUB锁文件与bundle由Rangy1.3.0升级为官方1.3.2，其他依赖／固定Kookit不变。GHSA-65rp-mhqf-8gj3覆盖原版本；官方tag和实际npmcore逐字节相同，merge过滤危险prototype键，新的隔离VM回归通过，更新后npm audit零已知漏洞。MIT原文、integrity、实际依赖通知和188输入bundle已重建；真实EPUB选区／高亮范围／来源回跳测试保留并加强。GHSA patched字段本次仍为空，修复依据为实际源码／发布／audit，不能虚称其列出1.3.2。用户书籍和运行实例未检查，未证明发生利用或用户数据损害。详见RANGY-SECURITY-2026-10-03；当前用户旧bundle不会自动替换。
 
 ## 6 领域模型与本地数据
 
@@ -430,7 +442,7 @@ URLSession delegate 默认停止带认证重定向；受允许适配需检查完
 
 `learning-v1.json`只保存非秘密配置与用户明确保存的学习笔记；AI结果／来源与用户正文分字段，生成／换模式不覆盖用户文字。仍用schema1，校验允许两种prompt版本；未知字段／secret／未来／损坏状态拒绝写入并保留原稿，有效写入先备份再原子替换，既有PDF/EPUB manifest及Originals不改。降级到仅接受旧prompt的AI版本时学习文件会保护性拒绝；降级前备份全学习文件，恢复旧副本需用户自行核对，不将新学习结果丢弃或谎称可由旧版本读取。回滚到更早PDF/EPUB版本忽略但保留独立学习文件。
 
-复用ephemeral URLSession，无cookies/cache，拒绝全部重定向，消费字节时限制64KiB；错误固定安全分型（401/403、402、429、取消、超时、截断等），不记录原响应、key、headers或书籍全文。agent只用虚构凭据、stub和拦截每URL的URLProtocol测试；新增DEBUG-only全拦截Mac界面fixture，不落到URLSession。四项完整Mac UI回归在独立CI运行，本机只编译隔离副本，不重启用户现用实例。新选文真实调用、费用、ATS／代理和语言质量尚未由agent验证；9.2用户报告仅为独立短句证据。移动仅编译，不宣称已适配移动AI。
+复用ephemeral URLSession，无cookies/cache，拒绝全部重定向，消费字节时限制64KiB；错误固定安全分型（401/403、402、429、取消、超时、截断等），不记录原响应、key、headers或书籍全文。agent只用虚构凭据、stub和拦截每URL的URLProtocol测试；新增DEBUG-only全拦截Mac界面fixture，不落到URLSession。包含既有四项与CBZ／转换的六项完整Mac UI回归在独立CI运行，本机只编译隔离副本，不重启用户现用实例。新选文真实调用、费用、ATS／代理和语言质量尚未由agent验证；9.2用户报告仅为独立短句证据。移动仅编译，不宣称已适配移动AI。
 
 ### 9.2 独立 DeepSeek 原创短句自助测试
 
@@ -1204,7 +1216,7 @@ AGPL、PDFKit 和已选 Kookit 独立 EPUB 边界；不暗中更换引擎。开�
 
 ### 22.2 核对结论与实施状态
 
-原 R01–R14 均有去向，原 T01–T19、U01–U13、S01–S08、J01–J08、UAT01–UAT15 全部保留标识和行为要求；新增三端构建/同步/Pencil 验收。没有把 Koodo/Electron、CLI-only 原生或“是否要 iOS”留为主架构必选。多格式目标保留；当前已实现限定 PDF／Mac EPUB 子集，其余能力继续分阶段；未把旧 demo 或官方框架支持当功能完成。
+原 R01–R14 均有去向，原 T01–T19、U01–U13、S01–S08、J01–J08、UAT01–UAT15 全部保留标识和行为要求；新增三端构建/同步/Pencil 验收。没有把 Koodo/Electron、CLI-only 原生或“是否要 iOS”留为主架构必选。多格式目标保留；当前已实现限定 PDF／Mac EPUB／CBZ、选文AI与DOCX正文导出子集，其余能力继续分阶段；未把旧 demo 或官方框架支持当功能完成。
 
 AI 缓存/取消/保密、Unicode/ruby、Bookno两层重放/修订/回执、本地编辑/封面保护、云离线/墓碑、转换全部方向、UPDF观察限制与自有品牌均继续有效。既有 v0.2 的 TypeScript 类型不是新 app 代码，领域与provider草案已换 Swift语义；外部JSON仍是传输格式。
 

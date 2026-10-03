@@ -56,3 +56,5 @@ Additive files:
 * `engine-build/vendor/kookit/src/libs/comic-book.js`
 * `docs/ADR-CBZ-KOOKIT.md`
 * `docs/CBZ-VALIDATION-2026-10-03.md`
+
+Integration review also found that a sample/format switch could leave the sidebar selected on a hidden book; clicking that already-selected row would not reopen it. Selection now follows the displayed book, avoids duplicate open requests, and closing comics updates the native active-reader state. The full CBZ close/PDF/EPUB transition test retains those assertions.

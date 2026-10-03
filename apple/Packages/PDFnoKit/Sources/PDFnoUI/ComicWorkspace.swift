@@ -6,6 +6,7 @@ import PDFnoReaders
 
 struct ComicWorkspace: View {
     @ObservedObject var session: ComicReaderSession
+    let close: () -> Void
     @State private var pages = false
     var body: some View {
         VStack(spacing: 0) {
@@ -27,7 +28,7 @@ struct ComicWorkspace: View {
                 Picker("页面布局", selection: Binding(get: { session.layout }, set: { value in Task { await session.setLayout(value) } })) {
                     Text("自动").tag(ComicLayout.automatic); Text("单页").tag(ComicLayout.single); Text("双页").tag(ComicLayout.double)
                 }.disabled(session.busy).accessibilityIdentifier("comic-layout")
-                Button("关闭漫画") { session.close() }.accessibilityIdentifier("comic-close")
+                Button("关闭漫画") { close() }.accessibilityIdentifier("comic-close")
             }
         }
         .sheet(isPresented: $pages) {

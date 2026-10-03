@@ -139,7 +139,7 @@
           forEach
         };
         var api = {
-          version: "1.3.0",
+          version: "1.3.2",
           initialized: false,
           isBrowser,
           supported: true,
@@ -180,6 +180,9 @@
           util.extend = extend = function(obj, props, deep) {
             var o, p;
             for (var i in props) {
+              if (i === "__proto__" || i === "constructor" || i === "prototype") {
+                continue;
+              }
               if (props.hasOwnProperty(i)) {
                 o = obj[i];
                 p = props[i];
@@ -454,31 +457,31 @@
               return false;
             }
           );
-          function isHtmlNamespace(node) {
+          function isHtmlNamespace(node2) {
             var ns;
-            return typeof node.namespaceURI == UNDEF || ((ns = node.namespaceURI) === null || ns == "http://www.w3.org/1999/xhtml");
+            return typeof node2.namespaceURI == UNDEF || ((ns = node2.namespaceURI) === null || ns == "http://www.w3.org/1999/xhtml");
           }
-          function parentElement(node) {
-            var parent = node.parentNode;
+          function parentElement(node2) {
+            var parent = node2.parentNode;
             return parent.nodeType == 1 ? parent : null;
           }
-          function getNodeIndex(node) {
+          function getNodeIndex(node2) {
             var i = 0;
-            while (node = node.previousSibling) {
+            while (node2 = node2.previousSibling) {
               ++i;
             }
             return i;
           }
-          function getNodeLength(node) {
-            switch (node.nodeType) {
+          function getNodeLength(node2) {
+            switch (node2.nodeType) {
               case 7:
               case 10:
                 return 0;
               case 3:
               case 8:
-                return node.length;
+                return node2.length;
               default:
-                return node.childNodes.length;
+                return node2.childNodes.length;
             }
           }
           function getCommonAncestor(node1, node2) {
@@ -507,8 +510,8 @@
           function isOrIsAncestorOf(ancestor, descendant) {
             return isAncestorOf(ancestor, descendant, true);
           }
-          function getClosestAncestorIn(node, ancestor, selfIsAncestor) {
-            var p, n = selfIsAncestor ? node : node.parentNode;
+          function getClosestAncestorIn(node2, ancestor, selfIsAncestor) {
+            var p, n = selfIsAncestor ? node2 : node2.parentNode;
             while (n) {
               p = n.parentNode;
               if (p === ancestor) {
@@ -518,58 +521,58 @@
             }
             return null;
           }
-          function isCharacterDataNode(node) {
-            var t = node.nodeType;
+          function isCharacterDataNode(node2) {
+            var t = node2.nodeType;
             return t == 3 || t == 4 || t == 8;
           }
-          function isTextOrCommentNode(node) {
-            if (!node) {
+          function isTextOrCommentNode(node2) {
+            if (!node2) {
               return false;
             }
-            var t = node.nodeType;
+            var t = node2.nodeType;
             return t == 3 || t == 8;
           }
-          function insertAfter2(node, precedingNode) {
+          function insertAfter2(node2, precedingNode) {
             var nextNode = precedingNode.nextSibling, parent = precedingNode.parentNode;
             if (nextNode) {
-              parent.insertBefore(node, nextNode);
+              parent.insertBefore(node2, nextNode);
             } else {
-              parent.appendChild(node);
+              parent.appendChild(node2);
             }
-            return node;
+            return node2;
           }
-          function splitDataNode(node, index, positionsToPreserve) {
-            var newNode = node.cloneNode(false);
+          function splitDataNode(node2, index, positionsToPreserve) {
+            var newNode = node2.cloneNode(false);
             newNode.deleteData(0, index);
-            node.deleteData(index, node.length - index);
-            insertAfter2(newNode, node);
+            node2.deleteData(index, node2.length - index);
+            insertAfter2(newNode, node2);
             if (positionsToPreserve) {
               for (var i = 0, position; position = positionsToPreserve[i++]; ) {
-                if (position.node == node && position.offset > index) {
+                if (position.node == node2 && position.offset > index) {
                   position.node = newNode;
                   position.offset -= index;
-                } else if (position.node == node.parentNode && position.offset > getNodeIndex(node)) {
+                } else if (position.node == node2.parentNode && position.offset > getNodeIndex(node2)) {
                   ++position.offset;
                 }
               }
             }
             return newNode;
           }
-          function getDocument(node) {
-            if (node.nodeType == 9) {
-              return node;
-            } else if (typeof node.ownerDocument != UNDEF) {
-              return node.ownerDocument;
-            } else if (typeof node.document != UNDEF) {
-              return node.document;
-            } else if (node.parentNode) {
-              return getDocument(node.parentNode);
+          function getDocument(node2) {
+            if (node2.nodeType == 9) {
+              return node2;
+            } else if (typeof node2.ownerDocument != UNDEF) {
+              return node2.ownerDocument;
+            } else if (typeof node2.document != UNDEF) {
+              return node2.document;
+            } else if (node2.parentNode) {
+              return getDocument(node2.parentNode);
             } else {
               throw module2.createError("getDocument: no document found for node");
             }
           }
-          function getWindow(node) {
-            var doc2 = getDocument(node);
+          function getWindow(node2) {
+            var doc2 = getDocument(node2);
             if (typeof doc2.defaultView != UNDEF) {
               return doc2.defaultView;
             } else if (typeof doc2.parentWindow != UNDEF) {
@@ -613,12 +616,12 @@
             }
             return doc2;
           }
-          function getRootContainer(node) {
+          function getRootContainer(node2) {
             var parent;
-            while (parent = node.parentNode) {
-              node = parent;
+            while (parent = node2.parentNode) {
+              node2 = parent;
             }
-            return node;
+            return node2;
           }
           function comparePoints(nodeA, offsetA, nodeB, offsetB) {
             var nodeC, root2, childA, childB, n;
@@ -651,10 +654,10 @@
             }
           }
           var crashyTextNodes = false;
-          function isBrokenNode(node) {
+          function isBrokenNode(node2) {
             var n;
             try {
-              n = node.parentNode;
+              n = node2.parentNode;
               return false;
             } catch (e) {
               return true;
@@ -668,25 +671,25 @@
             crashyTextNodes = isBrokenNode(textNode2);
             api2.features.crashyTextNodes = crashyTextNodes;
           })();
-          function inspectNode(node) {
-            if (!node) {
+          function inspectNode(node2) {
+            if (!node2) {
               return "[No node]";
             }
-            if (crashyTextNodes && isBrokenNode(node)) {
+            if (crashyTextNodes && isBrokenNode(node2)) {
               return "[Broken node]";
             }
-            if (isCharacterDataNode(node)) {
-              return '"' + node.data + '"';
+            if (isCharacterDataNode(node2)) {
+              return '"' + node2.data + '"';
             }
-            if (node.nodeType == 1) {
-              var idAttr = node.id ? ' id="' + node.id + '"' : "";
-              return "<" + node.nodeName + idAttr + ">[index:" + getNodeIndex(node) + ",length:" + node.childNodes.length + "][" + (node.innerHTML || "[innerHTML not supported]").slice(0, 25) + "]";
+            if (node2.nodeType == 1) {
+              var idAttr = node2.id ? ' id="' + node2.id + '"' : "";
+              return "<" + node2.nodeName + idAttr + ">[index:" + getNodeIndex(node2) + ",length:" + node2.childNodes.length + "][" + (node2.innerHTML || "[innerHTML not supported]").slice(0, 25) + "]";
             }
-            return node.nodeName;
+            return node2.nodeName;
           }
-          function fragmentFromNodeChildren(node) {
-            var fragment = getDocument(node).createDocumentFragment(), child;
-            while (child = node.firstChild) {
+          function fragmentFromNodeChildren(node2) {
+            var fragment = getDocument(node2).createDocumentFragment(), child;
+            while (child = node2.firstChild) {
               fragment.appendChild(child);
             }
             return fragment;
@@ -718,8 +721,8 @@
             }
             return el2;
           }
-          function removeNode(node) {
-            return node.parentNode.removeChild(node);
+          function removeNode(node2) {
+            return node2.parentNode.removeChild(node2);
           }
           function NodeIterator(root2) {
             this.root = root2;
@@ -754,8 +757,8 @@
           function createIterator(root2) {
             return new NodeIterator(root2);
           }
-          function DomPosition(node, offset) {
-            this.node = node;
+          function DomPosition(node2, offset) {
+            this.node = node2;
             this.offset = offset;
           }
           DomPosition.prototype = {
@@ -838,8 +841,8 @@
           var getRootContainer = dom.getRootContainer;
           var crashyTextNodes = api2.features.crashyTextNodes;
           var removeNode = dom.removeNode;
-          function isNonTextPartiallySelected(node, range2) {
-            return node.nodeType != 3 && (isOrIsAncestorOf(node, range2.startContainer) || isOrIsAncestorOf(node, range2.endContainer));
+          function isNonTextPartiallySelected(node2, range2) {
+            return node2.nodeType != 3 && (isOrIsAncestorOf(node2, range2.startContainer) || isOrIsAncestorOf(node2, range2.endContainer));
           }
           function getRangeDocument(range2) {
             return range2.document || getDocument(range2.startContainer);
@@ -847,24 +850,24 @@
           function getRangeRoot(range2) {
             return getRootContainer(range2.startContainer);
           }
-          function getBoundaryBeforeNode(node) {
-            return new DomPosition(node.parentNode, getNodeIndex(node));
+          function getBoundaryBeforeNode(node2) {
+            return new DomPosition(node2.parentNode, getNodeIndex(node2));
           }
-          function getBoundaryAfterNode(node) {
-            return new DomPosition(node.parentNode, getNodeIndex(node) + 1);
+          function getBoundaryAfterNode(node2) {
+            return new DomPosition(node2.parentNode, getNodeIndex(node2) + 1);
           }
-          function insertNodeAtPosition(node, n, o) {
-            var firstNodeInserted = node.nodeType == 11 ? node.firstChild : node;
+          function insertNodeAtPosition(node2, n, o) {
+            var firstNodeInserted = node2.nodeType == 11 ? node2.firstChild : node2;
             if (isCharacterDataNode(n)) {
               if (o == n.length) {
-                dom.insertAfter(node, n);
+                dom.insertAfter(node2, n);
               } else {
-                n.parentNode.insertBefore(node, o == 0 ? n : splitDataNode(n, o));
+                n.parentNode.insertBefore(node2, o == 0 ? n : splitDataNode(n, o));
               }
             } else if (o >= n.childNodes.length) {
-              n.appendChild(node);
+              n.appendChild(node2);
             } else {
-              n.insertBefore(node, n.childNodes[o]);
+              n.insertBefore(node2, n.childNodes[o]);
             }
             return firstNodeInserted;
           }
@@ -879,27 +882,27 @@
           }
           function cloneSubtree(iterator) {
             var partiallySelected;
-            for (var node, frag = getRangeDocument(iterator.range).createDocumentFragment(), subIterator; node = iterator.next(); ) {
+            for (var node2, frag = getRangeDocument(iterator.range).createDocumentFragment(), subIterator; node2 = iterator.next(); ) {
               partiallySelected = iterator.isPartiallySelectedSubtree();
-              node = node.cloneNode(!partiallySelected);
+              node2 = node2.cloneNode(!partiallySelected);
               if (partiallySelected) {
                 subIterator = iterator.getSubtreeIterator();
-                node.appendChild(cloneSubtree(subIterator));
+                node2.appendChild(cloneSubtree(subIterator));
                 subIterator.detach();
               }
-              if (node.nodeType == 10) {
+              if (node2.nodeType == 10) {
                 throw new DOMException("HIERARCHY_REQUEST_ERR");
               }
-              frag.appendChild(node);
+              frag.appendChild(node2);
             }
             return frag;
           }
           function iterateSubtree(rangeIterator, func, iteratorState) {
             var it, n;
             iteratorState = iteratorState || { stop: false };
-            for (var node, subRangeIterator; node = rangeIterator.next(); ) {
+            for (var node2, subRangeIterator; node2 = rangeIterator.next(); ) {
               if (rangeIterator.isPartiallySelectedSubtree()) {
-                if (func(node) === false) {
+                if (func(node2) === false) {
                   iteratorState.stop = true;
                   return;
                 } else {
@@ -911,7 +914,7 @@
                   }
                 }
               } else {
-                it = dom.createIterator(node);
+                it = dom.createIterator(node2);
                 while (n = it.next()) {
                   if (func(n) === false) {
                     iteratorState.stop = true;
@@ -934,19 +937,19 @@
             }
           }
           function extractSubtree(iterator) {
-            for (var node, frag = getRangeDocument(iterator.range).createDocumentFragment(), subIterator; node = iterator.next(); ) {
+            for (var node2, frag = getRangeDocument(iterator.range).createDocumentFragment(), subIterator; node2 = iterator.next(); ) {
               if (iterator.isPartiallySelectedSubtree()) {
-                node = node.cloneNode(false);
+                node2 = node2.cloneNode(false);
                 subIterator = iterator.getSubtreeIterator();
-                node.appendChild(extractSubtree(subIterator));
+                node2.appendChild(extractSubtree(subIterator));
                 subIterator.detach();
               } else {
                 iterator.remove();
               }
-              if (node.nodeType == 10) {
+              if (node2.nodeType == 10) {
                 throw new DOMException("HIERARCHY_REQUEST_ERR");
               }
-              frag.appendChild(node);
+              frag.appendChild(node2);
             }
             return frag;
           }
@@ -957,22 +960,22 @@
               regex = new RegExp("^(" + nodeTypes.join("|") + ")$");
             }
             var nodes = [];
-            iterateSubtree(new RangeIterator(range2, false), function(node) {
-              if (filterNodeTypes && !regex.test(node.nodeType)) {
+            iterateSubtree(new RangeIterator(range2, false), function(node2) {
+              if (filterNodeTypes && !regex.test(node2.nodeType)) {
                 return;
               }
-              if (filterExists && !filter2(node)) {
+              if (filterExists && !filter2(node2)) {
                 return;
               }
               var sc = range2.startContainer;
-              if (node == sc && isCharacterDataNode(sc) && range2.startOffset == sc.length) {
+              if (node2 == sc && isCharacterDataNode(sc) && range2.startOffset == sc.length) {
                 return;
               }
               var ec = range2.endContainer;
-              if (node == ec && isCharacterDataNode(ec) && range2.endOffset == 0) {
+              if (node2 == ec && isCharacterDataNode(ec) && range2.endOffset == 0) {
                 return;
               }
-              nodes.push(node);
+              nodes.push(node2);
             });
             return nodes;
           }
@@ -1077,8 +1080,8 @@
           var insertableNodeTypes = [1, 3, 4, 5, 7, 8, 10, 11];
           var surroundNodeTypes = [1, 3, 4, 5, 7, 8];
           function createAncestorFinder(nodeTypes) {
-            return function(node, selfIsAncestor) {
-              var t, n = selfIsAncestor ? node : node.parentNode;
+            return function(node2, selfIsAncestor) {
+              var t, n = selfIsAncestor ? node2 : node2.parentNode;
               while (n) {
                 t = n.nodeType;
                 if (arrayContains(nodeTypes, t)) {
@@ -1092,18 +1095,19 @@
           var getDocumentOrFragmentContainer = createAncestorFinder([9, 11]);
           var getReadonlyAncestor = createAncestorFinder(readonlyNodeTypes);
           var getDocTypeNotationEntityAncestor = createAncestorFinder([6, 10, 12]);
-          function assertNoDocTypeNotationEntityAncestor(node, allowSelf) {
-            if (getDocTypeNotationEntityAncestor(node, allowSelf)) {
+          var getElementAncestor = createAncestorFinder([1]);
+          function assertNoDocTypeNotationEntityAncestor(node2, allowSelf) {
+            if (getDocTypeNotationEntityAncestor(node2, allowSelf)) {
               throw new DOMException("INVALID_NODE_TYPE_ERR");
             }
           }
-          function assertValidNodeType(node, invalidTypes) {
-            if (!arrayContains(invalidTypes, node.nodeType)) {
+          function assertValidNodeType(node2, invalidTypes) {
+            if (!arrayContains(invalidTypes, node2.nodeType)) {
               throw new DOMException("INVALID_NODE_TYPE_ERR");
             }
           }
-          function assertValidOffset(node, offset) {
-            if (offset < 0 || offset > (isCharacterDataNode(node) ? node.length : node.childNodes.length)) {
+          function assertValidOffset(node2, offset) {
+            if (offset < 0 || offset > (isCharacterDataNode(node2) ? node2.length : node2.childNodes.length)) {
               throw new DOMException("INDEX_SIZE_ERR");
             }
           }
@@ -1112,18 +1116,18 @@
               throw new DOMException("WRONG_DOCUMENT_ERR");
             }
           }
-          function assertNodeNotReadOnly(node) {
-            if (getReadonlyAncestor(node, true)) {
+          function assertNodeNotReadOnly(node2) {
+            if (getReadonlyAncestor(node2, true)) {
               throw new DOMException("NO_MODIFICATION_ALLOWED_ERR");
             }
           }
-          function assertNode(node, codeName) {
-            if (!node) {
+          function assertNode(node2, codeName) {
+            if (!node2) {
               throw new DOMException(codeName);
             }
           }
-          function isValidOffset(node, offset) {
-            return offset <= (isCharacterDataNode(node) ? node.length : node.childNodes.length);
+          function isValidOffset(node2, offset) {
+            return offset <= (isCharacterDataNode(node2) ? node2.length : node2.childNodes.length);
           }
           function isRangeValid(range2) {
             return !!range2.startContainer && !!range2.endContainer && !(crashyTextNodes && (dom.isBrokenNode(range2.startContainer) || dom.isBrokenNode(range2.endContainer))) && getRootContainer(range2.startContainer) == getRootContainer(range2.endContainer) && isValidOffset(range2.startContainer, range2.startOffset) && isValidOffset(range2.endContainer, range2.endOffset);
@@ -1147,16 +1151,16 @@
             // Spec: http://html5.org/specs/dom-parsing.html#extensions-to-the-range-interface
             // Thanks to Aleks Williams.
             function(fragmentStr) {
-              var node = this.startContainer;
-              var doc2 = getDocument(node);
-              if (!node) {
+              var node2 = this.startContainer;
+              var doc2 = getDocument(node2);
+              if (!node2) {
                 throw new DOMException("INVALID_STATE_ERR");
               }
               var el = null;
-              if (node.nodeType == 1) {
-                el = node;
-              } else if (isCharacterDataNode(node)) {
-                el = dom.parentElement(node);
+              if (node2.nodeType == 1) {
+                el = node2;
+              } else if (isCharacterDataNode(node2)) {
+                el = dom.parentElement(node2);
               }
               if (el === null || el.nodeName == "HTML" && dom.isHtmlNamespace(getDocument(el).documentElement) && dom.isHtmlNamespace(el)) {
                 el = doc2.createElement("body");
@@ -1224,14 +1228,14 @@
               offsetB = range2[prefixB + "Offset"];
               return comparePoints(nodeA, offsetA, nodeB, offsetB);
             },
-            insertNode: function(node) {
+            insertNode: function(node2) {
               assertRangeValid(this);
-              assertValidNodeType(node, insertableNodeTypes);
+              assertValidNodeType(node2, insertableNodeTypes);
               assertNodeNotReadOnly(this.startContainer);
-              if (isOrIsAncestorOf(node, this.startContainer)) {
+              if (isOrIsAncestorOf(node2, this.startContainer)) {
                 throw new DOMException("HIERARCHY_REQUEST_ERR");
               }
-              var firstNodeInserted = insertNodeAtPosition(node, this.startContainer, this.startOffset);
+              var firstNodeInserted = insertNodeAtPosition(node2, this.startContainer, this.startOffset);
               this.setStartBefore(firstNodeInserted);
             },
             cloneContents: function() {
@@ -1263,20 +1267,20 @@
               iterator.detach();
               return !boundariesInvalid;
             },
-            surroundContents: function(node) {
-              assertValidNodeType(node, surroundNodeTypes);
+            surroundContents: function(node2) {
+              assertValidNodeType(node2, surroundNodeTypes);
               if (!this.canSurroundContents()) {
                 throw new DOMException("INVALID_STATE_ERR");
               }
               var content = this.extractContents();
-              if (node.hasChildNodes()) {
-                while (node.lastChild) {
-                  node.removeChild(node.lastChild);
+              if (node2.hasChildNodes()) {
+                while (node2.lastChild) {
+                  node2.removeChild(node2.lastChild);
                 }
               }
-              insertNodeAtPosition(node, this.startContainer, this.startOffset);
-              node.appendChild(content);
-              this.selectNode(node);
+              insertNodeAtPosition(node2, this.startContainer, this.startOffset);
+              node2.appendChild(content);
+              this.selectNode(node2);
             },
             cloneRange: function() {
               assertRangeValid(this);
@@ -1295,9 +1299,9 @@
                 return sc.nodeType == 3 || sc.nodeType == 4 ? sc.data.slice(this.startOffset, this.endOffset) : "";
               } else {
                 var textParts = [], iterator = new RangeIterator(this, true);
-                iterateSubtree(iterator, function(node) {
-                  if (node.nodeType == 3 || node.nodeType == 4) {
-                    textParts.push(node.data);
+                iterateSubtree(iterator, function(node2) {
+                  if (node2.nodeType == 3 || node2.nodeType == 4) {
+                    textParts.push(node2.data);
                   }
                 });
                 iterator.detach();
@@ -1306,10 +1310,10 @@
             },
             // The methods below are all non-standard. The following batch were introduced by Mozilla but have since
             // been removed from Mozilla.
-            compareNode: function(node) {
+            compareNode: function(node2) {
               assertRangeValid(this);
-              var parent = node.parentNode;
-              var nodeIndex = getNodeIndex(node);
+              var parent = node2.parentNode;
+              var nodeIndex = getNodeIndex(node2);
               if (!parent) {
                 throw new DOMException("NOT_FOUND_ERR");
               }
@@ -1320,13 +1324,13 @@
                 return endComparison > 0 ? n_a : n_i;
               }
             },
-            comparePoint: function(node, offset) {
+            comparePoint: function(node2, offset) {
               assertRangeValid(this);
-              assertNode(node, "HIERARCHY_REQUEST_ERR");
-              assertSameDocumentOrFragment(node, this.startContainer);
-              if (comparePoints(node, offset, this.startContainer, this.startOffset) < 0) {
+              assertNode(node2, "HIERARCHY_REQUEST_ERR");
+              assertSameDocumentOrFragment(node2, this.startContainer);
+              if (comparePoints(node2, offset, this.startContainer, this.startOffset) < 0) {
                 return -1;
-              } else if (comparePoints(node, offset, this.endContainer, this.endOffset) > 0) {
+              } else if (comparePoints(node2, offset, this.endContainer, this.endOffset) > 0) {
                 return 1;
               }
               return 0;
@@ -1337,23 +1341,23 @@
             },
             // touchingIsIntersecting determines whether this method considers a node that borders a range intersects
             // with it (as in WebKit) or not (as in Gecko pre-1.9, and the default)
-            intersectsNode: function(node, touchingIsIntersecting) {
+            intersectsNode: function(node2, touchingIsIntersecting) {
               assertRangeValid(this);
-              if (getRootContainer(node) != getRangeRoot(this)) {
+              if (getRootContainer(node2) != getRangeRoot(this)) {
                 return false;
               }
-              var parent = node.parentNode, offset = getNodeIndex(node);
+              var parent = node2.parentNode, offset = getNodeIndex(node2);
               if (!parent) {
                 return true;
               }
               var startComparison = comparePoints(parent, offset, this.endContainer, this.endOffset), endComparison = comparePoints(parent, offset + 1, this.startContainer, this.startOffset);
               return touchingIsIntersecting ? startComparison <= 0 && endComparison >= 0 : startComparison < 0 && endComparison > 0;
             },
-            isPointInRange: function(node, offset) {
+            isPointInRange: function(node2, offset) {
               assertRangeValid(this);
-              assertNode(node, "HIERARCHY_REQUEST_ERR");
-              assertSameDocumentOrFragment(node, this.startContainer);
-              return comparePoints(node, offset, this.startContainer, this.startOffset) >= 0 && comparePoints(node, offset, this.endContainer, this.endOffset) <= 0;
+              assertNode(node2, "HIERARCHY_REQUEST_ERR");
+              assertSameDocumentOrFragment(node2, this.startContainer);
+              return comparePoints(node2, offset, this.startContainer, this.startOffset) >= 0 && comparePoints(node2, offset, this.endContainer, this.endOffset) <= 0;
             },
             // The methods below are non-standard and invented by me.
             // Sharing a boundary start-to-end or end-to-start does not count as intersection.
@@ -1392,23 +1396,23 @@
                 throw new DOMException("Ranges do not intersect");
               }
             },
-            containsNode: function(node, allowPartial) {
+            containsNode: function(node2, allowPartial) {
               if (allowPartial) {
-                return this.intersectsNode(node, false);
+                return this.intersectsNode(node2, false);
               } else {
-                return this.compareNode(node) == n_i;
+                return this.compareNode(node2) == n_i;
               }
             },
-            containsNodeContents: function(node) {
-              return this.comparePoint(node, 0) >= 0 && this.comparePoint(node, getNodeLength(node)) <= 0;
+            containsNodeContents: function(node2) {
+              return this.comparePoint(node2, 0) >= 0 && this.comparePoint(node2, getNodeLength(node2)) <= 0;
             },
             containsRange: function(range2) {
               var intersection2 = this.intersection(range2);
               return intersection2 !== null && range2.equals(intersection2);
             },
-            containsNodeText: function(node) {
+            containsNodeText: function(node2) {
               var nodeRange = this.cloneRange();
-              nodeRange.selectNode(node);
+              nodeRange.selectNode(node2);
               var textNodes = nodeRange.getNodes([3]);
               if (textNodes.length > 0) {
                 nodeRange.setStart(textNodes[0], 0);
@@ -1416,7 +1420,7 @@
                 nodeRange.setEnd(lastTextNode, lastTextNode.length);
                 return this.containsRange(nodeRange);
               } else {
-                return this.containsNodeContents(node);
+                return this.containsNodeContents(node2);
               }
             },
             getNodes: function(nodeTypes, filter2) {
@@ -1426,12 +1430,12 @@
             getDocument: function() {
               return getRangeDocument(this);
             },
-            collapseBefore: function(node) {
-              this.setEndBefore(node);
+            collapseBefore: function(node2) {
+              this.setEndBefore(node2);
               this.collapse(false);
             },
-            collapseAfter: function(node) {
-              this.setStartAfter(node);
+            collapseAfter: function(node2) {
+              this.setStartAfter(node2);
               this.collapse(true);
             },
             getBookmark: function(containerNode) {
@@ -1457,22 +1461,22 @@
               var charIndex = 0;
               this.setStart(containerNode, 0);
               this.collapse(true);
-              var nodeStack = [containerNode], node, foundStart = false, stop = false;
+              var nodeStack = [containerNode], node2, foundStart = false, stop = false;
               var nextCharIndex, i, childNodes;
-              while (!stop && (node = nodeStack.pop())) {
-                if (node.nodeType == 3) {
-                  nextCharIndex = charIndex + node.length;
+              while (!stop && (node2 = nodeStack.pop())) {
+                if (node2.nodeType == 3) {
+                  nextCharIndex = charIndex + node2.length;
                   if (!foundStart && bookmark.start >= charIndex && bookmark.start <= nextCharIndex) {
-                    this.setStart(node, bookmark.start - charIndex);
+                    this.setStart(node2, bookmark.start - charIndex);
                     foundStart = true;
                   }
                   if (foundStart && bookmark.end >= charIndex && bookmark.end <= nextCharIndex) {
-                    this.setEnd(node, bookmark.end - charIndex);
+                    this.setEnd(node2, bookmark.end - charIndex);
                     stop = true;
                   }
                   charIndex = nextCharIndex;
                 } else {
-                  childNodes = node.childNodes;
+                  childNodes = node2.childNodes;
                   i = childNodes.length;
                   while (i--) {
                     nodeStack.push(childNodes[i]);
@@ -1514,10 +1518,10 @@
               assertRangeValid(this);
               var sc = this.startContainer, so = this.startOffset, root2 = this.commonAncestorContainer;
               var iterator = new RangeIterator(this, true);
-              var node, boundary;
+              var node2, boundary;
               if (sc !== root2) {
-                node = getClosestAncestorIn(sc, root2, true);
-                boundary = getBoundaryAfterNode(node);
+                node2 = getClosestAncestorIn(sc, root2, true);
+                boundary = getBoundaryAfterNode(node2);
                 sc = boundary.node;
                 so = boundary.offset;
               }
@@ -1531,31 +1535,31 @@
           }
           function createPrototypeRange(constructor, boundaryUpdater) {
             function createBeforeAfterNodeSetter(isBefore, isStart) {
-              return function(node) {
-                assertValidNodeType(node, beforeAfterNodeTypes);
-                assertValidNodeType(getRootContainer(node), rootContainerNodeTypes);
-                var boundary = (isBefore ? getBoundaryBeforeNode : getBoundaryAfterNode)(node);
+              return function(node2) {
+                assertValidNodeType(node2, beforeAfterNodeTypes);
+                assertValidNodeType(getRootContainer(node2), rootContainerNodeTypes);
+                var boundary = (isBefore ? getBoundaryBeforeNode : getBoundaryAfterNode)(node2);
                 (isStart ? setRangeStart : setRangeEnd)(this, boundary.node, boundary.offset);
               };
             }
-            function setRangeStart(range2, node, offset) {
+            function setRangeStart(range2, node2, offset) {
               var ec = range2.endContainer, eo = range2.endOffset;
-              if (node !== range2.startContainer || offset !== range2.startOffset) {
-                if (getRootContainer(node) != getRootContainer(ec) || comparePoints(node, offset, ec, eo) == 1) {
-                  ec = node;
+              if (node2 !== range2.startContainer || offset !== range2.startOffset) {
+                if (getRootContainer(node2) != getRootContainer(ec) || comparePoints(node2, offset, ec, eo) == 1) {
+                  ec = node2;
                   eo = offset;
                 }
-                boundaryUpdater(range2, node, offset, ec, eo);
+                boundaryUpdater(range2, node2, offset, ec, eo);
               }
             }
-            function setRangeEnd(range2, node, offset) {
+            function setRangeEnd(range2, node2, offset) {
               var sc = range2.startContainer, so = range2.startOffset;
-              if (node !== range2.endContainer || offset !== range2.endOffset) {
-                if (getRootContainer(node) != getRootContainer(sc) || comparePoints(node, offset, sc, so) == -1) {
-                  sc = node;
+              if (node2 !== range2.endContainer || offset !== range2.endOffset) {
+                if (getRootContainer(node2) != getRootContainer(sc) || comparePoints(node2, offset, sc, so) == -1) {
+                  sc = node2;
                   so = offset;
                 }
-                boundaryUpdater(range2, sc, so, node, offset);
+                boundaryUpdater(range2, sc, so, node2, offset);
               }
             }
             var F = function() {
@@ -1563,15 +1567,15 @@
             F.prototype = api2.rangePrototype;
             constructor.prototype = new F();
             util2.extend(constructor.prototype, {
-              setStart: function(node, offset) {
-                assertNoDocTypeNotationEntityAncestor(node, true);
-                assertValidOffset(node, offset);
-                setRangeStart(this, node, offset);
+              setStart: function(node2, offset) {
+                assertNoDocTypeNotationEntityAncestor(node2, true);
+                assertValidOffset(node2, offset);
+                setRangeStart(this, node2, offset);
               },
-              setEnd: function(node, offset) {
-                assertNoDocTypeNotationEntityAncestor(node, true);
-                assertValidOffset(node, offset);
-                setRangeEnd(this, node, offset);
+              setEnd: function(node2, offset) {
+                assertNoDocTypeNotationEntityAncestor(node2, true);
+                assertValidOffset(node2, offset);
+                setRangeEnd(this, node2, offset);
               },
               /**
                * Convenience method to set a range's start and end boundaries. Overloaded as follows:
@@ -1593,10 +1597,14 @@
                     eo = args[3];
                     break;
                 }
+                assertNoDocTypeNotationEntityAncestor(sc, true);
+                assertValidOffset(sc, so);
+                assertNoDocTypeNotationEntityAncestor(ec, true);
+                assertValidOffset(ec, eo);
                 boundaryUpdater(this, sc, so, ec, eo);
               },
-              setBoundary: function(node, offset, isStart) {
-                this["set" + (isStart ? "Start" : "End")](node, offset);
+              setBoundary: function(node2, offset, isStart) {
+                this["set" + (isStart ? "Start" : "End")](node2, offset);
               },
               setStartBefore: createBeforeAfterNodeSetter(true, true),
               setStartAfter: createBeforeAfterNodeSetter(false, true),
@@ -1610,14 +1618,14 @@
                   boundaryUpdater(this, this.endContainer, this.endOffset, this.endContainer, this.endOffset);
                 }
               },
-              selectNodeContents: function(node) {
-                assertNoDocTypeNotationEntityAncestor(node, true);
-                boundaryUpdater(this, node, 0, node, getNodeLength(node));
+              selectNodeContents: function(node2) {
+                assertNoDocTypeNotationEntityAncestor(node2, true);
+                boundaryUpdater(this, node2, 0, node2, getNodeLength(node2));
               },
-              selectNode: function(node) {
-                assertNoDocTypeNotationEntityAncestor(node, false);
-                assertValidNodeType(node, beforeAfterNodeTypes);
-                var start = getBoundaryBeforeNode(node), end = getBoundaryAfterNode(node);
+              selectNode: function(node2) {
+                assertNoDocTypeNotationEntityAncestor(node2, false);
+                assertValidNodeType(node2, beforeAfterNodeTypes);
+                var start = getBoundaryBeforeNode(node2), end = getBoundaryAfterNode(node2);
                 boundaryUpdater(this, start.node, start.offset, end.node, end.offset);
               },
               extractContents: createRangeContentRemover(extractSubtree, boundaryUpdater),
@@ -1640,30 +1648,30 @@
               normalizeBoundaries: function() {
                 assertRangeValid(this);
                 var sc = this.startContainer, so = this.startOffset, ec = this.endContainer, eo = this.endOffset;
-                var mergeForward = function(node) {
-                  var sibling2 = node.nextSibling;
-                  if (sibling2 && sibling2.nodeType == node.nodeType) {
-                    ec = node;
-                    eo = node.length;
-                    node.appendData(sibling2.data);
+                var mergeForward = function(node2) {
+                  var sibling2 = node2.nextSibling;
+                  if (sibling2 && sibling2.nodeType == node2.nodeType) {
+                    ec = node2;
+                    eo = node2.length;
+                    node2.appendData(sibling2.data);
                     removeNode(sibling2);
                   }
                 };
-                var mergeBackward = function(node) {
-                  var sibling2 = node.previousSibling;
-                  if (sibling2 && sibling2.nodeType == node.nodeType) {
-                    sc = node;
-                    var nodeLength = node.length;
+                var mergeBackward = function(node2) {
+                  var sibling2 = node2.previousSibling;
+                  if (sibling2 && sibling2.nodeType == node2.nodeType) {
+                    sc = node2;
+                    var nodeLength = node2.length;
                     so = sibling2.length;
-                    node.insertData(0, sibling2.data);
+                    node2.insertData(0, sibling2.data);
                     removeNode(sibling2);
                     if (sc == ec) {
                       eo += so;
                       ec = sc;
-                    } else if (ec == node.parentNode) {
-                      var nodeIndex = getNodeIndex(node);
+                    } else if (ec == node2.parentNode) {
+                      var nodeIndex = getNodeIndex(node2);
                       if (eo == nodeIndex) {
-                        ec = node;
+                        ec = node2;
                         eo = nodeLength;
                       } else if (eo > nodeIndex) {
                         eo--;
@@ -1726,10 +1734,15 @@
                 }
                 boundaryUpdater(this, sc, so, ec, eo);
               },
-              collapseToPoint: function(node, offset) {
-                assertNoDocTypeNotationEntityAncestor(node, true);
-                assertValidOffset(node, offset);
-                this.setStartAndEnd(node, offset);
+              collapseToPoint: function(node2, offset) {
+                assertNoDocTypeNotationEntityAncestor(node2, true);
+                assertValidOffset(node2, offset);
+                this.setStartAndEnd(node2, offset);
+              },
+              parentElement: function() {
+                assertRangeValid(this);
+                var parentNode = this.commonAncestorContainer;
+                return parentNode ? getElementAncestor(this.commonAncestorContainer, true) : null;
               }
             });
             copyComparisonConstants(constructor);
@@ -1747,12 +1760,7 @@
             updateCollapsedAndCommonAncestor(range2);
           }
           function Range2(doc2) {
-            this.startContainer = doc2;
-            this.startOffset = 0;
-            this.endContainer = doc2;
-            this.endOffset = 0;
-            this.document = doc2;
-            updateCollapsedAndCommonAncestor(this);
+            updateBoundaries(this, doc2, 0, doc2, 0);
           }
           createPrototypeRange(Range2, updateBoundaries);
           util2.extend(Range2, {
@@ -1809,15 +1817,15 @@
               };
               DomRange.createPrototypeRange(WrappedRange, updateNativeRange);
               rangeProto = WrappedRange.prototype;
-              rangeProto.selectNode = function(node) {
-                this.nativeRange.selectNode(node);
+              rangeProto.selectNode = function(node2) {
+                this.nativeRange.selectNode(node2);
                 updateRangeProperties(this);
               };
               rangeProto.cloneContents = function() {
                 return this.nativeRange.cloneContents();
               };
-              rangeProto.surroundContents = function(node) {
-                this.nativeRange.surroundContents(node);
+              rangeProto.surroundContents = function(node2) {
+                this.nativeRange.surroundContents(node2);
                 updateRangeProperties(this);
               };
               rangeProto.collapse = function(isStart) {
@@ -1840,46 +1848,46 @@
               range2.setEnd(testTextNode, 0);
               try {
                 range2.setStart(testTextNode, 1);
-                rangeProto.setStart = function(node, offset) {
-                  this.nativeRange.setStart(node, offset);
+                rangeProto.setStart = function(node2, offset) {
+                  this.nativeRange.setStart(node2, offset);
                   updateRangeProperties(this);
                 };
-                rangeProto.setEnd = function(node, offset) {
-                  this.nativeRange.setEnd(node, offset);
+                rangeProto.setEnd = function(node2, offset) {
+                  this.nativeRange.setEnd(node2, offset);
                   updateRangeProperties(this);
                 };
                 createBeforeAfterNodeSetter = function(name) {
-                  return function(node) {
-                    this.nativeRange[name](node);
+                  return function(node2) {
+                    this.nativeRange[name](node2);
                     updateRangeProperties(this);
                   };
                 };
               } catch (ex) {
-                rangeProto.setStart = function(node, offset) {
+                rangeProto.setStart = function(node2, offset) {
                   try {
-                    this.nativeRange.setStart(node, offset);
+                    this.nativeRange.setStart(node2, offset);
                   } catch (ex2) {
-                    this.nativeRange.setEnd(node, offset);
-                    this.nativeRange.setStart(node, offset);
+                    this.nativeRange.setEnd(node2, offset);
+                    this.nativeRange.setStart(node2, offset);
                   }
                   updateRangeProperties(this);
                 };
-                rangeProto.setEnd = function(node, offset) {
+                rangeProto.setEnd = function(node2, offset) {
                   try {
-                    this.nativeRange.setEnd(node, offset);
+                    this.nativeRange.setEnd(node2, offset);
                   } catch (ex2) {
-                    this.nativeRange.setStart(node, offset);
-                    this.nativeRange.setEnd(node, offset);
+                    this.nativeRange.setStart(node2, offset);
+                    this.nativeRange.setEnd(node2, offset);
                   }
                   updateRangeProperties(this);
                 };
                 createBeforeAfterNodeSetter = function(name, oppositeName) {
-                  return function(node) {
+                  return function(node2) {
                     try {
-                      this.nativeRange[name](node);
+                      this.nativeRange[name](node2);
                     } catch (ex2) {
-                      this.nativeRange[oppositeName](node);
-                      this.nativeRange[name](node);
+                      this.nativeRange[oppositeName](node2);
+                      this.nativeRange[name](node2);
                     }
                     updateRangeProperties(this);
                   };
@@ -1889,8 +1897,8 @@
               rangeProto.setStartAfter = createBeforeAfterNodeSetter("setStartAfter", "setEndAfter");
               rangeProto.setEndBefore = createBeforeAfterNodeSetter("setEndBefore", "setStartBefore");
               rangeProto.setEndAfter = createBeforeAfterNodeSetter("setEndAfter", "setStartAfter");
-              rangeProto.selectNodeContents = function(node) {
-                this.setStartAndEnd(node, 0, dom.getNodeLength(node));
+              rangeProto.selectNodeContents = function(node2) {
+                this.setStartAndEnd(node2, 0, dom.getNodeLength(node2));
               };
               range2.selectNodeContents(testTextNode);
               range2.setEnd(testTextNode, 3);
@@ -2243,6 +2251,8 @@
           features.selectionHasAnchorAndFocus = selectionHasAnchorAndFocus;
           var selectionHasExtend = isHostMethod2(testSelection, "extend");
           features.selectionHasExtend = selectionHasExtend;
+          var selectionHasSetBaseAndExtent = isHostMethod2(testSelection, "setBaseAndExtent");
+          features.selectionHasSetBaseAndExtent = selectionHasSetBaseAndExtent;
           var selectionHasRangeCount = typeof testSelection.rangeCount == NUMBER;
           features.selectionHasRangeCount = selectionHasRangeCount;
           var selectionSupportsMultipleRanges = false;
@@ -2344,6 +2354,10 @@
             sel.rangeCount = 0;
             sel.isCollapsed = true;
             sel._ranges.length = 0;
+            updateType(sel);
+          }
+          function updateType(sel) {
+            sel.type = sel.rangeCount == 0 ? "None" : selectionIsCollapsed(sel) ? "Caret" : "Range";
           }
           function getNativeRange(range2) {
             var nativeRange;
@@ -2385,6 +2399,7 @@
             updateAnchorAndFocusFromRange(sel, wrappedRange, false);
             sel.rangeCount = 1;
             sel.isCollapsed = wrappedRange.collapsed;
+            updateType(sel);
           }
           function updateControlSelection(sel) {
             sel._ranges.length = 0;
@@ -2404,6 +2419,7 @@
                 }
                 sel.isCollapsed = sel.rangeCount == 1 && sel._ranges[0].collapsed;
                 updateAnchorAndFocusFromRange(sel, sel._ranges[sel.rangeCount - 1], false);
+                updateType(sel);
               }
             }
           }
@@ -2455,6 +2471,7 @@
             sel.win = sel.anchorNode = sel.focusNode = sel._ranges = null;
             sel.rangeCount = sel.anchorOffset = sel.focusOffset = 0;
             sel.detached = true;
+            updateType(sel);
           }
           var cachedRangySelections = [];
           function actOnCachedSelection(win, action) {
@@ -2553,6 +2570,7 @@
                       this._ranges[this.rangeCount - 1] = range2;
                       updateAnchorAndFocusFromRange(this, range2, selectionIsBackward(this.nativeSelection));
                       this.isCollapsed = selectionIsCollapsed(this);
+                      updateType(this);
                     } else {
                       this.refresh();
                     }
@@ -2612,6 +2630,7 @@
                 this.rangeCount = 1;
                 this.isCollapsed = this._ranges[0].collapsed;
                 updateAnchorAndFocusFromRange(this, range2, false);
+                updateType(this);
               }
             };
             selProto.setRanges = function(ranges) {
@@ -2664,6 +2683,7 @@
                   }
                   updateAnchorAndFocusFromRange(sel, sel._ranges[sel.rangeCount - 1], selectionIsBackward(sel.nativeSelection));
                   sel.isCollapsed = selectionIsCollapsed(sel);
+                  updateType(sel);
                 } else {
                   updateEmptySelection(sel);
                 }
@@ -2678,6 +2698,7 @@
                 sel.rangeCount = 1;
                 updateAnchorAndFocusFromNativeSelection(sel);
                 sel.isCollapsed = selectionIsCollapsed(sel);
+                updateType(sel);
               } else {
                 updateEmptySelection(sel);
               }
@@ -2764,15 +2785,20 @@
             }
             return rangeTexts.join("");
           };
-          function assertNodeInSameDocument(sel, node) {
-            if (sel.win.document != getDocument(node)) {
+          function assertNodeInSameDocument(sel, node2) {
+            if (sel.win.document != getDocument(node2)) {
               throw new DOMException("WRONG_DOCUMENT_ERR");
             }
           }
-          selProto.collapse = function(node, offset) {
-            assertNodeInSameDocument(this, node);
-            var range2 = api2.createRange(node);
-            range2.collapseToPoint(node, offset);
+          function assertValidOffset(node2, offset) {
+            if (offset < 0 || offset > (dom.isCharacterDataNode(node2) ? node2.length : node2.childNodes.length)) {
+              throw new DOMException("INDEX_SIZE_ERR");
+            }
+          }
+          selProto.collapse = function(node2, offset) {
+            assertNodeInSameDocument(this, node2);
+            var range2 = api2.createRange(node2);
+            range2.collapseToPoint(node2, offset);
             this.setSingleRange(range2);
             this.isCollapsed = true;
           };
@@ -2792,12 +2818,33 @@
               throw new DOMException("INVALID_STATE_ERR");
             }
           };
-          selProto.selectAllChildren = function(node) {
-            assertNodeInSameDocument(this, node);
-            var range2 = api2.createRange(node);
-            range2.selectNodeContents(node);
+          selProto.selectAllChildren = function(node2) {
+            assertNodeInSameDocument(this, node2);
+            var range2 = api2.createRange(node2);
+            range2.selectNodeContents(node2);
             this.setSingleRange(range2);
           };
+          if (selectionHasSetBaseAndExtent) {
+            selProto.setBaseAndExtent = function(anchorNode, anchorOffset, focusNode, focusOffset) {
+              this.nativeSelection.setBaseAndExtent(anchorNode, anchorOffset, focusNode, focusOffset);
+              this.refresh();
+            };
+          } else if (selectionHasExtend) {
+            selProto.setBaseAndExtent = function(anchorNode, anchorOffset, focusNode, focusOffset) {
+              assertValidOffset(anchorNode, anchorOffset);
+              assertValidOffset(focusNode, focusOffset);
+              assertNodeInSameDocument(this, anchorNode);
+              assertNodeInSameDocument(this, focusNode);
+              var range2 = api2.createRange(node);
+              var isBackwards = dom.comparePoints(anchorNode, anchorOffset, focusNode, focusOffset) == -1;
+              if (isBackwards) {
+                range2.setStartAndEnd(focusNode, focusOffset, anchorNode, anchorOffset);
+              } else {
+                range2.setStartAndEnd(anchorNode, anchorOffset, focusNode, focusOffset);
+              }
+              this.setSingleRange(range2, isBackwards);
+            };
+          }
           selProto.deleteFromDocument = function() {
             if (implementsControlRange && implementsDocSelection && this.docSelection.type == CONTROL) {
               var controlRange = this.docSelection.createRange();
@@ -2845,14 +2892,14 @@
             return results;
           };
           function createStartOrEndSetter(isStart) {
-            return function(node, offset) {
+            return function(node2, offset) {
               var range2;
               if (this.rangeCount) {
                 range2 = this.getRangeAt(0);
-                range2["set" + (isStart ? "Start" : "End")](node, offset);
+                range2["set" + (isStart ? "Start" : "End")](node2, offset);
               } else {
                 range2 = api2.createRange(this.win.document);
-                range2.setStartAndEnd(node, offset);
+                range2.setStartAndEnd(node2, offset);
               }
               this.setSingleRange(range2, this.isBackward());
             };
@@ -2876,9 +2923,9 @@
               this.setRanges(ranges);
             }
           };
-          selProto.containsNode = function(node, allowPartial) {
+          selProto.containsNode = function(node2, allowPartial) {
             return this.eachRange(function(range2) {
-              return range2.containsNode(node, allowPartial);
+              return range2.containsNode(node2, allowPartial);
             }, true) || false;
           };
           selProto.getBookmark = function(containerNode) {
@@ -3194,8 +3241,8 @@
             var tagName = el.tagName.toLowerCase();
             return display == "block" && tableCssDisplayBlock && defaultDisplayValueForTag.hasOwnProperty(tagName) ? defaultDisplayValueForTag[tagName] : display;
           }
-          function isHidden(node) {
-            var ancestors = getAncestorsAndSelf(node);
+          function isHidden(node2) {
+            var ancestors = getAncestorsAndSelf(node2);
             for (var i = 0, len = ancestors.length; i < len; ++i) {
               if (ancestors[i].nodeType == 1 && getComputedDisplay(ancestors[i]) == "none") {
                 return true;
@@ -3207,95 +3254,95 @@
             var el;
             return textNode.nodeType == 3 && (el = textNode.parentNode) && getComputedStyleProperty(el, "visibility") == "hidden";
           }
-          function isBlockNode(node) {
-            return node && (node.nodeType == 1 && !/^(inline(-block|-table)?|none)$/.test(getComputedDisplay(node)) || node.nodeType == 9 || node.nodeType == 11);
+          function isBlockNode(node2) {
+            return node2 && (node2.nodeType == 1 && !/^(inline(-block|-table)?|none)$/.test(getComputedDisplay(node2)) || node2.nodeType == 9 || node2.nodeType == 11);
           }
-          function getLastDescendantOrSelf(node) {
-            var lastChild = node.lastChild;
-            return lastChild ? getLastDescendantOrSelf(lastChild) : node;
+          function getLastDescendantOrSelf(node2) {
+            var lastChild = node2.lastChild;
+            return lastChild ? getLastDescendantOrSelf(lastChild) : node2;
           }
-          function containsPositions(node) {
-            return dom.isCharacterDataNode(node) || !/^(area|base|basefont|br|col|frame|hr|img|input|isindex|link|meta|param)$/i.test(node.nodeName);
+          function containsPositions(node2) {
+            return dom.isCharacterDataNode(node2) || !/^(area|base|basefont|br|col|frame|hr|img|input|isindex|link|meta|param)$/i.test(node2.nodeName);
           }
-          function getAncestors(node) {
+          function getAncestors(node2) {
             var ancestors = [];
-            while (node.parentNode) {
-              ancestors.unshift(node.parentNode);
-              node = node.parentNode;
+            while (node2.parentNode) {
+              ancestors.unshift(node2.parentNode);
+              node2 = node2.parentNode;
             }
             return ancestors;
           }
-          function getAncestorsAndSelf(node) {
-            return getAncestors(node).concat([node]);
+          function getAncestorsAndSelf(node2) {
+            return getAncestors(node2).concat([node2]);
           }
-          function nextNodeDescendants(node) {
-            while (node && !node.nextSibling) {
-              node = node.parentNode;
+          function nextNodeDescendants(node2) {
+            while (node2 && !node2.nextSibling) {
+              node2 = node2.parentNode;
             }
-            if (!node) {
+            if (!node2) {
               return null;
             }
-            return node.nextSibling;
+            return node2.nextSibling;
           }
-          function nextNode(node, excludeChildren) {
-            if (!excludeChildren && node.hasChildNodes()) {
-              return node.firstChild;
+          function nextNode(node2, excludeChildren) {
+            if (!excludeChildren && node2.hasChildNodes()) {
+              return node2.firstChild;
             }
-            return nextNodeDescendants(node);
+            return nextNodeDescendants(node2);
           }
-          function previousNode(node) {
-            var previous = node.previousSibling;
+          function previousNode(node2) {
+            var previous = node2.previousSibling;
             if (previous) {
-              node = previous;
-              while (node.hasChildNodes()) {
-                node = node.lastChild;
+              node2 = previous;
+              while (node2.hasChildNodes()) {
+                node2 = node2.lastChild;
               }
-              return node;
+              return node2;
             }
-            var parent = node.parentNode;
+            var parent = node2.parentNode;
             if (parent && parent.nodeType == 1) {
               return parent;
             }
             return null;
           }
-          function isWhitespaceNode(node) {
-            if (!node || node.nodeType != 3) {
+          function isWhitespaceNode(node2) {
+            if (!node2 || node2.nodeType != 3) {
               return false;
             }
-            var text = node.data;
+            var text = node2.data;
             if (text === "") {
               return true;
             }
-            var parent = node.parentNode;
+            var parent = node2.parentNode;
             if (!parent || parent.nodeType != 1) {
               return false;
             }
-            var computedWhiteSpace = getComputedStyleProperty(node.parentNode, "whiteSpace");
+            var computedWhiteSpace = getComputedStyleProperty(node2.parentNode, "whiteSpace");
             return /^[\t\n\r ]+$/.test(text) && /^(normal|nowrap)$/.test(computedWhiteSpace) || /^[\t\r ]+$/.test(text) && computedWhiteSpace == "pre-line";
           }
-          function isCollapsedWhitespaceNode(node) {
-            if (node.data === "") {
+          function isCollapsedWhitespaceNode(node2) {
+            if (node2.data === "") {
               return true;
             }
-            if (!isWhitespaceNode(node)) {
+            if (!isWhitespaceNode(node2)) {
               return false;
             }
-            var ancestor = node.parentNode;
+            var ancestor = node2.parentNode;
             if (!ancestor) {
               return true;
             }
-            if (isHidden(node)) {
+            if (isHidden(node2)) {
               return true;
             }
             return false;
           }
-          function isCollapsedNode(node) {
-            var type = node.nodeType;
-            return type == 7 || type == 8 || isHidden(node) || /^(script|style)$/i.test(node.nodeName) || isVisibilityHiddenTextNode(node) || isCollapsedWhitespaceNode(node);
+          function isCollapsedNode(node2) {
+            var type = node2.nodeType;
+            return type == 7 || type == 8 || isHidden(node2) || /^(script|style)$/i.test(node2.nodeName) || isVisibilityHiddenTextNode(node2) || isCollapsedWhitespaceNode(node2);
           }
-          function isIgnoredNode(node, win) {
-            var type = node.nodeType;
-            return type == 7 || type == 8 || type == 1 && getComputedDisplay(node, win) == "none";
+          function isIgnoredNode(node2, win) {
+            var type = node2.nodeType;
+            return type == 7 || type == 8 || type == 1 && getComputedDisplay(node2, win) == "none";
           }
           function Cache() {
             this.store = {};
@@ -3323,8 +3370,8 @@
               }
             };
           }
-          function NodeWrapper(node, session) {
-            this.node = node;
+          function NodeWrapper(node2, session) {
+            this.node = node2;
             this.session = session;
             this.cache = new Cache();
             this.positions = new Cache();
@@ -3461,12 +3508,12 @@
             prepopulateChar: function() {
               var pos = this;
               if (!pos.prepopulatedChar) {
-                var node = pos.node, offset = pos.offset;
+                var node2 = pos.node, offset = pos.offset;
                 var visibleChar = "", charType = EMPTY;
                 var finalizedChar = false;
                 if (offset > 0) {
-                  if (node.nodeType == 3) {
-                    var text = node.data;
+                  if (node2.nodeType == 3) {
+                    var text = node2.data;
                     var textChar = text.charAt(offset - 1);
                     var nodeInfo = pos.nodeWrapper.getTextNodeInfo();
                     var spaceRegex = nodeInfo.spaceRegex;
@@ -3491,7 +3538,7 @@
                       finalizedChar = true;
                     }
                   } else {
-                    var nodePassed = node.childNodes[offset - 1];
+                    var nodePassed = node2.childNodes[offset - 1];
                     if (nodePassed && nodePassed.nodeType == 1 && !isCollapsedNode(nodePassed)) {
                       if (nodePassed.tagName.toLowerCase() == "br") {
                         visibleChar = "\n";
@@ -3503,7 +3550,7 @@
                       }
                     }
                     if (!visibleChar) {
-                      var nextNode2 = node.childNodes[offset];
+                      var nextNode2 = node2.childNodes[offset];
                       if (nextNode2 && nextNode2.nodeType == 1 && !isCollapsedNode(nextNode2)) {
                         pos.checkForLeadingSpace = true;
                       }
@@ -3646,25 +3693,25 @@
           Position.prototype = positionProto;
           extend(positionProto, {
             next: createCachingGetter("nextPos", function(pos) {
-              var nodeWrapper = pos.nodeWrapper, node = pos.node, offset = pos.offset, session = nodeWrapper.session;
-              if (!node) {
+              var nodeWrapper = pos.nodeWrapper, node2 = pos.node, offset = pos.offset, session = nodeWrapper.session;
+              if (!node2) {
                 return null;
               }
               var nextNode2, nextOffset, child;
               if (offset == nodeWrapper.getLength()) {
-                nextNode2 = node.parentNode;
+                nextNode2 = node2.parentNode;
                 nextOffset = nextNode2 ? nodeWrapper.getNodeIndex() + 1 : 0;
               } else {
                 if (nodeWrapper.isCharacterDataNode()) {
-                  nextNode2 = node;
+                  nextNode2 = node2;
                   nextOffset = offset + 1;
                 } else {
-                  child = node.childNodes[offset];
+                  child = node2.childNodes[offset];
                   if (session.getNodeWrapper(child).containsPositions()) {
                     nextNode2 = child;
                     nextOffset = 0;
                   } else {
-                    nextNode2 = node;
+                    nextNode2 = node2;
                     nextOffset = offset + 1;
                   }
                 }
@@ -3672,22 +3719,22 @@
               return nextNode2 ? session.getPosition(nextNode2, nextOffset) : null;
             }),
             previous: createCachingGetter("previous", function(pos) {
-              var nodeWrapper = pos.nodeWrapper, node = pos.node, offset = pos.offset, session = nodeWrapper.session;
+              var nodeWrapper = pos.nodeWrapper, node2 = pos.node, offset = pos.offset, session = nodeWrapper.session;
               var previousNode2, previousOffset, child;
               if (offset == 0) {
-                previousNode2 = node.parentNode;
+                previousNode2 = node2.parentNode;
                 previousOffset = previousNode2 ? nodeWrapper.getNodeIndex() : 0;
               } else {
                 if (nodeWrapper.isCharacterDataNode()) {
-                  previousNode2 = node;
+                  previousNode2 = node2;
                   previousOffset = offset - 1;
                 } else {
-                  child = node.childNodes[offset - 1];
+                  child = node2.childNodes[offset - 1];
                   if (session.getNodeWrapper(child).containsPositions()) {
                     previousNode2 = child;
                     previousOffset = dom.getNodeLength(child);
                   } else {
-                    previousNode2 = node;
+                    previousNode2 = node2;
                     previousOffset = offset - 1;
                   }
                 }
@@ -3705,10 +3752,10 @@
               if (!next) {
                 return null;
               }
-              var nodeWrapper = next.nodeWrapper, node = next.node;
+              var nodeWrapper = next.nodeWrapper, node2 = next.node;
               var newPos = next;
               if (nodeWrapper.isCollapsed()) {
-                newPos = nodeWrapper.session.getPosition(node.parentNode, nodeWrapper.getNodeIndex() + 1);
+                newPos = nodeWrapper.session.getPosition(node2.parentNode, nodeWrapper.getNodeIndex() + 1);
               }
               return newPos;
             }),
@@ -3727,10 +3774,10 @@
               if (!previous) {
                 return null;
               }
-              var nodeWrapper = previous.nodeWrapper, node = previous.node;
+              var nodeWrapper = previous.nodeWrapper, node2 = previous.node;
               var newPos = previous;
               if (nodeWrapper.isCollapsed()) {
-                newPos = nodeWrapper.session.getPosition(node.parentNode, nodeWrapper.getNodeIndex());
+                newPos = nodeWrapper.session.getPosition(node2.parentNode, nodeWrapper.getNodeIndex());
               }
               return newPos;
             })
@@ -3740,11 +3787,11 @@
             function createWrapperCache(nodeProperty) {
               var cache = new Cache();
               return {
-                get: function(node) {
-                  var wrappersByProperty = cache.get(node[nodeProperty]);
+                get: function(node2) {
+                  var wrappersByProperty = cache.get(node2[nodeProperty]);
                   if (wrappersByProperty) {
                     for (var i = 0, wrapper; wrapper = wrappersByProperty[i++]; ) {
-                      if (wrapper.node === node) {
+                      if (wrapper.node === node2) {
                         return wrapper;
                       }
                     }
@@ -3778,9 +3825,9 @@
                 this.textNodeCache = createWrapperCache("data");
                 this.otherNodeCache = createWrapperCache("nodeName");
               },
-              getNodeWrapper: function(node) {
+              getNodeWrapper: function(node2) {
                 var wrapperCache;
-                switch (node.nodeType) {
+                switch (node2.nodeType) {
                   case 1:
                     wrapperCache = this.elementCache;
                     break;
@@ -3791,15 +3838,15 @@
                     wrapperCache = this.otherNodeCache;
                     break;
                 }
-                var wrapper = wrapperCache.get(node);
+                var wrapper = wrapperCache.get(node2);
                 if (!wrapper) {
-                  wrapper = new NodeWrapper(node, this);
+                  wrapper = new NodeWrapper(node2, this);
                   wrapperCache.set(wrapper);
                 }
                 return wrapper;
               },
-              getPosition: function(node, offset) {
-                return this.getNodeWrapper(node).getPosition(offset);
+              getPosition: function(node2, offset) {
+                return this.getNodeWrapper(node2).getPosition(offset);
               },
               getRangeBoundaryPosition: function(range2, isStart) {
                 var prefix = isStart ? "start" : "end";
@@ -4414,8 +4461,8 @@
             isBlockNode,
             isCollapsedWhitespaceNode,
             createPosition: createEntryPointFunction(
-              function(session, node, offset) {
-                return session.getPosition(node, offset);
+              function(session, node2, offset) {
+                return session.getPosition(node2, offset);
               }
             )
           };
@@ -7052,8 +7099,8 @@
     "kookit-text-rule-highlight",
     "kookit-translation-host"
   ];
-  var isRejectedTextNode = (node) => {
-    let parent = node.parentElement;
+  var isRejectedTextNode = (node2) => {
+    let parent = node2.parentElement;
     while (parent) {
       const tag = parent.tagName;
       if (tag === "SCRIPT" || tag === "STYLE" || tag === "RUBY") {
@@ -7092,8 +7139,8 @@
   };
   var collectTextNodes = (doc2, root2) => {
     const walker = doc2.createTreeWalker(root2, NodeFilter.SHOW_TEXT, {
-      acceptNode: (node) => {
-        return isRejectedTextNode(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+      acceptNode: (node2) => {
+        return isRejectedTextNode(node2) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
       }
     });
     const textNodes = [];
@@ -7308,17 +7355,17 @@
       let nodeList = getBlockElement(chapterDoc.body).filter(
         (item2) => !isParentBlock(item2)
       );
-      for (let node of nodeList) {
-        if (node.textContent && node.textContent?.trim()) {
-          let id = node.getAttribute("id") || "kookit-trans-" + Math.random().toString(36).substr(2, 9);
-          if (window.transMap[node.textContent]) {
-            id = window.transMap[node.textContent].id;
+      for (let node2 of nodeList) {
+        if (node2.textContent && node2.textContent?.trim()) {
+          let id = node2.getAttribute("id") || "kookit-trans-" + Math.random().toString(36).substr(2, 9);
+          if (window.transMap[node2.textContent]) {
+            id = window.transMap[node2.textContent].id;
           }
-          node.setAttribute("id", id);
-          node.classList.add("kookit-translation-host");
-          node.classList.add("kookit-translation-loading");
-          node.setAttribute("data-kookit-translation", "");
-          let originalText = node.textContent || "";
+          node2.setAttribute("id", id);
+          node2.classList.add("kookit-translation-host");
+          node2.classList.add("kookit-translation-loading");
+          node2.setAttribute("data-kookit-translation", "");
+          let originalText = node2.textContent || "";
           window.transMap[originalText] = {
             id
           };
@@ -7488,9 +7535,9 @@
       doc2.querySelectorAll(
         "h1,h2,h3,h4,h5,h6,p,div,ul,dl,ol,pre,li,dt,dd,blockquote,address"
       ).forEach((item) => {
-        for (let node of item.childNodes) {
-          if (node.nodeType === Node.TEXT_NODE) {
-            const text = node.nodeValue || "";
+        for (let node2 of item.childNodes) {
+          if (node2.nodeType === Node.TEXT_NODE) {
+            const text = node2.nodeValue || "";
             const firstChar = text.charAt(0);
             if (firstChar && firstChar.trim() === "" && firstChar !== " " && firstChar !== "\n" && firstChar !== "	") {
               item.setAttribute(
@@ -7500,7 +7547,7 @@
             }
             break;
           }
-          if (node.nodeType === Node.ELEMENT_NODE && node.tagName.toLowerCase() === "img") {
+          if (node2.nodeType === Node.ELEMENT_NODE && node2.tagName.toLowerCase() === "img") {
             item.setAttribute(
               "style",
               (item.getAttribute("style") || "") + "text-indent: 0em !important;"
@@ -7780,8 +7827,8 @@
     }
     const WORD_RE = /[A-Za-zÀ-ɏ]{9,}/g;
     const walker = doc2.createTreeWalker(doc2.body, NodeFilter.SHOW_TEXT, {
-      acceptNode(node2) {
-        const parent = node2.parentElement;
+      acceptNode(node3) {
+        const parent = node3.parentElement;
         if (!parent) return NodeFilter.FILTER_REJECT;
         if (SKIP_TAGS.has(parent.tagName?.toUpperCase())) {
           return NodeFilter.FILTER_REJECT;
@@ -7793,9 +7840,9 @@
       }
     });
     const nodes = [];
-    let node;
-    while (node = walker.nextNode()) {
-      nodes.push(node);
+    let node2;
+    while (node2 = walker.nextNode()) {
+      nodes.push(node2);
     }
     for (const textNode of nodes) {
       const text = textNode.textContent || "";
@@ -9617,10 +9664,10 @@
 
   // vendor/kookit/src/utils/navigationUtil.ts
   var lock = false;
-  var getXPathForNode = (node, doc2) => {
-    if (!node || !doc2 || !doc2.body) return "";
+  var getXPathForNode = (node2, doc2) => {
+    if (!node2 || !doc2 || !doc2.body) return "";
     const parts = [];
-    let current2 = node;
+    let current2 = node2;
     while (current2 && current2 !== doc2.body && current2 !== doc2) {
       const parent = current2.parentNode;
       if (!parent) break;
@@ -9978,12 +10025,12 @@
   var handlePlainText = async (doc2) => {
     let childNodes = Array.from(doc2.body.childNodes);
     for (let i = 0; i < childNodes.length; i++) {
-      let node = childNodes[i];
-      if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
+      let node2 = childNodes[i];
+      if (node2.nodeType === Node.TEXT_NODE && node2.textContent?.trim()) {
         let p = doc2.createElement("p");
-        p.textContent = node.textContent;
+        p.textContent = node2.textContent;
         p.style.display = "inline";
-        doc2.body.replaceChild(p, node);
+        doc2.body.replaceChild(p, node2);
       }
     }
   };
@@ -10435,14 +10482,14 @@
     let nodeList = Array.from(
       doc2.body.querySelectorAll("span, p, div, h1, h2, h3, h4, h5, h6 ")
     );
-    let nodes = nodeList.filter((node) => {
-      const content = node.textContent || "";
+    let nodes = nodeList.filter((node2) => {
+      const content = node2.textContent || "";
       return content.trim() && content.toLowerCase().indexOf(text.toLowerCase()) > -1;
     });
-    nodes.forEach((node) => {
-      const processNode = (node2) => {
-        if (node2.nodeType === Node.TEXT_NODE) {
-          const content = node2.textContent || "";
+    nodes.forEach((node2) => {
+      const processNode = (node3) => {
+        if (node3.nodeType === Node.TEXT_NODE) {
+          const content = node3.textContent || "";
           let lowerContent = content.toLowerCase();
           let lowerText = text.toLowerCase();
           let processedContent = content;
@@ -10479,22 +10526,22 @@
                 doc2.createTextNode(content.substring(lastEnd))
               );
             }
-            node2.parentNode?.replaceChild(fragment, node2);
+            node3.parentNode?.replaceChild(fragment, node3);
             return true;
           }
         }
         return false;
       };
-      const walkAndProcess = (node2) => {
-        let hasReplaced = processNode(node2);
+      const walkAndProcess = (node3) => {
+        let hasReplaced = processNode(node3);
         if (!hasReplaced) {
-          const childNodes = Array.from(node2.childNodes);
+          const childNodes = Array.from(node3.childNodes);
           for (const child of childNodes) {
             walkAndProcess(child);
           }
         }
       };
-      walkAndProcess(node);
+      walkAndProcess(node2);
     });
   };
   var handleHighlightAudioNode = (text, style, doc2, element, readerMode) => {
@@ -10512,14 +10559,14 @@
     });
     if (!text.trim()) return;
     let nodeList = getBlockElement(doc2.body);
-    let nodes = nodeList.filter((node) => {
-      const content = node.textContent || "";
+    let nodes = nodeList.filter((node2) => {
+      const content = node2.textContent || "";
       return content.trim() && content.indexOf(text) > -1;
     });
     if (nodes.length > 0) {
-      const processNode = (node) => {
-        if (node.nodeType === Node.TEXT_NODE) {
-          const content = node.textContent || "";
+      const processNode = (node2) => {
+        if (node2.nodeType === Node.TEXT_NODE) {
+          const content = node2.textContent || "";
           const index = content.indexOf(text);
           if (index > -1) {
             const before2 = content.substring(0, index);
@@ -10533,15 +10580,15 @@
             if (before2) fragment.appendChild(doc2.createTextNode(before2));
             fragment.appendChild(highlightSpan);
             if (after2) fragment.appendChild(doc2.createTextNode(after2));
-            node.parentNode?.replaceChild(fragment, node);
+            node2.parentNode?.replaceChild(fragment, node2);
             return true;
           }
         }
         return false;
       };
-      const walkAndProcess = (node) => {
-        if (processNode(node)) return true;
-        const childNodes = Array.from(node.childNodes);
+      const walkAndProcess = (node2) => {
+        if (processNode(node2)) return true;
+        const childNodes = Array.from(node2.childNodes);
         for (const child of childNodes) {
           if (walkAndProcess(child)) return true;
         }
@@ -10782,18 +10829,18 @@
     let lastWasElement;
     let prevOffset = 0;
     let firstNode = true;
-    let i, node;
+    let i, node2;
     for (i = 0; i < nodes.length; i++) {
-      node = nodes[i];
-      if (node.nodeType === ELEMENT_NODE) {
+      node2 = nodes[i];
+      if (node2.nodeType === ELEMENT_NODE) {
         if (lastWasElement || firstNode) {
           count += 2;
           firstNode = false;
         } else {
           count++;
         }
-        if (n === node) {
-          if (node.tagName.toLowerCase() === `img`) {
+        if (n === node2) {
+          if (node2.tagName.toLowerCase() === `img`) {
             return { count, offset };
           } else {
             return { count };
@@ -10801,15 +10848,15 @@
         }
         prevOffset = 0;
         lastWasElement = true;
-      } else if (node?.nodeType === TEXT_NODE || node?.nodeType === CDATA_SECTION_NODE) {
+      } else if (node2?.nodeType === TEXT_NODE || node2?.nodeType === CDATA_SECTION_NODE) {
         if (lastWasElement || firstNode) {
           count++;
           firstNode = false;
         }
-        if (n === node) {
+        if (n === node2) {
           return { count, offset: offset + prevOffset };
         }
-        prevOffset += node.textContent.length;
+        prevOffset += node2.textContent.length;
         lastWasElement = false;
       } else {
         continue;
@@ -10929,28 +10976,28 @@
         }
       }
     }
-    static generatePart(node, offset, extra) {
+    static generatePart(node2, offset, extra) {
       void extra;
       let cfi = ``;
       let o;
-      while (node.parentNode) {
-        o = calcSiblingCount(node.parentNode.childNodes, node, offset);
+      while (node2.parentNode) {
+        o = calcSiblingCount(node2.parentNode.childNodes, node2, offset);
         if (!cfi && o.offset) cfi = `:` + o.offset;
-        cfi = `/` + o.count + (node.id ? `[` + cfiEscape(node.id) + `]` : ``) + cfi;
-        node = node.parentNode;
+        cfi = `/` + o.count + (node2.id ? `[` + cfiEscape(node2.id) + `]` : ``) + cfi;
+        node2 = node2.parentNode;
       }
       return cfi;
     }
-    static generate(node, offset, extra) {
+    static generate(node2, offset, extra) {
       let cfi;
-      if (Array.isArray(node)) {
+      if (Array.isArray(node2)) {
         const strs = [];
-        for (const o of node) {
+        for (const o of node2) {
           strs.push(this.generatePart(o.node, o.offset, extra));
         }
         cfi = strs.join(`!`);
       } else {
-        cfi = this.generatePart(node, offset, extra);
+        cfi = this.generatePart(node2, offset, extra);
       }
       if (extra) cfi += extra;
       return `epubcfi(` + cfi + `)`;
@@ -11373,16 +11420,16 @@
         return o;
       }
     }
-    isTextNode(node) {
-      if (!node) return false;
-      if (node.nodeType === TEXT_NODE || node.nodeType === CDATA_SECTION_NODE) {
+    isTextNode(node2) {
+      if (!node2) return false;
+      if (node2.nodeType === TEXT_NODE || node2.nodeType === CDATA_SECTION_NODE) {
         return true;
       }
       return false;
     }
     // Use a Text Location Assertion to correct and offset
-    correctOffset(dom, node, offset, assertion) {
-      let curNode = node;
+    correctOffset(dom, node2, offset, assertion) {
+      let curNode = node2;
       let matchStr;
       if (typeof assertion === `string`) {
         matchStr = this.decodeEntities(dom, assertion);
@@ -11391,8 +11438,8 @@
         assertion.post = this.decodeEntities(dom, assertion.post);
         matchStr = assertion.pre + `.` + assertion.post;
       }
-      if (!this.isTextNode(node)) {
-        return { node, offset: 0 };
+      if (!this.isTextNode(node2)) {
+        return { node: node2, offset: 0 };
       }
       while (this.isTextNode(curNode.previousSibling)) {
         curNode = curNode.previousSibling;
@@ -11412,19 +11459,19 @@
       }
       const matchOffset = assertion.pre ? assertion.pre.length : 0;
       const m = matchAll(txt, new RegExp(matchStr), matchOffset);
-      if (!m.length) return { node, offset };
+      if (!m.length) return { node: node2, offset };
       let newOffset = closest(m, offset);
-      if (curNode === node && newOffset === offset) {
-        return { node, offset };
+      if (curNode === node2 && newOffset === offset) {
+        return { node: node2, offset };
       }
       i = 0;
       curNode = startNode;
       while (newOffset >= nodeLengths[i]) {
         newOffset -= nodeLengths[i];
-        if (newOffset < 0) return { node, offset };
+        if (newOffset < 0) return { node: node2, offset };
         const nodeOffsets = [];
         if (!curNode.nextSibling || i + 1 >= nodeOffsets.length)
-          return { node, offset };
+          return { node: node2, offset };
         i++;
         curNode = curNode.nextSibling;
       }
@@ -11447,21 +11494,21 @@
       }
       startNode = dom;
       if (!startNode) throw new Error(`Document incompatible with CFIs`);
-      let node = startNode;
+      let node2 = startNode;
       let startFrom = 0;
       let i;
       let subpart;
       for (i = subparts.length - 1; i >= 0; i--) {
         subpart = subparts[i];
-        if (!opts.ignoreIDs && subpart.nodeID && (node = dom.getElementById(subpart.nodeID))) {
+        if (!opts.ignoreIDs && subpart.nodeID && (node2 = dom.getElementById(subpart.nodeID))) {
           startFrom = i + 1;
           break;
         }
       }
-      if (!node) {
-        node = startNode;
+      if (!node2) {
+        node2 = startNode;
       }
-      let o = { node, offset: 0 };
+      let o = { node: node2, offset: 0 };
       for (i = startFrom; i < subparts.length; i++) {
         subpart = subparts[i];
         if (subpart) {
@@ -11500,32 +11547,32 @@
       const subparts = this.parts[index];
       if (!subparts) throw new Error(`Missing CFI part for index: ` + index);
       const o = this.resolveNode(index, subparts, dom, opts);
-      let node = o.node;
-      const tagName = node.tagName.toLowerCase();
+      let node2 = o.node;
+      const tagName = node2.tagName.toLowerCase();
       if (tagName === `itemref` && // @ts-ignore
-      node.parentNode.tagName.toLowerCase() === `spine`) {
-        const idref = node.getAttribute(`idref`);
+      node2.parentNode.tagName.toLowerCase() === `spine`) {
+        const idref = node2.getAttribute(`idref`);
         if (!idref) throw new Error(`Referenced node had not 'idref' attribute`);
-        node = dom.getElementById(idref);
-        if (!node) throw new Error(`Specified node is missing from manifest`);
-        const href = node.getAttribute(`href`);
+        node2 = dom.getElementById(idref);
+        if (!node2) throw new Error(`Specified node is missing from manifest`);
+        const href = node2.getAttribute(`href`);
         if (!href) throw new Error(`Manifest item is missing href attribute`);
         return href;
       }
       if (tagName === `iframe` || tagName === `embed`) {
-        const src = node.getAttribute(`src`);
+        const src = node2.getAttribute(`src`);
         if (!src)
           throw new Error(tagName + ` element is missing 'src' attribute`);
         return src;
       }
       if (tagName === `object`) {
-        const data = node.getAttribute(`data`);
+        const data = node2.getAttribute(`data`);
         if (!data)
           throw new Error(tagName + ` element is missing 'data' attribute`);
         return data;
       }
       if (tagName === `image` || tagName === `use`) {
-        const href = node.getAttribute(`xlink:href`);
+        const href = node2.getAttribute(`xlink:href`);
         if (!href)
           throw new Error(tagName + ` element is missing 'xlink:href' attribute`);
         return href;
@@ -11871,8 +11918,8 @@
       nativeRange.commonAncestorContainer,
       NodeFilter.SHOW_TEXT,
       {
-        acceptNode: (node) => {
-          return nativeRange.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        acceptNode: (node2) => {
+          return nativeRange.intersectsNode(node2) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
         }
       }
     );
@@ -12085,8 +12132,8 @@
       rootElement || doc2.body,
       NodeFilter.SHOW_TEXT,
       {
-        acceptNode: (node) => {
-          let parent = node.parentElement;
+        acceptNode: (node2) => {
+          let parent = node2.parentElement;
           while (parent) {
             const tag = parent.tagName;
             if (tag === "SCRIPT" || tag === "STYLE" || tag === "RUBY" || parent.classList.contains("kookit-note") || parent.classList.contains("kookit-word-def") || parent.classList.contains("kookit-text-rule-replace") || parent.classList.contains("kookit-text-rule-delete") || parent.classList.contains("kookit-note-tooltip") || parent.classList.contains("kookit-word-tooltip")) {
@@ -15450,9 +15497,9 @@
       if (chapterHref && chapterHref.startsWith("kindle")) {
         let result2 = await this.book.resolveHref(chapterHref);
         if (result2.anchor) {
-          let node = result2.anchor(doc2);
-          if (node) {
-            await this.goToNode(node);
+          let node2 = result2.anchor(doc2);
+          if (node2) {
+            await this.goToNode(node2);
           }
         }
       }
@@ -15504,10 +15551,10 @@
         if (!doc3) {
           return;
         }
-        const { node, offset } = cfiInfo.resolve(doc3, {});
-        if (node) {
+        const { node: node2, offset } = cfiInfo.resolve(doc3, {});
+        if (node2) {
           let element = null;
-          let currentNode = node;
+          let currentNode = node2;
           while (currentNode) {
             const temp = currentNode;
             if (temp.tagName && "h1,h2,h3,h4,h5,h6,p,div,ul,dl,ol,pre,li,dt,dd,blockquote,address,kookitmarker".indexOf(
@@ -15556,15 +15603,15 @@
       if (!iframe) return null;
       return iframe;
     }
-    async goToNode(node) {
+    async goToNode(node2) {
       let doc2 = this.getDocument();
       if (!doc2) {
         return;
       }
-      if (!node) {
+      if (!node2) {
         return;
       }
-      let targetNode = getCloestBlock(node, this.element, this.readerMode);
+      let targetNode = getCloestBlock(node2, this.element, this.readerMode);
       let left = targetNode ? getActualOffsetLeft(targetNode) - convertStyleNum(
         targetNode.marginLeft || parseFloat(getComputedStyle(targetNode).marginLeft)
       ) : 0;
@@ -15605,8 +15652,8 @@
       if (!doc2) return;
       let newXpath = xpath.replace(/\/body\/DocFragment\[\d+\]/, "");
       newXpath = newXpath.split("/text()")[0];
-      const node = resolveXPath(newXpath, doc2);
-      await this.goToNode(node);
+      const node2 = resolveXPath(newXpath, doc2);
+      await this.goToNode(node2);
       import_rangy_core3.default.init();
       await this.record();
       this.trigger("rendered");
@@ -16458,9 +16505,9 @@
         }
         let currentPosition = this.getPosition();
         if (result2.index === parseInt(currentPosition.chapterDocIndex)) {
-          let node = result2.anchor(doc2);
-          if (node) {
-            href = "#" + node.getAttribute("id");
+          let node2 = result2.anchor(doc2);
+          if (node2) {
+            href = "#" + node2.getAttribute("id");
           }
         } else {
           if (isElementFootnote(event.target)) {
@@ -16468,10 +16515,10 @@
               await this.chapterDocList[result2.index].text.load()
             ).then((r) => r.blob());
             let chapterText = await blob.text();
-            let node = result2.anchor(
+            let node2 = result2.anchor(
               new DOMParser().parseFromString(chapterText, "text/html")
             );
-            if (!node) {
+            if (!node2) {
               return { handled: false };
             }
             return {
@@ -16479,7 +16526,7 @@
               isShowMenu: true,
               isJump: false,
               href: "",
-              node
+              node: node2
             };
           }
           return { handled: true };
@@ -16498,10 +16545,10 @@
         return { handled: true, redirectChapter: true };
       } else if (href && href.indexOf("#") > -1) {
         let id = href.split("#").reverse()[0];
-        let node = doc2.body.querySelector("#" + CSS.escape(id));
+        let node2 = doc2.body.querySelector("#" + CSS.escape(id));
         let rect = event.target.getBoundingClientRect();
         let isJump = false;
-        if (!node || event.target === node || node.contains(event.target)) {
+        if (!node2 || event.target === node2 || node2.contains(event.target)) {
           if (href.indexOf("#") !== 0) {
             while (href.startsWith(".")) {
               href = href.substring(1);
@@ -16513,8 +16560,8 @@
                 await this.chapterDocList[chapterInfo.index].text.load()
               ).then((r) => r.blob());
               let chapterText = await blob.text();
-              node = new DOMParser().parseFromString(chapterText, "text/html").body.querySelector("#" + CSS.escape(id));
-              if (!node) {
+              node2 = new DOMParser().parseFromString(chapterText, "text/html").body.querySelector("#" + CSS.escape(id));
+              if (!node2) {
                 return { handled: false };
               }
               return {
@@ -16522,7 +16569,7 @@
                 isShowMenu: true,
                 isJump: false,
                 href: "",
-                node
+                node: node2
               };
             } else {
               await this.goToChapter(
@@ -16532,12 +16579,12 @@
               );
             }
           }
-          node = doc2.body.querySelector("#" + CSS.escape(id));
-          if (!node) {
+          node2 = doc2.body.querySelector("#" + CSS.escape(id));
+          if (!node2) {
             return { handled: false };
           }
           isJump = true;
-          await this.goToNode(node);
+          await this.goToNode(node2);
         }
         if (isElementFootnote(event.target)) {
           return {
@@ -16545,7 +16592,7 @@
             isShowMenu: true,
             isJump,
             href,
-            node
+            node: node2
           };
         }
         return { handled: true };
@@ -16561,16 +16608,16 @@
       }
       return { handled: false };
     }
-    async getFootnoteContent(node) {
-      if (isElementFootnote(node) || !node.textContent.trim() || node.tagName === "A") {
-        let next = node.nextSibling;
-        let content = node.textContent;
-        while (next && (next.tagName !== node.tagName || !content.trim())) {
+    async getFootnoteContent(node2) {
+      if (isElementFootnote(node2) || !node2.textContent.trim() || node2.tagName === "A") {
+        let next = node2.nextSibling;
+        let content = node2.textContent;
+        while (next && (next.tagName !== node2.tagName || !content.trim())) {
           content += next.textContent;
           next = next.nextSibling;
         }
         if (!content.trim() || isContentFootnote(content)) {
-          let candidate = node.parentNode;
+          let candidate = node2.parentNode;
           while (candidate && candidate.tagName !== "BODY") {
             const candidateText = candidate.textContent || "";
             if (candidateText.trim() && !isContentFootnote(candidateText)) {
@@ -16581,17 +16628,17 @@
           if (!candidate) {
             return { handled: false };
           }
-          node = candidate;
+          node2 = candidate;
         } else if (content.trim() && content.trim().length <= 3e3) {
-          node = document.createElement("div");
-          node.innerHTML = content;
+          node2 = document.createElement("div");
+          node2.innerHTML = content;
         }
       }
-      let htmlContent = node.innerHTML;
-      if (!node.textContent.trim()) {
+      let htmlContent = node2.innerHTML;
+      if (!node2.textContent.trim()) {
         return { handled: false };
       }
-      if (node.textContent.trim() && node.textContent.trim().length > 3e3) {
+      if (node2.textContent.trim() && node2.textContent.trim().length > 3e3) {
         return { handled: false };
       }
       htmlContent = await processHtml(htmlContent);
@@ -16930,17 +16977,17 @@
   var collapse = (x, toEnd) => typeof x === "string" ? toString2(collapse(parse(x), toEnd)) : x.parent ? concatArrays(x.parent, x[toEnd ? "end" : "start"]) : x;
   var isTextNode = ({ nodeType }) => nodeType === 3 || nodeType === 4;
   var isElementNode = ({ nodeType }) => nodeType === 1;
-  var indexChildNodes = (node) => {
-    const nodes = Array.from(node.childNodes).filter((node2) => isTextNode(node2) || isElementNode(node2)).reduce((arr, node2) => {
+  var indexChildNodes = (node2) => {
+    const nodes = Array.from(node2.childNodes).filter((node3) => isTextNode(node3) || isElementNode(node3)).reduce((arr, node3) => {
       let last2 = arr[arr.length - 1];
-      if (!last2) arr.push(node2);
-      else if (isTextNode(node2)) {
-        if (Array.isArray(last2)) last2.push(node2);
-        else if (isTextNode(last2)) arr[arr.length - 1] = [last2, node2];
-        else arr.push(node2);
+      if (!last2) arr.push(node3);
+      else if (isTextNode(node3)) {
+        if (Array.isArray(last2)) last2.push(node3);
+        else if (isTextNode(last2)) arr[arr.length - 1] = [last2, node3];
+        else arr.push(node3);
       } else {
-        if (isElementNode(last2)) arr.push(null, node2);
-        else arr.push(node2);
+        if (isElementNode(last2)) arr.push(null, node3);
+        else arr.push(node3);
       }
       return arr;
     }, []);
@@ -16950,41 +16997,41 @@
     nodes.push("after");
     return nodes;
   };
-  var getNodeByIndex = (node, index) => node ? indexChildNodes(node)[index] : null;
-  var partsToNode = (node, parts) => {
+  var getNodeByIndex = (node2, index) => node2 ? indexChildNodes(node2)[index] : null;
+  var partsToNode = (node2, parts) => {
     const { id } = parts[parts.length - 1];
     if (id) {
-      const el = node.ownerDocument.getElementById(id);
+      const el = node2.ownerDocument.getElementById(id);
       if (el) return { node: el, offset: 0 };
     }
     for (const { index } of parts) {
-      const newNode = getNodeByIndex(node, index);
-      if (newNode === "first") return { node: node.firstChild ?? node };
-      if (newNode === "last") return { node: node.lastChild ?? node };
-      if (newNode === "before") return { node, before: true };
-      if (newNode === "after") return { node, after: true };
-      node = newNode;
+      const newNode = getNodeByIndex(node2, index);
+      if (newNode === "first") return { node: node2.firstChild ?? node2 };
+      if (newNode === "last") return { node: node2.lastChild ?? node2 };
+      if (newNode === "before") return { node: node2, before: true };
+      if (newNode === "after") return { node: node2, after: true };
+      node2 = newNode;
     }
     const { offset } = parts[parts.length - 1];
-    if (!Array.isArray(node)) return { node, offset };
+    if (!Array.isArray(node2)) return { node: node2, offset };
     let sum = 0;
-    for (const n of node) {
+    for (const n of node2) {
       const { length } = n.nodeValue;
       if (sum + length >= offset) return { node: n, offset: offset - sum };
       sum += length;
     }
   };
-  var nodeToParts = (node, offset) => {
-    const { parentNode, id } = node;
+  var nodeToParts = (node2, offset) => {
+    const { parentNode, id } = node2;
     const indexed = indexChildNodes(parentNode);
     const index = indexed.findIndex(
-      (x) => Array.isArray(x) ? x.some((x2) => x2 === node) : x === node
+      (x) => Array.isArray(x) ? x.some((x2) => x2 === node2) : x === node2
     );
     const chunk2 = indexed[index];
     if (Array.isArray(chunk2)) {
       let sum = 0;
       for (const x of chunk2) {
-        if (x === node) {
+        if (x === node2) {
           sum += offset;
           break;
         } else sum += x.nodeValue.length;
@@ -16992,7 +17039,7 @@
       offset = sum;
     }
     const part = { id, index, offset };
-    return parentNode !== node.ownerDocument.documentElement ? nodeToParts(parentNode).concat(part) : [part];
+    return parentNode !== node2.ownerDocument.documentElement ? nodeToParts(parentNode).concat(part) : [part];
   };
   var toRange = (doc2, parts) => {
     const startParts = collapse(parts);
@@ -17013,9 +17060,9 @@
     const results = [];
     const { parentNode } = elements[0];
     const parts = nodeToParts(parentNode);
-    for (const [index, node] of indexChildNodes(parentNode).entries()) {
+    for (const [index, node2] of indexChildNodes(parentNode).entries()) {
       const el = elements[results.length];
-      if (node === el)
+      if (node2 === el)
         results.push(toString2([parts.concat({ id: el.id, index })]));
     }
     return results;
@@ -17843,19 +17890,19 @@
     const isHTML = /\.(?:xhtml|html)$/i.test(name);
     const doc2 = new DOMParser().parseFromString(text, isHTML ? "application/xhtml+xml" : "application/xml");
     if (doc2.querySelector("parsererror")) throw Error("Invalid publication XML");
-    for (const node of [...doc2.querySelectorAll("*")]) {
-      const tag = node.localName.toLowerCase();
-      if (["script", "iframe", "object", "embed", "form", "input", "button", "base", "svg", "math", "audio", "video"].includes(tag) || tag === "meta" && node.hasAttribute("http-equiv")) {
-        node.remove();
+    for (const node2 of [...doc2.querySelectorAll("*")]) {
+      const tag = node2.localName.toLowerCase();
+      if (["script", "iframe", "object", "embed", "form", "input", "button", "base", "svg", "math", "audio", "video"].includes(tag) || tag === "meta" && node2.hasAttribute("http-equiv")) {
+        node2.remove();
         continue;
       }
-      for (const attr of [...node.attributes]) {
+      for (const attr of [...node2.attributes]) {
         const key = attr.localName.toLowerCase();
-        if (key.startsWith("on") || ["srcdoc", "action", "formaction", "srcset"].includes(key)) node.removeAttributeNode(attr);
+        if (key.startsWith("on") || ["srcdoc", "action", "formaction", "srcset"].includes(key)) node2.removeAttributeNode(attr);
         else if (key === "style") attr.value = css(attr.value);
-        else if (["href", "src", "poster", "data", "full-path"].includes(key) && !safeReference(attr.value)) node.removeAttributeNode(attr);
+        else if (["href", "src", "poster", "data", "full-path"].includes(key) && !safeReference(attr.value)) node2.removeAttributeNode(attr);
       }
-      if (tag === "style") node.textContent = css(node.textContent);
+      if (tag === "style") node2.textContent = css(node2.textContent);
     }
     return new XMLSerializer().serializeToString(doc2);
   }
@@ -17992,13 +18039,13 @@
   function canonical() {
     const root2 = doc().body, nodes = [];
     let text = "";
-    const walker = doc().createTreeWalker(root2, NodeFilter.SHOW_TEXT, { acceptNode(node) {
-      return node.parentElement?.closest("rt,rp,script,style,noscript") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+    const walker = doc().createTreeWalker(root2, NodeFilter.SHOW_TEXT, { acceptNode(node2) {
+      return node2.parentElement?.closest("rt,rp,script,style,noscript") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
     } });
     while (walker.nextNode()) {
-      const node = walker.currentNode;
-      nodes.push({ node, start: text.length, end: text.length + node.length });
-      text += node.data;
+      const node2 = walker.currentNode;
+      nodes.push({ node: node2, start: text.length, end: text.length + node2.length });
+      text += node2.data;
     }
     return { text, nodes };
   }
@@ -18129,8 +18176,8 @@
   async function navigate(anchor) {
     await chapter(anchor.spineIndex, anchor.vertical);
     const range2 = rangeFor(anchor);
-    const node = range2.startContainer.parentElement;
-    await renderer.goToNode(node);
+    const node2 = range2.startContainer.parentElement;
+    await renderer.goToNode(node2);
     const selection2 = doc().getSelection();
     selection2.removeAllRanges();
     selection2.addRange(range2);

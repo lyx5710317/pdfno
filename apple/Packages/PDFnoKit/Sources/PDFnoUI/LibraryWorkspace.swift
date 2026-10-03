@@ -45,6 +45,7 @@ public struct LibraryWorkspace: View {
                     }
                 }
                 .onChange(of: selectedBookID) { _, id in
+                    guard id != displayedBookID else { return }
                     if let book = model.books.first(where: { $0.id == id }) {
                         Task { await model.open(book); if model.reader.book?.id == book.id { compactColumn = .detail } }
                     } else if let book = model.comicBooks.first(where: { $0.id == id }) {
@@ -70,7 +71,7 @@ public struct LibraryWorkspace: View {
             .navigationSplitViewColumnWidth(min: 220, ideal: 270, max: 360)
         } detail: {
             #if os(macOS)
-            if model.readingComic { ComicWorkspace(session: model.comic) }
+            if model.readingComic { ComicWorkspace(session: model.comic, close: { model.closeComic() }) }
             else if model.readingEPUB { EPUBWorkspace(model: model, session: model.epub) }
             else { ReaderWorkspace(model: model, session: model.reader) }
             #else
@@ -78,6 +79,7 @@ public struct LibraryWorkspace: View {
             #endif
         }
         .task { await model.load() }
+        .onChange(of: displayedBookID) { _, id in selectedBookID = id }
         .fileImporter(isPresented: $importer, allowedContentTypes: importTypes) { result in
             switch result {
             case .success(let url): Task { await model.importFile(url); if model.reader.book != nil || model.readingEPUB || model.readingComic { compactColumn = .detail } }
@@ -107,6 +109,13 @@ public struct LibraryWorkspace: View {
         #else
         "导入 PDF"
         #endif
+    }
+    private var displayedBookID: UUID? {
+        #if os(macOS)
+        if model.readingComic { return model.comic.book?.id }
+        if model.readingEPUB { return model.epub.book?.id }
+        #endif
+        return model.reader.book?.id
     }
     private var importTypes: [UTType] {
         #if os(macOS)

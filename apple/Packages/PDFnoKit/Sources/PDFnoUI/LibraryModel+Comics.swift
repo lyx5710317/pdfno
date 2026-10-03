@@ -4,6 +4,13 @@ import PDFnoDomain
 import PDFnoServices
 
 extension LibraryModel {
+    func closeComic() {
+        learning.cancel()
+        #if os(macOS)
+        comic.close()
+        #endif
+        readingComic = false
+    }
     func importComic(_ url: URL) async {
         learning.cancel()
         #if os(macOS)

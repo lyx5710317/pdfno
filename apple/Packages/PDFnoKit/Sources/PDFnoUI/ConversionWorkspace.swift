@@ -6,6 +6,17 @@ import UniformTypeIdentifiers
 import PDFnoDomain
 import PDFnoServices
 
+#if DEBUG
+/// A checkpoint in an isolated UI fixture; still delegates successful work to the real local adapter.
+private struct CancelableConversionUITestAdapter: DocumentConversionAdapter {
+    var capabilities: [ConversionCapability] { DOCXTextConversionAdapter().capabilities }
+    func convert(_ source: Data, to output: ConversionFormat, progress: @Sendable (ConversionPhase) -> Void) throws -> ConvertedDocument {
+        progress(.converting)
+        for _ in 0..<500 { try Task.checkCancellation(); Thread.sleep(forTimeInterval: 0.02) }
+        return try DOCXTextConversionAdapter().convert(source, to: output, progress: progress)
+    }
+}
+#endif
 @MainActor
 final class ConversionModel: ObservableObject {
     @Published var source: URL?
@@ -15,11 +26,23 @@ final class ConversionModel: ObservableObject {
     @Published private(set) var phase: ConversionPhase = .reading
     @Published private(set) var result: ConversionResult?
     @Published private(set) var status = "选择 DOCX，再选择输出格式和保存位置。"
-    private let service = DocumentConversionService()
+    private let service: DocumentConversionService
+    let cancellationFixture: Bool
     private var task: Task<Void, Never>?
     private var generation = UUID()
     private var savePanel: NSSavePanel?
     var isBusy: Bool { isRunning || choosingDestination }
+
+    init() {
+        #if DEBUG
+        if let token = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"], UUID(uuidString: token) != nil,
+           ProcessInfo.processInfo.environment["PDFNO_UI_TEST_CONVERSION"] == "cancellation-checkpoint" {
+            service = DocumentConversionService(adapters: [CancelableConversionUITestAdapter()]); cancellationFixture = true
+        } else { service = DocumentConversionService(); cancellationFixture = false }
+        #else
+        service = DocumentConversionService(); cancellationFixture = false
+        #endif
+    }
 
     func select(_ url: URL) {
         guard !isBusy else { return }
@@ -79,6 +102,7 @@ struct ConversionWorkspace: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text("DOCX 正文转换").font(.title2.bold())
+                if model.cancellationFixture { Text("隔离自动测试：本地文件服务取消检查点").accessibilityIdentifier("conversion-fixture") }
                 Text("本地导出 UTF-8 TXT 或简化 HTML，最多 20 MiB。转换结果是正文文字副本。").foregroundStyle(.secondary)
                 HStack {
                     Button("选择 DOCX…") { importer = true }.disabled(model.isBusy).accessibilityIdentifier("conversion-source")
@@ -87,9 +111,9 @@ struct ConversionWorkspace: View {
                 Picker("输出格式", selection: $model.output) {
                     Text(ConversionFormat.plainText.title).tag(ConversionFormat.plainText)
                     Text(ConversionFormat.html.title).tag(ConversionFormat.html)
-                }.pickerStyle(.segmented).disabled(model.isBusy)
+                }.pickerStyle(.segmented).disabled(model.isBusy).accessibilityIdentifier("conversion-format")
                 VStack(alignment: .leading, spacing: 8) {
-                    ForEach(ConversionWarning.allCases, id: \.rawValue) { Text($0.message).font(.callout).foregroundStyle(.secondary) }
+                    ForEach(ConversionWarning.allCases, id: \.rawValue) { Text($0.message).font(.callout).foregroundStyle(.secondary).accessibilityIdentifier("conversion-warning-" + $0.rawValue) }
                 }
                 if model.isRunning {
                     ProgressView(model.phase.title, value: model.phase.fraction)
@@ -107,7 +131,7 @@ struct ConversionWorkspace: View {
                         .accessibilityIdentifier("conversion-export")
                     if model.isRunning { Button("取消转换") { model.cancel() }.accessibilityIdentifier("conversion-cancel") }
                     Spacer()
-                    Button("完成") { dismiss() }.disabled(model.isBusy)
+                    Button("完成") { dismiss() }.disabled(model.isBusy).accessibilityIdentifier("conversion-close")
                 }
             }.padding(24)
             .navigationTitle("格式转换")

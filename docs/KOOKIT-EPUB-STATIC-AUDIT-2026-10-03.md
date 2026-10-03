@@ -6,6 +6,8 @@
 
 现有 [v0.3 主规格](PDFno_AI_Development_Spec_v0.3_Native.md)、[候选比较](EPUB-ENGINE-AUDIT.md)、[实施状态](NATIVE-TASKS.md)和[验证记录](VALIDATION.md)已同步当前范围与验证状态。本文保留明确日期，源文件证据不被当前实施结论覆盖。
 
+2026-10-03后续安全修复将实际Rangy1.3.0升级至官方1.3.2，当前主规格／lock／bundle／通知已更新。下文1.3.0是本审计基线的历史事实，不能当当前已批准依赖。见[Rangy修复证据](RANGY-SECURITY-2026-10-03.md)。
+
 ## 1 核验边界与可复现证据
 
 开始核验时 Git HEAD 为上述提交、没有跟踪文件改动，已有未跟踪 Xcode workspace 元数据保留。补证授权后实现了 Mac EPUB 源码／测试／文档；不改变用户元数据、账号、权限、CloudKit 容器或本机记忆，不关机。提交／CI 结果见最终交付及 VALIDATION。

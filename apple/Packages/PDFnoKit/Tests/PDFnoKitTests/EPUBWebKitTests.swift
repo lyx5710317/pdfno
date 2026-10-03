@@ -38,6 +38,11 @@ struct EPUBWebKitTests {
         let selectionDeadline = Date().addingTimeInterval(3)
         while session.selection == nil && Date() < selectionDeadline { try await Task.sleep(for: .milliseconds(50)) }
         #expect(session.selection?.quote == "window")
+        let selected = try #require(session.selection), book = try #require(session.book)
+        #expect(await session.command("notes", notes: [EPUBNote(bookID: book.id, anchor: selected, userText: "Original highlight regression")]))
+        let projected = try await probe(session, "const d=document.querySelector('iframe').contentDocument;const h=d.defaultView.CSS?.highlights?.get('pdfno-notes');return JSON.stringify({count:h?.size??d.querySelectorAll('[data-pdfno-overlay]').length,quote:h?[...h][0]?.toString():d.getSelection().toString()});")
+        #expect(projected.contains("\"count\":1")); #expect(projected.contains("\"quote\":\"window\""))
+        #expect(await session.command("navigate", anchor: selected))
         #expect(await session.command("chapter", index: 1))
         #expect(await session.command("vertical"))
         let ruby = try await probe(session, "const d=document.querySelector('iframe').contentDocument; return JSON.stringify({ruby:d.querySelector('rt')?.textContent,mode:getComputedStyle(d.documentElement).writingMode});")
