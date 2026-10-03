@@ -488,7 +488,7 @@ URLSession delegate 默认停止带认证重定向；受允许适配需检查完
 
 全页原文预览、页号、每段、固定官方receiver/model、费用未知及限制先展示。页面模块使用独立会话临时key和最多6次实际提交额度，失败／取消消费、关闭重开／换页不重置，不借用选文或短句key／三次额度。输入、开窗或确认不发送；用户对完整计划确认后亲自点击一次开始，先检查剩余额度足够整计划，逐段串行，每段1024输出tokens（含JSON／回显）／30秒／64KiB响应。最大6144输出tokens／180秒请求期限预算不是人民币或墙钟保证；不自动重试、恢复、fallback或扩范围。
 
-沿现有coordinator／严格DeepSeek adapter，但新`deepseek-pdf-page-1`提示要求完整翻译当前段；选文prompt字节与默认三次额度不变。仅该段sourceText/task及固定指令发送，其他页／完整本地页快照／笔记／书名／上下文不随请求外发。响应须完整stop、单assistant、无tools、严格schema与逐scalar引文相同；第一个失败停止剩余段，成功段保留可见但整计划明确不完整。取消／关闭／换书清除临时输入key和任务generation，迟到结果不能显示；已提交请求可能收费。每个已完成段只能用户明确保存，用户笔记正文与AI输出仍分字段。
+沿现有coordinator／严格DeepSeek adapter，但新`deepseek-pdf-page-1`提示要求完整翻译当前段；选文prompt字节与默认三次额度不变。仅该段sourceText/task及固定指令发送，其他页／完整本地页快照／笔记／书名／上下文不随请求外发。响应须完整stop、单assistant、无tools、严格schema与逐scalar引文相同；第一个失败停止剩余段，成功段保留可见但整计划明确不完整。取消／关闭／换书清除临时输入key和任务generation，迟到结果不能显示；已提交请求可能收费。每个已完成段只能用户明确保存，用户笔记正文与AI输出仍分字段。保存反馈在该段按钮旁展示正在保存／已保存／安全错误；持久化失败不能显示成功。隔离UI验收须核对实际输入、手动动作、同一测试书库learning磁盘记录及重启恢复，不能仅凭按钮可点击或模型回归宣称完成。
 
 `AISelectionAnchor.pdfPage`／`PDFPageTextAnchor`保存本地完整页文本及edition/hash／物理页／`pdfkit-page-text-1`／checked UTF-16 span，只有单段引文进入请求。执行／保存验证当前book/session／完整页原文，持久回跳重新验证原件与页文本后定位该物理页，不虚构几何高亮。学习schema1增加精确键白名单、page prompt/provider/kind校验，旧选文笔记仍可读；旧应用不能读取新增page anchor，降级必须保留完整learning manifest/backup/原件与用户笔记，恢复兼容副本，不静默删除新笔记。Word／漫画活跃时禁止使用隐藏PDF／EPUB来源；所有格式切换取消两种学习任务。
 

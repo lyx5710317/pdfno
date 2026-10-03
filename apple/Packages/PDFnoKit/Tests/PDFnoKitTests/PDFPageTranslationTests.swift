@@ -146,6 +146,41 @@ struct PDFPageTranslationTests {
         let restartedPage = PDFPageTranslationModel(transport: transport)
         #expect(restartedPage.temporarySecret.isEmpty)
     }
+    @Test @MainActor func realLibraryPageSourceManualSaveReloadStaleRefusalAndDiskFailure() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Page-Library-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = LibraryModel(root: root), transport = PageTransport()
+        await library.load()
+        let data = try originalSample()
+        let book = try await library.repository.importPDF(data, filename: "original.pdf", pageCount: 2)
+        try library.reader.open(data: data, book: book)
+        let model = PDFPageTranslationModel(transport: transport)
+        model.prepare(try library.reader.currentPageTextSnapshot())
+        model.temporarySecret = pageFakeKey
+        model.start(confirmed: true, sourceIsCurrent: library.isCurrentAISource)
+        try await settle(model)
+        let result = try #require(model.segments.first?.result)
+        #expect(library.isCurrentAISource(result.source))
+        model.segments[0].userText = "Original native source page note"
+        #expect(await library.learning.savePageResult(result, userText: model.segments[0].userText, sourceIsCurrent: library.isCurrentAISource))
+        #expect(library.learning.notes.count == 1 && library.learning.notes[0].result.requestID == result.requestID)
+        let manifest = root.appendingPathComponent("learning-v1.json"), bytes = try Data(contentsOf: manifest)
+        let state = try AILearningRepository.decode(bytes)
+        #expect(state.notes.count == 1 && state.notes[0].userText == "Original native source page note")
+        #expect(state.notes[0].result == result && !String(decoding: bytes, as: UTF8.self).contains(pageFakeKey))
+        let restarted = LibraryModel(root: root); await restarted.load()
+        #expect(restarted.learning.notes == state.notes && !restarted.learning.hasSessionCredential)
+        try library.reader.open(data: data, book: book)
+        #expect(!library.isCurrentAISource(result.source))
+        #expect(!(await library.learning.savePageResult(result, userText: "stale edit", sourceIsCurrent: library.isCurrentAISource)))
+        #expect(try Data(contentsOf: manifest) == bytes)
+        let blocked = root.appendingPathComponent("original-regular-file")
+        try Data("Original disk failure fixture".utf8).write(to: blocked)
+        let failing = AILearningModel(root: blocked)
+        #expect(!(await failing.savePageResult(result, userText: "not written", sourceIsCurrent: { _ in true })))
+        #expect(failing.notes.isEmpty && failing.error != nil)
+        #expect(try Data(contentsOf: blocked) == Data("Original disk failure fixture".utf8))
+    }
     @Test @MainActor func canonicallyEquivalentChangedScalarSequenceDoesNotRetainOldPageResults() async throws {
         let transport = PageTransport(), model = PDFPageTranslationModel(transport: transport)
         let old = snapshot("e\u{301}\u{323}")

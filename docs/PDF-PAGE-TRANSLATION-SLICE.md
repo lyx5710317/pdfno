@@ -58,3 +58,7 @@ The coordinator has updated the complete native specification, task/validation o
 ## Coordinator integration
 
 The approved slice is now integrated with CBZ, finite DOCX export and the actual Mammoth Word reader. All import/open/close format transitions cancel both learning modules; currentness/preparation/source-return refuse active Word/comics, and DEBUG page fixtures preserve exclusive reader flags and busy guards. Selection limits/prompt bytes and independent3-attempt budgets remain. Combined local97 Swift/14 suites,11 Node and both builds passed; all three new actual app flows await the complete13-method final-SHA CI outcome reported by VALIDATION/delivery. No owner-app launch/key/service request occurred. Freeze after that gate for the separately requested whole-project audit.
+
+## Manual-save evidence refinement
+
+Per-segment saving/safe-error feedback sits beside its manual save button. The direct regression now uses real PDFKit plus the actual LibraryModel current-source predicate in a fresh injected root, decodes the persisted request/source/user note, reloads through a new model and proves unchanged bytes on stale-session refusal and safe disk-write failure. The complete UI method additionally verifies the actual original note input and private UUID learning manifest before its original restart/source-return assertions. The prior f961286 CI passed12/13 methods but did not save this page note; the precise action/binding/write cause is still under investigation, not a completed repair. Original13 methods and execution allowances remain.

@@ -9,7 +9,7 @@ struct PDFPageTranslationWorkspace: View {
     @ObservedObject var translation: PDFPageTranslationModel
     @ObservedObject var learning: AILearningModel
     @State private var confirmed = false
-    @State private var notice: String?
+    @State private var saveNotices: [UUID: String] = [:]
     var body: some View {
         NavigationStack {
             GeometryReader { geometry in
@@ -75,15 +75,18 @@ struct PDFPageTranslationWorkspace: View {
                                     let saved = learning.notes.contains(where: { $0.result.requestID == result.requestID })
                                     Button(saved ? "此段学习笔记已保存" : "保存此段到学习笔记") {
                                         let userText = segment.userText
+                                        saveNotices[result.requestID] = "正在保存此段学习笔记"
                                         Task {
-                                            notice = await learning.savePageResult(result, userText: userText, sourceIsCurrent: library.isCurrentAISource)
-                                                ? "学习笔记已保存 · 原文与 AI 结果和用户正文分别保留" : learning.error
+                                            saveNotices[result.requestID] = await learning.savePageResult(result, userText: userText, sourceIsCurrent: library.isCurrentAISource)
+                                                ? "学习笔记已保存 · 原文与 AI 结果和用户正文分别保留" : (learning.error ?? "学习笔记未保存")
                                         }
                                     }.disabled(saved).accessibilityIdentifier("page-save-\(segment.id)")
+                                    if let notice = saveNotices[result.requestID] {
+                                        Text(notice).accessibilityIdentifier("page-note-status-\(segment.id)")
+                                    }
                                 }
                             }.padding().background(.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
                         }
-                        if let notice { Text(notice).accessibilityIdentifier("page-note-status") }
                     }
                 }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
             }.accessibilityIdentifier("page-scroll")

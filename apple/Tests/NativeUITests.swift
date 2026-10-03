@@ -386,7 +386,8 @@ final class NativeUITests: XCTestCase {
         return local
     }
     @MainActor func testMacPDFWholePageOfflineConsentBilingualNotesAndSourceReturn() throws {
-        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        let app = XCUIApplication(), token = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
         app.launchEnvironment["PDFNO_UI_TEST_PAGE_FIXTURE"] = "multi"
         app.launch(); app.activate()
@@ -414,9 +415,30 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(textValue(app.staticTexts["page-original-2"].firstMatch).contains("line 18:"), "The final page text must remain in the whole-page scope")
         let note = app.descendants(matching: .any).matching(identifier: "page-user-note-0").firstMatch
         scrollPageElement(note, in: app); enterSearch("Original synthetic whole page note", into: note)
+        waitForText(["Original synthetic whole page note"], in: note, timeout: 5)
         let save = app.buttons["page-save-0"].firstMatch
-        scrollPageElement(save, in: app); press(save)
+        scrollPageElement(save, in: app)
+        print("Original whole-page save controls: note frame =", note.frame, "; save frame =", save.frame,
+              "; scroll frame =", app.scrollViews["page-scroll"].firstMatch.frame, "; enabled =", save.isEnabled)
+        press(save)
         waitForText(["已保存"], in: save, timeout: 5)
+        let feedback = app.staticTexts["page-note-status-0"].firstMatch
+        print("Original whole-page save return:", feedback.exists ? textValue(feedback) : "action-feedback-absent")
+        let store = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent("learning-v1.json")
+        if let data = try? Data(contentsOf: store), let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let notes = state["notes"] as? [[String: Any]] {
+            print("Original whole-page disk evidence: schema =", state["schemaVersion"] ?? "missing", "; notes =", notes.count)
+            XCTAssertEqual(notes.count, 1)
+            XCTAssertEqual(notes.first?["userText"] as? String, "Original synthetic whole page note")
+            let result = notes.first?["result"] as? [String: Any], source = result?["source"] as? [String: Any]
+            let anchor = source?["anchor"] as? [String: Any], page = anchor?["pdfPage"] as? [String: Any], payload = page?["_0"] as? [String: Any]
+            XCTAssertEqual(payload?["pageIndex"] as? Int, 0)
+            XCTAssertTrue((payload?["pageText"] as? String)?.contains("line 18:") == true)
+            XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("synthetic-reading-ui-credential"))
+        } else {
+            print("Original whole-page disk evidence: manifest exists =", FileManager.default.fileExists(atPath: store.path))
+            XCTFail("The manual whole-page note must exist in the isolated learning store before restart")
+        }
         scrollPageToTop(in: app); press(app.buttons["page-return-source"].firstMatch)
         XCTAssertTrue(textValue(app.staticTexts["page-position"].firstMatch).contains("1 / 1"))
         app.terminate(); app.launch(); app.activate()

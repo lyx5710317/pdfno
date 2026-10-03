@@ -32,7 +32,7 @@ public final class LibraryModel: ObservableObject {
     public let docx: DOCXLibraryModel
     private var docxChanges: AnyCancellable?
     #endif
-    public init() {
+    public convenience init() {
         // UI smoke runs use an isolated store, never the user's library.
         let root: URL
         if let token = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"] {
@@ -47,6 +47,11 @@ public final class LibraryModel: ObservableObject {
             } ?? UUID()
             root = Self.isolatedUITestRoot(value)
         } else { root = LibraryRepository.defaultRoot() }
+        self.init(root: root)
+    }
+    // Internal injection keeps native source/storage regressions in fresh test
+    // directories without configuring or accessing the user's real library.
+    init(root: URL) {
         repository = LibraryRepository(root: root)
         epubRepository = EPUBRepository(root: root)
         comicRepository = ComicRepository(root: root)
