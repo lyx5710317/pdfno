@@ -725,7 +725,7 @@ N6 实施：先本地 outbox/冲突 mock→决定内容/后端/身份→明确�
 
 ### 13.1 原生三端引擎与 OCR 缺口
 
-上表全部方向当前 NOT-IMPLEMENTED。PDFKit 不提供通用 PDF↔Word↔EPUB 重建能力。每个 ConversionAdapter 输出本机/远程处理地点、平台、引擎来源/版本/许可、probe/plan/convert/quality/cancel；只对通过样本和平台开放主动入口。
+上表七个 PDF/Word/EPUB 方向当前仍 NOT-IMPLEMENTED。2026-10-03 的独立 Mac 首片新增普通 DOCX 正文→UTF-8 TXT／简化 HTML：只读原件、用户选择新输出、后台阶段进度、取消及手动重试，字体/分页/图片/页眉页脚等不保真，不写入书库或自动生成新 edition。实际边界、许可与验证见 [ADR 0009](ADR-0009-LOCAL-CONVERSION.md) 和 [转换验证](CONVERSION-VALIDATION.md)。PDFKit 不提供通用 PDF↔Word↔EPUB 重建能力。每个 ConversionAdapter 输出本机/远程处理地点、平台、引擎来源/版本/许可、probe/plan/convert/quality/cancel；只对通过样本和平台开放主动入口。
 
 DOCX→PDF 需独立排版/字体/分页引擎；EPUB→PDF 可研究已选 EPUB renderer 的受控打印管线；PDF→DOCX/EPUB 需布局/语义恢复，不能仅复制抽出的字符串称保真。预览/Quick Look 不代替可编辑文档解析。Word旧doc/宏仍未纳入确定范围。Mac外部工具/子进程候选不能直接在iOS执行或分发，若三端引擎缺口则该端明确未支持，不偷偷上传代替本地失败。
 

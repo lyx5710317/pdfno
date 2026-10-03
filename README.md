@@ -15,7 +15,9 @@ Mac 的现有「模型与 BYOK 设置」和「选文 AI」已接入 **DeepSeek �
 
 **开发和 CI 的模型请求只用虚构密钥与完全拦截的网络替身。** 2026-10-03 用户报告独立短句测试“三次测试都成功了”，记为用户报告的认证生成证据；agent 未读取真实 key、提交请求或核验账单，新选文语言质量尚未实测。 2026-10-03 无凭据检查确认官方域名 DNS、证书／主机名与 TLS 可达，`GET /models` 返回401；这不证明密钥有效、余额充足或模型生成成功。参见 [短句测试边界](docs/ADR-0005-DEEPSEEK-SELF-TEST.md)。
 
-**漫画、其他格式、其他真实 BYOK 服务、文档问答、页／章节双语翻译、生成假名、英日语法质量、Bookno API、iCloud、OCR、格式转换和 Apple Pencil 尚未接入或验收。** 其他格式优先沿独立 Kookit adapter 路线逐项审计与验收，不因 EPUB 接入自动开放。完整功能目标和三端规划见 [v0.3 主规格](docs/PDFno_AI_Development_Spec_v0.3_Native.md)、[实施状态](docs/NATIVE-TASKS.md) 和 [引擎审计](docs/EPUB-ENGINE-AUDIT.md)。
+Mac 的“格式转换”入口可将普通 DOCX 正文导出为 UTF-8 TXT／简化 HTML：选择原件、输出格式与新保存位置，后台阶段进度、取消和失败后手动重试。原件及已有文件不会覆盖；图片、页眉页脚、复杂版式等明确不保真。见[转换矩阵与 ADR](docs/ADR-0009-LOCAL-CONVERSION.md)及[实际验证](docs/CONVERSION-VALIDATION.md)。
+
+**漫画、其他格式阅读、其他真实 BYOK 服务、文档问答、页／章节双语翻译、生成假名、英日语法质量、Bookno API、iCloud、OCR、PDF/Word/EPUB 高保真互转和 Apple Pencil 尚未接入或验收。** 其他格式优先沿独立 Kookit adapter 路线逐项审计与验收，不因 EPUB 接入自动开放。完整功能目标和三端规划见 [v0.3 主规格](docs/PDFno_AI_Development_Spec_v0.3_Native.md)、[实施状态](docs/NATIVE-TASKS.md) 和 [引擎审计](docs/EPUB-ENGINE-AUDIT.md)。
 
 ## 在 Xcode 中运行
 

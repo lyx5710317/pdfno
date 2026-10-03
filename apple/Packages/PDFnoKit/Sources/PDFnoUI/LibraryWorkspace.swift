@@ -10,6 +10,7 @@ public struct LibraryWorkspace: View {
     @State private var importer = false
     @State private var about = false
     @State private var aiSettings = false
+    @State private var conversion = false
     @State private var compactColumn: NavigationSplitViewColumn = .sidebar
     @State private var selectedBookID: UUID?
     public init() {}
@@ -86,11 +87,13 @@ public struct LibraryWorkspace: View {
         .toolbar {
             ToolbarItem { Button { about = true } label: { Label("功能状态", systemImage: "info.circle") } }
             #if os(macOS)
+            ToolbarItem { Button { conversion = true } label: { Label("格式转换", systemImage: "arrow.triangle.2.circlepath") }.accessibilityIdentifier("document-conversion") }
             ToolbarItem { Button { aiSettings = true } label: { Label("模型与 BYOK 设置", systemImage: "slider.horizontal.3") }.accessibilityIdentifier("ai-settings") }
             #endif
         }
         .sheet(isPresented: $about) { FeatureStatusView() }
         #if os(macOS)
+        .sheet(isPresented: $conversion) { ConversionWorkspace() }
         .sheet(isPresented: $aiSettings) { AISettingsView(learning: model.learning) }
         #endif
         .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
@@ -125,6 +128,7 @@ public struct FeatureStatusView: View {
                     Label("选区高亮、笔记与本地保存", systemImage: "checkmark.circle")
                     #if os(macOS)
                     Label("CBZ 漫画：导入、页序、左右方向、单双页与进度恢复", systemImage: "checkmark.circle")
+                    Label("DOCX 正文转 TXT / 简化 HTML（有损副本）", systemImage: "checkmark.circle")
                     #endif
                 }
                 Section("后续接入") {
@@ -133,7 +137,7 @@ public struct FeatureStatusView: View {
                     Text("Bookno API：尚未接入")
                     Text("iCloud：未配置容器，数据仅保存在本地")
                     Text("CBZ：移动阅读适配待验收；当前 Mac 支持静态 PNG / JPEG")
-                    Text("CBR / 其他格式 / 转换 / OCR / Apple Pencil：尚未实现")
+                    Text("CBR / 其他格式阅读 / PDF、Word、EPUB 高保真互转 / OCR / Apple Pencil：尚未实现")
                 }
                 Section("开源") { Text("PDFno · AGPL-3.0-or-later").font(.footnote) }
             }.navigationTitle("功能状态")
