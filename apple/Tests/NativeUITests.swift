@@ -12,11 +12,9 @@ final class NativeUITests: XCTestCase {
         let sample = app.buttons["open-epub-sample"].firstMatch
         XCTAssertTrue(sample.waitForExistence(timeout: 15)); press(sample)
         let position = app.staticTexts["epub-position"].firstMatch
-        let opened = expectation(for: NSPredicate(format: "(label CONTAINS '第 1 章' OR value CONTAINS '第 1 章')"), evaluatedWith: position)
-        wait(for: [opened], timeout: 25)
+        waitForText(["第 1 章"], in: position, timeout: 25)
         XCTAssertFalse(app.staticTexts["epub-error"].firstMatch.exists)
-        let paragraph = app.webViews.firstMatch.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'window' OR value BEGINSWITH 'window'")).firstMatch
-        XCTAssertTrue(paragraph.waitForExistence(timeout: 10))
+        let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
         // Real WebKit user selection, never a JS-created test selection.
         paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
         press(app.buttons["epub-notes"].firstMatch)
@@ -28,33 +26,50 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(quote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(quote), selectedText)
         press(app.buttons["epub-return"].firstMatch)
         press(app.buttons["epub-next"].firstMatch)
-        let advanced = expectation(for: NSPredicate(format: "(label CONTAINS '第 2 页' OR value CONTAINS '第 2 页')"), evaluatedWith: position)
-        wait(for: [advanced], timeout: 10)
+        waitForText(["第 2 页"], in: position, timeout: 10)
         press(app.buttons["epub-contents"].firstMatch)
         let japanese = app.buttons["epub-chapter-1"].firstMatch
         XCTAssertTrue(japanese.waitForExistence(timeout: 5)); press(japanese)
-        let changed = expectation(for: NSPredicate(format: "(label CONTAINS '第 2 章' OR value CONTAINS '第 2 章')"), evaluatedWith: position)
-        wait(for: [changed], timeout: 10)
+        waitForText(["第 2 章"], in: position, timeout: 10)
         press(app.buttons["epub-orientation"].firstMatch)
-        let vertical = expectation(for: NSPredicate(format: "(label CONTAINS '竖排' OR value CONTAINS '竖排')"), evaluatedWith: position)
-        wait(for: [vertical], timeout: 10)
-        let ruby = app.webViews.firstMatch.staticTexts.matching(NSPredicate(format: "label CONTAINS 'にほんご' OR value CONTAINS 'にほんご'")).firstMatch
-        XCTAssertTrue(ruby.waitForExistence(timeout: 5), "Author ruby must remain visible in vertical reading")
+        waitForText(["竖排"], in: position, timeout: 10)
+        let ruby = try webText(in: app, matching: "にほんご", prefix: false, timeout: 5)
+        XCTAssertTrue(ruby.exists, "Author ruby must remain visible in vertical reading")
         app.terminate(); app.launch(); app.activate()
         let book = app.descendants(matching: .any).matching(identifier: "library-epub").firstMatch
         XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
-        let restored = expectation(for: NSPredicate(format: "(label CONTAINS '第 2 章' OR value CONTAINS '第 2 章') AND (label CONTAINS '竖排' OR value CONTAINS '竖排')"), evaluatedWith: position)
-        wait(for: [restored], timeout: 20)
+        waitForText(["第 2 章", "竖排"], in: position, timeout: 20)
         press(app.buttons["epub-notes"].firstMatch)
         XCTAssertTrue(quote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(quote), selectedText)
         press(app.buttons["epub-return"].firstMatch)
-        let returned = expectation(for: NSPredicate(format: "(label CONTAINS '第 1 章' OR value CONTAINS '第 1 章')"), evaluatedWith: position)
-        wait(for: [returned], timeout: 10)
+        waitForText(["第 1 章"], in: position, timeout: 10)
         app.terminate()
     }
     #endif
     @MainActor private func textValue(_ element: XCUIElement) -> String {
         (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label
+    }
+    @MainActor private func waitForText(_ parts: [String], in element: XCUIElement, timeout: TimeInterval) {
+        let ready = expectation(for: NSPredicate { _, _ in
+            guard element.exists else { return false }
+            let text = self.textValue(element)
+            return parts.allSatisfy { text.contains($0) }
+        }, evaluatedWith: element)
+        wait(for: [ready], timeout: timeout)
+    }
+    @MainActor private func webText(in app: XCUIApplication, matching text: String, prefix: Bool, timeout: TimeInterval) throws -> XCUIElement {
+        // WebKit can expose numeric AX values on macOS 15. Inspect actual
+        // elements in Swift so substring predicates never receive a number.
+        var found: XCUIElement?
+        let ready = expectation(for: NSPredicate { _, _ in
+            found = app.webViews.firstMatch.staticTexts.allElementsBoundByIndex.first {
+                let value = self.textValue($0)
+                return prefix ? value.hasPrefix(text) : value.contains(text)
+            }
+            return found != nil
+        }, evaluatedWith: app)
+        wait(for: [ready], timeout: timeout)
+        return try XCTUnwrap(found, "Actual WebKit text must be exposed for user selection/ruby acceptance")
     }
     @MainActor private func press(_ element: XCUIElement) {
         #if os(macOS)
