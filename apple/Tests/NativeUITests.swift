@@ -5,6 +5,54 @@ import AppKit
 #endif
 
 final class NativeUITests: XCTestCase {
+    #if os(macOS)
+    @MainActor func testMacEPUBSelectionRubyNotesAndRestart() throws {
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launch(); app.activate()
+        let sample = app.buttons["open-epub-sample"].firstMatch
+        XCTAssertTrue(sample.waitForExistence(timeout: 15)); press(sample)
+        let position = app.staticTexts["epub-position"].firstMatch
+        let opened = expectation(for: NSPredicate(format: "(label CONTAINS '第 1 章' OR value CONTAINS '第 1 章')"), evaluatedWith: position)
+        wait(for: [opened], timeout: 25)
+        XCTAssertFalse(app.staticTexts["epub-error"].firstMatch.exists)
+        let paragraph = app.webViews.firstMatch.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'window' OR value BEGINSWITH 'window'")).firstMatch
+        XCTAssertTrue(paragraph.waitForExistence(timeout: 10))
+        // Real WebKit user selection, never a JS-created test selection.
+        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
+        press(app.buttons["epub-notes"].firstMatch)
+        let selection = app.staticTexts["epub-selection"].firstMatch
+        XCTAssertTrue(selection.waitForExistence(timeout: 8))
+        let selectedText = textValue(selection); XCTAssertFalse(selectedText.isEmpty)
+        press(app.buttons["epub-save-note"].firstMatch)
+        let quote = app.staticTexts["epub-saved-quote"].firstMatch
+        XCTAssertTrue(quote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(quote), selectedText)
+        press(app.buttons["epub-return"].firstMatch)
+        press(app.buttons["epub-next"].firstMatch)
+        let advanced = expectation(for: NSPredicate(format: "(label CONTAINS '第 2 页' OR value CONTAINS '第 2 页')"), evaluatedWith: position)
+        wait(for: [advanced], timeout: 10)
+        press(app.buttons["epub-contents"].firstMatch)
+        let japanese = app.buttons["epub-chapter-1"].firstMatch
+        XCTAssertTrue(japanese.waitForExistence(timeout: 5)); press(japanese)
+        let changed = expectation(for: NSPredicate(format: "(label CONTAINS '第 2 章' OR value CONTAINS '第 2 章')"), evaluatedWith: position)
+        wait(for: [changed], timeout: 10)
+        press(app.buttons["epub-orientation"].firstMatch)
+        let vertical = expectation(for: NSPredicate(format: "(label CONTAINS '竖排' OR value CONTAINS '竖排')"), evaluatedWith: position)
+        wait(for: [vertical], timeout: 10)
+        let ruby = app.webViews.firstMatch.staticTexts.matching(NSPredicate(format: "label CONTAINS 'にほんご' OR value CONTAINS 'にほんご'")).firstMatch
+        XCTAssertTrue(ruby.waitForExistence(timeout: 5), "Author ruby must remain visible in vertical reading")
+        app.terminate(); app.launch(); app.activate()
+        let book = app.descendants(matching: .any).matching(identifier: "library-epub").firstMatch
+        XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
+        let restored = expectation(for: NSPredicate(format: "(label CONTAINS '第 2 章' OR value CONTAINS '第 2 章') AND (label CONTAINS '竖排' OR value CONTAINS '竖排')"), evaluatedWith: position)
+        wait(for: [restored], timeout: 20)
+        press(app.buttons["epub-notes"].firstMatch)
+        XCTAssertTrue(quote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(quote), selectedText)
+        press(app.buttons["epub-return"].firstMatch)
+        let returned = expectation(for: NSPredicate(format: "(label CONTAINS '第 1 章' OR value CONTAINS '第 1 章')"), evaluatedWith: position)
+        wait(for: [returned], timeout: 10)
+        app.terminate()
+    }
+    #endif
     @MainActor private func textValue(_ element: XCUIElement) -> String {
         (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label
     }

@@ -1,7 +1,7 @@
 # PDFno AI 开发技术规格
 
-版本：**0.3 原生 Apple 架构评审稿**
-修订与官方来源核验日期：**2026-10-02**
+版本：**0.3 原生 Apple 架构＋Mac EPUB 实施稿**
+修订与官方来源核验日期：**2026-10-03**（各历史证据保留原日期）
 项目标识：`pdfno`；产品显示名：`PDFno`
 目标：原生 macOS、iPhone、iPad；Mac 优先交付，先完善 Mac 再适配 iPhone/iPad；长期三端目标保留
 用途：产品需求、技术边界、分阶段实现和验收的共同依据
@@ -9,7 +9,7 @@
 
 ## 0 阅读与执行规则
 
-**CONFIRMED 用户决定**：主应用全面改为 Swift 原生界面，PDF 阅读使用 Apple PDFKit；EPUB 独立选引擎。长期支持 Mac、iPhone、iPad。先完成详细技术文档，再修改代码。PDFno 自有源码保持 AGPL-3.0-or-later；关于闭源可行性的提问没有撤回开源决定。
+**CONFIRMED 用户决定**：主应用全面改为 Swift 原生界面，PDF 阅读使用 Apple PDFKit；其他格式优先通过独立 Kookit adapter 接入，首片为 Mac EPUB。长期支持 Mac、iPhone、iPad。先完成详细技术文档，再修改代码。PDFno 自有源码保持 AGPL-3.0-or-later；关于闭源可行性的提问没有撤回开源决定。
 
 本文完整修订原 v0.2，不以附录继续保留相互冲突的主架构。Electron 主应用、Koodo 低侵入 fork、原生仅作 CLI bridge、iOS 范围未定均不再是未来实施方案。多格式、BYOK、AI 问答、页与章节双语翻译、日语假名、英日语法、高亮笔记、Bookno API、iCloud、PDF/Word/EPUB 转换与 UPDF 交互参考继续保留；这些需求不代表当前已经实现。
 
@@ -28,7 +28,9 @@
 
 用户最新指示 → 实际 checkout 的有效工程约束 → 本文确认需求 → 已批准 ADR/当前任务 → 本文建议。后续实现应读取本文件及有效 ADR；冲突时遵从最新用户决定并记录原因。
 
-2026-10-02 的 N0 文档切片已完成，随后用户明确授权创建真正原生 app、最小 PDFKit 闭环、可恢复旧骨架清理与普通 GitHub commit/push。当前执行范围以 `NATIVE-TASKS.md` 和 `NATIVE-MIGRATION.md` 为准；旧文档切片的“不改代码/不提交”不再约束已授权实施。仍不配置开发者账号、证书、entitlements 或云容器，不迁移真实用户数据、不调用付费模型、不选定 EPUB 引擎、不发布 release、不关机、不杀其他任务进程。
+2026-10-02 的 N0 文档切片已完成，随后用户明确授权创建真正原生 app、最小 PDFKit 闭环、可恢复旧骨架清理与普通 GitHub commit/push。当前执行范围以 `NATIVE-TASKS.md` 和 `NATIVE-MIGRATION.md` 为准；旧文档切片的“不改代码/不提交”不再约束已授权实施。仍不配置开发者账号、证书、entitlements 或云容器，不迁移真实用户数据、不调用付费模型、不配置额外引擎/私有 extra、不发布 release、不关机、不杀其他任务进程。
+
+2026-10-02 用户随后明确确认“Swift＋PDFKit 保留，其他格式优先接 Kookit，并继续 AGPL 开源”，并要求继续开发；2026-10-03 再次要求继续现有 PDFno。当前增加 Mac EPUB 最小片，移动端仍编译保留、后续适配；普通提交/推送按已有授权处理。运行证据与未覆盖范围以 VALIDATION 为准。
 
 ### 0.3 原稿来源、版本与文档权威
 
@@ -43,7 +45,7 @@
 | ID | 状态 | 要求与修订 | 对应章节 / 验收 |
 | --- | --- | --- | --- |
 | R01 | CONFIRMED | `pdfno` / `PDFno`，Mac 优先，长期 Mac＋iPhone＋iPad | 4、14、16；T18、T20 |
-| R02 | CONFIRMED，架构已修正 | 保留 PDF、EPUB、漫画和原有多格式目标；Koodo/Kookit 是可选比较，不是默认依赖 | 5；T01、T02、T03 |
+| R02 | CONFIRMED，架构已修正 | 保留 PDF、EPUB、漫画和原有多格式目标；Kookit public core 已选为其他格式优先路线；首片仅 Mac EPUB，PDF 固定 PDFKit | 5；T01、T02、T03 |
 | R03 | CONFIRMED | 自有源码 AGPL-3.0-or-later，免费/收费未定；第三方许可独立核验 | 2、5、16 |
 | R04 | CONFIRMED | 用户配置 endpoint / key / model 的 BYOK | 9；T09、T10 |
 | R05 | CONFIRMED | 整页翻译与章节双语翻译；PDF 物理页、EPUB 页快照和章节不同 | 8、14；T07、UAT08 |
@@ -72,13 +74,13 @@ N0 文档切片开始只有未跟踪 `native/PDFnoBridge.xcodeproj/project.xcwor
 
 demo 的 Unicode/ruby、不可变来源、任务隔离、原子笔记与 revision、受限 IPC 和 CLI capabilities 可作为行为 fixture；不能直接重命名为真实阅读模块。`extractionVersion: demo-text-1` 的 `sourceFileSha256` 来自 demo 内容 fingerprint，不是原书字节 SHA-256。必须以 legacy-demo 标记迁移，不能虚构 PDF 坐标或 EPUB CFI。
 
-### 2.2 Koodo / Kookit：比较与历史参考
+### 2.2 Koodo 历史参考 / Kookit 当前 EPUB 路线
 
 原规格基线是 Koodo `dev` 提交 `90e659f0188795f9a4f6e1ccc1727fd3793fe4a4`、包 2.4.5。其 Electron/React/Redux、数据库/IPC、部分 Go 服务、BYOK 与流式路径、PDF 几何与 EPUB Rangy 字符范围是旧静态参考；不照搬官方账号、Pro、云服务、签名身份与授权素材。名为 `cfi` 的字段不自动是标准 EPUB CFI。旧 ruby/清洗疑似问题仍只作样本设计线索，不称已复现。
 
 **2026-10-02 官方源码修正**：Kookit public core 的固定提交 `95f602ed62d204af0de9278cf53212c309b34bfc`，package 1.0.4 声明 AGPL-3.0-or-later，有公开渲染源码。旧 Koodo 架构说明具体标记 `kookit-extra.min.mjs` 为闭源；不能把 public core 一并描述成“全部无源码”，也不能据 core 许可认可 extra 或其他 minified 产物。见 [Kookit package](https://github.com/koodo-reader/kookit/blob/95f602ed62d204af0de9278cf53212c309b34bfc/package.json)、[core LICENSE](https://github.com/koodo-reader/kookit/blob/95f602ed62d204af0de9278cf53212c309b34bfc/LICENSE)、[Koodo 架构说明](https://github.com/koodo-reader/koodo-reader/blob/90e659f0188795f9a4f6e1ccc1727fd3793fe4a4/CLAUDE.md)。
 
-Koodo/Kookit 不再是路线前置依赖。将来若比较 core，另审传递依赖、对应源码、资源与 Apple WKWebView 实测；不自动安装它，不选 extra 替代独立 EPUB 决策。
+用户随后明确确认 Swift＋PDFKit 保留、其他格式优先 Kookit、继续 AGPL。2026-10-03 已接入固定 core 的独立 Mac EPUB adapter；见 ADR-0003-KOOKIT-EPUB、固定 source manifest、实际 lock/许可证和 VALIDATION。Koodo 主应用、闭源 extra、未知 minified/WASM、OpenCC 数据和 upstream PDF 引擎不进入该 bundle。其余格式没有因这一决定自动实现。
 
 ### 2.3 JapaneseLearningApp / NihongoFlow / Bookno 历史参考
 
@@ -97,7 +99,7 @@ Bookno 原规格基线 `zcode/develop` / `9ae3056bff8dd64fac43185d2bfa5f22b20dc6
 | N0 文档与证据 | 本 v0.3、官方来源、完整原稿覆盖、checkout 快照 | 无旧主架构冲突；建议/未实现分开 |
 | N1 真正原生工程 | Mac 与 iOS/iPadOS app targets，共享包，原生书库/空态 | 两个 `.app` 构建，iPhone/iPad Simulator smoke；无账号配置暗改 |
 | N2 本地 PDF 闭环 | 系统导入、PDFKit、目录/搜索/选区、稳定高亮/笔记/回跳 | 三端宿主与 Unicode/PDF fixtures、重启恢复/错误通过 |
-| N3 EPUB 选型与接入 | 限范围比较、官方源码/依赖审计、选型 ADR、独立 adapter | Mac 原生与移动端均有实测，ruby/重排/安全通过 |
+| N3 EPUB 分端接入 | 已选 Kookit core、官方源码/实际依赖、ADR 0003、独立 adapter | 首片 Mac 重排/ruby/安全/选区/恢复实测；移动先编译，随后单独验收 |
 | N4 AI 学习闭环 | Keychain/BYOK、问答引用、页/章双语、假名/英日语法 | mock 状态与真实获准质量测试分别验收 |
 | N5 迁移恢复 | 旧 demo 只读导入器、独立新 store、备份/回滚 | 幂等、损坏、未来 schema、冲突、中断恢复通过 |
 | N6 iCloud 三端 | 决定记录/原书方案后接入自有容器 | mock 后两设备再三端实机，离线/冲突/退出/配额通过 |
@@ -165,7 +167,7 @@ EPUB 归档、HTML、OCR 和 AI 输出是不可信数据。WKWebView 引擎桥�
 
 ### 5.1 PDFKit reader
 
-**CONFIRMED 框架；NOT-IMPLEMENTED 阅读整合**。官方 [PDFView](https://developer.apple.com/documentation/pdfkit/pdfview)、[PDFSelection](https://developer.apple.com/documentation/pdfkit/pdfselection)、[PDFPage](https://developer.apple.com/documentation/pdfkit/pdfpage) 可用于原生 macOS、iOS、iPadOS。PDFKit 承担显示、缩略图、目录、文本选择/搜索和原生批注基础；PDFno 实现永久来源、任务、笔记与批注投影。其存在不证明多栏阅读顺序、OCR、语言分析、iCloud 或 Word 转换已经完成。
+**CONFIRMED 框架；已实现本地最小 PDFKit 闭环，完整能力仍分阶段**。官方 [PDFView](https://developer.apple.com/documentation/pdfkit/pdfview)、[PDFSelection](https://developer.apple.com/documentation/pdfkit/pdfselection)、[PDFPage](https://developer.apple.com/documentation/pdfkit/pdfpage) 可用于原生 macOS、iOS、iPadOS。PDFKit 承担显示、缩略图、目录、文本选择/搜索和原生批注基础；PDFno 实现永久来源、任务、笔记与批注投影。其存在不证明多栏阅读顺序、OCR、语言分析、iCloud 或 Word 转换已经完成。
 
 PDF adapter 负责文档 session、解锁/受限状态、页索引/页码标签、MediaBox/CropBox/rotation、选择字符串与逐行/逐页几何、跨页 snapshot 和回跳。App 级笔记存 store，PDFAnnotation 为可重建投影；显式导出带批注副本时才写新 PDF。导入既有 PDF 批注需保存类型、作者、颜色、内容、页/几何与稳定本地映射，未知类型可读保留，不重复导入、不静默删除。扫描/混合页可显示；无可靠文字则显示“需 OCR”。文字 permission 不足就禁用对应提取/导出，不绕过限制。
 
@@ -180,22 +182,32 @@ EPUBEngineAdapter 独立负责 publication manifest、规范资源路径/spine�
 | Readium Swift Toolkit 3.11.0，`d82f44f4f05d87add9e22a8b75abbd61dce745dd` | BSD-3-Clause 根许可 | Package.swift 是 Swift tools 5.10、仅声明 iOS 15、Shared 链接 UIKit | iPhone/iPad 候选；**不能当原生 AppKit macOS 可用**。Mac 另一个 adapter 或专项移植，Catalyst 不替代已定 Mac 目标 |
 | foliate-js，`78914aef4466eb960965702401634c2cb348e9b1` | MIT；README 列 zip.js BSD-3、fflate MIT、PDF.js Apache | 浏览器 JS，目标 WebKitGTK/Firefox/Chromium；API 不稳定、该基线无 release | 三端 WKWebView 路线候选；Apple WebKit 兼容、安全、无障碍与维护需实测；不携带其 PDF.js 替换 PDFKit |
 | FuturePress epub.js，`eee359d0790002115a1156a9833c54f4bcd44c1d`，package 0.3.93 | BSD-2-Clause 根许可 | 浏览器库，分页/滚动；默认关闭 scripted content | WKWebView 对照候选；浏览器示例不是三端验收，JSZip 等实际依赖需审计 |
-| Kookit public core，`95f602ed62d204af0de9278cf53212c309b34bfc`，1.0.4 | AGPL-3.0-or-later | TypeScript/Web 入口与多格式依赖，不能据此推断 Apple 原生支持 | 可选历史/多格式比较；不作默认，不引入 Kookit extra |
+| Kookit public core，`95f602ed62d204af0de9278cf53212c309b34bfc`，1.0.4 | AGPL-3.0-or-later；内嵌/实际依赖各自声明 | Mac WKWebView 重排 EPUB adapter；实际证据见 VALIDATION；移动尚未运行 | 已选优先路线；首片 EPUB-only，PDF/extra/其他格式未进入 bundle |
 
-2026-10-02 已读取官方固定源码/README/许可证，**全部只做静态审计，未安装、编译或在三端运行**。Readium [固定 Package](https://github.com/readium/swift-toolkit/blob/d82f44f4f05d87add9e22a8b75abbd61dce745dd/Package.swift) / [LICENSE](https://github.com/readium/swift-toolkit/blob/d82f44f4f05d87add9e22a8b75abbd61dce745dd/LICENSE) / [发布](https://github.com/readium/swift-toolkit/releases/tag/3.11.0)；foliate [README](https://github.com/johnfactotum/foliate-js/blob/78914aef4466eb960965702401634c2cb348e9b1/README.md) / [LICENSE](https://github.com/johnfactotum/foliate-js/blob/78914aef4466eb960965702401634c2cb348e9b1/LICENSE)；epub.js [package](https://github.com/futurepress/epub.js/blob/eee359d0790002115a1156a9833c54f4bcd44c1d/package.json) / [README](https://github.com/futurepress/epub.js/blob/eee359d0790002115a1156a9833c54f4bcd44c1d/README.md) / [license](https://github.com/futurepress/epub.js/blob/eee359d0790002115a1156a9833c54f4bcd44c1d/license)。
+2026-10-02 的候选比较只做静态审计；2026-10-03 Kookit 专用 EPUB profile 已构建并接入 Mac，其他候选仍未安装。Readium [固定 Package](https://github.com/readium/swift-toolkit/blob/d82f44f4f05d87add9e22a8b75abbd61dce745dd/Package.swift) / [LICENSE](https://github.com/readium/swift-toolkit/blob/d82f44f4f05d87add9e22a8b75abbd61dce745dd/LICENSE) / [发布](https://github.com/readium/swift-toolkit/releases/tag/3.11.0)；foliate [README](https://github.com/johnfactotum/foliate-js/blob/78914aef4466eb960965702401634c2cb348e9b1/README.md) / [LICENSE](https://github.com/johnfactotum/foliate-js/blob/78914aef4466eb960965702401634c2cb348e9b1/LICENSE)；epub.js [package](https://github.com/futurepress/epub.js/blob/eee359d0790002115a1156a9833c54f4bcd44c1d/package.json) / [README](https://github.com/futurepress/epub.js/blob/eee359d0790002115a1156a9833c54f4bcd44c1d/README.md) / [license](https://github.com/futurepress/epub.js/blob/eee359d0790002115a1156a9833c54f4bcd44c1d/license)。
 
-比较两条方案：A，同一 JS EPUB 引擎分别由三端 WKWebView 宿主；B，Readium 移动端＋Mac 独立 EPUB adapter。A 可减少排版差异但安全/适配维护自担；B 有移动端工具链优势但双引擎/locator/许可维护更重。建议先用 A 的有限样本试验，再与 Readium 移动端对照；**最终引擎未选，不因试验建议加正式依赖**。
+比较两条方案：A，同一 JS EPUB 引擎分别由三端 WKWebView 宿主；B，Readium 移动端＋Mac 独立 EPUB adapter。A 可减少排版差异但安全/适配维护自担；B 有移动端工具链优势但双引擎/locator/许可维护更重。建议先用 A 的有限样本试验，再与 Readium 移动端对照；这段保留选型比较的理由；用户后续已明确选择 Kookit core 的 A 路线，不因比较而自动更换引擎。
 
 foliate 官方 README 提到 WebKit iframe sandbox 与 blob 同源的安全限制，epub.js 开启脚本削弱隔离；不能只宣称 sandbox=true 即通过。必须分别隔离受信引擎与书籍内容，可靠禁止书籍 JS/事件/远程 CSS/font/图片/危险 URL、验证消息与归档上限；做不到则淘汰候选。Readium LCP 的额外私有 framework 不进入当前非 DRM 试验；根许可不是传递依赖或发行许可完成。
 
-N3 选型门槛：合法 EPUB 2/3 重排/固定样本；日语横竖排/ruby、跨段选择/重复句/emoji；字号/旋转/窄窗/iPad 分屏/重启位置；目录/搜索；鼠标/触摸/键盘/VoiceOver；恶意脚本/归档资源；大书/切书/WebContent 退出；依赖/字体/notice 可复现。每组在 Mac、iPhone、iPad 都记录 OS、硬件、结果、失败与许可清单，尚未运行就保持 NOT-RUN。
+N3 完整能力验收库存（首片未覆盖项继续保留）：合法 EPUB 2/3 重排/固定样本；日语横竖排/ruby、跨段选择/重复句/emoji；字号/旋转/窄窗/iPad 分屏/重启位置；目录/搜索；鼠标/触摸/键盘/VoiceOver；恶意脚本/归档资源；大书/切书/WebContent 退出；依赖/字体/notice 可复现。每组在 Mac、iPhone、iPad 都记录 OS、硬件、结果、失败与许可清单，尚未运行的格式/平台/功能保持 NOT-RUN；不以移动完整验收阻止已通过的 Mac 切片交付。
+
+### 5.2.1 当前 Mac EPUB 实现边界
+
+当前源包为 `engine-build/`：23 个原始 Kookit 文件保留 blob 哈希；JSZip 3.10.1、Rangy 1.3.0、Underscore 1.13.8 和 esbuild 0.25.11 的实际 lock 与声明已保存。Node 只用于构建；派生 engine.js 与完整 Notices.txt 进入原生 reader 资源。独立 EPUB 入口替换不受限 fallback loader，强制禁书籍脚本，排除 PDF 引擎/Chinese mapping/extra/其他格式；不引入 Electron。
+
+Mac SwiftUI 原生书库、目录、翻页、横竖排和笔记宿主通过受限 WKWebView 承载正文。脚本禁用 frame 的选区由可信父页读取；CSP、资源清洗、逐协议规则、非持久 WebKit store 和原生桥白名单保持有效。桥校验 session/book/edition/hash/documentVersion/requestID，串行导航、超时和取消使旧 generation 失效。首片归档限 20 MiB/1000 条目/单项 4 MiB/实际总解压 50 MiB；静态 PNG/JPEG 有单图 4M/总 16M 像素预算。字体、SVG、动画、固定版式、加密、全面资源保真和移动阅读仍未验收。
+
+`epub-v1.json` 与原有 PDF manifest 分开；`Originals/<sha256>.epub` 保持原始字节。笔记与进度使用 edition/hash/resource/spine、canonical UTF-16 半开 span、exact quote/context/extractionVersion；正文 walker 排除 rt/rp，作者 ruby 保留展示。回跳先验证引文，不模糊选择重复短语；高亮投影不改源文本，关闭/重开从持久化 anchor 恢复。未来增加提取、CFI、搜索、字体/字号和三端能力时继续使用公共来源契约；当前页只作视图状态，不当永久位置。
+
+许可、源码修正、回滚和具体测试范围见 ADR 0003、KOOKIT-EPUB-STATIC-AUDIT-2026-10-03、VALIDATION。CFI 上游声明 AGPL-3.0 不自动改为 or-later；foliate/MIT、npm MIT/ISC/zlib 等分别保留。OpenCC 数据本片排除；将来启用转换须另核其来源、Apache 声明和 NOTICE。漫画/DOCX/其他格式与转换保留目标，但没有通过 EPUB 切片自动开放。
 
 ### 5.3 漫画与其他格式的保留清单
 
 | 格式目标 | 拟议实现 | 学习/稳定位置 | 阶段与实际缺口 |
 | --- | --- | --- | --- |
 | PDF 文本/扫描/混合 | PDFKit | 页＋原文＋PDF 几何；OCR 另版本 | N2；当前无真实 reader |
-| EPUB 2/3 重排/固定 | 独立 EPUBEngineAdapter | 资源/spine/经过验证 CFI或locator＋引文；逻辑页非主键 | N3；未选引擎、未实测 |
+| EPUB 2/3 重排/固定 | 独立 Kookit EPUB adapter | 资源/spine/canonical UTF-16 半开 span＋引文/context/hash；逻辑页非主键 | N3；Mac 原创重排样本已接入，固定版式和移动阅读待验收 |
 | CBZ / 图片序列 | 原生图像显示＋经许可 ZIP parser | 图片 hash＋顺序＋归一化区域；无文字默认不开放语法 | N7 可优先试 CBZ；解析器/内存/RTL/双页待测 |
 | CBR / CBT / CB7 | RAR/TAR/7z 各自受控解包 adapter | 同图片定位；气泡检测/OCR 后续 | N7；各库许可证与 iOS 构建能力未定，不能自动执行 Mac CLI |
 | MOBI / AZW3 / AZW | 经审计非 DRM parser，或明确转换后阅读 | 资源/块＋引文，转换生成新 edition | N7；AZW 变体与 DRM 限制明确，不承诺全部可开 |
@@ -986,7 +998,7 @@ Koodo 将来导入属于另项能力；不直接改用户数据库。未知设�
 | T21 | 云文档与账号 | metadata先到/资产缺失、下载中断/hash失败/存储满、退出换账号、长离线墓碑/未知schema；不丢本地内容、不误上传旧账号 |
 | T22 | 触摸/Pencil/生命周期 | 选择与手势不抢占，iPad分屏/笔画页空间/撤销重启、iPhone大字/软键盘、三端VoiceOver/后台返回；未实施Pencil则明确未支持 |
 
-T01–T22及UAT01–UAT15是完整目标；N0 文档阶段全部原生运行 NOT-RUN，当前最小 PDFKit 切片只验证 `VALIDATION.md` 中列出的子集。不能把这些子集扩大为全部目标通过。未来每项记录测试ID/fixture hash、硬件/OS、commit/config/实际结果、失败原因与未覆盖；模拟器不代真实设备云/内存/手势测试。旧demo单元/桌面CI只能作对应历史行为证据。
+T01–T22及UAT01–UAT15是完整目标；N0 文档阶段全部原生运行 NOT-RUN，当前最小 PDFKit／Mac EPUB 切片只验证 `VALIDATION.md` 中列出的子集。不能把这些子集扩大为全部目标通过。未来每项记录测试ID/fixture hash、硬件/OS、commit/config/实际结果、失败原因与未覆盖；模拟器不代真实设备云/内存/手势测试。旧demo单元/桌面CI只能作对应历史行为证据。
 
 语言评分区分译文忠实度、语法、日语读音和引用匹配，用授权固定语料及人工评审；performance报告本地打开/提取/定位与网络延迟分开，不承诺秒开任意大书。页/章断点恢复与取消要检查发出的实际请求计数而不是只看按钮状态。
 
@@ -1003,8 +1015,8 @@ T01–T22及UAT01–UAT15是完整目标；N0 文档阶段全部原生运行 NOT
 | N1B 原生 targets | N1A，明确系统版本/工具链 | 两真实 `.app` targets、SwiftUI 原生书库/空态，Mac+iPhone/iPad Simulator smoke；不启用云/签名账号 |
 | N2A PDF 打开/导航 | N1B | 原生系统导入/asset hash、PDFKit 宿主、目录/缩略图/搜索/返回；损坏/加密/无文本明确 |
 | N2B PDF 锚点/批注 | N2A | Unicode/旋转/CropBox/多页多矩形、选择来源卡、repository/高亮笔记/重启；T03–T06/T11 |
-| N3A EPUB 比较 | N1B，可与 N2 按独立任务安排 | 候选源码/传递依赖/实际三端样本/安全/性能报告，未选前不正式接入 |
-| N3B EPUB adapter | N3A 选型 ADR | 重排/目录/搜索/ruby/CFI校验/选区/笔记，字号变化与三端回跳 |
+| N3A EPUB 固定源码与审计 | N1B，已确认 Kookit 路线 | 固定 core/实际依赖/许可/bundle 源码和 ADR 0003；每端单独报告 |
+| N3B EPUB adapter | N3A / ADR 0003 | 首片 Mac 重排/目录/ruby/选区/笔记/恢复；搜索、字号及三端完整回跳继续验收 |
 | N4A BYOK | 来源契约/Keychain 设计 | URLSession/provider、endpoint/key/model、全错误/SSE/mock/取消/日志检验；T09/T10 |
 | N4B 学习与读音 | N4A/N2B或N3B | 日英语法 schema/span/纠错、侧栏假名/作者 ruby；原文回跳、用户编辑保护 |
 | N4C 页/章双语 | N4A、稳定 SourceSnapshot | 分段/缓存/预算/取消/部分恢复与原译文视图；T07/T08/UAT07–09 |
@@ -1039,7 +1051,7 @@ T01–T22及UAT01–UAT15是完整目标；N0 文档阶段全部原生运行 NOT
 
 | 风险 | 影响 / 当前事实 | 下一步 |
 | --- | --- | --- |
-| EPUB 平台误判 | Readium iOS/UIKit 不等于原生 macOS；所有 WKWebView adapters 未测 | N3 三端实际比较与选型 ADR |
+| EPUB 平台误判 | Readium iOS/UIKit 不等于原生 macOS；Kookit 仅已测 Mac 范围 | N3 移动实际阅读/设备测试；编译不等于阅读验收 |
 | 归档/书籍脚本与消息桥 | 同源/blob/sandbox 不能独立保证安全 | 禁脚本/远程资源/授权清单/消息校验，恶意样本 |
 | PDF 文本顺序/OCR | 多栏/连字/扫描会导致错误学习 | 能力降级、逐字/区域校验、OCR provenance |
 | 显示改变锚点 | ruby/字体/旋转/转换错位 | 分层映射、稳定 edition、明确需重绑 |
@@ -1054,7 +1066,7 @@ T01–T22及UAT01–UAT15是完整目标；N0 文档阶段全部原生运行 NOT
 ### 19.2 后续实施需要决定的事项
 
 1. **系统与工程**：目标设备最低 macOS/iOS/iPadOS、Swift/Xcode、Intel Mac 范围。候选 macOS14/iOS17/iPadOS17 对应 CKSyncEngine；最终版本未定。
-2. **EPUB 与存储/云**：N3 有数据后选单引擎 WKWebView 或双 adapter；本地 SQLite/系统持久化；iCloud 是否传原书、封面/AI草稿/附件，CloudKit/Drive 分工。自有容器/team/签名未定，配置前确认。
+2. **存储/云与 EPUB 完善**：Kookit WKWebView 路线已确认；移动适配/固定版式/资源覆盖仍待验收；本地 SQLite/系统持久化；iCloud 是否传原书、封面/AI草稿/附件，CloudKit/Drive 分工。自有容器/team/签名未定，配置前确认。
 3. **Bookno API**：初期单向 upsert 是否先行，是否必须跨设备、移动端怎样调用、配对/身份方案；文件交换只作测试恢复，不替最终 API。
 4. **转换与扩展优先级**：首个转换方向及“可编辑/保版式”目标；OCR/手写/批量首期范围。收费/域名/渠道/发布日期后续独立决定。
 
@@ -1071,14 +1083,14 @@ T01–T22及UAT01–UAT15是完整目标；N0 文档阶段全部原生运行 NOT
 ```text
 在当前 PDFno 仓库继续原生工作。先读取有效 AGENTS.md/.agents/skills、README、
 v0.3 主规格、NATIVE-TASKS、VALIDATION 与 NATIVE-MIGRATION，并核验 Git 工作树。
-本轮目标：[填入一个明确、可验收的切片，例如 PDF 高亮与来源恢复增强]。
+本轮目标：[填入一个明确、可验收的切片，例如 Mac EPUB 来源、缩放与资源覆盖增强]。
 使用真正 Mac/Mobile app targets 与共享 Swift 包；保持 Mac+iPhone+iPad 范围、
-AGPL 和独立 EPUB 边界。开发基线暂为 macOS14/iOS17，可调整但需说明 API 与验证影响。
+AGPL、PDFKit 和已选 Kookit 独立 EPUB 边界；不暗中更换引擎。开发基线暂为 macOS14/iOS17，可调整但需说明 API 与验证影响。
 使用原创或明确许可 fixtures、隔离 store；不改变开发者账号、云容器或真实数据。
 验证源文件/许可证、Swift 单元测试及受影响平台实际运行；记录未测范围。
 既有锚点不能仅按引文模糊重绑；损坏/未来 store 不覆盖。保护并发任务和未知文件。
 普通提交/推送按当前用户授权范围处理，不 force-push、不发布 release、不关机。
-EPUB 选型、真实 BYOK/Keychain、Bookno/iCloud/转换与签名分发各需其明确范围。
+首个 Mac EPUB 切片后继续完善其明确范围；真实 BYOK/Keychain、Bookno/iCloud/转换与签名分发各需独立范围。
 ```
 
 ## 21 来源、核验日期与证据限制
@@ -1099,9 +1111,9 @@ EPUB 选型、真实 BYOK/Keychain、Bookno/iCloud/转换与签名分发各需�
 
 ### 21.2 EPUB 官方源码与标准
 
-固定提交/根许可证/README 已在第 5.2 章逐项引用并读取。Readium 3.11.0 iOS-only/UIKit 的结论来自固定 Package.swift；foliate/epub.js 的 browser support 与 scripted-content 边界来自固定 README，不声称今天已验证 Apple WKWebView。Kookit core 与 extra 的修正来自官方固定源码与架构说明。
+固定提交/根许可证/README 已在第 5.2 章逐项引用并读取。Readium 3.11.0 iOS-only/UIKit 的结论来自固定 Package.swift；foliate/epub.js 的 browser support 与 scripted-content 边界来自固定 README，这些独立候选仍未在 Apple WKWebView 运行。Kookit core 与 extra 的修正来自官方固定源码与架构说明；Kookit 限定 Mac 实测见 ADR 0003 / VALIDATION。
 
-格式参考 [W3C EPUB 3.3](https://www.w3.org/TR/epub-33/) 与引擎实际 locator 实现；标准不是 parser 能力保证。根许可证只核验根文本，完整实际 transitive dependencies、字典/字体/fixture、对应产物与发行路径待 N3/N7 清单审计。本轮未安装或跑引擎。
+格式参考 [W3C EPUB 3.3](https://www.w3.org/TR/epub-33/) 与引擎实际 locator 实现；标准不是 parser 能力保证。根许可证只核验根文本，完整实际 transitive dependencies、字典/字体/fixture、对应产物与发行路径待 N3/N7 清单审计。此句描述 N0 静态阶段；2026-10-03 Kookit 的源码构建、实际许可、Mac WebKit 与 UI 证据见 ADR 0003 / VALIDATION，不能扩大到全部候选或移动阅读。
 
 ### 21.3 继承的项目参考（未重新运行）
 
@@ -1160,7 +1172,7 @@ EPUB 选型、真实 BYOK/Keychain、Bookno/iCloud/转换与签名分发各需�
 
 ### 22.2 核对结论与实施状态
 
-原 R01–R14 均有去向，原 T01–T19、U01–U13、S01–S08、J01–J08、UAT01–UAT15 全部保留标识和行为要求；新增三端构建/同步/Pencil 验收。没有把 Koodo/Electron、CLI-only 原生或“是否要 iOS”留为主架构必选。多格式目标保留但每项真实能力仍未实现；未把旧 demo 或官方框架支持当功能完成。
+原 R01–R14 均有去向，原 T01–T19、U01–U13、S01–S08、J01–J08、UAT01–UAT15 全部保留标识和行为要求；新增三端构建/同步/Pencil 验收。没有把 Koodo/Electron、CLI-only 原生或“是否要 iOS”留为主架构必选。多格式目标保留；当前已实现限定 PDF／Mac EPUB 子集，其余能力继续分阶段；未把旧 demo 或官方框架支持当功能完成。
 
 AI 缓存/取消/保密、Unicode/ruby、Bookno两层重放/修订/回执、本地编辑/封面保护、云离线/墓碑、转换全部方向、UPDF观察限制与自有品牌均继续有效。既有 v0.2 的 TypeScript 类型不是新 app 代码，领域与provider草案已换 Swift语义；外部JSON仍是传输格式。
 

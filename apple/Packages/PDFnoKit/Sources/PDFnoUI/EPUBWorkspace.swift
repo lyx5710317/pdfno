@@ -1,0 +1,72 @@
+// Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
+#if os(macOS)
+import SwiftUI
+import PDFnoDomain
+import PDFnoReaders
+
+struct EPUBWorkspace: View {
+    @ObservedObject var model: LibraryModel
+    @ObservedObject var session: EPUBReaderSession
+    @State private var contents = false
+    @State private var notes = false
+    @State private var draft = ""
+    var body: some View {
+        VStack(spacing: 0) {
+            EPUBCanvas(session: session)
+            HStack {
+                Text(session.position).accessibilityIdentifier("epub-position")
+                Spacer(); Text("EPUB · 本地 · 原书未改写")
+            }.font(.caption).padding(10)
+            if let error = session.error { Text(error).foregroundStyle(.red).padding().accessibilityIdentifier("epub-error") }
+        }.navigationTitle(session.book?.title ?? "EPUB")
+        .overlay { if session.busy { ProgressView("正在排版…").padding().background(.regularMaterial) } }
+        .toolbar {
+            ToolbarItemGroup {
+                Button("目录") { contents = true }.accessibilityIdentifier("epub-contents")
+                Button { Task { _ = await session.command("previous") } } label: { Label("上一页", systemImage: "chevron.left") }
+                    .accessibilityIdentifier("epub-previous")
+                Button { Task { _ = await session.command("next") } } label: { Label("下一页", systemImage: "chevron.right") }
+                    .accessibilityIdentifier("epub-next")
+                Button(session.vertical ? "横排" : "竖排") { Task { _ = await session.command("vertical") } }
+                    .accessibilityIdentifier("epub-orientation")
+                Button("高亮与笔记") { notes = true }.accessibilityIdentifier("epub-notes")
+                Button("取消并关闭") { session.close() }.accessibilityIdentifier("epub-close")
+            }
+        }
+        .onChange(of: session.progress) { _, anchor in if let anchor { Task { await model.saveEPUBProgress(anchor) } } }
+        .sheet(isPresented: $contents) {
+            NavigationStack {
+                List(session.outline) { item in
+                    Button(item.title) { Task { if await session.command("chapter", index: item.index) { contents = false } } }
+                        .accessibilityIdentifier("epub-chapter-\(item.index)")
+                }.navigationTitle("目录").toolbar { ToolbarItem { Button("完成") { contents = false } } }
+            }.frame(minWidth: 320, minHeight: 400)
+        }
+        .sheet(isPresented: $notes) {
+            NavigationStack {
+                List {
+                    Section("当前选区") {
+                        if let anchor = session.selection {
+                            Text(anchor.quote).accessibilityIdentifier("epub-selection")
+                            TextField("写下你的笔记（可选）", text: $draft, axis: .vertical)
+                                .accessibilityIdentifier("epub-note-input")
+                            Button("保存高亮与笔记") { Task { if await model.saveEPUBNote(anchor, text: draft) { draft = "" } } }
+                                .accessibilityIdentifier("epub-save-note")
+                        } else { Text("在原文中选择文字，再打开这里。正文定位保留作者 ruby。") }
+                    }
+                    Section("已保存 · 本地") {
+                        ForEach(model.epubNotes.filter { $0.bookID == session.book?.id }) { note in
+                            VStack(alignment: .leading) {
+                                Text(note.anchor.quote).accessibilityIdentifier("epub-saved-quote")
+                                if !note.userText.isEmpty { Text(note.userText).foregroundStyle(.secondary) }
+                                Button("回到原文") { Task { if await session.command("navigate", anchor: note.anchor) { notes = false } } }
+                                    .accessibilityIdentifier("epub-return")
+                            }
+                        }
+                    }
+                }.navigationTitle("高亮与笔记").toolbar { ToolbarItem { Button("完成") { notes = false }.accessibilityIdentifier("epub-close-notes") } }
+            }.frame(minWidth: 360, minHeight: 420)
+        }
+    }
+}
+#endif

@@ -16,6 +16,13 @@ public final class LibraryModel: ObservableObject {
     @Published var canImport = false
     public let reader = PDFReaderSession()
     let repository: LibraryRepository
+    let epubRepository: EPUBRepository
+    @Published var epubBooks: [EPUBBook] = []
+    @Published var epubNotes: [EPUBNote] = []
+    @Published var readingEPUB = false
+    #if os(macOS)
+    public let epub = EPUBReaderSession()
+    #endif
     public init() {
         // UI smoke runs use an isolated store, never the user's library.
         let root: URL
@@ -32,13 +39,16 @@ public final class LibraryModel: ObservableObject {
             root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-UITests-" + value.uuidString)
         } else { root = LibraryRepository.defaultRoot() }
         repository = LibraryRepository(root: root)
+        epubRepository = EPUBRepository(root: root)
     }
     func load() async {
         do {
             let state = try await repository.load(); books = state.books; notes = state.notes; canImport = true
+            let epubState = try await epubRepository.load(); epubBooks = epubState.books; epubNotes = epubState.notes
         } catch { self.error = error.localizedDescription; canImport = false }
     }
     func importFile(_ url: URL) async {
+        if url.pathExtension.lowercased() == "epub" { await importEPUB(url); return }
         guard canImport, !isBusy else { return }
         isBusy = true; defer { isBusy = false }
         let scoped = url.startAccessingSecurityScopedResource()
@@ -51,6 +61,10 @@ public final class LibraryModel: ObservableObject {
             guard let document = PDFDocument(data: data), !document.isLocked, document.pageCount > 0 else { throw ReaderError.invalidPDF }
             let book = try await repository.importPDF(data, filename: url.lastPathComponent, pageCount: document.pageCount)
             await load(); try reader.open(data: data, book: book); reader.project(notes)
+            #if os(macOS)
+            epub.close()
+            #endif
+            readingEPUB = false
             status = "已保存到本地 · 原文件未改写"
         } catch { self.error = error.localizedDescription }
     }
@@ -60,6 +74,10 @@ public final class LibraryModel: ObservableObject {
         do {
             let data = try await repository.readAsset(for: book)
             try reader.open(data: data, book: book); reader.project(notes)
+            #if os(macOS)
+            epub.close()
+            #endif
+            readingEPUB = false
         } catch { self.error = error.localizedDescription }
     }
     func openSample() async {
@@ -82,4 +100,50 @@ public final class LibraryModel: ObservableObject {
         do { try await repository.saveProgress(bookID: book.id, pageIndex: reader.pageIndex) }
         catch { self.error = error.localizedDescription }
     }
+    func importEPUB(_ url: URL) async {
+        #if os(macOS)
+        guard canImport, !isBusy else { return }; isBusy = true; defer { isBusy = false }
+        let scoped = url.startAccessingSecurityScopedResource(); defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let info = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+            guard info.isRegularFile == true, let size = info.fileSize, size <= 20 * 1024 * 1024 else { throw EPUBError.resourceLimit }
+            let data = try await Task.detached { try Data(contentsOf: url) }.value
+            let book = try await epubRepository.importBook(data, filename: url.lastPathComponent)
+            await load(); readingEPUB = true; try await epub.open(data: data, book: book, notes: epubNotes)
+        } catch { self.error = error.localizedDescription }
+        #else
+        error = EPUBError.unavailable.localizedDescription
+        #endif
+    }
+    func openEPUB(_ book: EPUBBook) async {
+        #if os(macOS)
+        guard !isBusy else { return }; isBusy = true; defer { isBusy = false }
+        do {
+            let state = try await epubRepository.load()
+            guard let current = state.books.first(where: { $0.id == book.id }) else { throw EPUBError.sourceMismatch }
+            let data = try await epubRepository.read(current); readingEPUB = true
+            try await epub.open(data: data, book: current, notes: state.notes)
+        }
+        catch { self.error = error.localizedDescription }
+        #else
+        error = EPUBError.unavailable.localizedDescription
+        #endif
+    }
+    func openEPUBSample() async {
+        if let url = Bundle.module.url(forResource: "study-sample", withExtension: "epub") { await importEPUB(url) }
+    }
+    #if os(macOS)
+    func saveEPUBNote(_ anchor: EPUBAnchor, text: String) async -> Bool {
+        guard let book = epub.book, book.accepts(anchor) else { return false }
+        do {
+            try await epubRepository.saveNote(EPUBNote(bookID: book.id, anchor: anchor, userText: text))
+            await load(); _ = await epub.command("notes", notes: epubNotes.filter { $0.bookID == book.id }); return true
+        } catch { self.error = error.localizedDescription; return false }
+    }
+    func saveEPUBProgress(_ anchor: EPUBAnchor) async {
+        guard let book = epub.book, book.accepts(anchor) else { return }
+        do { try await epubRepository.saveProgress(anchor, bookID: book.id) }
+        catch { self.error = error.localizedDescription }
+    }
+    #endif
 }

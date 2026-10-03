@@ -1,2 +1,11 @@
 # Original PDF fixtures are binary documents, including fixed-width xref records.
 *.pdf binary
+*.epub binary
+
+# Preserve audited upstream bytes and original license line endings.
+engine-build/vendor/** -text
+engine-build/licenses/* -text whitespace=-blank-at-eol,-blank-at-eof
+apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/EPUB/Notices.txt -text whitespace=-blank-at-eol
+
+# Generated JavaScript includes upstream literal whitespace; do not trim it.
+apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/EPUB/engine.js -text whitespace=-blank-at-eol

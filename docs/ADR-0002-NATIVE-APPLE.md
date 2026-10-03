@@ -3,6 +3,8 @@
 日期：2026-10-02
 状态：**方向已批准；后续明确授权已创建真正原生 targets 与最小 PDFKit 闭环。当前实现/验证见 NATIVE-TASKS 与 VALIDATION。**
 
+2026-10-03 状态更新：本文的原生主架构继续有效；EPUB 未选定及文档阶段限制是当时快照，已由 [ADR 0003](ADR-0003-KOOKIT-EPUB.md) 的用户确认、Kookit Mac 切片及分端验收接续。
+
 ## 决定
 
 PDFno 的后续主应用采用 Swift 原生界面，以 SwiftUI 组织应用，并在需要时使用 AppKit / UIKit 的平台控件。PDF 阅读采用 Apple PDFKit。EPUB 通过独立 ReaderAdapter 选型，先核验许可证、平台支持和真实样本，再批准引擎。

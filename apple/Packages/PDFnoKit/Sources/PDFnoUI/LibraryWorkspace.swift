@@ -30,28 +30,46 @@ public struct LibraryWorkspace: View {
                                 }.padding(.vertical, 6).frame(maxWidth: .infinity, alignment: .leading)
                                     .tag(book.id).accessibilityIdentifier("library-book")
                         }
+                        #if os(macOS)
+                        ForEach(model.epubBooks) { book in
+                            Label(book.title + " · EPUB", systemImage: "book.closed")
+                                .tag(book.id).accessibilityIdentifier("library-epub")
+                        }
+                        #endif
                     }
                 }
                 .onChange(of: selectedBookID) { _, id in
-                    guard let book = model.books.first(where: { $0.id == id }) else { return }
-                    Task { await model.open(book); if model.reader.book?.id == book.id { compactColumn = .detail } }
+                    if let book = model.books.first(where: { $0.id == id }) {
+                        Task { await model.open(book); if model.reader.book?.id == book.id { compactColumn = .detail } }
+                    } else if let book = model.epubBooks.first(where: { $0.id == id }) {
+                        Task { await model.openEPUB(book); compactColumn = .detail }
+                    }
                 }
                 VStack(spacing: 10) {
-                    Button { importer = true } label: { Label("导入 PDF", systemImage: "plus") }
+                    Button { importer = true } label: { Label(importTitle, systemImage: "plus") }
                         .buttonStyle(.borderedProminent).disabled(!model.canImport || model.isBusy)
                         .accessibilityIdentifier("import-pdf")
                     Button("打开示例 PDF") {
                         Task { await model.openSample(); if model.reader.book != nil { compactColumn = .detail } }
                     }.disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-sample")
+                    #if os(macOS)
+                    Button("打开示例 EPUB") { Task { await model.openEPUBSample(); compactColumn = .detail } }
+                        .disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-epub-sample")
+                    #endif
                     Text("仅在设备本地处理").font(.caption).foregroundStyle(.secondary)
                 }.padding()
             }.navigationTitle("PDFno")
             .navigationSplitViewColumnWidth(min: 220, ideal: 270, max: 360)
         } detail: {
+            #if os(macOS)
+            if model.readingEPUB { EPUBWorkspace(model: model, session: model.epub) }
+            else { ReaderWorkspace(model: model, session: model.reader) }
+            #else
             ReaderWorkspace(model: model, session: model.reader)
+            #endif
         }
         .task { await model.load() }
-        .fileImporter(isPresented: $importer, allowedContentTypes: [.pdf]) { result in
+        .fileImporter(isPresented: $importer, allowedContentTypes: importTypes) { result in
             switch result {
             case .success(let url): Task { await model.importFile(url); if model.reader.book != nil { compactColumn = .detail } }
             case .failure(let error): model.error = error.localizedDescription
@@ -64,7 +82,21 @@ public struct LibraryWorkspace: View {
         .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("知道了") { model.error = nil }
         } message: { Text(model.error ?? "") }
-        .overlay { if model.isBusy { ProgressView("正在打开 PDF…").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14)) } }
+        .overlay { if model.isBusy { ProgressView("正在打开…").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14)) } }
+    }
+    private var importTitle: String {
+        #if os(macOS)
+        "导入 PDF / EPUB"
+        #else
+        "导入 PDF"
+        #endif
+    }
+    private var importTypes: [UTType] {
+        #if os(macOS)
+        [.pdf, UTType(filenameExtension: "epub") ?? .data]
+        #else
+        [.pdf]
+        #endif
     }
 }
 
@@ -79,7 +111,7 @@ public struct FeatureStatusView: View {
                     Label("选区高亮、笔记与本地保存", systemImage: "checkmark.circle")
                 }
                 Section("后续接入") {
-                    Text("EPUB：独立引擎尚未选定")
+                    Text("EPUB：Mac 本地重排阅读；移动适配与固定版式待验收")
                     Text("AI / BYOK / 翻译 / 日英学习：尚未接入")
                     Text("Bookno API：尚未接入")
                     Text("iCloud：未配置容器，数据仅保存在本地")

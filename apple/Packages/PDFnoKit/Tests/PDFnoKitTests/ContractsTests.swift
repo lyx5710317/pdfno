@@ -60,7 +60,11 @@ struct ContractsTests {
             #expect(!ProviderValidation.validate(endpoint: endpoint, model: "model"))
         }
         #expect(!ProviderValidation.validate(endpoint: "https://example.com", model: " "))
+        #if os(macOS)
+        #expect(FeatureAvailability.epub.available)
+        #else
         #expect(!FeatureAvailability.epub.available)
+        #endif
         #expect(!FeatureAvailability.ai.available)
         #expect(!FeatureAvailability.cloud.available)
         #expect(!FeatureAvailability.bookno.available)

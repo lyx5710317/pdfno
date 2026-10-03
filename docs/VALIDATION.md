@@ -1,8 +1,18 @@
 # Native validation evidence
 
-Date: 2026-10-02. Delivery priority is **Mac first, mobile adaptation afterward**. Two real app targets and shared contracts are retained; a mobile build is not a promise of a complete iPhone/iPad product. No release or real-account/cloud operation occurred.
+Date: 2026-10-03. Delivery priority is **Mac first, mobile adaptation afterward**. Two real app targets and shared contracts are retained; a mobile build is not a promise of a complete iPhone/iPad product. No release or real-account/cloud operation occurred.
 
-## Environment and current evidence
+## 2026-10-03 Mac EPUB evidence
+
+The fixed Kookit EPUB-only adapter now runs in the native Mac application. The first final Mac run passed both full PDF regression and real EPUB selection/ruby/note/source/restart flow: **2 UI tests, 0 failures**, 63.045 seconds, `.build/EPUB-Mac-5.xcresult`. It double-clicks actual WebKit text; no JS-created selection substitutes for UI acceptance. The shared suite passed **18 Swift/WebKit tests** including malicious original markup/network refusal, canonical ruby/source reflow, stale request refusal, isolated store restart and archive checks. **2 Node tests** verify raw path rejection and actual streamed output limits even when ZIP headers lie. The common iPhone/iPad Simulator target compiled; mobile EPUB reading is not tested or exposed.
+
+The original EPUB fixture is 2,388 bytes, SHA-256 `d8db9c9b04dc3d6f55aa3706b552e2cbaecba41e6b0ae3a0f7536ee0d8bfe7fd`; the self-authored security fixture hash is `da599fe9b7760d46dfc2c2b1c63e243af483d808d1355601a7eb31e4bd17c443`. No fonts, user books or third-party samples are embedded.
+
+Earlier EPUB attempts honestly failed: unsupported content-rule regex prevented opening; Mac `.label`/`.value` and matching versus descendant-containment queries obscured correct display; frame event suppression exposed a real selection-bridge defect; upstream textual locator page was empty. Fixes retain the script-disabled sandbox, capture selection from the trusted parent, compute display page from actual geometry and preserve the full UI assertions. Successful results do not claim oldest macOS compatibility, complete publication fidelity or mobile behavior.
+
+Final local checks passed on 2026-10-03: **18 Swift/WebKit tests** (`.build/epub-final-swift-3.log`), **2 Node tests**, native Mac and iPhone/iPad Simulator builds, and **2 real Mac UI tests with 0 failures** in 55.803 seconds (`.build/EPUB-Final-Mac.xcresult`). The final contract test explicitly reflects Mac EPUB availability and mobile unavailability. Source/privacy/asset guard passed over 116 candidate files; project/schemes/PDF/EPUB regeneration and engine/Notices rebuild matched byte-for-byte, including the original pako zlib conditions. User Xcode workspace metadata hashes were unchanged. No logs, result bundles, compiler binaries or user content are published. CI evidence is always for its exact SHA, not inferred from the prior PDF-only run.
+
+## 2026-10-02 PDF baseline and history
 
 Local environment: MacBook Air, Apple silicon, macOS 27.0 (26A428), Xcode 27.0 (27A266a), Swift 6.4, macOS/iOS SDK 27.0. Adjustable deployment settings are macOS 14 and iOS/iPadOS 17; tests on the latest local runtime do not establish oldest-version compatibility. GitHub uses its actually reported `macos-15` toolchain.
 
@@ -42,7 +52,7 @@ Local logs/results are ignored under `.build/` and temporary files. They may inc
 
 ## Remaining acceptance gaps
 
-Real-device iPhone/iPad and oldest deployment versions; VoiceOver/keyboard coverage, dynamic text, contrast and Pencil; sandbox signing/security-scoped bookmarks, passwords, malformed/encrypted/large/multi-column/rotated/CropBox/cross-page PDF matrix; performance and cancellable search/import; actual covers/thumbnails/tabs; note edit/delete; interrupted-write/fsync/file-coordination/cross-process recovery; automatic legacy migration; all EPUB/AI/BYOK/Keychain/translation/grammar/kana/Bookno/iCloud/comic/OCR/conversion behavior; signed distribution/notarisation and AGPL distribution review remain unvalidated/unimplemented as appropriate. No full T01–T22 or UAT01–UAT15 completion is claimed.
+Real-device iPhone/iPad and oldest deployment versions; VoiceOver/keyboard coverage, dynamic text, contrast and Pencil; sandbox signing/security-scoped bookmarks, passwords, malformed/encrypted/large/multi-column/rotated/CropBox/cross-page PDF matrix; performance and cancellable search/import; actual covers/thumbnails/tabs; note edit/delete; interrupted-write/fsync/file-coordination/cross-process recovery; automatic legacy migration; mobile EPUB, fixed layout, image/font/resource fidelity and EPUB search/note-edit behavior; all AI/BYOK/Keychain/translation/grammar/kana/Bookno/iCloud/comic/OCR/conversion behavior; signed distribution/notarisation and AGPL distribution review remain unvalidated/unimplemented as appropriate. No full T01–T22 or UAT01–UAT15 completion is claimed.
 
 [Historical demo validation](historical/VALIDATION-LEGACY.md) retains the earlier Electron/CLI evidence. Its commands and successful old CI apply only to recoverable old source, not the current native runtime.
 

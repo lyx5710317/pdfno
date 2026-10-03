@@ -1,0 +1,122 @@
+{
+  "repository": "https://github.com/koodo-reader/kookit",
+  "commit": "95f602ed62d204af0de9278cf53212c309b34bfc",
+  "version": "1.0.4",
+  "files": [
+    {
+      "path": "src/libs/cfi.ts",
+      "sha": "2f9b7d05cab74ee8c21515d46df12c45f9ef2349",
+      "size": 30064
+    },
+    {
+      "path": "src/libs/epub.js",
+      "sha": "333f42e25efcdf1e8bbfb94effa98b7072e31335",
+      "size": 35171
+    },
+    {
+      "path": "src/libs/epubcfi.js",
+      "sha": "a22cd4d8a5269bdb48b675436e7bff6e4d6517d2",
+      "size": 11506
+    },
+    {
+      "path": "src/libs/textProcessor.ts",
+      "sha": "0e949e43262e5027935d2922408196778f47f311",
+      "size": 8196
+    },
+    {
+      "path": "src/model/Book.ts",
+      "sha": "2413cf98b956c3bda98ca4da055d7d17b2bf6837",
+      "size": 805
+    },
+    {
+      "path": "src/model/chapter.ts",
+      "sha": "78cdc91e7c2b83a129c105343eaae0758954c69b",
+      "size": 293
+    },
+    {
+      "path": "src/model/chapterDoc.ts",
+      "sha": "04c65e31e4d4246e307151d66774a2164763e257",
+      "size": 226
+    },
+    {
+      "path": "src/renders/EpubRender.ts",
+      "sha": "0a4076fa7cff1924945ee048a21f1a483f3a0c13",
+      "size": 6677
+    },
+    {
+      "path": "src/renders/GeneralRender.ts",
+      "sha": "69c599fa090d468f2922e5b630892d46f97e57f4",
+      "size": 63345
+    },
+    {
+      "path": "src/utils/EventEmitter.ts",
+      "sha": "d440638c919f86e820b01f20fd85b587cef660e7",
+      "size": 5109
+    },
+    {
+      "path": "src/utils/animationUtil.ts",
+      "sha": "5709410b8674fb8a656e56e69ab855e3636f9823",
+      "size": 13607
+    },
+    {
+      "path": "src/utils/bionicUtil.ts",
+      "sha": "2c9ed969000dd71d7d127e92436e1479b6587401",
+      "size": 2663
+    },
+    {
+      "path": "src/utils/common.ts",
+      "sha": "fd1152f9ae0d4f26fc45058339bb3a0c1f2d0e28",
+      "size": 10015
+    },
+    {
+      "path": "src/utils/generalParser.ts",
+      "sha": "fd8a21ceb192dc7ff368864b712739cf05b2c137",
+      "size": 4585
+    },
+    {
+      "path": "src/utils/layoutUtil.ts",
+      "sha": "1547b4bf1b635938a5ed053dfcf9d424cb77ffb3",
+      "size": 30431
+    },
+    {
+      "path": "src/utils/navigationUtil.ts",
+      "sha": "a04ea9ad9c980fd6be089bd6d518373edf00ab72",
+      "size": 43893
+    },
+    {
+      "path": "src/utils/noteUtil.ts",
+      "sha": "315981766504087895aa98f88ce7f0bf25da4b8c",
+      "size": 34897
+    },
+    {
+      "path": "src/utils/paragraphModeUtil.ts",
+      "sha": "5c288901f5fb111bd7ad2f1000aced4224f06002",
+      "size": 17135
+    },
+    {
+      "path": "src/utils/readingRulerUtil.ts",
+      "sha": "fa155321a22b92e6e59ba3de3851dd61e14c17c4",
+      "size": 12192
+    },
+    {
+      "path": "src/utils/selectionAutoTurn.ts",
+      "sha": "c2e7dc788a195e3f3340ff717f134b64be890bf9",
+      "size": 10053
+    },
+    {
+      "path": "src/utils/speedReadingUtil.ts",
+      "sha": "b1ad2fb93bcd78d386ff7f86edd3fee07d8d6e8e",
+      "size": 22702
+    },
+    {
+      "path": "src/utils/textRuleUtil.ts",
+      "sha": "8ecb4593f304707de4e7e119af3bc93adda6c133",
+      "size": 5006
+    },
+    {
+      "path": "src/utils/touchUtil.ts",
+      "sha": "6eff1ebb827226147971226fa5466ba4842e3b1d",
+      "size": 39255
+    }
+  ]
+}

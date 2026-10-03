@@ -67,7 +67,7 @@ public struct ReaderCapability: Sendable, Equatable {
     public init(available: Bool, reason: String? = nil) { self.available = available; self.reason = reason }
 }
 
-/// EPUB publication/locator contract only. No EPUB engine is installed.
+/// Legacy minimal locator value. The current canonical EPUB anchor is EPUBAnchor.
 public struct EPUBLocator: Codable, Sendable, Equatable {
     public let resourceHref: String
     public let spineIndex: Int
@@ -75,7 +75,11 @@ public struct EPUBLocator: Codable, Sendable, Equatable {
     public let quote: String
 }
 public enum FeatureAvailability {
-    public static let epub = ReaderCapability(available: false, reason: "EPUB 引擎尚未选定")
+    #if os(macOS)
+    public static let epub = ReaderCapability(available: true, reason: "Mac 重排 EPUB 切片；完整资源覆盖待验收")
+    #else
+    public static let epub = ReaderCapability(available: false, reason: "移动 EPUB 阅读尚未验收")
+    #endif
     public static let ai = ReaderCapability(available: false, reason: "AI / BYOK 尚未接入")
     public static let cloud = ReaderCapability(available: false, reason: "iCloud 容器未配置")
     public static let bookno = ReaderCapability(available: false, reason: "Bookno API 尚未接入")

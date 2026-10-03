@@ -1,5 +1,7 @@
 > 这是 N0 文档阶段的设计快照，下面的“本轮只文档/旧源码保留”描述该历史阶段。最新明确授权和实际实现已由 [v0.3 主规格](PDFno_AI_Development_Spec_v0.3_Native.md)、[任务状态](NATIVE-TASKS.md) 与 [迁移记录](NATIVE-MIGRATION.md) 接续；临时开发最低版本为 macOS14/iOS17。历史状态不作为当前执行限制。
 
+2026-10-03 更新：这是原生路线初始规划；当前已选 Kookit public core 的独立 Mac EPUB adapter，见 ADR-0003-KOOKIT-EPUB.md 与 NATIVE-TASKS.md。原有未选型与未实施描述按历史阶段阅读，移动 EPUB 仍待单独验收。
+
 # PDFno 原生 Apple 应用实施与迁移计划
 
 日期：2026-10-02
