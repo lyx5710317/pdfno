@@ -33,6 +33,9 @@ public struct LibraryWorkspace: View {
                                     .tag(book.id).accessibilityIdentifier("library-book")
                         }
                         #if os(macOS)
+                        ForEach(model.docx.books) { book in
+                            Label(book.title + " · DOCX", systemImage: "doc.text").tag(book.id).accessibilityIdentifier("library-docx")
+                        }
                         ForEach(model.comicBooks) { book in
                             Label(book.title + " · CBZ · \(book.pages.count) 页", systemImage: "photo.on.rectangle")
                                 .tag(book.id).accessibilityIdentifier("library-comic")
@@ -46,6 +49,11 @@ public struct LibraryWorkspace: View {
                 }
                 .onChange(of: selectedBookID) { _, id in
                     guard id != displayedBookID else { return }
+                    #if os(macOS)
+                    if let book = model.docx.books.first(where: { $0.id == id }) {
+                        Task { await model.openDOCX(book); if model.docx.isActive { compactColumn = .detail } }; return
+                    }
+                    #endif
                     if let book = model.books.first(where: { $0.id == id }) {
                         Task { await model.open(book); if model.reader.book?.id == book.id { compactColumn = .detail } }
                     } else if let book = model.comicBooks.first(where: { $0.id == id }) {
@@ -62,6 +70,8 @@ public struct LibraryWorkspace: View {
                         Task { await model.openSample(); if model.reader.book != nil { compactColumn = .detail } }
                     }.disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-sample")
                     #if os(macOS)
+                    Button("打开示例 DOCX") { Task { await model.openDOCXSample(); compactColumn = .detail } }
+                        .disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-docx-sample")
                     Button("打开示例 EPUB") { Task { await model.openEPUBSample(); compactColumn = .detail } }
                         .disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-epub-sample")
                     #endif
@@ -71,7 +81,8 @@ public struct LibraryWorkspace: View {
             .navigationSplitViewColumnWidth(min: 220, ideal: 270, max: 360)
         } detail: {
             #if os(macOS)
-            if model.readingComic { ComicWorkspace(session: model.comic, close: { model.closeComic() }) }
+            if model.docx.isActive { DOCXWorkspace(model: model.docx) }
+            else if model.readingComic { ComicWorkspace(session: model.comic, close: { model.closeComic() }) }
             else if model.readingEPUB { EPUBWorkspace(model: model, session: model.epub) }
             else { ReaderWorkspace(model: model, session: model.reader) }
             #else
@@ -82,7 +93,7 @@ public struct LibraryWorkspace: View {
         .onChange(of: displayedBookID) { _, id in selectedBookID = id }
         .fileImporter(isPresented: $importer, allowedContentTypes: importTypes) { result in
             switch result {
-            case .success(let url): Task { await model.importFile(url); if model.reader.book != nil || model.readingEPUB || model.readingComic { compactColumn = .detail } }
+            case .success(let url): Task { await model.importFile(url); compactColumn = .detail }
             case .failure(let error): model.error = error.localizedDescription
             }
         }
@@ -105,13 +116,14 @@ public struct LibraryWorkspace: View {
     }
     private var importTitle: String {
         #if os(macOS)
-        "导入 PDF / EPUB / CBZ"
+        "导入 PDF / EPUB / DOCX / CBZ"
         #else
         "导入 PDF"
         #endif
     }
     private var displayedBookID: UUID? {
         #if os(macOS)
+        if model.docx.isActive { return model.docx.reader.book?.id }
         if model.readingComic { return model.comic.book?.id }
         if model.readingEPUB { return model.epub.book?.id }
         #endif
@@ -119,7 +131,7 @@ public struct LibraryWorkspace: View {
     }
     private var importTypes: [UTType] {
         #if os(macOS)
-        [.pdf, UTType(filenameExtension: "epub") ?? .data, UTType(filenameExtension: "cbz", conformingTo: .zip) ?? .zip]
+        [.pdf, UTType(filenameExtension: "epub") ?? .data, UTType(filenameExtension: "docx") ?? .data, UTType(filenameExtension: "cbz", conformingTo: .zip) ?? .zip]
         #else
         [.pdf]
         #endif
@@ -136,6 +148,7 @@ public struct FeatureStatusView: View {
                     Label("本地 PDF 导入、阅读、目录与搜索", systemImage: "checkmark.circle")
                     Label("选区高亮、笔记与本地保存", systemImage: "checkmark.circle")
                     #if os(macOS)
+                    Text("DOCX：Mac 语义重排阅读、标题目录与选文笔记；与 Word 原版式不同；DOC 未支持")
                     Label("CBZ 漫画：导入、页序、左右方向、单双页与进度恢复", systemImage: "checkmark.circle")
                     Label("DOCX 正文转 TXT / 简化 HTML（有损副本）", systemImage: "checkmark.circle")
                     #endif
