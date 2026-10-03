@@ -47,7 +47,7 @@ final class NativeUITests: XCTestCase {
         let second = app.buttons["Second UI heading"].firstMatch
         XCTAssertTrue(second.waitForExistence(timeout: 5)); press(second)
         XCTAssertTrue(try webText(in: app, matching: "Second UI heading", prefix: false, timeout: 10).isHittable)
-        let store = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent("docx-mammoth-v1.json")
+        let store = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent("docx-mammoth-v1.json")
         var lastProgress: [String: Any]?
         let persisted = expectation(for: NSPredicate { _, _ in
             guard let data = try? Data(contentsOf: store), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -646,7 +646,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(scroll.waitForExistence(timeout: 5))
         for _ in 0..<12 {
             if app.buttons["page-return-source"].firstMatch.isHittable { return }
-            scroll.scroll(byDeltaX: 0, deltaY: -500)
+            scroll.scroll(byDeltaX: 0, deltaY: 300)
         }
         XCTAssertTrue(app.buttons["page-return-source"].firstMatch.isHittable)
     }
@@ -656,9 +656,10 @@ final class NativeUITests: XCTestCase {
         for _ in 0..<12 {
             if element.isHittable { return }
             // macOS touch-swipe synthesis did not move this AppKit scroll view.
-            // Pixel scrolling uses the same API as XCTest's successful native
-            // auto-scroll (the fixture log showed +615.5 for this lower field).
-            scroll.scroll(byDeltaX: 0, deltaY: 500)
+            // Positive deltas move toward the top. The successful auto-scroll
+            // from the initial viewport to this field was -565.5; use bounded
+            // negative steps so the first segment is not overshot.
+            scroll.scroll(byDeltaX: 0, deltaY: -300)
         }
         XCTAssertTrue(element.isHittable)
     }

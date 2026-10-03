@@ -39,13 +39,13 @@ public final class LibraryModel: ObservableObject {
             // A malformed test token still gets a fresh isolated directory;
             // it must never fall through to the real user library.
             let value = UUID(uuidString: token) ?? UUID()
-            root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-UITests-" + value.uuidString)
+            root = Self.isolatedUITestRoot(value)
         } else if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
             let arguments = ProcessInfo.processInfo.arguments
             let value = arguments.firstIndex(of: "--ui-test-session").flatMap { index in
                 arguments.indices.contains(index + 1) ? UUID(uuidString: arguments[index + 1]) : nil
             } ?? UUID()
-            root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-UITests-" + value.uuidString)
+            root = Self.isolatedUITestRoot(value)
         } else { root = LibraryRepository.defaultRoot() }
         repository = LibraryRepository(root: root)
         epubRepository = EPUBRepository(root: root)
@@ -66,6 +66,17 @@ public final class LibraryModel: ObservableObject {
         // The sidebar reads this nested model even while its reader is inactive.
         // Forward asynchronous load/restart changes as well as routed imports.
         docxChanges = docx.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
+        #endif
+    }
+    private static func isolatedUITestRoot(_ value: UUID) -> URL {
+        #if os(macOS)
+        // XCTest's runner and the launched app can have different TMPDIR values.
+        // A fresh, private UUID directory is shared only by this isolated test.
+        let root = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + value.uuidString)
+        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        return root
+        #else
+        return FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-UITests-" + value.uuidString)
         #endif
     }
     func load() async {
