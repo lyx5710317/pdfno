@@ -3,6 +3,10 @@ import Foundation
 import Testing
 import PDFnoServices
 @testable import PDFnoUI
+#if os(macOS)
+import AppKit
+import SwiftUI
+#endif
 
 private let syntheticKey = "synthetic-probe-credential"
 private let syntheticReply = Data("{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"role\":\"assistant\",\"content\":\"离线短句回应\",\"tool_calls\":null}}]}".utf8)
@@ -83,11 +87,12 @@ struct DeepSeekSelfTestTests {
             #expect(await transport.requests.count == 1)
         }
         let invalidBodies = [Data("invalid synthetic JSON".utf8), Data(repeating: 65, count: 65537),
-            Data("{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"role\":\"assistant\",\"content\":\"partial\"}}]}".utf8),
             Data("{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"role\":\"assistant\",\"content\":\"text\",\"tool_calls\":[{}]}}]}".utf8)]
         for body in invalidBodies {
             await #expect(throws: DeepSeekTestFailure.output) { try await DeepSeekSelfTest(transport: ProbeTransport(body: body)).run(temporaryKey: syntheticKey, confirmedScopeAndBudget: true) }
         }
+        let truncated = Data("{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"role\":\"assistant\",\"content\":\"partial\"}}]}".utf8)
+        await #expect(throws: DeepSeekTestFailure.truncated) { try await DeepSeekSelfTest(transport: ProbeTransport(body: truncated)).run(temporaryKey: syntheticKey, confirmedScopeAndBudget: true) }
         #expect(DeepSeekSelfTest.safeError(URLError(.timedOut)) == .timeout)
         #expect(DeepSeekSelfTest.safeError(URLError(.cancelled)) == .cancelled)
         #expect(DeepSeekSelfTest.safeError(NSError(domain: "synthetic-sensitive-error", code: 1)) == .network)
@@ -129,11 +134,76 @@ struct DeepSeekSelfTestTests {
         let deadline = Date().addingTimeInterval(2)
         while model.busy, Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
         #expect(model.result == "离线短句回应" && model.attemptsUsed == 1)
-        model.clear(); #expect(model.result == nil && model.temporaryKey.isEmpty && model.attemptsUsed == 1)
+        let recorded = model.records
+        model.close(); #expect(model.result == "离线短句回应" && model.records == recorded && model.temporaryKey.isEmpty && model.attemptsUsed == 1)
+        model.clearRecords(); #expect(model.result == nil && model.records.isEmpty && model.attemptsUsed == 1)
         let deferred = DeferredProbeTransport(), closed = DeepSeekTestModel(service: DeepSeekSelfTest(transport: deferred))
         closed.temporaryKey = syntheticKey; closed.confirmed = true; closed.send()
         while !(await deferred.started()), Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
-        closed.clear(); await deferred.finish(); try await Task.sleep(for: .milliseconds(20))
+        closed.close(); await deferred.finish(); try await Task.sleep(for: .milliseconds(20))
         #expect(closed.result == nil && !closed.busy && closed.temporaryKey.isEmpty && closed.attemptsUsed == 1)
+        #expect(closed.records.first?.outcome == .failed(.cancelled))
     }
+    @Test @MainActor func safeErrorsAndThreeAttemptLimitSurviveRepeatedCloseAndRecordClear() async throws {
+        for (status, expected) in [(401,DeepSeekTestFailure.authentication),(402,.quota),(429,.rateLimit)] {
+            let transport = ProbeTransport(status: status, body: Data("sensitive-synthetic-body".utf8))
+            let model = DeepSeekTestModel(service: DeepSeekSelfTest(transport: transport))
+            for ordinal in 1...3 {
+                model.temporaryKey = syntheticKey; model.confirmed = true; model.send()
+                let deadline = Date().addingTimeInterval(2)
+                while model.busy, Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+                #expect(model.records.count == ordinal && model.records.last?.outcome == .failed(expected))
+                #expect(model.error == expected.localizedDescription && model.result == nil)
+                model.temporaryKey = syntheticKey; model.confirmed = true; model.close(); model.close()
+                #expect(model.temporaryKey.isEmpty && !model.confirmed && model.attemptsUsed == ordinal)
+                #expect(model.error == expected.localizedDescription && model.records.last?.outcome == .failed(expected))
+                #expect(!model.error!.contains("sensitive-synthetic-body"))
+            }
+            model.temporaryKey = syntheticKey; model.confirmed = true
+            #expect(!model.canSend); model.send()
+            #expect(await transport.requests.count == 3)
+            model.clearRecords()
+            #expect(model.records.isEmpty && model.error == nil && model.attemptsUsed == 3)
+            model.temporaryKey = syntheticKey; model.confirmed = true; model.send()
+            #expect(!model.canSend && model.records.isEmpty)
+            #expect(await transport.requests.count == 3)
+        }
+    }
+    @Test @MainActor func timeoutRecordRemainsVisibleAfterCloseAndLateResponse() async throws {
+        let transport = DeferredProbeTransport()
+        let model = DeepSeekTestModel(service: DeepSeekSelfTest(transport: transport), timeoutSeconds: 0.1)
+        model.temporaryKey = syntheticKey; model.confirmed = true; model.send()
+        let deadline = Date().addingTimeInterval(2)
+        while model.busy, Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(!model.busy && model.records.first?.outcome == .failed(.timeout))
+        let status = model.status; model.close()
+        #expect(model.status == status && model.error == DeepSeekTestFailure.timeout.localizedDescription && model.attemptsUsed == 1)
+        await transport.finish(); try await Task.sleep(for: .milliseconds(20))
+        #expect(model.result == nil && model.records.first?.outcome == .failed(.timeout))
+    }
+    #if os(macOS)
+    @Test @MainActor func isolatedNativeViewFitsNarrowWindowWithLongSyntheticResponse() async throws {
+        _ = NSApplication.shared
+        let content = String(repeating: "这是离线替身的长响应，用于验证窄窗口自动换行与记录可见性。", count: 12)
+        let body = try JSONSerialization.data(withJSONObject: ["choices": [["finish_reason": "stop", "message": ["role": "assistant", "content": content]]]])
+        let model = DeepSeekTestModel(service: DeepSeekSelfTest(transport: ProbeTransport(body: body)))
+        model.temporaryKey = syntheticKey; model.confirmed = true; model.send()
+        let deadline = Date().addingTimeInterval(2)
+        while model.busy, Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(model.result == content && model.temporaryKey.isEmpty)
+        let host = NSHostingView(rootView: DeepSeekSelfTestView(model: model).background(.white).preferredColorScheme(.light))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 620), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = host
+        defer { window.close() }
+        host.frame = NSRect(x: 0, y: 0, width: 560, height: 620); host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(host.fittingSize.width <= 560 && host.frame.width == 560)
+        // Only this in-process original fixture view is captured; no desktop or user app.
+        if let output = ProcessInfo.processInfo.environment["PDFNO_SYNTHETIC_LAYOUT_PREVIEW"], !output.isEmpty {
+            let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            try #require(bitmap.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: output))
+        }
+    }
+    #endif
 }

@@ -32,7 +32,7 @@
 
 2026-10-02 用户随后明确确认“Swift＋PDFKit 保留，其他格式优先接 Kookit，并继续 AGPL 开源”，并要求继续开发；2026-10-03 再次要求继续现有 PDFno。当前增加 Mac EPUB 最小片，移动端仍编译保留、后续适配；普通提交/推送按已有授权处理。运行证据与未覆盖范围以 VALIDATION 为准。
 
-EPUB 闭环后，用户授权 Mac BYOK／选文 AI 小切片：原生服务配置、安全凭据接口、选文翻译／解释、明确范围、取消／超时／版本隔离、引用与笔记。阅读 AI 只开放明确标注的本地 mock 和非秘密配置预览；HTTP/Keychain 接口用完全隔离的虚构输入测试，**真实阅读请求和持久凭据配置未启用**。用户随后指定官方 DeepSeek endpoint/model 的独立测试；新增9.2的无书籍短句入口，agent 仍只用虚构 key/拦截网络验证。≤1元／最多3次拟议费用范围尚待用户明确确认，配置完成不是费用批准或连通证明。整页、章节、整书及其他 N4 能力不在本片范围。
+EPUB 闭环后，用户授权 Mac BYOK／选文 AI 小切片：原生服务配置、安全凭据接口、选文翻译／解释、明确范围、取消／超时／版本隔离、引用与笔记。阅读 AI 只开放明确标注的本地 mock 和非秘密配置预览；HTTP/Keychain 接口用完全隔离的虚构输入测试，**真实阅读请求和持久凭据配置未启用**。用户随后指定官方 DeepSeek endpoint/model 的独立测试；新增9.2的无书籍短句入口，agent 仍只用虚构 key/拦截网络验证。客户端每次仍需用户确认显示的内容和费用范围；配置或服务方费用限额不是agent读取／提交密钥的授权，也不是生成成功证明。最多3次、128输出tokens与无自动重试保持。整页、章节、整书及其他 N4 能力不在本片范围。
 
 ### 0.3 原稿来源、版本与文档权威
 
@@ -432,11 +432,11 @@ URLSession delegate 默认停止带认证重定向；受允许适配需检查完
 
 **CONFIRMED** provider 为 DeepSeek、base endpoint `https://api.deepseek.com`、model `deepseek-flash`。Mac 设置中独立原生 sheet；打开不会发送，阅读 AI 仍是9.1离线切片。实际请求固定 `POST https://api.deepseek.com/chat/completions`，`stream:false`、`max_tokens:128`、`thinking:{type:disabled}`。完整可见发送内容只有原创短句 `A small blue bird rests beside a quiet window.` 和固定指令 `Translate the following original test sentence into Simplified Chinese. Return only one short sentence.`，无书籍、选文、笔记、文件、历史、工具或检索上下文。
 
-用户手动输入新的临时 key，明确确认内容及费用范围，并亲自点击最终按钮。agent 不从聊天、截图、AX、日志、内存或配置读取/填入/复制 key、不点击真实发送。**拟议预算≤1元人民币／最多3次尚待用户明确确认；配置完成不代表批准费用。** 客户端只强制本次应用会话最多3次和128输出tokens，不能保证服务商人民币账单硬上限。失败／取消／超时也可能计费且计次数，无自动重试；重开窗口不重置，应用重启重置内存计数，不是账户持久预算。每次重新输入并确认。
+用户手动输入新的临时 key，明确确认内容及费用范围，并亲自点击最终按钮。agent 不从聊天、截图、AX、日志、内存或配置读取/填入/复制 key、不点击真实发送。**拟议预算≤1元人民币／最多3次由用户在发送前确认；服务方费用设置不授权agent读取或提交key。** 客户端只强制本次应用会话最多3次和128输出tokens，不能保证服务商人民币账单硬上限。失败／取消／超时也可能计费且计次数，无自动重试；重开窗口不重置，应用重启重置内存计数，不是账户持久预算。每次重新输入并确认。
 
 服务为 bookless actor，不伪造 PDF/EPUB 锚点。复用 ephemeral URLSession、无 cookie/cache、拒绝所有重定向，实际响应≤64KiB；单一 continuation 终态与30秒期限、UI generation 阻止取消/关闭后迟到结果。仅接受单个 assistant 纯文本、stop终态、无工具/function、≤2048 UTF-16输出；length截断不假称完成。错误为固定安全分型，不记录/显示原错误、头、正文或 key；`Text(verbatim:)` 不执行链接/HTML。结果不保存笔记或缓存。
 
-发送时清空输入框，取消/关闭清除输入和结果、不写普通文件/Keychain/iCloud/Bookno。请求期间 Authorization 仍需留在原生网络内存；Swift/Foundation不保证安全擦除。当前用户打开旧版且已有临时输入时，不退出/重启/覆盖其运行 bundle，不读截图/AX密钥区域；独立目录构建新版，交接后由用户决定重开并重新输入，不承诺跨重启保留。自动测试只用虚构 key、stub和拦截每个URL的URLProtocol，完整Mac UI回归在独立CI执行。**真实DeepSeek连通、账单、TLS/代理与翻译质量 NOT-RUN**；收到用户真实运行结果后才能另记证据。ADR0005／VALIDATION记录实际代码、测试与边界；不据入口编译扩大为完整BYOK或T09通过。
+发送时清空输入框，取消/关闭清除密钥和确认、取消未完成请求；安全响应／错误记录保留到本次应用退出，不写普通文件/Keychain/iCloud/Bookno。关闭重开和明确清除记录均不重置次数；3/3不是成功证明，旧版已被清除的结果无法恢复。记录放顶部，变化时自动滚到最新一条，工具栏可查看；geometry限定宽度、长文本换行和垂直滚动。HTTP401/403、402、429与30秒超时保留可见，length截断单独标失败。请求期间 Authorization 仍需留在原生网络内存；Swift/Foundation不保证安全擦除。用户已有临时输入时，未经明确更新重开许可不退出/重启/覆盖其运行bundle，不读截图/AX密钥区域。仅编译现有target的更新副本，不建新应用身份或入口；获准后正常退出、发现未保存确认则停，打开更新后的同一程序，停在用户输入/确认/发送前。密钥和内存记录不承诺跨应用重启保留，也不能用重启绕过次数。自动测试只用虚构 key、stub和拦截每个URL的URLProtocol，完整Mac UI回归在独立CI执行。2026-10-03 08:23:45 UTC无凭据检查：DNS解析、TLS1.2及证书／主机名验证通过，GET /models返回401；无Authorization/cookie/body、无生成，最初sandbox DNS失败后经正常权限审核完成。仅证明当时鉴权入口可达。**认证后的DeepSeek模型调用、账单、实际客户端代理与翻译质量 NOT-RUN**；收到用户真实运行结果后才能另记证据。ADR0005／VALIDATION记录实际代码、测试与边界；不据入口编译扩大为完整BYOK或T09通过。
 
 ## 10 假名与日英语法辅助
 

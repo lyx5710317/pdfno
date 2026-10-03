@@ -3,7 +3,7 @@ import Foundation
 import PDFnoDomain
 
 public enum DeepSeekTestFailure: Error, Sendable, Equatable, LocalizedError {
-    case consent, credentials, limit, busy, timeout, cancelled, network, redirect, authentication, quota, rateLimit, server, output
+    case consent, credentials, limit, busy, timeout, cancelled, network, redirect, authentication, quota, rateLimit, server, output, truncated
     public var errorDescription: String? {
         switch self {
         case .consent: "请先确认固定短句的发送范围与费用范围。"
@@ -14,11 +14,12 @@ public enum DeepSeekTestFailure: Error, Sendable, Equatable, LocalizedError {
         case .cancelled: "请求已取消；服务商仍可能计费，不会自动重试。"
         case .network: "网络请求未完成；未验证服务连通，不会自动重试。"
         case .redirect: "已拒绝重定向，密钥不会转发到其他地址。"
-        case .authentication: "服务商拒绝认证；请自行检查密钥。"
-        case .quota: "服务商报告余额或配额不足。"
-        case .rateLimit: "服务商限制请求频率；不会自动重试。"
+        case .authentication: "HTTP 401 / 403：服务商拒绝认证；请自行检查密钥。"
+        case .quota: "HTTP 402：服务商报告余额或配额不足。"
+        case .rateLimit: "HTTP 429：服务商限制请求频率；不会自动重试。"
         case .server: "服务商拒绝请求或暂时不可用。"
         case .output: "响应格式或大小不符合本次短句测试约定。"
+        case .truncated: "服务响应达到输出上限而截断，未计为成功；不会自动重试。"
         }
     }
 }
@@ -101,8 +102,9 @@ public actor DeepSeekSelfTest {
         }
         guard response.body.count <= 65536,
               let envelope = try? JSONSerialization.jsonObject(with: response.body) as? [String: Any],
-              let choices = envelope["choices"] as? [[String: Any]], choices.count == 1,
-              choices[0]["finish_reason"] as? String == "stop",
+              let choices = envelope["choices"] as? [[String: Any]], choices.count == 1 else { throw DeepSeekTestFailure.output }
+        if choices[0]["finish_reason"] as? String == "length" { throw DeepSeekTestFailure.truncated }
+        guard choices[0]["finish_reason"] as? String == "stop",
               let message = choices[0]["message"] as? [String: Any], message["role"] as? String == "assistant",
               message["tool_calls"] == nil || message["tool_calls"] is NSNull,
               message["function_call"] == nil || message["function_call"] is NSNull,
