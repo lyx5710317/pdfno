@@ -40,6 +40,7 @@ struct DOCXTests {
     func hostileOrOutOfProfileDocumentsFailBeforeRendering(name: String) throws {
         let data = try fixture(name)
         #expect(throws: DOCXError.self) { try DOCXParser.parse(data) }
+        #expect(throws: DOCXError.self) { try DOCXParser.preflight(data) }
     }
     @Test func centralSizesCRCAndSymlinksCannotBypassValidation() throws {
         let original = try fixture(), central = try #require(original.range(of: Data([0x50, 0x4b, 0x01, 0x02]))?.lowerBound)
@@ -127,18 +128,22 @@ struct DOCXTests {
     @Test func isolatedRepositoryRetainsOriginalDeduplicatesAndReopensNotes() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-DOCX-Test-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let repository = DOCXRepository(root: root), data = try fixture()
+        let repository = DOCXRepository(root: root), data = try fixture("mammoth-sample")
         let book = try await repository.importBook(data, filename: "original.docx")
         let same = try await repository.importBook(data, filename: "renamed.docx")
         #expect(book.id == same.id)
+        let extraction = try #require(Bundle.module.url(forResource: "mammoth-extraction", withExtension: "json", subdirectory: "Fixtures/DOCX"))
+        let actualMammoth = try JSONDecoder().decode(DOCXDocument.self, from: Data(contentsOf: extraction))
+        try await repository.bindRenderedDocument(actualMammoth, book: book)
         let doc = try await repository.document(book)
         let anchor = try #require(doc.anchor(book: book, start: doc.blocks[1].start, end: doc.blocks[1].start + 6))
         let note = DOCXNote(bookID: book.id, anchor: anchor, userText: "Original observation")
         try await repository.saveNote(note); try await repository.saveProgress(anchor, bookID: book.id)
         let reopened = DOCXRepository(root: root), state = try await reopened.load()
+        try await reopened.bindRenderedDocument(actualMammoth, book: book)
         #expect(state.notes == [note] && state.books.first?.progress == anchor)
         #expect(try await reopened.read(book) == data)
-        #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("docx-v1.json.backup").path))
+        #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("docx-mammoth-v1.json.backup").path))
         #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("library-v1.json").path))
         #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("epub-v1.json").path))
         let wrong = DOCXAnchor(editionID: UUID(), fileSHA256: book.fileSHA256, blockID: anchor.blockID,
@@ -156,13 +161,26 @@ struct DOCXTests {
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let bytes = Data("{\"schemaVersion\":99,\"books\":[],\"notes\":[]}".utf8)
-        let manifest = root.appendingPathComponent("docx-v1.json"); try bytes.write(to: manifest)
+        let manifest = root.appendingPathComponent("docx-mammoth-v1.json"); try bytes.write(to: manifest)
         let repo = DOCXRepository(root: root), data = try fixture()
         await #expect(throws: DOCXError.self) { try await repo.importBook(data, filename: "sample.docx") }
         #expect(try Data(contentsOf: manifest) == bytes)
         await #expect(throws: DOCXError.legacyDOC) { try await repo.importBook(data, filename: "legacy.doc") }
         #expect(throws: DOCXError.self) { try DOCXRepository.decode(Data("{\"schemaVersion\":1,\"books\":[],\"notes\":[],\"unknown\":1}".utf8)) }
         #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("Originals").path))
+    }
+    @Test func actualMammothDTOAndOrdinaryHyperlinkPreflight() throws {
+        let source = try fixture("hyperlink-sample")
+        #expect(try DOCXParser.preflight(source).contains("word/document.xml"))
+        #expect(throws: DOCXError.self) { try DOCXParser.parse(source) } // native candidate remains narrower
+        let extraction = try #require(Bundle.module.url(forResource: "mammoth-extraction", withExtension: "json", subdirectory: "Fixtures/DOCX"))
+        let doc = try JSONDecoder().decode(DOCXDocument.self, from: Data(contentsOf: extraction))
+        #expect(doc.isValid && DOCXDocument.extractionVersion == "docx-mammoth-utf16-1")
+        #expect(doc.outline.map(\.headingLevel) == [1,2])
+        #expect(doc.blocks.contains { $0.listLevel != nil })
+        let data = try fixture("mammoth-sample"), book = book(data)
+        let anchor = try #require(doc.anchor(book: book, start: doc.blocks[1].start, end: doc.blocks[1].start + 6))
+        #expect(anchor.quote == "window" && doc.resolves(anchor))
     }
     @Test func boundedFileReadRejectsOversizedSource() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-DOCX-Bounds-" + UUID().uuidString)

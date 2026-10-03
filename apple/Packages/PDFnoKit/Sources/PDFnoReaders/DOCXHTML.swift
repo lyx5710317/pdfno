@@ -9,7 +9,7 @@ public enum DOCXHTML {
             .replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\"", with: "&quot;")
             .replacingOccurrences(of: "'", with: "&#39;").replacingOccurrences(of: "\r", with: "&#13;")
     }
-    public static func render(_ document: DOCXDocument, sessionID: UUID) -> String {
+    public static func render(_ document: DOCXDocument, sessionID: UUID, usesMammoth: Bool = false) -> String {
         let nonce = sessionID.uuidString
         func paragraph(_ block: DOCXBlock) -> String {
             let tag = block.headingLevel.map { "h\(min(6, $0))" } ?? "p"
@@ -37,15 +37,16 @@ public enum DOCXHTML {
             body += paragraph(block)
         }
         if table != nil { body += "</td></tr></tbody></table>" }
+        let engineScript = usesMammoth ? "<script nonce=\"\(nonce)\" src=\"pdfno-docx://app/engine.js\"></script>" : ""
         return """
         <!doctype html><html lang="zh"><head><meta charset="utf-8">
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-\(nonce)'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
         <meta name="viewport" content="width=device-width,initial-scale=1">
         <style>body{font:18px/1.8 -apple-system,system-ui;margin:32px;color:CanvasText;background:Canvas}main{max-width:850px;margin:auto}p,h1,h2,h3,h4,h5,h6{white-space:pre-wrap;overflow-wrap:anywhere}p{min-height:1em}h1,h2,h3,h4,h5,h6{line-height:1.35}table{border-collapse:collapse;max-width:100%;margin:1em 0}td{border:1px solid gray;padding:.5em;vertical-align:top}.list:before{content:'• ';user-select:none}::selection{background:#ffe285}::highlight(pdfnoNotes){background:#ffe285}::highlight(pdfnoReturn){background:#ffb565}</style></head>
-        <body><main>\(body)</main><script nonce="\(nonce)">
+        <body><main>\(body)</main>\(engineScript)<script nonce="\(nonce)">
         'use strict';
-        const session='\(nonce)', blocks=Array.from(document.querySelectorAll('[data-block]'));
-        const canonical=blocks.map(b=>b.textContent).join('\\n');
+        const session='\(nonce)'; let blocks=Array.from(document.querySelectorAll('[data-block]'));
+        let canonical=blocks.map(b=>b.textContent).join('\\n');
         function post(action, data={}) { window.webkit?.messageHandlers.docx.postMessage({session,action,...data}); }
         function offset(node,local) {
           const element=node.nodeType===3?node.parentElement:node;
@@ -73,6 +74,9 @@ public enum DOCXHTML {
         function rangeFor(a){const s=point(a.start),e=point(a.end);if(!s||!e)return null;
           const r=document.createRange();r.setStart(...s);r.setEnd(...e);return r;}
         window.pdfnoDOCX={
+          install(html,expected){const main=document.querySelector('main');main.innerHTML=html;
+            blocks=Array.from(document.querySelectorAll('[data-block]'));canonical=blocks.map(b=>b.textContent).join('\\n');
+            if(canonical!==expected){main.textContent='';throw Error('Canonical DOCX DOM mismatch');}return true;},
           navigate(a){const r=rangeFor(a);if(!r||canonical.slice(a.start,a.end)!==a.quote)return false;
             r.startContainer.parentElement?.scrollIntoView({block:'center'});
             if(window.Highlight&&CSS.highlights)CSS.highlights.set('pdfnoReturn',new Highlight(r));return true;},

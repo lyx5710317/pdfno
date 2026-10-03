@@ -117,6 +117,11 @@
       "path": "src/utils/touchUtil.ts",
       "sha": "6eff1ebb827226147971226fa5466ba4842e3b1d",
       "size": 39255
+    },
+    {
+      "path": "src/renders/DocxRender.ts",
+      "sha": "5f93e0f919cc9d752111ea7bb3595ed5afeda6b8",
+      "size": 1562
     }
   ]
 }

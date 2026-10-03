@@ -39,6 +39,16 @@ def make(values, method=ZIP_DEFLATED):
     return output.getvalue()
 def variants():
     yield 'study-sample.docx', entries
+    formal = dict(entries)
+    formal['word/styles.xml'] = entries['word/styles.xml'].replace('</w:styles>', '<w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/></w:style></w:styles>')
+    formal['word/document.xml'] = entries['word/document.xml'].replace('w:val="CustomHeading"','w:val="Heading1"').replace('<w:outlineLvl w:val="1"/>','<w:pStyle w:val="Heading2"/>')
+    formal['word/numbering.xml'] = f'<w:numbering xmlns:w="{W}"><w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/></w:lvl></w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num></w:numbering>'
+    formal['word/_rels/document.xml.rels'] = f'<Relationships xmlns="{R}"><Relationship Id="styles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="numbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/></Relationships>'
+    yield 'mammoth-sample.docx', formal
+    linked = dict(formal)
+    linked['word/_rels/document.xml.rels'] = formal['word/_rels/document.xml.rels'].replace('</Relationships>', '<Relationship Id="link" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://example.invalid/never-open" TargetMode="External"/></Relationships>')
+    linked['word/document.xml'] = formal['word/document.xml'].replace('<w:sectPr/>', '<w:p><w:hyperlink xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="link"><w:r><w:t>Ordinary hyperlink label</w:t></w:r></w:hyperlink></w:p><w:sectPr/>')
+    yield 'hyperlink-sample.docx', linked
     yield 'stored-sample.docx', entries
     external = dict(entries)
     external['word/_rels/document.xml.rels'] = f'<Relationships xmlns="{R}"><Relationship Id="external" Type="hyperlink" Target="https://example.invalid/unreachable" TargetMode="External"/></Relationships>'
@@ -75,5 +85,5 @@ if __name__ == '__main__':
             info=ZipInfo(name,(2026,10,3,0,0,0));info.compress_type=ZIP_DEFLATED;info.external_attr=0o100644<<16
             archive.writestr(info,value.encode())
     (FIXTURES/'descriptor-sample.docx').write_bytes(stream.getvalue())
-    (ROOT/'apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources/study-sample.docx').write_bytes(original)
+    (ROOT/'apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources/study-sample.docx').write_bytes((FIXTURES/'mammoth-sample.docx').read_bytes())
     print('Generated',len(list(FIXTURES.glob('*.docx'))),'original DOCX fixtures')

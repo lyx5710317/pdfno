@@ -2,21 +2,23 @@
 import Foundation
 
 public enum DOCXError: LocalizedError {
-    case invalidArchive, resourceLimit, invalidXML, unsupportedContent, legacyDOC, invalidStore, sourceMismatch, unavailable
+    case invalidArchive, resourceLimit, invalidXML, unsupportedContent, legacyDOC, invalidStore, sourceMismatch, unavailable, bridge, cancelled
     public var errorDescription: String? {
         switch self {
         case .invalidArchive: "DOCX ZIP 无效、校验失败或含不安全路径／加密／不支持的归档结构。"
         case .resourceLimit: "DOCX 超出限额：20 MiB 文件、1000 项、4 MiB 单项、50 MiB 总解压、10000 段、100万 UTF-16 字元。"
         case .invalidXML: "DOCX XML 无效或包含 DTD、实体、异常层级／编码。"
-        case .unsupportedContent: "此 DOCX 包含外部关系、宏、嵌入对象或暂不支持的内容；请在 Word 中另存为普通 DOCX。"
+        case .unsupportedContent: "此 DOCX 包含非超链接的外部关系、宏、嵌入对象或暂不支持的内容；请在 Word 中另存为普通 DOCX。"
         case .legacyDOC: "旧版 DOC 尚未支持；请先在 Word 中另存为 DOCX。"
         case .invalidStore: "DOCX 本地书库无法验证；现有记录不会被覆盖。"
         case .sourceMismatch: "DOCX 来源或引文无法精确恢复；原笔记已保留，请重新选择。"
         case .unavailable: "DOCX 语义阅读当前仅在 Mac 开放。"
+        case .bridge: "DOCX 转换／阅读失败或超时，请重新打开。"
+        case .cancelled: "DOCX 阅读已取消。"
         }
     }
 }
-public struct DOCXRun: Sendable, Equatable {
+public struct DOCXRun: Codable, Sendable, Equatable {
     public let text: String
     public let bold: Bool
     public let italic: Bool
@@ -24,7 +26,7 @@ public struct DOCXRun: Sendable, Equatable {
         self.text = text; self.bold = bold; self.italic = italic
     }
 }
-public struct DOCXBlock: Sendable, Equatable, Identifiable {
+public struct DOCXBlock: Codable, Sendable, Equatable, Identifiable {
     public let id: Int
     public let runs: [DOCXRun]
     public let headingLevel: Int?
@@ -41,14 +43,37 @@ public struct DOCXBlock: Sendable, Equatable, Identifiable {
         self.table = table; self.row = row; self.cell = cell; self.start = start
     }
 }
-public struct DOCXDocument: Sendable, Equatable {
-    public static let extractionVersion = "docx-semantic-utf16-1"
+public struct DOCXDocument: Codable, Sendable, Equatable {
+    public static let extractionVersion = "docx-mammoth-utf16-1"
     public let blocks: [DOCXBlock]
     public let warnings: [String]
     public let text: String
     public var outline: [DOCXBlock] { blocks.filter { $0.headingLevel != nil && !$0.text.isEmpty } }
     public init(blocks: [DOCXBlock], warnings: [String] = []) {
         self.blocks = blocks; self.warnings = warnings; text = blocks.map(\.text).joined(separator: "\n")
+    }
+    private enum CodingKeys: String, CodingKey { case blocks, warnings }
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(blocks: try values.decode([DOCXBlock].self, forKey: .blocks), warnings: try values.decode([String].self, forKey: .warnings))
+        guard isValid else { throw DOCXError.bridge }
+    }
+    public var isValid: Bool {
+        guard !blocks.isEmpty, blocks.count <= 10000, text.utf16.count <= 1_000_000,
+              warnings.count <= 100, warnings.allSatisfy({ $0.utf16.count <= 1024 }) else { return false }
+        var offset = 0, runs = 0
+        for (id, block) in blocks.enumerated() {
+            guard block.id == id, block.start == offset, block.runs.count <= 100000,
+                  block.headingLevel == nil || (1...6).contains(block.headingLevel!),
+                  block.listLevel == nil || (0...8).contains(block.listLevel!),
+                  block.table == nil || (0..<10000).contains(block.table!),
+                  block.row == nil || (0..<10000).contains(block.row!),
+                  block.cell == nil || (0..<10000).contains(block.cell!) else { return false }
+            runs += block.runs.count
+            guard runs <= 100000 else { return false }
+            offset += block.text.utf16.count + 1
+        }
+        return blocks.contains { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
     /// Scalar-exact offsets; canonical equivalence and split surrogate pairs do not count as a match.
     public func resolves(_ anchor: DOCXAnchor) -> Bool {

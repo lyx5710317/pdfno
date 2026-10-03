@@ -1,5 +1,7 @@
 # Proposed ADR — Native DOCX semantic candidate versus Kookit/Mammoth
 
+Historical candidate at `fafd0a6` / `c9630ed`, retained for comparison. The active route is now [Kookit/Mammoth](ADR-DOCX-KOOKIT-MAMMOTH.md); this candidate is not used for product semantics.
+
 Date: 2026-10-03. Status: **pending architecture/user review; independent candidate only**. The candidate is implemented and its unit/security tests/independent builds are verified; interactive WebKit acceptance is deferred at the user's request. This does not replace the agreed Kookit DOCX direction or authorise merging a route change. Base: `aaba190a878df9de5674491d20f1b36fa4733607`.
 
 ## Proposed decision and upstream evidence

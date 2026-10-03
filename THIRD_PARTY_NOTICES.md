@@ -32,4 +32,8 @@ The additional fixed upstream comic-book.js is recorded in engine-build/COMICS-S
 
 ## DOCX system library boundary
 
-The original `PDFnoDOCXZIP` C target links Apple SDK/system `libz` for bounded raw DEFLATE and CRC validation; no zlib implementation or binary is copied into source/resources. Foundation XMLParser, CryptoKit and WebKit provide the other system operations. No external Swift/JS dependency is added by DOCX. Kookit DOCX and Mammoth were reviewed as upstream references and are not installed, vendored or bundled by this slice; their declarations are documented without a claim of relicensing in `docs/ADR-DOCX-SEMANTIC.md`.
+The original `PDFnoDOCXZIP` C target links Apple SDK/system `libz` for bounded raw DEFLATE and CRC validation; no zlib implementation or binary is copied into source/resources. Foundation XMLParser, CryptoKit and WebKit provide the other system operations. There remains no external Swift package. The earlier native candidate added no JS dependency; the current route bundles the fixed Mammoth conversion chain below. The candidate is retained in Git history and `docs/ADR-DOCX-SEMANTIC.md`.
+
+## Current Kookit DOCX conversion resource
+
+Mammoth 1.13.0, lop/option/dingbat-to-unicode retain BSD-2-Clause; xmldom/base64-js/Underscore/xmlbuilder/immediate/lie/setimmediate retain MIT; JSZip 3.10.1 uses its MIT alternative, and pako 1.0.11 retains its MIT plus original zlib notice. Actual versions/integrity/source inputs are in `engine-build/MAMMOTH-SOURCE.json`, `DOCX-DEPENDENCIES.json`, `DOCX-BUNDLED-DEPENDENCIES.json`, `DOCX-BUNDLE-INPUTS.json` and the npm lock. All actual runtime license texts are in app `Resources/DOCX/Notices.txt`; original Kookit reference remains AGPL-3.0-or-later, without third-party relicensing. The build excludes Rangy and Node fs/external-file access. The existing Rangy advisory has no upstream-confirmed patched version here; no upgrade/fix claim is made.

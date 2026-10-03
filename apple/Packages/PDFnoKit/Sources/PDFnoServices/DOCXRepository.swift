@@ -13,7 +13,8 @@ public struct DOCXState: Codable, Sendable {
 public actor DOCXRepository {
     public let root: URL
     public init(root: URL) { self.root = root }
-    private var manifest: URL { root.appendingPathComponent("docx-v1.json") }
+    private var manifest: URL { root.appendingPathComponent("docx-mammoth-v1.json") }
+    private var rendered: [UUID: DOCXDocument] = [:]
     private func asset(_ book: DOCXBook) -> URL {
         root.appendingPathComponent("Originals").appendingPathComponent(book.fileSHA256 + ".docx")
     }
@@ -75,7 +76,7 @@ public actor DOCXRepository {
     public func importBook(_ data: Data, filename: String) throws -> DOCXBook {
         guard URL(fileURLWithPath: filename).pathExtension.lowercased() != "doc" else { throw DOCXError.legacyDOC }
         guard URL(fileURLWithPath: filename).pathExtension.lowercased() == "docx" else { throw DOCXError.unsupportedContent }
-        _ = try DOCXParser.parse(data)
+        _ = try DOCXParser.preflight(data)
         var state = try load(); let hash = Self.hash(data)
         if let book = state.books.first(where: { $0.fileSHA256 == hash }) { _ = try read(book); return book }
         let name = URL(fileURLWithPath: filename).lastPathComponent
@@ -97,7 +98,18 @@ public actor DOCXRepository {
         guard Self.hash(data) == book.fileSHA256 else { throw DOCXError.sourceMismatch }
         return data
     }
-    public func document(_ book: DOCXBook) throws -> DOCXDocument { try DOCXParser.parse(read(book)) }
+    /// The canonical document must come from the trusted, identity-checked Mammoth reader.
+    /// Never silently fall back to the narrower native candidate on reopening.
+    public func bindRenderedDocument(_ document: DOCXDocument, book: DOCXBook) throws {
+        _ = try read(book)
+        guard document.isValid else { throw DOCXError.sourceMismatch }
+        rendered = [book.id: document]
+    }
+    public func document(_ book: DOCXBook) throws -> DOCXDocument {
+        _ = try read(book)
+        guard let document = rendered[book.id] else { throw DOCXError.sourceMismatch }
+        return document
+    }
     private func verify(_ anchor: DOCXAnchor, book: DOCXBook) throws {
         guard book.accepts(anchor), try document(book).resolves(anchor) else { throw DOCXError.sourceMismatch }
     }

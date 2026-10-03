@@ -1,0 +1,41 @@
+{
+  "name": "mammoth",
+  "version": "1.13.0",
+  "license": "BSD-2-Clause",
+  "repository": {
+    "url": "git+https://github.com/mwilliamson/mammoth.js.git",
+    "type": "git"
+  },
+  "gitHead": "791a189230977143cde64dbf9f1d24dce96ac8a1",
+  "dependencies": {
+    "lop": "^0.4.2",
+    "jszip": "^3.7.1",
+    "argparse": "~1.0.3",
+    "base64-js": "^1.5.1",
+    "underscore": "^1.13.1",
+    "xmlbuilder": "^10.0.0",
+    "@xmldom/xmldom": "^0.8.6",
+    "dingbat-to-unicode": "^1.0.1"
+  },
+  "browser": {
+    "./lib/unzip.js": "./browser/unzip.js",
+    "./lib/docx/files.js": "./browser/docx/files.js"
+  },
+  "dist": {
+    "shasum": "c054d53bfe4f47ca4713f2e9af93abf5b10bd1f2",
+    "tarball": "https://registry.npmjs.org/mammoth/-/mammoth-1.13.0.tgz",
+    "fileCount": 119,
+    "integrity": "sha512-2cawcYFcP7ISfXbBcL9lmVgTNWo88v/52ND1gnywHtVT/pX0//puPnf0iMPV9ZgmuvNOE+zkIhDgZ9M2c2dDDg==",
+    "signatures": [
+      {
+        "sig": "MEYCIQD88r+U+TNYuey4weymQC/uBa9QCZAVHi64pN1x5EdSngIhAJzhqqQAOLyF/yvek3EEE1InS+OnmXctekXoyKcbassC",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+        "sig": "MEUCIQCSUDIs3Wh8n67YB+rlB1acAntG7/CFEcoFlvqMPS8+IQIgb+UcASRPPrbJkxD/hUM8YMTgYP5Fu5kaSp6J/888z2w="
+      }
+    ],
+    "unpackedSize": 1671388
+  }
+}

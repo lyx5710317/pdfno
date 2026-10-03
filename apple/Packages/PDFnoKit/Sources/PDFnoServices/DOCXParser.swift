@@ -74,6 +74,41 @@ private final class DOCXXML: NSObject, XMLParserDelegate {
 
 /// Restricted OOXML Transitional semantic profile. No document HTML, CSS, URLs or code are passed through.
 public enum DOCXParser {
+    /// Safety preflight only. Product semantics come from the pinned Kookit/Mammoth chain.
+    /// Ordinary external hyperlinks remain inert text; other external relationships fail closed.
+    public static func preflight(_ data: Data) throws -> [String] {
+        let entries = try DOCXArchive.read(data)
+        var types: DOCXElement?, main: DOCXElement?, styles: DOCXElement?
+        for name in entries.keys.sorted() where name.lowercased().hasSuffix(".xml") || name.lowercased().hasSuffix(".rels") {
+            let root = try DOCXXML.parse(entries[name]!)
+            if name == "[Content_Types].xml" { types = root }
+            if name == "word/document.xml" { main = root }
+            if name == "word/styles.xml" { styles = root }
+            if name.lowercased().hasSuffix(".rels") { try validateRelationships(root, name: name, entries: entries, allowExternalHyperlinks: true) }
+            var paragraphs = 0, textUnits = 0
+            func check(_ node: DOCXElement) throws {
+                if node.namespace == wordNS {
+                    if ["object", "altChunk", "subDoc"].contains(node.name) { throw DOCXError.unsupportedContent }
+                    if node.name == "p" { paragraphs += 1 }
+                    if node.name == "t" { textUnits += node.text.utf16.count }
+                }
+                guard paragraphs <= 10000, textUnits <= 1_000_000 else { throw DOCXError.resourceLimit }
+                for child in node.children { try check(child) }
+            }
+            try check(root)
+        }
+        guard let types, types.name == "Types", types.namespace == contentNS,
+              types.children.contains(where: {
+                  $0.name == "Override" && $0.namespace == contentNS && $0.attributes["PartName"] == "/word/document.xml" &&
+                  $0.attributes["ContentType"] == "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
+              }), !types.children.contains(where: {
+                  let type = ($0.attributes["ContentType"] ?? "").lowercased()
+                  return type.contains("macro") || type.contains("vba") || type.contains("oleobject")
+              }), let main, main.name == "document", main.namespace == wordNS, main.child("body") != nil else { throw DOCXError.unsupportedContent }
+        _ = try headingStyles(styles) // Cycle/depth guard, not a replacement for Mammoth semantics.
+        return entries.keys.sorted()
+    }
+    /// Retained native candidate for comparison tests; not used by the product import/render path.
     public static func parse(_ data: Data) throws -> DOCXDocument {
         let entries = try DOCXArchive.read(data)
         var roots: [String: DOCXElement] = [:]
@@ -162,7 +197,7 @@ public enum DOCXParser {
         }
         return DOCXDocument(blocks: blocks, warnings: warnings.sorted())
     }
-    private static func validateRelationships(_ root: DOCXElement, name: String, entries: [String: Data]) throws {
+    private static func validateRelationships(_ root: DOCXElement, name: String, entries: [String: Data], allowExternalHyperlinks: Bool = false) throws {
         guard root.name == "Relationships", root.namespace == relNS else { throw DOCXError.invalidXML }
         let base: [String]
         if name == "_rels/.rels" { base = [] }
@@ -175,9 +210,14 @@ public enum DOCXParser {
         for rel in root.children {
             guard rel.name == "Relationship", rel.namespace == relNS, let id = rel.attributes["Id"], !id.isEmpty,
                   ids.insert(id).inserted, let type = rel.attributes["Type"], let target = rel.attributes["Target"],
-                  rel.attributes["TargetMode"] == nil || rel.attributes["TargetMode"] == "Internal",
                   !["oleObject", "package", "aFChunk", "attachedTemplate"].contains(type.split(separator: "/").last.map(String.init) ?? ""),
-                  !target.isEmpty, !target.contains(":"), !target.contains("\\"), !target.contains("%"),
+                  !target.isEmpty, target.utf8.count <= 4096 else { throw DOCXError.unsupportedContent }
+            if rel.attributes["TargetMode"] == "External" {
+                guard allowExternalHyperlinks, type == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" else { throw DOCXError.unsupportedContent }
+                continue // Never resolve/open external hyperlink targets; renderer removes every href.
+            }
+            guard rel.attributes["TargetMode"] == nil || rel.attributes["TargetMode"] == "Internal",
+                  !target.contains(":"), !target.contains("\\"), !target.contains("%"),
                   !target.contains("#"), !target.contains("?"), !target.contains("\0") else { throw DOCXError.unsupportedContent }
             var resolved = target.hasPrefix("/") ? [] : base
             for part in target.split(separator: "/") {

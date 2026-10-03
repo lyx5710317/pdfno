@@ -1,0 +1,26 @@
+[
+  {
+    "path": "LICENSE",
+    "upstream": "https://raw.githubusercontent.com/mwilliamson/mammoth.js/791a189230977143cde64dbf9f1d24dce96ac8a1/LICENSE",
+    "sha256": "6663bbd049205d38a496ccacb412a151980b444627d38de218b3b809aef330f1",
+    "matchesOfficialGitHead": true
+  },
+  {
+    "path": "lib/index.js",
+    "upstream": "https://raw.githubusercontent.com/mwilliamson/mammoth.js/791a189230977143cde64dbf9f1d24dce96ac8a1/lib/index.js",
+    "sha256": "4dfe8f0ef60d694b9ae115da1e3b7b508ce9f5ae5981bd32e195b15fb0b77723",
+    "matchesOfficialGitHead": true
+  },
+  {
+    "path": "browser/unzip.js",
+    "upstream": "https://raw.githubusercontent.com/mwilliamson/mammoth.js/791a189230977143cde64dbf9f1d24dce96ac8a1/browser/unzip.js",
+    "sha256": "88bb0cb36ed990dc71b186dbf3a493a4dcd8369984b324ae2208ea21dba9edcb",
+    "matchesOfficialGitHead": true
+  },
+  {
+    "path": "browser/docx/files.js",
+    "upstream": "https://raw.githubusercontent.com/mwilliamson/mammoth.js/791a189230977143cde64dbf9f1d24dce96ac8a1/browser/docx/files.js",
+    "sha256": "3c9880809af2bc8485662667b8d20562c6ea3b504ddb4eb2f7bc635b9aeeaab6",
+    "matchesOfficialGitHead": true
+  }
+]

@@ -33,12 +33,12 @@ import PDFnoReaders
     }
     private func activate(_ book: DOCXBook) async throws {
         let data = try await repository.read(book)
-        // Parsing/decompression stays on the repository actor, away from UI work.
-        let document = try await repository.document(book)
-        try reader.open(data: data, document: document, book: book, notes: notes); isActive = true
+        try await reader.open(data: data, book: book, notes: notes)
+        guard let document = reader.document else { throw DOCXError.bridge }
+        try await repository.bindRenderedDocument(document, book: book); isActive = true
     }
     public func saveNote(_ anchor: DOCXAnchor, text: String) async -> Bool {
-        guard let book = reader.book, book.accepts(anchor), reader.document?.resolves(anchor) == true else {
+        guard !busy, let book = reader.book, book.accepts(anchor), reader.document?.resolves(anchor) == true else {
             error = DOCXError.sourceMismatch.localizedDescription; return false
         }
         do {
@@ -47,7 +47,7 @@ import PDFnoReaders
         } catch { self.error = error.localizedDescription; return false }
     }
     public func saveProgress(_ anchor: DOCXAnchor) async {
-        guard let book = reader.book else { return }
+        guard !busy, let book = reader.book, book.accepts(anchor), reader.document?.resolves(anchor) == true else { return }
         do { try await repository.saveProgress(anchor, bookID: book.id) }
         catch { self.error = error.localizedDescription }
     }

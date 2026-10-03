@@ -1,0 +1,119 @@
+{
+  "blocks": [
+    {
+      "id": 0,
+      "runs": [
+        {
+          "text": "Original DOCX chapter",
+          "bold": false,
+          "italic": false
+        }
+      ],
+      "start": 0,
+      "headingLevel": 1
+    },
+    {
+      "id": 1,
+      "runs": [
+        {
+          "text": "window",
+          "bold": true,
+          "italic": false
+        },
+        {
+          "text": " — 日本語🌸 café & <script>literal</script>",
+          "bold": false,
+          "italic": false
+        }
+      ],
+      "start": 22
+    },
+    {
+      "id": 2,
+      "runs": [
+        {
+          "text": "window appears again.",
+          "bold": false,
+          "italic": false
+        }
+      ],
+      "start": 70
+    },
+    {
+      "id": 3,
+      "runs": [
+        {
+          "text": "Second heading",
+          "bold": false,
+          "italic": false
+        }
+      ],
+      "start": 92,
+      "headingLevel": 2
+    },
+    {
+      "id": 4,
+      "runs": [
+        {
+          "text": "A list item",
+          "bold": false,
+          "italic": false
+        }
+      ],
+      "start": 107,
+      "listLevel": 1
+    },
+    {
+      "id": 5,
+      "runs": [
+        {
+          "text": "Cell one",
+          "bold": false,
+          "italic": false
+        }
+      ],
+      "start": 119,
+      "table": 0,
+      "row": 0,
+      "cell": 0
+    },
+    {
+      "id": 6,
+      "runs": [
+        {
+          "text": "Cell two",
+          "bold": false,
+          "italic": false
+        }
+      ],
+      "start": 128,
+      "table": 0,
+      "row": 0,
+      "cell": 1
+    },
+    {
+      "id": 7,
+      "runs": [
+        {
+          "text": "Emphasis\tafter tab",
+          "bold": false,
+          "italic": true
+        },
+        {
+          "text": "\n",
+          "bold": false,
+          "italic": true
+        },
+        {
+          "text": "after break",
+          "bold": false,
+          "italic": true
+        }
+      ],
+      "start": 137
+    }
+  ],
+  "warnings": [
+    "DOCX 为语义重排阅读；分页、字体、页眉页脚等与 Word 原版式不同。"
+  ]
+}

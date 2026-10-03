@@ -38,7 +38,9 @@ const inputs = Object.keys(result.metafile.inputs).sort();
 if (inputs.some(x => /(?:libs\/pdf\.js|PdfRender|EpubRender|mobi\.js|zh-convert\.ts|pdfUtil\.ts|7z|mammoth)/.test(x))) throw Error('Non-EPUB input entered bundle');
 await writeFile(path.join(root, 'BUNDLE-INPUTS.json'), JSON.stringify(inputs, null, 2) + '\n');
 let notices = 'PDFno EPUB resource — corresponding source: engine-build/; AGPL-3.0-or-later for PDFno and Kookit.\nCFI upstream declaration: AGPL-3.0; foliate-js: MIT. No relicensing claim.\nJSZip uses its MIT alternative.\n\n';
-for (const name of (await readdir(path.join(root, 'licenses'))).sort()) {
+const legacyLicenseNames = new Set(JSON.parse(await readFile(path.join(root,'DEPENDENCIES.json'),'utf8')).flatMap(x=>x.licenseFiles));
+const docxLicenseNames = new Set(JSON.parse(await readFile(path.join(root,'DOCX-DEPENDENCIES.json'),'utf8')).flatMap(x=>x.licenseFiles.map(f=>path.basename(f))));
+for (const name of (await readdir(path.join(root, 'licenses'))).sort().filter(name=>!docxLicenseNames.has(name)||legacyLicenseNames.has(name))) {
   notices += `\n===== ${name} =====\n` + await readFile(path.join(root, 'licenses', name), 'utf8') + '\n';
 }
 notices += '\n===== Kookit LICENSE =====\n' + await readFile(path.join(root, 'vendor/kookit/LICENSE'), 'utf8');

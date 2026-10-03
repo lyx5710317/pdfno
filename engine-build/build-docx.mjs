@@ -1,0 +1,32 @@
+// Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
+import {build} from 'esbuild';
+import {readFile,writeFile,mkdir,readdir} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+const root=path.dirname(fileURLToPath(import.meta.url));
+const output=path.resolve(root,'../apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/DOCX');
+const manifest=JSON.parse(await readFile(path.join(root,'vendor/manifest.json'),'utf8'));
+const original=manifest.files.find(x=>x.path==='src/renders/DocxRender.ts');
+const bytes=await readFile(path.join(root,'vendor/kookit',original.path));
+if(createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex')!==original.sha)throw Error('Kookit DOCX reference changed');
+if(!bytes.toString().includes('.convertToHtml({ arrayBuffer: this.docxBuffer })'))throw Error('Kookit conversion chain changed');
+const lock=JSON.parse(await readFile(path.join(root,'package-lock.json'),'utf8'));
+const mammothSource=JSON.parse(await readFile(path.join(root,'MAMMOTH-SOURCE.json'),'utf8'));
+if(lock.packages['node_modules/mammoth'].version!=='1.13.0'||lock.packages['node_modules/mammoth'].integrity!==mammothSource.dist.integrity)throw Error('Unpinned Mammoth identity');
+for(const check of JSON.parse(await readFile(path.join(root,'MAMMOTH-SOURCE-CHECKS.json'),'utf8'))){if(createHash('sha256').update(await readFile(path.join(root,'node_modules/mammoth',check.path))).digest('hex')!==check.sha256)throw Error('Mammoth audited source changed: '+check.path);}
+await mkdir(output,{recursive:true});
+const result=await build({absWorkingDir:root,entryPoints:['docx-reader.js'],outfile:path.join(output,'engine.js'),bundle:true,format:'iife',platform:'browser',target:['safari16'],minify:false,legalComments:'inline',metafile:true,sourcemap:false,banner:{js:'// Kookit DOCX Mammoth 1.13.0 profile. Corresponding source: engine-build/. See Notices.txt.'},plugins:[{name:'readable-jszip-source',setup(api){api.onResolve({filter:/^jszip$/},()=>({path:path.join(root,'node_modules/jszip/lib/index.js')}));api.onResolve({filter:/^(stream|readable-stream)$/},()=>({path:'node-streams',namespace:'disabled-node-stream'}));api.onLoad({filter:/.*/,namespace:'disabled-node-stream'},()=>({contents:"module.exports={Readable:function(){throw Error('Node streams are excluded from the DOCX ArrayBuffer profile')}};",loader:'js'}));}}]});
+const inputs=Object.keys(result.metafile.inputs).sort();
+if(inputs.some(x=>/(?:rangy|GeneralRender|libs\/pdf|epub|zh-convert|mammoth\/lib\/(?:fs|unzip)\.js|mammoth\/lib\/docx\/files\.js)/.test(x)))throw Error('Unsafe/non-DOCX module entered bundle');
+if(!inputs.includes('node_modules/mammoth/browser/unzip.js')||!inputs.includes('node_modules/mammoth/browser/docx/files.js'))throw Error('Mammoth browser/no-external-file profile missing');
+await writeFile(path.join(root,'DOCX-BUNDLE-INPUTS.json'),JSON.stringify(inputs,null,2)+'\n');
+let notices='PDFno Kookit DOCX conversion profile. PDFno original modifications: AGPL-3.0-or-later. Kookit reference: AGPL-3.0-or-later; Mammoth 1.13.0: BSD-2-Clause. Actual bundled dependencies retain their original licenses. No fonts/images or extra engine. Corresponding source: engine-build/.\n';
+const records=JSON.parse(await readFile(path.join(root,'DOCX-DEPENDENCIES.json'),'utf8'));
+const used=records.filter(r=>inputs.some(x=>x.startsWith('node_modules/'+r.name+'/')));
+for(const record of used)for(const f of record.licenseFiles)notices+='\n===== '+record.name+' '+record.version+' '+f+' =====\n'+await readFile(path.join(root,f),'utf8');
+if(used.some(x=>x.name==='pako'))notices+='\n===== pako original zlib header =====\n'+await readFile(path.join(root,'licenses/pako-zlib-original-header.txt'),'utf8');
+notices+='\n===== Kookit LICENSE =====\n'+await readFile(path.join(root,'vendor/kookit/LICENSE'),'utf8');
+await writeFile(path.join(output,'Notices.txt'),notices);
+await writeFile(path.join(root,'DOCX-BUNDLED-DEPENDENCIES.json'),JSON.stringify(used,null,2)+'\n');
+console.log('Built actual Mammoth DOCX profile:',inputs.length,'inputs,',used.length,'packages; no Rangy/fs/external files.');
