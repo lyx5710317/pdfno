@@ -51,16 +51,23 @@ private enum ComicFixture {
             let name = Data(entry.name.utf8), payload = try entry.deflated ? deflateRaw(entry.data) : entry.data
             let method = entry.deflated ? 8 : 0, crc = crc(entry.data), expanded = entry.declared ?? entry.data.count
             let descriptor = entry.flags & 8 != 0, offset = locals.count
-            locals += u32(0x04034b50) + u16(20) + u16(entry.flags) + u16(method) + u16(0) + u16(0)
-            locals += u32(descriptor ? 0 : crc) + u32(descriptor ? 0 : payload.count) + u32(descriptor ? 0 : expanded)
-            locals += u16(name.count) + u16(entry.extra.count) + name + entry.extra + payload
-            if descriptor { locals += (entry.descriptorSignature ? u32(0x08074b50) : Data()) + u32(crc) + u32(payload.count) + u32(expanded) }
-            central += u32(0x02014b50) + u16(0x0314) + u16(20) + u16(entry.flags) + u16(method) + u16(0) + u16(0)
-            central += u32(crc) + u32(payload.count) + u32(expanded) + u16(name.count) + u16(entry.extra.count) + u16(0)
-            central += u16(0) + u16(0) + u32(entry.unixMode << 16) + u32(offset) + name + entry.extra
+            for field in [u32(0x04034b50), u16(20), u16(entry.flags), u16(method), u16(0), u16(0),
+                          u32(descriptor ? 0 : crc), u32(descriptor ? 0 : payload.count), u32(descriptor ? 0 : expanded),
+                          u16(name.count), u16(entry.extra.count), name, entry.extra, payload] { locals.append(field) }
+            if descriptor {
+                for field in [entry.descriptorSignature ? u32(0x08074b50) : Data(), u32(crc), u32(payload.count), u32(expanded)] {
+                    locals.append(field)
+                }
+            }
+            for field in [u32(0x02014b50), u16(0x0314), u16(20), u16(entry.flags), u16(method), u16(0), u16(0),
+                          u32(crc), u32(payload.count), u32(expanded), u16(name.count), u16(entry.extra.count), u16(0),
+                          u16(0), u16(0), u32(entry.unixMode << 16), u32(offset), name, entry.extra] { central.append(field) }
         }
-        let end = u32(0x06054b50) + u16(0) + u16(0) + u16(entries.count) + u16(entries.count) + u32(central.count) + u32(locals.count) + u16(0)
-        return locals + central + end
+        let centralOffset = locals.count
+        locals.append(central)
+        for field in [u32(0x06054b50), u16(0), u16(0), u16(entries.count), u16(entries.count),
+                      u32(central.count), u32(centralOffset), u16(0)] { locals.append(field) }
+        return locals
     }
     static func png(width: Int = 12, height: Int = 20) throws -> Data {
         let context = try #require(CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,

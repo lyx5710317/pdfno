@@ -180,13 +180,17 @@ final class NativeUITests: XCTestCase {
         var local = Data(), central = Data()
         for (path, data) in entries {
             let name = Data(path.utf8), offset = local.count, checksum = crc(data)
-            local += u32(0x04034b50) + u16(20) + u16(0x0800) + u16(0) + u16(0) + u16(0)
-            local += u32(checksum) + u32(data.count) + u32(data.count) + u16(name.count) + u16(0) + name + data
-            central += u32(0x02014b50) + u16(0x0314) + u16(20) + u16(0x0800) + u16(0) + u16(0) + u16(0)
-            central += u32(checksum) + u32(data.count) + u32(data.count) + u16(name.count) + u16(0) + u16(0)
-            central += u16(0) + u16(0) + u32(0x8000 << 16) + u32(offset) + name
+            for field in [u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(0), u16(0),
+                          u32(checksum), u32(data.count), u32(data.count), u16(name.count), u16(0), name, data] { local.append(field) }
+            for field in [u32(0x02014b50), u16(0x0314), u16(20), u16(0x0800), u16(0), u16(0), u16(0),
+                          u32(checksum), u32(data.count), u32(data.count), u16(name.count), u16(0), u16(0),
+                          u16(0), u16(0), u32(0x8000 << 16), u32(offset), name] { central.append(field) }
         }
-        return local + central + u32(0x06054b50) + u16(0) + u16(0) + u16(entries.count) + u16(entries.count) + u32(central.count) + u32(local.count) + u16(0)
+        let centralOffset = local.count
+        local.append(central)
+        for field in [u32(0x06054b50), u16(0), u16(0), u16(entries.count), u16(entries.count),
+                      u32(central.count), u32(centralOffset), u16(0)] { local.append(field) }
+        return local
     }
     @MainActor func testMacDeepSeekSelectionOfflineTransportPDFEPUBAndRestart() throws {
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
