@@ -6,16 +6,12 @@ import AppKit
 
 final class NativeUITests: XCTestCase {
     #if os(macOS)
-    @MainActor func testMacDOCXConversionSaveCancelOverwriteRefusalAndRecovery() throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Conversion-UI-" + UUID().uuidString)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    // Each test has its own original fixtures/store. Split the independent product
+    // flows so real native-panel snapshots fit the unchanged 180-second CI limit.
+    @MainActor func testMacDOCXConversionSavePanelCancelAndOverwriteRefusal() throws {
+        let fixture = try originalConversionFixture()
+        let (root, source, broken, bytes) = fixture
         defer { try? FileManager.default.removeItem(at: root) }
-        let source = root.appendingPathComponent("Original Body.docx"), broken = root.appendingPathComponent("Broken Body.docx")
-        let types = "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/></Types>"
-        let relationships = "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"original\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/></Relationships>"
-        let xml = "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body><w:p><w:r><w:t>Original 日本語🌸 café &lt;script&gt;&amp;</w:t></w:r></w:p></w:body></w:document>"
-        let bytes = originalZIP([("[Content_Types].xml", Data(types.utf8)), ("_rels/.rels", Data(relationships.utf8)), ("word/document.xml", Data(xml.utf8))])
-        try bytes.write(to: source); try Data("Original invalid DOCX fixture".utf8).write(to: broken)
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate(); defer { app.terminate() }
         let entry = app.buttons["document-conversion"].firstMatch
@@ -39,6 +35,17 @@ final class NativeUITests: XCTestCase {
         try chooseOutput(output, defaultName: "Original Body-converted.txt", trigger: export, app: app)
         waitForText(["输出位置已有文件"], in: status, timeout: 15)
         XCTAssertEqual(try Data(contentsOf: output), text); waitUntilEnabled(export)
+    }
+    @MainActor func testMacDOCXConversionFailureRecoveryAndEscapedHTML() throws {
+        let fixture = try originalConversionFixture()
+        let (root, source, broken, bytes) = fixture
+        defer { try? FileManager.default.removeItem(at: root) }
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launch(); app.activate(); defer { app.terminate() }
+        let entry = app.buttons["document-conversion"].firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 15)); press(entry)
+        let export = app.buttons["conversion-export"].firstMatch, status = app.staticTexts["conversion-status"].firstMatch
+        XCTAssertTrue(export.waitForExistence(timeout: 5)); XCTAssertFalse(export.isEnabled)
         try chooseInput(broken, trigger: app.buttons["conversion-source"].firstMatch, app: app)
         let failed = root.appendingPathComponent("Failed Output.txt")
         try chooseOutput(failed, defaultName: "Broken Body-converted.txt", trigger: export, app: app)
@@ -54,6 +61,18 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(markup.contains("&lt;script&gt;&amp;")); XCTAssertFalse(markup.contains("<script>")); XCTAssertTrue(markup.contains("default-src 'none'"))
         XCTAssertEqual(try Data(contentsOf: source), bytes)
         press(app.buttons["conversion-close"].firstMatch)
+    }
+    @MainActor func testMacDOCXConversionWorkerCancellationLeavesNoOutput() throws {
+        let fixture = try originalConversionFixture()
+        let (root, source, broken, bytes) = fixture
+        defer { try? FileManager.default.removeItem(at: root) }
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launch(); app.activate(); defer { app.terminate() }
+        let entry = app.buttons["document-conversion"].firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 15)); press(entry)
+        let export = app.buttons["conversion-export"].firstMatch, status = app.staticTexts["conversion-status"].firstMatch
+        XCTAssertTrue(export.waitForExistence(timeout: 5)); XCTAssertFalse(export.isEnabled)
+        press(app.buttons["conversion-close"].firstMatch)
         // An isolated DEBUG fixture pauses the real local worker before parsing, making cancellation deterministic.
         app.terminate(); app.launchEnvironment["PDFNO_UI_TEST_CONVERSION"] = "cancellation-checkpoint"; app.launch(); app.activate()
         XCTAssertTrue(entry.waitForExistence(timeout: 10)); press(entry)
@@ -67,6 +86,17 @@ final class NativeUITests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: cancelled.path)); waitUntilEnabled(export)
         XCTAssertEqual(try Data(contentsOf: source), bytes)
         XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: root.path).contains { $0.hasPrefix(".pdfno-conversion-") })
+    }
+    private func originalConversionFixture() throws -> (root: URL, source: URL, broken: URL, bytes: Data) {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Conversion-UI-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let source = root.appendingPathComponent("Original Body.docx"), broken = root.appendingPathComponent("Broken Body.docx")
+        let types = "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/></Types>"
+        let relationships = "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"original\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/></Relationships>"
+        let xml = "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body><w:p><w:r><w:t>Original 日本語🌸 café &lt;script&gt;&amp;</w:t></w:r></w:p></w:body></w:document>"
+        let bytes = originalZIP([("[Content_Types].xml", Data(types.utf8)), ("_rels/.rels", Data(relationships.utf8)), ("word/document.xml", Data(xml.utf8))])
+        try bytes.write(to: source); try Data("Original invalid DOCX fixture".utf8).write(to: broken)
+        return (root, source, broken, bytes)
     }
     @MainActor private func chooseOutput(_ url: URL, defaultName: String, trigger: XCUIElement, app: XCUIApplication) throws {
         let existed = FileManager.default.fileExists(atPath: url.path)
