@@ -21,6 +21,8 @@ Mac 的“格式转换”入口可将普通 DOCX 正文导出为 UTF-8 TXT／简
 
 **其他漫画容器、其他格式阅读、其他真实 BYOK 服务、文档问答、页／章节双语翻译、生成假名、英日语法质量、Bookno API、iCloud、OCR、PDF/Word/EPUB 高保真互转和 Apple Pencil 尚未接入或验收。** 其他格式优先沿独立 Kookit adapter 路线逐项审计与验收，不因 EPUB 接入自动开放。完整功能目标和三端规划见 [v0.3 主规格](docs/PDFno_AI_Development_Spec_v0.3_Native.md)、[实施状态](docs/NATIVE-TASKS.md) 和 [引擎审计](docs/EPUB-ENGINE-AUDIT.md)。
 
+最终阅读目标完整保留18种扩展名：**EPUB、MOBI、AZW、AZW3、FB2、PDF、TXT、DOCX、MD、CBZ、CBR、CBT、CB7、HTML、HTM、XHTML、MHTML、XML**。逐项实现状态、三端缺口和验收门槛见[完整目标矩阵](docs/PDFno_AI_Development_Spec_v0.3_Native.md#53-完整18种格式阅读目标与实际状态)。输入限定DRM-free；XML指可阅读标记文档，`.doc`不在这18种内。未来漫画AI翻译仍是目标。阅读支持与有向转换矩阵分别验收。
+
 ## 在 Xcode 中运行
 
 打开 `apple/PDFno.xcworkspace`。选择 **PDFnoMac** 并运行于本机；选择 **PDFnoMobile** 并运行于 iPhone 或 iPad Simulator。两者是独立 application targets，移动 target 同时支持 iPhone/iPad；Mac 使用 AppKit，未采用 Catalyst。共享 `PDFnoKit` 包含 Domain、Services、Readers、UI 四个 targets，没有外部 Swift 包依赖。

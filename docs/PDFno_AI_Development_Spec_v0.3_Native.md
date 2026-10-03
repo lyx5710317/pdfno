@@ -11,7 +11,7 @@
 
 **CONFIRMED 用户决定**：主应用全面改为 Swift 原生界面，PDF 阅读使用 Apple PDFKit；其他格式优先通过独立 Kookit adapter 接入，首片为 Mac EPUB。长期支持 Mac、iPhone、iPad。先完成详细技术文档，再修改代码。PDFno 自有源码保持 AGPL-3.0-or-later；关于闭源可行性的提问没有撤回开源决定。
 
-本文完整修订原 v0.2，不以附录继续保留相互冲突的主架构。Electron 主应用、Koodo 低侵入 fork、原生仅作 CLI bridge、iOS 范围未定均不再是未来实施方案。多格式、BYOK、AI 问答、页与章节双语翻译、日语假名、英日语法、高亮笔记、Bookno API、iCloud、PDF/Word/EPUB 转换与 UPDF 交互参考继续保留；这些需求不代表当前已经实现。
+本文完整修订原 v0.2，不以附录继续保留相互冲突的主架构。Electron 主应用、Koodo 低侵入 fork、原生仅作 CLI bridge、iOS 范围未定均不再是未来实施方案。多格式、BYOK、AI 问答、页与章节双语翻译、日语假名、英日语法、高亮笔记、Bookno API、iCloud、PDF/Word/EPUB 转换与 UPDF 交互参考继续保留；这些需求不代表当前已经实现。2026-10-03 用户再次确认保留全部格式及未来漫画 AI 翻译；5.3 的18种扩展名是最终阅读目标，首片范围不会缩减该目标。
 
 ### 0.1 状态定义
 
@@ -47,7 +47,7 @@ EPUB 闭环后，用户授权 Mac BYOK／选文 AI 小切片，并在独立 Deep
 | ID | 状态 | 要求与修订 | 对应章节 / 验收 |
 | --- | --- | --- | --- |
 | R01 | CONFIRMED | `pdfno` / `PDFno`，Mac 优先，长期 Mac＋iPhone＋iPad | 4、14、16；T18、T20 |
-| R02 | CONFIRMED，架构已修正 | 保留 PDF、EPUB、漫画和原有多格式目标；Kookit public core 已选为其他格式优先路线；首片仅 Mac EPUB，PDF 固定 PDFKit | 5；T01、T02、T03 |
+| R02 | CONFIRMED，架构已修正 | 5.3 全部18种格式为最终阅读目标，未来支持漫画AI翻译；Kookit public core 已选为其他格式优先路线；阶段切片不缩减目标，PDF 固定 PDFKit | 5；T01、T02、T03 |
 | R03 | CONFIRMED | 自有源码 AGPL-3.0-or-later，免费/收费未定；第三方许可独立核验 | 2、5、16 |
 | R04 | CONFIRMED | 用户配置 endpoint / key / model 的 BYOK | 9；T09、T10 |
 | R05 | CONFIRMED | 整页翻译与章节双语翻译；PDF 物理页、EPUB 页快照和章节不同 | 8、14；T07、UAT08 |
@@ -204,20 +204,38 @@ Mac SwiftUI 原生书库、目录、翻页、横竖排和笔记宿主通过受�
 
 许可、源码修正、回滚和具体测试范围见 ADR 0003、KOOKIT-EPUB-STATIC-AUDIT-2026-10-03、VALIDATION。CFI 上游声明 AGPL-3.0 不自动改为 or-later；foliate/MIT、npm MIT/ISC/zlib 等分别保留。OpenCC 数据本片排除；将来启用转换须另核其来源、Apache 声明和 NOTICE。漫画/DOCX/其他格式与转换保留目标，但没有通过 EPUB 切片自动开放。
 
-### 5.3 漫画与其他格式的保留清单
+### 5.3 完整18种格式阅读目标与实际状态
 
-| 格式目标 | 拟议实现 | 学习/稳定位置 | 阶段与实际缺口 |
+**CONFIRMED 最终产品要求**：EPUB、MOBI、AZW、AZW3、FB2、PDF、TXT、DOCX、MD、CBZ、CBR、CBT、CB7、HTML、HTM、XHTML、MHTML、XML，逐项保留。依据用户2026-10-03再次确认及同日读取的[Koodo官方格式清单](https://github.com/koodo-reader/koodo-reader#features)；上游声明不等于 PDFno 已实现，也不证明其引擎在原生三端可用。原文分组已经提到18项，旧覆盖记录的“17项”计数应修正。`.doc`不属于这18种，旧Word／宏格式若新增须单独定义。
+
+下表“已实现”只指已注明平台的有限切片；“开发中”包括隔离分支候选，未合入／未验收不开放；“待实现”仍是确认目标。所有18项长期覆盖Mac、iPhone、iPad，当前优先完成Mac。移动构建通过不替代阅读验收。
+
+| 扩展名 | 当前阅读状态／平台 | 路线与稳定位置 | 后续验收门槛／缺口 |
 | --- | --- | --- | --- |
-| PDF 文本/扫描/混合 | PDFKit | 页＋原文＋PDF 几何；OCR 另版本 | N2；原生 PDFKit 最小闭环已实现，完整矩阵仍分阶段 |
-| EPUB 2/3 重排/固定 | 独立 Kookit EPUB adapter | 资源/spine/canonical UTF-16 半开 span＋引文/context/hash；逻辑页非主键 | N3；Mac 原创重排样本已接入，固定版式和移动阅读待验收 |
-| CBZ / 图片序列 | 独立固定 Kookit makeComicBook＋受限 Mac WKWebView，Swift ZIP／ImageIO 准入 | 已实现原件hash＋edition＋页路径/index＋方向/layout；区域/OCR后续，无选文AI | N7：Mac静态PNG/JPEG CBZ已接入，真实WebKit/尺寸/左右/单双页/恢复通过；完整应用UI见最终CI，移动与其他漫画容器仍未支持 |
-| CBR / CBT / CB7 | RAR/TAR/7z 各自受控解包 adapter | 同图片定位；气泡检测/OCR 后续 | N7；各库许可证与 iOS 构建能力未定，不能自动执行 Mac CLI |
-| MOBI / AZW3 / AZW | 经审计非 DRM parser，或明确转换后阅读 | 资源/块＋引文，转换生成新 edition | N7；AZW 变体与 DRM 限制明确，不承诺全部可开 |
-| TXT / MD / FB2 | 原生文本/受控渲染＋解析 adapter | 文档 hash、编码/提取版本、块/span | N7；编码、ruby/样式/脚注待验证 |
-| DOCX | 用户既定 Kookit/Mammoth 独立阅读路线待源码／许可／安全审计；正文转换另有有限服务 | 阅读稳定提取待验收；转换只输出新TXT/HTML、不建edition | N7：Word阅读未合入、不将自写受限OOXML候选替换为正式引擎；正文导出不承诺Word全对象／版式保真 |
-| HTML / XML / XHTML / MHTML / HTM | 受控离线资源与净化 adapter | 资源/结构/提取版本/引文 | N7；远程资源、主动内容、未知 schema 不直接开 |
+| EPUB | 已实现有限Mac重排阅读；移动待实现 | 独立Kookit EPUB adapter；edition/hash/spine/resource/canonical UTF-16 span＋引文 | EPUB2/3、固定版式、字体／图片保真、搜索、竖排ruby、选择／恢复及三端交互；N3 |
+| MOBI | 待实现，三端均未开放 | 独立经审计的DRM-free parser；资源／块／提取版本＋引文 | PalmDOC／压缩变体、目录／图片／编码、恶意块与实际解压限额、定位恢复；N7 |
+| AZW | 待实现，三端均未开放 | 独立DRM-free adapter；不能只按扩展名当MOBI | 按实测文件头／变体分能力，拒绝DRM／不支持变体，选文／资源／进度；N7 |
+| AZW3 | 待实现，三端均未开放 | 独立DRM-free KF8审计；结构位置＋引文 | KF8资源／CSS／目录／重复引文，安全预算与跨重排恢复；N7 |
+| FB2 | 待实现，三端均未开放 | 受控FictionBook parser；文档hash／块／span | 命名空间、章节／脚注／内嵌图、编码；禁止DTD／外部实体，大小预算；N7 |
+| PDF | 已实现Mac PDFKit闭环；移动基础UI已接入但实际设备未验收 | PDFKit；页／原文／几何＋edition/hash；OCR另版本 | 文本／扫描／混合、权限／加密状态、批注／搜索／恢复、三端真机及无文本降级；N2 |
+| TXT | 待实现，三端均未开放 | 原生文本或独立Kookit adapter；编码／提取版本／块／span | 编码探测与用户修正、换行／大文本／Unicode／搜索／稳定选区；N7 |
+| DOCX | 开发中：Kookit/Mammoth阅读候选审计，尚未合入；三端未开放阅读 | 保持用户既定路线；正文转换是另一服务，不替代阅读引擎 | 官方源码／许可／安全、表格／图片／外链／标题／注释损失明示、来源锚点及三端；N7 |
+| MD | 待实现，三端均未开放 | 受控Markdown渲染；源块／偏移＋引文 | 明确语法版本、禁主动HTML／远程资源，代码／表格／链接／图片、源文与渲染定位；N7 |
+| CBZ | 已实现有限Mac静态PNG/JPEG阅读；移动待实现 | 固定Kookit makeComicBook＋Swift ZIP／ImageIO＋受限WK；edition/hash/页路径/index | 实际WebKit已测；完整Mac应用UI按最终CI；缩放／连续滚动／移动／区域锚点待实现；N7 |
+| CBR | 待实现，三端均未开放；当前导入明确拒绝 | 独立受控RAR decoder；页路径／图像hash／区域 | RAR版本与decoder源码／许可证／三端构建，实解压限额／路径／链接／CRC，原生交互；N7 |
+| CBT | 待实现，三端均未开放 | 独立受控TAR adapter；复用漫画页／区域模型 | TAR变体、头校验、路径／特殊文件／链接／预算，稳定页序与三端交互；N7 |
+| CB7 | 待实现，三端均未开放 | 独立受控7z decoder；复用漫画页／区域模型 | decoder许可／三端构建，solid／实际解压预算、加密／路径／CRC拒绝及恢复；N7 |
+| HTML | 待实现，三端均未开放 | 离线净化adapter；资源／结构／提取版本＋引文 | 脚本／表单／远程资源禁用，CSS／本地资源／链接策略、选文／重排恢复；N7 |
+| HTM | 待实现，三端均未开放 | 与HTML共享已审计adapter，独立扩展名准入 | 同HTML验收，并测试大小写／文件头／扩展名错配；N7 |
+| XHTML | 待实现，三端均未开放 | 受控XML解析＋离线渲染；结构／span＋引文 | 命名空间／编码、DTD／实体禁用、HTML一致性、资源预算／来源回跳；N7 |
+| MHTML | 待实现，三端均未开放 | 独立MIME归档解析＋HTML净化；part/resource/hash | multipart／编码／Content-Location映射、重复与恶意part、总预算、无网络、选文恢复；N7 |
+| XML | 待实现，三端均未开放；限定可阅读标记文档 | 已定义可读schema的受控parser／视图，或明确安全文本视图 | 不是任意XML的通用业务解释器；schema白名单、DTD／外部实体禁用、结构／编码／来源验收；N7 |
 
-保留旧格式库存，不把所有类别写成“已有阅读”。各 adapter 运行时返回显示/选择/搜索/批注/OCR/学习/转换能力与理由。学习不可用时已实现 reader 仍能阅读；格式本身未实现则明确说明并保留导入记录，不能伪造打开成功。DRM、加密、损坏、权限受限和无文本有各自可操作状态。PDFKit 不支持 EPUB、漫画或任意格式转换。
+所有输入限定DRM-free／用户有权访问的文档，不实施绕过DRM；普通加密／密码／权限限制另按格式能力明确处理，不把DRM与损坏混为一类。每个adapter先核验官方源码、许可证、实际Mac/iPhone/iPad支持和资源上限，不从根AGPL或上游功能表推断decoder许可，也不把仅iOS库当macOS可用。纯图片序列仍作为独立附加目标保留，不计入上述18个扩展名。
+
+未来漫画AI翻译是确认目标：先做原图hash／页路径／归一化区域锚点、气泡检测与OCR版本／语言／置信度，再由用户确认具体图片或文字范围与接收方，生成与原图分离的双语覆盖层／笔记并可回到来源。漫画可读、OCR可用、翻译可用分别报告；当前CBZ没有OCR、AI或区域批注。不向现有PDF/EPUB选文入口隐含发送漫画图片。图像定位见7，OCR见13，AI范围／预算／取消／缓存见8–9；三端与Pencil验收见14、17。
+
+各adapter运行时返回显示／选择／搜索／批注／OCR／学习／转换能力及理由。学习不可用时已实现reader仍可阅读；格式尚未实现则拒绝并说明阶段，不能伪造打开成功。DRM、加密、损坏、权限受限、无文本分别有可操作状态。PDFKit不支持EPUB、漫画或任意格式转换；阅读目标不承诺任意互转。
 
 ### 5.4 已实施的限定 Mac CBZ adapter
 
@@ -715,7 +733,14 @@ N6 实施：先本地 outbox/冲突 mock→决定内容/后端/身份→明确�
 
 ## 13 格式转换能力矩阵
 
-用户提出“PDF、Word、EPUB 等转换”，尚未决定方向。转换是独立文档处理子系统，不与阅读格式支持等同。下表以现代 Word `.docx` 为候选格式；旧 `.doc`、宏文档和其他变体是否纳入需单独确认，不将“Word”笼统视为全部已支持。
+用户提出“PDF、Word、EPUB 等转换”，完整保留以下有向目标，首个高保真方向尚待选定。转换是独立文档处理子系统，不与5.3的18种阅读目标等同，不承诺任意格式互转。下表以现代Word `.docx`为候选；`.doc`不在18种阅读清单内，旧Word／宏文档和其他变体的转换也待单独定义。
+
+| 当前已实施方向 | 状态／平台 | 实际质量边界与验收 |
+| --- | --- | --- |
+| DOCX → TXT | 已实现有限Mac正文导出；移动待实现 | UTF-8正文，表格降为文字；图片／字体／分页等损失明示；17项服务测试及完整Mac保存／取消／拒绝覆盖UI按VALIDATION记录 |
+| DOCX → HTML | 已实现有限Mac正文导出；移动待实现 | escaped pre正文／禁主动内容CSP，简化版式；原件及已有文件不覆盖，失败／取消清理临时产物，同上验收 |
+
+以下七个具体原始转换方向均**待实现／未验收，三端未开放**。每方向独立记录引擎／许可／黄金样本／质量报告／预览／取消与输出验证，完成一个方向不会自动开放其逆向或其他组合：
 
 | 方向 | 可能目标 | 关键损失或风险 | 建议安排 |
 |---|---|---|---|
@@ -1218,6 +1243,8 @@ AGPL、PDFKit 和已选 Kookit 独立 EPUB 边界；不暗中更换引擎。开�
 
 原 R01–R14 均有去向，原 T01–T19、U01–U13、S01–S08、J01–J08、UAT01–UAT15 全部保留标识和行为要求；新增三端构建/同步/Pencil 验收。没有把 Koodo/Electron、CLI-only 原生或“是否要 iOS”留为主架构必选。多格式目标保留；当前已实现限定 PDF／Mac EPUB／CBZ、选文AI与DOCX正文导出子集，其余能力继续分阶段；未把旧 demo 或官方框架支持当功能完成。
 
+2026-10-03格式覆盖复核：5.3逐项列齐官方18个扩展名、每项状态／平台／门槛，`.doc`不混入，XML限定可阅读标记文档；DRM-free、图片序列附加目标及未来漫画AI翻译均明确保留。13区分七个原始高保真转换方向与两个有限正文导出方向。此前“17项格式”是分组计数错误，不代表撤回任何格式要求；既有95项需求／测试／UI标识继续保留。
+
 AI 缓存/取消/保密、Unicode/ruby、Bookno两层重放/修订/回执、本地编辑/封面保护、云离线/墓碑、转换全部方向、UPDF观察限制与自有品牌均继续有效。既有 v0.2 的 TypeScript 类型不是新 app 代码，领域与provider草案已换 Swift语义；外部JSON仍是传输格式。
 
 ## 23 N0 文档阶段验证与交付记录（历史）
@@ -1232,7 +1259,7 @@ AI 缓存/取消/保密、Unicode/ruby、Bookno两层重放/修订/回执、本�
 | 源码静态核验 | demo-text-1/content fingerprint、mockProvider、notes-v1路径与现有架构相符 |
 | 官方来源 | Apple DocC内容/availability与EPUB固定源码/根license读取；未构建候选 |
 | 需求与冲突 | 第22章逐原章节覆盖，正文替换旧主架构；保留全部已有需求/验收与未测限制 |
-| 文档静态校验 | 24章顺序/代码围栏/JSON示例解析通过；原R/T/U/S/J/UAT共77项编号覆盖；17项格式库存与7个原具体转换行保留；未发现旧路线必选指令 |
+| 文档静态校验 | 24章顺序/代码围栏/JSON示例解析通过；原R/T/U/S/J/UAT共77项编号覆盖；当时误记“17项”格式，2026-10-03复核实际为18个扩展名并逐项列明；7个原具体转换行保留；未发现旧路线必选指令 |
 | 原生/语言/云/转换测试 | NOT-RUN，本轮未改实现；旧绿色CI不作为这些测试证据 |
 | 源码/账号/元数据 | 本轮只新增v0.3文档，未改/删除旧源码/工程/依赖/配置，未提交/推送 |
 
