@@ -40,30 +40,21 @@ public struct DocumentConversionService: Sendable {
             if outputAccess { request.destination.stopAccessingSecurityScopedResource() }
         }
         do {
-            try ensureNewDestination(request.destination)
+            // Keep the selected directory open for the complete conversion;
+            // later path replacement cannot redirect any output operation.
+            let destination = try PinnedConversionDestination.pin(request.destination)
             progress(.reading); try Task.checkCancellation()
             let source = try readSource(request.source)
             progress(.validating); try Task.checkCancellation()
             let converted = try adapter.convert(source, to: request.output, progress: progress)
             guard converted.data.count <= 16 * 1024 * 1024 else { throw ConversionError.resourceLimit }
-            progress(.writing); try Task.checkCancellation()
-            try commit(converted.data, to: request.destination)
+            try destination.commit(converted.data, progress: progress)
             progress(.completed)
             return ConversionResult(destination: request.destination, byteCount: converted.data.count,
                                     adapterID: adapter.capabilities.first!.adapterID, warnings: converted.warnings)
         } catch is CancellationError { throw CancellationError() }
         catch let error as ConversionError { throw error }
         catch { throw ConversionError.ioFailure }
-    }
-
-    private static func ensureNewDestination(_ url: URL) throws {
-        var info = stat()
-        if lstat(url.path, &info) == 0 { throw ConversionError.destinationExists }
-        guard errno == ENOENT else { throw ConversionError.invalidDestination }
-        var directory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: url.deletingLastPathComponent().path, isDirectory: &directory), directory.boolValue else {
-            throw ConversionError.invalidDestination
-        }
     }
 
     private static func readSource(_ url: URL) throws -> Data {
@@ -86,21 +77,69 @@ public struct DocumentConversionService: Sendable {
         return bytes
     }
 
-    private static func commit(_ data: Data, to destination: URL) throws {
-        let temporary = destination.deletingLastPathComponent().appendingPathComponent(".pdfno-conversion-" + UUID().uuidString + ".tmp")
-        let descriptor = open(temporary.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600)
+}
+
+/// Owns one directory descriptor; pathname identity checks are read-only.
+/// Creation, installation and cleanup always address the pinned directory.
+private final class PinnedConversionDestination {
+    private let directory: URL
+    private let filename: String
+    private let directoryDescriptor: Int32
+    private let identity: stat
+    private static let directoryFlags = O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+
+    private init(directory: URL, filename: String, descriptor: Int32, identity: stat) {
+        self.directory = directory; self.filename = filename
+        directoryDescriptor = descriptor; self.identity = identity
+    }
+    deinit { _ = Darwin.close(directoryDescriptor) }
+
+    static func pin(_ destination: URL) throws -> PinnedConversionDestination {
+        let directory = destination.deletingLastPathComponent(), filename = destination.lastPathComponent
+        guard !filename.isEmpty, filename != ".", filename != "..", !filename.contains("/"),
+              !destination.path.utf8.contains(0) else { throw ConversionError.invalidDestination }
+        let descriptor = open(directory.path, directoryFlags)
+        guard descriptor >= 0 else { throw ConversionError.invalidDestination }
+        do {
+            var info = stat(), existing = stat()
+            guard fstat(descriptor, &info) == 0, info.st_mode & S_IFMT == S_IFDIR else {
+                throw ConversionError.invalidDestination
+            }
+            // Inspect the destination relative to that same directory, including
+            // dangling symlinks. Final no-replace installation remains atomic.
+            if fstatat(descriptor, filename, &existing, AT_SYMLINK_NOFOLLOW) == 0 { throw ConversionError.destinationExists }
+            guard errno == ENOENT else { throw ConversionError.invalidDestination }
+            return PinnedConversionDestination(directory: directory, filename: filename, descriptor: descriptor, identity: info)
+        } catch { _ = Darwin.close(descriptor); throw error }
+    }
+
+    private func verifyPathIdentity() throws {
+        let current = open(directory.path, Self.directoryFlags)
+        guard current >= 0 else { throw ConversionError.invalidDestination }
+        defer { _ = Darwin.close(current) }
+        var info = stat()
+        guard fstat(current, &info) == 0, info.st_dev == identity.st_dev, info.st_ino == identity.st_ino else {
+            throw ConversionError.invalidDestination
+        }
+    }
+
+    func commit(_ data: Data, progress: @Sendable (ConversionPhase) -> Void) throws {
+        try Task.checkCancellation(); try verifyPathIdentity()
+        let temporary = ".pdfno-conversion-" + UUID().uuidString + ".tmp"
+        let descriptor = openat(directoryDescriptor, temporary, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
         guard descriptor >= 0 else { throw ConversionError.ioFailure }
         let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
-        defer { try? handle.close(); try? FileManager.default.removeItem(at: temporary) }
+        defer { try? handle.close(); _ = unlinkat(directoryDescriptor, temporary, 0) }
+        progress(.writing); try Task.checkCancellation(); try verifyPathIdentity()
         for offset in stride(from: 0, to: data.count, by: 64 * 1024) {
             try Task.checkCancellation()
             try handle.write(contentsOf: data.subdata(in: offset..<min(offset + 64 * 1024, data.count)))
         }
         try handle.synchronize(); try handle.close()
-        try Task.checkCancellation()
+        try Task.checkCancellation(); try verifyPathIdentity()
         // Same-directory hard-link installation is atomic and fails if ANY destination appeared.
         // No post-commit cancellation check: a completed output must be reported as completed.
-        guard link(temporary.path, destination.path) == 0 else {
+        guard linkat(directoryDescriptor, temporary, directoryDescriptor, filename, 0) == 0 else {
             if errno == EEXIST { throw ConversionError.destinationExists }
             throw ConversionError.ioFailure
         }
