@@ -74,7 +74,7 @@ final class NativeUITests: XCTestCase {
         let save = filePanelButton(app, titles: ["Save", "保存"])
         XCTAssertTrue(save.waitForExistence(timeout: 5))
         try goToFixtureLocation(url.deletingLastPathComponent(), app: app)
-        let name = app.windows.textFields.matching(NSPredicate(format: "value == %@", defaultName)).firstMatch
+        let name = app.textFields.matching(NSPredicate(format: "value == %@", defaultName)).firstMatch
         XCTAssertTrue(name.waitForExistence(timeout: 5)); enterSearch(url.lastPathComponent, into: name, replacing: true)
         waitUntilEnabled(save); press(save)
         if existed {
@@ -153,21 +153,33 @@ final class NativeUITests: XCTestCase {
         let open = filePanelButton(app, titles: ["Open", "打开"])
         XCTAssertTrue(open.waitForExistence(timeout: 5))
         try goToFixtureLocation(url, app: app)
-        waitUntilEnabled(open); press(open)
+        // A file-path Return can also accept the selected file. The caller still requires actual import/output state.
+        if open.exists { waitUntilEnabled(open); press(open) }
     }
     @MainActor private func filePanelButton(_ app: XCUIApplication, titles: [String]) -> XCUIElement {
-        // Touch Bar actions also have Open/Save labels; only actual window controls can be clicked.
-        app.windows.buttons.matching(NSPredicate(format: "label IN %@", titles)).firstMatch
+        // The actual macOS panel action reports OKButton; a name-only query can select the Touch Bar.
+        if titles.contains("Open") || titles.contains("Save") { return app.buttons["OKButton"].firstMatch }
+        return app.buttons[titles[0]].firstMatch.exists ? app.buttons[titles[0]].firstMatch : app.buttons[titles[1]].firstMatch
     }
     @MainActor private func goToFixtureLocation(_ url: URL, app: XCUIApplication) throws {
         app.typeKey("g", modifierFlags: [.command, .shift])
-        let location = app.windows.textFields["PathTextField"].firstMatch
+        let location = app.textFields["PathTextField"].firstMatch
         XCTAssertTrue(location.waitForExistence(timeout: 5))
         enterSearch(url.path, into: location, replacing: true)
         XCTAssertEqual(location.value as? String, url.path)
-        app.typeKey(.return, modifierFlags: [])
-        let dismissed = expectation(for: NSPredicate(format: "hittable == false"), evaluatedWith: location)
-        wait(for: [dismissed], timeout: 5)
+        // Return may first commit a path completion. Send again only while the same overlay remains active.
+        for _ in 0..<2 {
+            location.typeKey(.return, modifierFlags: [])
+            let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                !location.exists || !location.isHittable
+            }, object: location)
+            if XCTWaiter.wait(for: [dismissed], timeout: 2) == .completed { return }
+        }
+        print("PDFno original file-panel buttons: " + app.buttons.allElementsBoundByIndex.prefix(40).map {
+            "id=\($0.identifier) label=\($0.label) enabled=\($0.isEnabled) hittable=\($0.isHittable)"
+        }.joined(separator: "; "))
+        XCTFail("The original fixture Go-to overlay must close before using the file-panel action")
+        throw NSError(domain: "PDFnoOriginalFixturePanel", code: 1)
     }
     @MainActor private func originalPNG(width: Int, height: Int) throws -> Data {
         let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
