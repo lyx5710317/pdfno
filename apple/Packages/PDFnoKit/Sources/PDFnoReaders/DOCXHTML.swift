@@ -54,14 +54,20 @@ public enum DOCXHTML {
           const range=document.createRange();range.selectNodeContents(block);range.setEnd(node,local);
           return Number(block.dataset.start)+range.toString().length;
         }
-        let selectionTimer;
+        function selectedRange() {
+          const s=getSelection();if(!s||s.isCollapsed||!s.rangeCount)return null;
+          const r=s.getRangeAt(0),start=offset(r.startContainer,r.startOffset),end=offset(r.endContainer,r.endOffset);
+          if(start===null||end===null||end<=start||end-start>16000)return null;
+          return {start,end,quote:canonical.slice(start,end)};
+        }
+        let selectionTimer,latestSelection=null;
         document.addEventListener('selectionchange',()=>{
-          clearTimeout(selectionTimer);selectionTimer=setTimeout(()=>{
-            const s=getSelection();if(!s||s.isCollapsed||!s.rangeCount){post('clear');return;}
-            const r=s.getRangeAt(0),start=offset(r.startContainer,r.startOffset),end=offset(r.endContainer,r.endOffset);
-            if(start===null||end===null||end<=start||end-start>16000){post('clear');return;}
-            post('selection',{start,end,quote:canonical.slice(start,end)});
-          },80);
+          const selected=selectedRange();
+          // Native toolbar focus must not erase a genuine text selection or
+          // replace its pending snapshot with the subsequently collapsed DOM.
+          if(!selected&&!document.hasFocus())return;
+          latestSelection=selected;clearTimeout(selectionTimer);
+          selectionTimer=setTimeout(()=>selected?post('selection',selected):post('clear'),80);
         });
         function point(position) {
           for(const block of blocks){const start=Number(block.dataset.start),length=block.textContent.length;
@@ -75,8 +81,13 @@ public enum DOCXHTML {
           const r=document.createRange();r.setStart(...s);r.setEnd(...e);return r;}
         window.pdfnoDOCX={
           install(html,expected){const main=document.querySelector('main');main.innerHTML=html;
+            latestSelection=null;clearTimeout(selectionTimer);
             blocks=Array.from(document.querySelectorAll('[data-block]'));canonical=blocks.map(b=>b.textContent).join('\\n');
             if(canonical!==expected){main.textContent='';throw Error('Canonical DOCX DOM mismatch');}return true;},
+          captureSelection(){const selected=selectedRange();
+            if(selected||document.hasFocus())latestSelection=selected;
+            clearTimeout(selectionTimer);
+            latestSelection?post('selection',latestSelection):post('clear');return latestSelection;},
           navigate(a){const r=rangeFor(a);if(!r||canonical.slice(a.start,a.end)!==a.quote)return false;
             r.startContainer.parentElement?.scrollIntoView({block:'center'});
             if(window.Highlight&&CSS.highlights)CSS.highlights.set('pdfnoReturn',new Highlight(r));return true;},

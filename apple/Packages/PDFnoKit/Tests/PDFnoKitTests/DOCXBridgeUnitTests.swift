@@ -57,12 +57,21 @@ struct DOCXBridgeUnitTests {
         while reader.selection == nil && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
         let anchor = try #require(reader.selection)
         #expect(anchor.quote == "window" && document.resolves(anchor))
+        #expect(await reader.captureSelection() == anchor)
+        // The unattached fixture has no document focus. Simulate the DOM's
+        // collapse on native toolbar blur, preserving the actual prior range.
+        _ = try await web.evaluateJavaScript("getSelection().removeAllRanges();document.dispatchEvent(new Event('selectionchange'));true")
+        #expect(await reader.captureSelection() == anchor)
+        // A deliberate deselection in a focused document must clear the range.
+        _ = try await web.evaluateJavaScript("Object.defineProperty(document,'hasFocus',{configurable:true,value:()=>true});document.dispatchEvent(new Event('selectionchange'));true")
+        #expect(await reader.captureSelection() == nil)
         #expect(await reader.navigate(to: anchor))
         reader.project([DOCXNote(bookID: book.id, anchor: anchor, userText: "Original isolated note")])
         let token = reader.readerSessionID
         reader.close()
         let staleReturn = await reader.navigate(to: anchor)
         #expect(reader.readerSessionID != token && !staleReturn)
+        #expect(await reader.captureSelection() == nil)
         #expect(application.windows.filter { $0.isVisible || $0.isKeyWindow || $0.isMainWindow }.count == visibleBefore)
         #expect(application.activationPolicy() == .prohibited)
     }

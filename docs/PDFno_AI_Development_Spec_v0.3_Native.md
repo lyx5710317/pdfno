@@ -257,7 +257,7 @@ Swift ZIP/XML预检只做安全与资源验证，正文及标准h1–h6／列表
 
 来源是实际清洗后DOM与原生DTO逐字核验的语义block／canonical UTF-16文本；anchor绑定edition／原始SHA256／`docx-mammoth-utf16-1`／block／引文／上下文，不伪造Word页码或几何，不模糊重定位。原件按hash保留；新`docx-mammoth-v1.json`保护原PDF／EPUB／漫画和旧候选`docx-v1.json`，无自动offset迁移。完成真实引擎绑定前拒绝笔记／进度保存，重开继续核验原件和canonical输出。与正文→TXT／HTML的独立`DOCXConversionArchive`及有损导出服务分开。
 
-Mac原生入口包含导入／示例／书库、标题目录、选文／高亮投影／手动笔记／精确回跳和进度恢复。图片／字体／分页／页眉页脚／复杂Word语义不保真；Strict OOXML／UTF-16 XML／旧DOC／宏／移动Word／Word AI未开放。组合97项Swift与11项Node及两端编译通过属于本地集成证据；两个完整Word UI与其余全部流程必须由隔离CI在最终SHA实际运行，按VALIDATION报告，不从offscreen桥或编译推导完成。
+Mac原生入口包含导入／示例／书库、标题目录、选文／高亮投影／手动笔记／精确回跳和进度恢复。选区桥先取得实际DOM范围的不可变快照，原生工具栏失焦不把它清空；正文主动取消选择仍清除，笔记入口重新校验当前session、canonical文本与精确UTF-16引文，关闭／换书后的快照失效。图片／字体／分页／页眉页脚／复杂Word语义不保真；Strict OOXML／UTF-16 XML／旧DOC／宏／移动Word／Word AI未开放。组合97项Swift与11项Node及两端编译通过属于本地集成证据；两个完整Word UI与其余全部流程必须由隔离CI在最终SHA实际运行，按VALIDATION报告，不从offscreen桥或编译推导完成。
 
 ## 6 领域模型与本地数据
 

@@ -23,12 +23,14 @@ final class NativeUITests: XCTestCase {
         XCTAssertFalse(app.buttons["reader-page-translation"].firstMatch.exists)
         XCTAssertTrue(try webText(in: app, matching: "Cell one", prefix: false, timeout: 10).exists)
         let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
+        waitUntilEnabled(paragraph)
         paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
         press(app.buttons["docx-notes"].firstMatch)
         // Native selectable text may be exposed as Other on macOS 15. Match
         // its exact app-owned identifier without imposing an AX role.
         let selection = app.descendants(matching: .any).matching(identifier: "docx-selection").firstMatch
         guard selection.waitForExistence(timeout: 8) else {
+            print("Original Word notes: empty-selection message exists =", app.descendants(matching: .any).matching(identifier: "docx-selection-empty").firstMatch.exists)
             XCTFail("Real Word selection must reach the native notes sheet")
             return
         }

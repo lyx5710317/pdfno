@@ -137,6 +137,21 @@ private final class DOCXAssets: NSObject, WKURLSchemeHandler {
         default: break
         }
     }
+    /// Resolve the real DOM selection before native toolbar focus/sheet changes.
+    /// The bridge retains only a checked selection on blur; focused deselection clears it.
+    public func captureSelection() async -> DOCXAnchor? {
+        guard ready, let book, let document, let webView else { return nil }
+        let token = readerSessionID
+        do {
+            let value = try await webView.evaluateJavaScript("window.pdfnoDOCX.captureSelection()")
+            guard token == readerSessionID, ready else { return nil }
+            guard let payload = value as? [String: Any], let start = payload["start"] as? Int,
+                  let end = payload["end"] as? Int, let quote = payload["quote"] as? String,
+                  let anchor = document.anchor(book: book, start: start, end: end),
+                  anchor.quote.utf16.elementsEqual(quote.utf16) else { selection = nil; return nil }
+            selection = anchor; return anchor
+        } catch { if token == readerSessionID { selection = nil }; return nil }
+    }
     public func navigate(to anchor: DOCXAnchor) async -> Bool {
         guard ready, let book, book.accepts(anchor), document?.resolves(anchor) == true,
               let bytes = try? JSONEncoder().encode(anchor), let json = String(data: bytes, encoding: .utf8), let webView else { return false }

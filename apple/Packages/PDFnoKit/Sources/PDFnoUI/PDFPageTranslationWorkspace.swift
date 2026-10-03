@@ -12,6 +12,7 @@ struct PDFPageTranslationWorkspace: View {
     @State private var notice: String?
     var body: some View {
         NavigationStack {
+            GeometryReader { geometry in
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     Text("独立双语文本对照 · 原 PDF 保留。仅翻译提取文字，不覆盖原版式；图片、表格结构与阅读顺序不保证还原。")
@@ -57,11 +58,15 @@ struct PDFPageTranslationWorkspace: View {
                         ForEach($translation.segments) { $segment in
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("第 \(segment.id + 1) / \(plan.sources.count) 段 · \(segment.source.anchor.locationLabel)").font(.headline)
-                                ViewThatFits(in: .horizontal) {
+                                // Use the finite viewport width rather than
+                                // repeatedly measuring selectable AppKit text
+                                // while asynchronous segment results change.
+                                if geometry.size.width >= 720 {
                                     HStack(alignment: .top, spacing: 20) {
-                                        original(segment).frame(minWidth: 280)
-                                        translated(segment).frame(minWidth: 280)
+                                        original(segment)
+                                        translated(segment)
                                     }
+                                } else {
                                     VStack(alignment: .leading, spacing: 12) { original(segment); translated(segment) }
                                 }
                                 if let result = segment.result {
@@ -81,7 +86,8 @@ struct PDFPageTranslationWorkspace: View {
                         if let notice { Text(notice).accessibilityIdentifier("page-note-status") }
                     }
                 }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            }.accessibilityIdentifier("page-scroll").navigationTitle("当前 PDF 页 · 双语对照")
+            }.accessibilityIdentifier("page-scroll")
+            }.navigationTitle("当前 PDF 页 · 双语对照")
             .toolbar { ToolbarItem { Button("完成（取消未完成请求）") { translation.cancel(); dismiss() }.accessibilityIdentifier("page-close") } }
         }.frame(minWidth: 520, idealWidth: 860, minHeight: 560, idealHeight: 740)
         .onChange(of: translation.temporarySecret) { _, _ in confirmed = false }
