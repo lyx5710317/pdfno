@@ -78,8 +78,8 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(name.waitForExistence(timeout: 5)); enterSearch(url.lastPathComponent, into: name, replacing: true)
         waitUntilEnabled(save); press(save)
         if existed {
-            let replace = filePanelButton(app, titles: ["Replace", "替换"])
-            XCTAssertTrue(replace.waitForExistence(timeout: 5)); press(replace)
+            let replace = try modalButton(app, titles: ["Replace", "替换"])
+            press(replace)
         }
     }
     @MainActor func testMacCBZImportSpreadsDirectionPageJumpAndRestart() throws {
@@ -136,7 +136,10 @@ final class NativeUITests: XCTestCase {
         waitForText(["5 / 7"], in: position, timeout: 25)
         XCTAssertTrue(textValue(direction).contains("从右到左")); XCTAssertTrue(textValue(layout).contains("单页"))
         try chooseInput(broken, trigger: app.buttons["import-pdf"].firstMatch, app: app)
-        XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 10)); press(app.buttons["知道了"].firstMatch)
+        let dismissError = try modalButton(app, titles: ["知道了"])
+        let archiveError = "CBZ 无效、路径不安全、校验失败或 ZIP 结构不受支持（加密、分卷、ZIP64）。"
+        XCTAssertTrue(app.staticTexts[archiveError].firstMatch.exists)
+        press(dismissError)
         waitForText(["5 / 7"], in: position, timeout: 5)
         press(app.buttons["open-sample"].firstMatch)
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 10)
@@ -160,6 +163,26 @@ final class NativeUITests: XCTestCase {
         // The actual macOS panel action reports OKButton; a name-only query can select the Touch Bar.
         if titles.contains("Open") || titles.contains("Save") { return app.buttons["OKButton"].firstMatch }
         return app.buttons[titles[0]].firstMatch.exists ? app.buttons[titles[0]].firstMatch : app.buttons[titles[1]].firstMatch
+    }
+    @MainActor private func modalButton(_ app: XCUIApplication, titles: [String]) throws -> XCUIElement {
+        var found: XCUIElement?
+        let ready = expectation(for: NSPredicate { _, _ in
+            for scope in [app.dialogs, app.sheets, app.windows] {
+                for title in titles {
+                    let candidate = scope.buttons[title].firstMatch
+                    if candidate.exists && candidate.isHittable && !candidate.frame.isEmpty { found = candidate; return true }
+                }
+            }
+            return false
+        }, evaluatedWith: app)
+        wait(for: [ready], timeout: 10)
+        if found == nil {
+            print("PDFno original modal counts: windows=\(app.windows.count) dialogs=\(app.dialogs.count) sheets=\(app.sheets.count)")
+            print("PDFno original modal buttons: " + app.buttons.allElementsBoundByIndex.prefix(40).map {
+                "id=\($0.identifier) label=\($0.label) frame=\($0.frame) hittable=\($0.isHittable)"
+            }.joined(separator: "; "))
+        }
+        return try XCTUnwrap(found, "The actual modal action must exist and be hittable")
     }
     @MainActor private func goToFixtureLocation(_ url: URL, app: XCUIApplication) throws {
         app.typeKey("g", modifierFlags: [.command, .shift])
