@@ -29,3 +29,7 @@ The original AGPL Swift adapter links the installed Apple system zlib through `i
 ## CBZ Kookit model
 
 The additional fixed upstream comic-book.js is recorded in engine-build/COMICS-SOURCE.json (commit95f602ed62d204af0de9278cf53212c309b34bfc, SHA-256fb8b11ffead40f2ab48530e0c00ebe670e71cc36225bba9a33222dd6dc8ee45c), original source and unchanged Kookit AGPL license are retained, and corresponding wrapper/builder source is included. Comic resources carry their own Notices.txt. No RAR worker, WASM or extra dependency is bundled. Apple ImageIO/UniformTypeIdentifiers and SDK-linked zlib remain system components, with original authors/terms, not PDFno-authored or relicensed.
+
+## DOCX system library boundary
+
+The original `PDFnoDOCXZIP` C target links Apple SDK/system `libz` for bounded raw DEFLATE and CRC validation; no zlib implementation or binary is copied into source/resources. Foundation XMLParser, CryptoKit and WebKit provide the other system operations. No external Swift/JS dependency is added by DOCX. Kookit DOCX and Mammoth were reviewed as upstream references and are not installed, vendored or bundled by this slice; their declarations are documented without a claim of relicensing in `docs/ADR-DOCX-SEMANTIC.md`.

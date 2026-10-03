@@ -1,0 +1,55 @@
+// Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
+#if os(macOS)
+import Foundation
+import SwiftUI
+import PDFnoDomain
+import PDFnoServices
+import PDFnoReaders
+
+/// Independent format slice. The shared LibraryModel only routes imports and active-reader state.
+@MainActor public final class DOCXLibraryModel: ObservableObject {
+    @Published public private(set) var books: [DOCXBook] = []
+    @Published public private(set) var notes: [DOCXNote] = []
+    @Published public private(set) var isActive = false
+    @Published public private(set) var busy = false
+    @Published public var error: String?
+    public let reader = DOCXReaderSession()
+    public let repository: DOCXRepository
+    public init(root: URL) { repository = DOCXRepository(root: root) }
+    public func load() async throws {
+        let state = try await repository.load(); books = state.books; notes = state.notes
+    }
+    public func deactivate() { isActive = false; reader.close() }
+    public func importFile(_ url: URL) async throws {
+        guard !busy else { return }; busy = true; defer { busy = false }
+        let scoped = url.startAccessingSecurityScopedResource(); defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let book = try await repository.importFile(url); try await load(); try await activate(book)
+    }
+    public func open(_ book: DOCXBook) async throws {
+        guard !busy else { return }; busy = true; defer { busy = false }
+        try await load()
+        guard let current = books.first(where: { $0.id == book.id }) else { throw DOCXError.sourceMismatch }
+        try await activate(current)
+    }
+    private func activate(_ book: DOCXBook) async throws {
+        let data = try await repository.read(book)
+        // Parsing/decompression stays on the repository actor, away from UI work.
+        let document = try await repository.document(book)
+        try reader.open(data: data, document: document, book: book, notes: notes); isActive = true
+    }
+    public func saveNote(_ anchor: DOCXAnchor, text: String) async -> Bool {
+        guard let book = reader.book, book.accepts(anchor), reader.document?.resolves(anchor) == true else {
+            error = DOCXError.sourceMismatch.localizedDescription; return false
+        }
+        do {
+            try await repository.saveNote(DOCXNote(bookID: book.id, anchor: anchor, userText: text))
+            try await load(); reader.project(notes); return true
+        } catch { self.error = error.localizedDescription; return false }
+    }
+    public func saveProgress(_ anchor: DOCXAnchor) async {
+        guard let book = reader.book else { return }
+        do { try await repository.saveProgress(anchor, bookID: book.id) }
+        catch { self.error = error.localizedDescription }
+    }
+}
+#endif

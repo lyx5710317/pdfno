@@ -13,10 +13,11 @@ let package = Package(
     ],
     targets: [
         .target(name: "PDFnoDomain"),
-        .target(name: "PDFnoServices", dependencies: ["PDFnoDomain"]),
+        .target(name: "PDFnoDOCXZIP", linkerSettings: [.linkedLibrary("z")]),
+        .target(name: "PDFnoServices", dependencies: ["PDFnoDomain", "PDFnoDOCXZIP"]),
         .target(name: "PDFnoReaders", dependencies: ["PDFnoDomain", "PDFnoServices"], resources: [.copy("Resources/EPUB"), .copy("Resources/Comics")]),
         .target(name: "PDFnoUI", dependencies: ["PDFnoDomain", "PDFnoServices", "PDFnoReaders"],
-                resources: [.copy("Resources/study-sample.pdf"), .copy("Resources/study-sample.epub")]),
+                resources: [.copy("Resources/study-sample.pdf"), .copy("Resources/study-sample.epub"), .copy("Resources/study-sample.docx")]),
         .testTarget(name: "PDFnoKitTests", dependencies: ["PDFnoDomain", "PDFnoServices", "PDFnoReaders", "PDFnoUI"],
                     resources: [.copy("Fixtures")])
     ]
