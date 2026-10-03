@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/koodo-reader/kookit",
+  "commit": "95f602ed62d204af0de9278cf53212c309b34bfc",
+  "files": [
+    {
+      "path": "src/libs/comic-book.js",
+      "gitBlobSHA1": "f75f4876e33ca06a83fee9ea9f60981dcdc9f18f",
+      "sha256": "fb8b11ffead40f2ab48530e0c00ebe670e71cc36225bba9a33222dd6dc8ee45c",
+      "size": 2247
+    }
+  ]
+}

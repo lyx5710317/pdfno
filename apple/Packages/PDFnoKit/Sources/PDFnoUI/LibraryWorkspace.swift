@@ -32,6 +32,10 @@ public struct LibraryWorkspace: View {
                                     .tag(book.id).accessibilityIdentifier("library-book")
                         }
                         #if os(macOS)
+                        ForEach(model.comicBooks) { book in
+                            Label(book.title + " · CBZ · \(book.pages.count) 页", systemImage: "photo.on.rectangle")
+                                .tag(book.id).accessibilityIdentifier("library-comic")
+                        }
                         ForEach(model.epubBooks) { book in
                             Label(book.title + " · EPUB", systemImage: "book.closed")
                                 .tag(book.id).accessibilityIdentifier("library-epub")
@@ -42,6 +46,8 @@ public struct LibraryWorkspace: View {
                 .onChange(of: selectedBookID) { _, id in
                     if let book = model.books.first(where: { $0.id == id }) {
                         Task { await model.open(book); if model.reader.book?.id == book.id { compactColumn = .detail } }
+                    } else if let book = model.comicBooks.first(where: { $0.id == id }) {
+                        Task { await model.openComic(book); compactColumn = .detail }
                     } else if let book = model.epubBooks.first(where: { $0.id == id }) {
                         Task { await model.openEPUB(book); compactColumn = .detail }
                     }
@@ -63,7 +69,8 @@ public struct LibraryWorkspace: View {
             .navigationSplitViewColumnWidth(min: 220, ideal: 270, max: 360)
         } detail: {
             #if os(macOS)
-            if model.readingEPUB { EPUBWorkspace(model: model, session: model.epub) }
+            if model.readingComic { ComicWorkspace(session: model.comic) }
+            else if model.readingEPUB { EPUBWorkspace(model: model, session: model.epub) }
             else { ReaderWorkspace(model: model, session: model.reader) }
             #else
             ReaderWorkspace(model: model, session: model.reader)
@@ -72,7 +79,7 @@ public struct LibraryWorkspace: View {
         .task { await model.load() }
         .fileImporter(isPresented: $importer, allowedContentTypes: importTypes) { result in
             switch result {
-            case .success(let url): Task { await model.importFile(url); if model.reader.book != nil { compactColumn = .detail } }
+            case .success(let url): Task { await model.importFile(url); if model.reader.book != nil || model.readingEPUB || model.readingComic { compactColumn = .detail } }
             case .failure(let error): model.error = error.localizedDescription
             }
         }
@@ -93,14 +100,14 @@ public struct LibraryWorkspace: View {
     }
     private var importTitle: String {
         #if os(macOS)
-        "导入 PDF / EPUB"
+        "导入 PDF / EPUB / CBZ"
         #else
         "导入 PDF"
         #endif
     }
     private var importTypes: [UTType] {
         #if os(macOS)
-        [.pdf, UTType(filenameExtension: "epub") ?? .data]
+        [.pdf, UTType(filenameExtension: "epub") ?? .data, UTType(filenameExtension: "cbz", conformingTo: .zip) ?? .zip]
         #else
         [.pdf]
         #endif
@@ -116,13 +123,17 @@ public struct FeatureStatusView: View {
                 Section("当前可以使用") {
                     Label("本地 PDF 导入、阅读、目录与搜索", systemImage: "checkmark.circle")
                     Label("选区高亮、笔记与本地保存", systemImage: "checkmark.circle")
+                    #if os(macOS)
+                    Label("CBZ 漫画：导入、页序、左右方向、单双页与进度恢复", systemImage: "checkmark.circle")
+                    #endif
                 }
                 Section("后续接入") {
                     Text("EPUB：Mac 本地重排阅读；移动适配与固定版式待验收")
                     Text("Mac 选文 AI：本地 mock 或用户操作的 DeepSeek 翻译／解释；500字范围、来源与学习笔记；质量、页章双语与完整日英学习待验收")
                     Text("Bookno API：尚未接入")
                     Text("iCloud：未配置容器，数据仅保存在本地")
-                    Text("漫画 / 其他格式 / 转换 / OCR / Apple Pencil：尚未实现")
+                    Text("CBZ：移动阅读适配待验收；当前 Mac 支持静态 PNG / JPEG")
+                    Text("CBR / 其他格式 / 转换 / OCR / Apple Pencil：尚未实现")
                 }
                 Section("开源") { Text("PDFno · AGPL-3.0-or-later").font(.footnote) }
             }.navigationTitle("功能状态")
