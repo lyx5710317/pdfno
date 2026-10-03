@@ -6,6 +6,9 @@ import PDFnoServices
 
 @MainActor
 public final class AILearningModel: ObservableObject {
+    #if os(macOS)
+    let deepSeekTest = DeepSeekTestModel()
+    #endif
     @Published var config = AIProviderConfig()
     @Published var source: AISourceSnapshot?
     @Published var kind: AILearningKind = .translate

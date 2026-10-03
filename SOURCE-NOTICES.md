@@ -16,6 +16,8 @@ The 2026-10-02 native implementation creates actual macOS and iPhone/iPad applic
 - The full original private development specification (internal v0.2) was read before the v0.3 rewrite. The public v0.3 copy preserves the complete requirements, removes personal paths/Library identifiers/private-project URLs, and distinguishes architecture targets from implemented scope. Private original material and its version history are retained outside public source.
 - Bookno and language-learning projects are interface/behavior references from that specification. Their private code, assets, containers and credentials are not included. The Bookno API remains independent and unimplemented.
 
+The independent DeepSeek self-test service and native screen (2026-10-03) are also original PDFno-authored AGPL source. The fixed English sentence and translation instruction are original, not taken from a book. No SDK or service implementation is copied; the native URLSession request follows the official public wire documentation. Development and CI use synthetic credentials and fully intercepted responses only. Real user-triggered service behavior, pricing and service terms are separate from this source license; no real connectivity is claimed.
+
 Official framework sources and audit dates are cited in the specification. System APIs prove availability, not completed product behavior; actual validation evidence belongs to `docs/VALIDATION.md` and CI for its exact commit.
 
 ## Kookit EPUB modifications (2026-10-03)

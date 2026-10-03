@@ -9,11 +9,13 @@ struct AISettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var draft: AIProviderConfig
     @State private var secret = ""
+    @State private var showDeepSeekTest = false
     init(learning: AILearningModel) { self.learning = learning; _draft = State(initialValue: learning.config) }
     var body: some View {
         NavigationStack {
             Form {
-                Text("真实 AI 请求尚未启用；本地 mock 可验证选文、引用与笔记闭环。").accessibilityIdentifier("ai-network-status")
+                Text("阅读 AI 仍仅本地 mock；可另开 DeepSeek 原创短句自助测试，由你确认并发送。").accessibilityIdentifier("ai-network-status")
+                Button("DeepSeek 短句自助测试") { showDeepSeekTest = true }.accessibilityIdentifier("ai-deepseek-self-test")
                 Picker("服务类型", selection: $draft.mode) {
                     Text("未配置").tag(AIProviderMode.unconfigured)
                     Text("本地 mock 示例").tag(AIProviderMode.mock)
@@ -38,6 +40,7 @@ struct AISettingsView: View {
                     .accessibilityIdentifier("ai-settings-save") }
             }
         }.frame(minWidth: 480, minHeight: 440)
+        .sheet(isPresented: $showDeepSeekTest) { DeepSeekSelfTestView(model: learning.deepSeekTest) }
     }
 }
 struct AILearningWorkspace: View {

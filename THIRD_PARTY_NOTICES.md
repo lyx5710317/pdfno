@@ -6,6 +6,8 @@ The applications link Apple system frameworks: SwiftUI, Foundation, AppKit/UIKit
 
 The original PDF fixture references the standard PDF font Helvetica by name, without embedding a font program. Original text and fixture generator provenance appear in `SOURCE-NOTICES.md`.
 
+The optional user-operated DeepSeek short-sentence probe uses native URLSession and public HTTP documentation, without vendoring a DeepSeek or OpenAI SDK, model weights or third-party prompt/sample. It makes no claim that an external API service is AGPL or free; the provider's applicable service terms and charges govern a user's actual request. Automated development/CI tests never contact that service.
+
 ## Historical dependencies and unselected candidates
 
 React, Electron, Vite, TypeScript, ESLint, Vitest, jsdom and Playwright were used by the retired demo. Their pinned npm metadata remains in `docs/historical/dependency-inventory.json` and their lockfile in Git history/external recovery material. They are no longer current installation or execution requirements. Historical MIT/Apache/Chromium notices must still be retained if an old compiled demo is separately redistributed; npm metadata alone is not a distribution audit.
