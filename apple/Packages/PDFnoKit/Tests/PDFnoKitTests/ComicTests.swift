@@ -7,6 +7,11 @@ import zlib
 import Testing
 import PDFnoDomain
 import PDFnoServices
+#if os(macOS)
+import AppKit
+import WebKit
+import PDFnoReaders
+#endif
 
 /// All images and ZIP records are generated here. No user documents, external archiver or binary fixture.
 private enum ComicFixture {
@@ -77,6 +82,81 @@ private enum ComicFixture {
         var result = data; result.replaceSubrange(offset..<(offset + bytes.count), with: bytes); return result
     }
 }
+
+#if os(macOS)
+@Suite(.serialized)
+struct ComicWebKitTests {
+    @MainActor private func ready(_ session: ComicReaderSession) async throws {
+        let limit = Date().addingTimeInterval(25)
+        while session.busy && Date() < limit { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(session.error == nil)
+        _ = try #require(session.progress)
+    }
+    @MainActor private func opened(_ archive: CBZArchive, _ book: ComicBook, repository: ComicRepository) async throws -> (ComicReaderSession, NSWindow) {
+        _ = NSApplication.shared
+        let session = ComicReaderSession()
+        session.persist = { id, progress in try await repository.saveProgress(progress, bookID: id) }
+        try await session.open(archive: archive, book: book)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = session.webView
+        session.webView?.frame = NSRect(x: 0, y: 0, width: 1000, height: 700)
+        do { try await ready(session) } catch { session.close(); window.close(); throw error }
+        return (session, window)
+    }
+    @MainActor private func probe(_ session: ComicReaderSession, _ code: String) async throws -> String {
+        let view = try #require(session.webView)
+        return try #require(try await view.callAsyncJavaScript(code, arguments: [:], in: nil, contentWorld: .page) as? String)
+    }
+    @Test @MainActor func actualRasterSpreadsDirectionResizeAndRestart() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Comics-WebKit-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let data = try ComicFixture.zip((0..<7).map { index in
+            ComicFixture.Entry(name: "pages/\(index + 1).PNG", data: try ComicFixture.png(width: index == 3 ? 30 : 12, height: index == 3 ? 10 : 20), deflated: true)
+        })
+        let repository = ComicRepository(root: root), book = try await repository.importBook(data, filename: "original.cbz")
+        let archive = try await repository.read(book)
+        let (session, window) = try await opened(archive, book, repository: repository)
+        defer { session.close(); window.close() }
+        #expect(session.visibleIndices == [0])
+        let raster = try await probe(session, "return JSON.stringify([...document.querySelectorAll('iframe')].map(f=>{const i=f.contentDocument.querySelector('img');return {title:f.title,width:i.naturalWidth,height:i.naturalHeight,source:i.src.startsWith('blob:'),sandbox:f.getAttribute('sandbox')};}));")
+        #expect(raster.contains("\"width\":12")); #expect(raster.contains("\"height\":20"))
+        #expect(raster.contains("allow-same-origin")); #expect(raster.contains("\"source\":true"))
+        await session.next(); #expect(session.visibleIndices == [1,2])
+        #expect(try await probe(session, "return [...document.querySelectorAll('iframe')].map(f=>f.title).join(',');") == "第 2 页,第 3 页")
+        await session.setDirection(.rightToLeft); #expect(session.visibleIndices == [2,1])
+        #expect(try await probe(session, "return [...document.querySelectorAll('iframe')].map(f=>f.title).join(',');") == "第 3 页,第 2 页")
+        await session.resize(width: 600, height: 900); #expect(session.visibleIndices == [1])
+        await session.resize(width: 1000, height: 700); #expect(session.visibleIndices == [2,1])
+        await session.next(); #expect(session.visibleIndices == [3])
+        await session.next(); #expect(session.visibleIndices == [5,4])
+        await session.next(); #expect(session.visibleIndices == [6]); #expect(!session.hasNext)
+        await session.previous(); #expect(session.visibleIndices == [5,4])
+        await session.setLayout(.single); #expect(session.visibleIndices == [4])
+        let saved = try #require(try await repository.load().books.first?.progress)
+        #expect(saved.pagePath == "pages/5.PNG"); #expect(saved.direction == .rightToLeft); #expect(saved.layout == .single)
+        session.close(); window.close()
+        let current = try #require(try await ComicRepository(root: root).load().books.first)
+        let (reopened, secondWindow) = try await opened(archive, current, repository: repository)
+        defer { reopened.close(); secondWindow.close() }
+        #expect(reopened.pageIndex == 4); #expect(reopened.direction == .rightToLeft); #expect(reopened.layout == .single)
+        #expect(reopened.visibleIndices == [4]); #expect(reopened.progress == saved)
+    }
+    @Test @MainActor func realWebKitRefusesNetworkScriptsAndStaleCommands() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Comics-WebKit-Security-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let repository = ComicRepository(root: root), book = try await repository.importBook(ComicFixture.book(), filename: "original.cbz")
+        let (session, window) = try await opened(try await repository.read(book), book, repository: repository)
+        defer { session.close(); window.close() }
+        #expect(try await probe(session, "try{await fetch('https://example.invalid/must-never-load');return 'loaded'}catch{return 'blocked'}") == "blocked")
+        #expect(try await probe(session, "const d=document.querySelector('iframe').contentDocument;const s=d.createElement('script');s.textContent='window.PDFNO_COMIC_SCRIPT=1';d.body.append(s);return String(!!d.defaultView.PDFNO_COMIC_SCRIPT);") == "false")
+        #expect(try await probe(session, "try{await window.PDFnoComic.command({v:1,command:'render',requestID:'stale',session:'wrong'});return 'accepted'}catch{return 'rejected'}") == "rejected")
+        let prior = session.progress
+        await session.go(to: -1); #expect(session.progress == prior)
+        session.close(); #expect(session.webView == nil); #expect(session.progress == nil)
+        await session.next(); #expect(session.webView == nil)
+    }
+}
+#endif
 
 struct ComicTests {
     @Test func storedDeflateNaturalOrderUppercaseAndBoundedThumbnail() throws {

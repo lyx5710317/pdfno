@@ -16,7 +16,7 @@ struct ComicWorkspace: View {
         .overlay { if session.busy { ProgressView("正在打开漫画…").padding().background(.regularMaterial) } }
         .toolbar {
             ToolbarItemGroup {
-                Button("页面") { pages = true }.disabled(session.book == nil)
+                Button("页面") { pages = true }.disabled(session.book == nil).accessibilityIdentifier("comic-pages")
                 Button { Task { await session.previous() } } label: { Label("上一页", systemImage: session.direction == .rightToLeft ? "chevron.right" : "chevron.left") }
                     .disabled(session.busy || !session.hasPrevious).accessibilityIdentifier("comic-previous")
                 Button { Task { await session.next() } } label: { Label("下一页", systemImage: session.direction == .rightToLeft ? "chevron.left" : "chevron.right") }
@@ -33,7 +33,7 @@ struct ComicWorkspace: View {
         .sheet(isPresented: $pages) {
             NavigationStack {
                 List(Array((session.book?.pages ?? []).enumerated()), id: \.offset) { index, page in
-                    Button("\(index + 1). \(page.path)") { Task { await session.go(to: index); pages = false } }.disabled(session.busy)
+                    Button("\(index + 1). \(page.path)") { Task { await session.go(to: index); pages = false } }.disabled(session.busy).accessibilityIdentifier("comic-page-\(index)")
                 }.navigationTitle("漫画页面").toolbar { ToolbarItem { Button("完成") { pages = false } } }
             }.frame(minWidth: 350, minHeight: 400)
         }

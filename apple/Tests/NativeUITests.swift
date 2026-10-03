@@ -6,6 +6,110 @@ import AppKit
 
 final class NativeUITests: XCTestCase {
     #if os(macOS)
+    @MainActor func testMacCBZImportSpreadsDirectionPageJumpAndRestart() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-CBZ-UI-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let archive = root.appendingPathComponent("Original Comic.cbz")
+        let entries = try (0..<7).map { index in
+            ("pages/\(index + 1).PNG", try originalPNG(width: index == 3 ? 30 : 12, height: index == 3 ? 10 : 20))
+        }
+        try originalZIP(entries).write(to: archive)
+        let broken = root.appendingPathComponent("Broken Original.cbz")
+        try Data("Original malformed CBZ fixture".utf8).write(to: broken)
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launch(); app.activate(); defer { app.terminate() }
+        XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15))
+        try chooseInput(archive, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        let position = app.staticTexts["comic-position"].firstMatch
+        waitForText(["1 / 7"], in: position, timeout: 25)
+        XCTAssertTrue(app.webViews["comic-content"].firstMatch.exists)
+        let layout = app.popUpButtons["comic-layout"].firstMatch
+        XCTAssertTrue(layout.waitForExistence(timeout: 5)); press(layout); press(app.menuItems["双页"].firstMatch)
+        waitForText(["双页"], in: layout, timeout: 10)
+        waitUntilEnabled(app.buttons["comic-next"].firstMatch)
+        press(app.buttons["comic-next"].firstMatch)
+        waitForText(["2–3 / 7"], in: position, timeout: 15)
+        let direction = app.popUpButtons["comic-direction"].firstMatch
+        press(direction); press(app.menuItems["从右到左"].firstMatch)
+        waitForText(["从右到左"], in: direction, timeout: 10)
+        waitForText(["2–3 / 7"], in: position, timeout: 15)
+        waitUntilEnabled(app.buttons["comic-next"].firstMatch)
+        press(app.buttons["comic-next"].firstMatch)
+        waitForText(["4 / 7"], in: position, timeout: 15)
+        waitUntilEnabled(app.buttons["comic-next"].firstMatch)
+        press(app.buttons["comic-next"].firstMatch)
+        waitForText(["5–6 / 7"], in: position, timeout: 15)
+        waitUntilEnabled(app.buttons["comic-next"].firstMatch)
+        press(app.buttons["comic-next"].firstMatch)
+        waitForText(["7 / 7"], in: position, timeout: 15)
+        XCTAssertFalse(app.buttons["comic-next"].firstMatch.isEnabled)
+        press(app.buttons["comic-pages"].firstMatch)
+        let page = app.buttons["comic-page-4"].firstMatch
+        XCTAssertTrue(page.waitForExistence(timeout: 5)); press(page)
+        waitForText(["5–6 / 7"], in: position, timeout: 15)
+        press(layout); press(app.menuItems["单页"].firstMatch)
+        waitForText(["单页"], in: layout, timeout: 10)
+        waitForText(["5 / 7"], in: position, timeout: 15)
+        press(app.buttons["comic-close"].firstMatch)
+        let comic = app.descendants(matching: .any).matching(identifier: "library-comic").firstMatch
+        XCTAssertTrue(comic.waitForExistence(timeout: 5)); press(comic)
+        waitForText(["5 / 7"], in: position, timeout: 25)
+        app.terminate(); app.launch(); app.activate()
+        XCTAssertTrue(comic.waitForExistence(timeout: 10)); press(comic)
+        waitForText(["5 / 7"], in: position, timeout: 25)
+        XCTAssertTrue(textValue(direction).contains("从右到左")); XCTAssertTrue(textValue(layout).contains("单页"))
+        try chooseInput(broken, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 10)); press(app.buttons["知道了"].firstMatch)
+        waitForText(["5 / 7"], in: position, timeout: 5)
+        press(app.buttons["open-sample"].firstMatch)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 10)
+        press(app.buttons["open-epub-sample"].firstMatch)
+        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
+        press(comic); waitForText(["5 / 7"], in: position, timeout: 25)
+    }
+    @MainActor private func waitUntilEnabled(_ element: XCUIElement) {
+        let ready = expectation(for: NSPredicate(format: "enabled == true AND hittable == true"), evaluatedWith: element)
+        wait(for: [ready], timeout: 10)
+    }
+    @MainActor private func chooseInput(_ url: URL, trigger: XCUIElement, app: XCUIApplication) throws {
+        press(trigger)
+        app.typeKey("g", modifierFlags: [.command, .shift])
+        let combo = app.comboBoxes.firstMatch
+        let text = app.textFields.firstMatch
+        let location = combo.waitForExistence(timeout: 3) ? combo : text
+        XCTAssertTrue(location.waitForExistence(timeout: 5))
+        enterSearch(url.path, into: location); app.typeKey(.return, modifierFlags: [])
+        let open = app.buttons["Open"].firstMatch.exists ? app.buttons["Open"].firstMatch : app.buttons["打开"].firstMatch
+        XCTAssertTrue(open.waitForExistence(timeout: 5)); press(open)
+    }
+    @MainActor private func originalPNG(width: Int, height: Int) throws -> Data {
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+            bytesPerRow: width * 4, bitsPerPixel: 32))
+        let bytes = try XCTUnwrap(bitmap.bitmapData)
+        for i in 0..<(width * height) { bytes[4*i] = 45; bytes[4*i+1] = 125; bytes[4*i+2] = 210; bytes[4*i+3] = 255 }
+        return try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+    }
+    private func originalZIP(_ entries: [(String, Data)]) -> Data {
+        func u16(_ value: Int) -> Data { Data([UInt8(value & 255), UInt8((value >> 8) & 255)]) }
+        func u32(_ value: Int) -> Data { u16(value & 65535) + u16((value >> 16) & 65535) }
+        func crc(_ data: Data) -> Int {
+            var value = UInt32.max
+            for byte in data { value ^= UInt32(byte); for _ in 0..<8 { value = value & 1 == 0 ? value >> 1 : (value >> 1) ^ 0xedb88320 } }
+            return Int(value ^ UInt32.max)
+        }
+        var local = Data(), central = Data()
+        for (path, data) in entries {
+            let name = Data(path.utf8), offset = local.count, checksum = crc(data)
+            local += u32(0x04034b50) + u16(20) + u16(0x0800) + u16(0) + u16(0) + u16(0)
+            local += u32(checksum) + u32(data.count) + u32(data.count) + u16(name.count) + u16(0) + name + data
+            central += u32(0x02014b50) + u16(0x0314) + u16(20) + u16(0x0800) + u16(0) + u16(0) + u16(0)
+            central += u32(checksum) + u32(data.count) + u32(data.count) + u16(name.count) + u16(0) + u16(0)
+            central += u16(0) + u16(0) + u32(0x8000 << 16) + u32(offset) + name
+        }
+        return local + central + u32(0x06054b50) + u16(0) + u16(0) + u16(entries.count) + u16(entries.count) + u32(central.count) + u32(local.count) + u16(0)
+    }
     @MainActor func testMacDeepSeekSelectionOfflineTransportPDFEPUBAndRestart() throws {
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"

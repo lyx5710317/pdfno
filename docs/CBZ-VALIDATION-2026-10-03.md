@@ -20,6 +20,14 @@ Logs for this local run: `/tmp/pdfno-comics-unit-tests.log`, `/tmp/pdfno-comics-
 
 The tests do not launch NSWindow, NSApplication, PDFno or a simulator, and do not read the real library or credentials. Existing EPUBWebKit and desktop UI tests were excluded per task instructions. Real WKWebView rendering, native picker and LTR/RTL/resize/restart interaction still need an isolated desktop acceptance run by the coordinator. See [ADR-CBZ-KOOKIT.md](ADR-CBZ-KOOKIT.md) for the exact slice, resource limits, CBR exclusion and merge touch points.
 
+## Coordinator integration follow-up — 2026-10-03
+
+The branch was reviewed and cherry-picked onto the AI baseline in the main checkout. Official fixed-commit `comic-book.js` content was fetched and compared byte-for-byte: 2247 bytes, SHA-256 `fb8b11ffead40f2ab48530e0c00ebe670e71cc36225bba9a33222dd6dc8ee45c`. Existing PDF/EPUB/DeepSeek source and user workspace metadata were preserved; other feature worktrees were not edited.
+
+Two additional actual **WKWebView** tests passed locally in the separate test process in **0.943 seconds** (`.build/comics-webkit-tests.log`). They decode/render original PNG frames, check natural dimensions/blob URLs/script-disabled sandbox, cover/pair/landscape/odd-final-page order, LTR/RTL frame order, actual narrow/wide resize, explicit layout, saved progress and a fresh session. A second real-WebKit flow verifies CSP network refusal, script refusal, stale bridge refusal and close behavior. Their hidden temporary test windows do not launch, quit, inspect or overwrite the owner's PDFno app or credentials. All four original Node tests also passed.
+
+The complete Mac app test is added to `NativeUITests`: original in-memory CBZ through the native picker, rendered cover, direction/layout, page jump, broken-file recovery, close/reopen, process restart and PDF/EPUB transitions. It runs on isolated CI with a fresh store UUID alongside all four existing regressions. The native CI also rebuilds and compares the comic resource. Local test compilation and exact-SHA CI outcomes are reported in the combined delivery; the original branch's build-only evidence does not prove that app flow passed.
+
 ## Merge file inventory
 
 Shared files (review together with concurrent format/AI work):
