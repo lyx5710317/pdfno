@@ -20,6 +20,10 @@ CI [37103479741](https://github.com/lyx5710317/pdfno/actions/runs/37103479741) f
 
 The broader typed accessibility query passed the same full local flow: **2 UI tests, 0 failures**, 58.445 seconds (`.build/EPUB-CI-Ruby-Query.xcresult`).
 
+CI [37103902073](https://github.com/lyx5710317/pdfno/actions/runs/37103902073) for `6ff3e2573e4e45d108055942e7af271f2ad7b1e7` established that the ruby element exists on macOS 15: the typed scan reached `にほんご` at StaticText index 184, but exceeded its 15-second deadline through individual accessibility snapshot requests. The actual ruby existence check and remaining restart/note/source assertions then passed; the run still failed for that timeout. Exact string equality is now queried by XCTest rather than scanning hundreds of values; no assertion is removed and no content/UI modification is used to satisfy the test.
+
+The exact-value query passed **2 full local UI tests, 0 failures**, 55.296 seconds (`.build/EPUB-CI-Exact-Ruby.xcresult`). A direct Foundation check also confirmed that the same equality predicate safely rejects numeric `1` and accepts the expected original ruby string.
+
 ## 2026-10-02 PDF baseline and history
 
 Local environment: MacBook Air, Apple silicon, macOS 27.0 (26A428), Xcode 27.0 (27A266a), Swift 6.4, macOS/iOS SDK 27.0. Adjustable deployment settings are macOS 14 and iOS/iPadOS 17; tests on the latest local runtime do not establish oldest-version compatibility. GitHub uses its actually reported `macos-15` toolchain.

@@ -68,6 +68,15 @@ final class NativeUITests: XCTestCase {
                 NSPredicate(format: prefix ? "label BEGINSWITH %@" : "label CONTAINS %@", text)
             ).firstMatch
             if labelMatch.exists { found = labelMatch; return true }
+            if !prefix {
+                // Equality accepts mixed value types. On macOS 15 rt text is
+                // after every base paragraph in the AX tree, so avoid hundreds
+                // of individual snapshot requests before finding its value.
+                let exact = app.webViews.firstMatch.descendants(matching: .any).matching(
+                    NSPredicate(format: "value == %@", text)
+                ).firstMatch
+                if exact.exists { found = exact; return true }
+            }
             found = app.webViews.firstMatch.staticTexts.allElementsBoundByIndex.first {
                 guard let value = $0.value as? String else { return false }
                 return prefix ? value.hasPrefix(text) : value.contains(text)
