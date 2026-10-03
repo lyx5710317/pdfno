@@ -1,6 +1,6 @@
 # ADR 0004 — Mac selection AI and BYOK preview
 
-Date: 2026-10-03. Status: implemented bounded offline reading slice; real reading provider and persistent credential validation pending. A later independent, bookless DeepSeek manual probe is specified in [ADR 0005](ADR-0005-DEEPSEEK-SELF-TEST.md); it does not enable this selection provider. Swift native UI, PDFKit, isolated Kookit EPUB, AGPL and Mac-first remain unchanged.
+Date: 2026-10-03. Status: implemented offline baseline; its original remote-disabled scope below is historical. The independent bookless probe is [ADR 0005](ADR-0005-DEEPSEEK-SELF-TEST.md). The approved bounded DeepSeek reading extension is [ADR 0006](ADR-0006-DEEPSEEK-SELECTION.md), which supersedes the remote-disabled statements and old prompt-only rollback rule below; other-provider and persistent Keychain gates remain pending. Swift native UI, PDFKit, isolated Kookit EPUB, AGPL and Mac-first remain unchanged.
 
 ## Scope and product state
 

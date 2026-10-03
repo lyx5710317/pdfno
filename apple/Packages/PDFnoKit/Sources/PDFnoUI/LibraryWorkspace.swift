@@ -119,7 +119,7 @@ public struct FeatureStatusView: View {
                 }
                 Section("后续接入") {
                     Text("EPUB：Mac 本地重排阅读；移动适配与固定版式待验收")
-                    Text("Mac 选文 AI：本地 mock／配置预览；真实 BYOK、翻译质量、页章双语与日英学习待验收")
+                    Text("Mac 选文 AI：本地 mock 或用户操作的 DeepSeek 翻译／解释；500字范围、来源与学习笔记；质量、页章双语与完整日英学习待验收")
                     Text("Bookno API：尚未接入")
                     Text("iCloud：未配置容器，数据仅保存在本地")
                     Text("漫画 / 其他格式 / 转换 / OCR / Apple Pencil：尚未实现")

@@ -6,6 +6,72 @@ import AppKit
 
 final class NativeUITests: XCTestCase {
     #if os(macOS)
+    @MainActor func testMacDeepSeekSelectionOfflineTransportPDFEPUBAndRestart() throws {
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        app.launch(); app.activate()
+        let sample = app.buttons["open-sample"].firstMatch
+        XCTAssertTrue(sample.waitForExistence(timeout: 15)); press(sample)
+        press(app.buttons["reader-navigation"].firstMatch)
+        let search = app.textFields["search-input"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5)); enterSearch("window", into: search)
+        press(app.buttons["search-submit"].firstMatch)
+        let match = app.buttons["search-result"].firstMatch
+        XCTAssertTrue(match.waitForExistence(timeout: 5)); press(match)
+        press(app.buttons["reader-ai"].firstMatch)
+        // Fail before setting or submitting any credential if offline injection is absent.
+        guard app.staticTexts["ai-offline-fixture"].firstMatch.waitForExistence(timeout: 5) else {
+            XCTFail("Offline transport must be injected before any synthetic credential entry")
+            app.terminate(); return
+        }
+        press(app.buttons["ai-close"].firstMatch)
+        press(app.buttons["ai-settings"].firstMatch)
+        let preset = app.buttons["ai-use-deepseek"].firstMatch
+        XCTAssertTrue(preset.waitForExistence(timeout: 5)); press(preset)
+        let key = app.descendants(matching: .any).matching(identifier: "ai-session-key").firstMatch
+        XCTAssertTrue(key.waitForExistence(timeout: 5)); press(key); key.typeText("synthetic-reading-ui-credential")
+        press(app.buttons["ai-settings-save"].firstMatch)
+        press(app.buttons["reader-ai"].firstMatch)
+        let start = app.buttons["ai-start"].firstMatch
+        XCTAssertTrue(start.waitForExistence(timeout: 5)); XCTAssertFalse(start.isEnabled)
+        XCTAssertEqual(textValue(app.staticTexts["ai-source-quote"].firstMatch), "window")
+        let consent = app.descendants(matching: .any).matching(identifier: "ai-scope-consent").firstMatch
+        press(consent); XCTAssertTrue(start.isEnabled); press(start)
+        let result = app.staticTexts["ai-result"].firstMatch
+        XCTAssertTrue(result.waitForExistence(timeout: 8)); XCTAssertTrue(textValue(result).contains("离线 DeepSeek UI 替身"))
+        XCTAssertTrue(textValue(result).contains("翻译"))
+        XCTAssertFalse(app.staticTexts["ai-saved-result"].firstMatch.exists, "Generated output must not create a saved note automatically")
+        let note = app.descendants(matching: .any).matching(identifier: "ai-user-note").firstMatch
+        enterSearch("Original synthetic DeepSeek user note", into: note)
+        press(app.buttons["ai-save-note"].firstMatch)
+        XCTAssertTrue(app.staticTexts["ai-saved-user-note"].firstMatch.waitForExistence(timeout: 8))
+        press(app.buttons["ai-result-source"].firstMatch)
+        XCTAssertTrue(textValue(app.staticTexts["page-position"].firstMatch).contains("1 / 2"))
+        press(app.buttons["open-epub-sample"].firstMatch)
+        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
+        let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
+        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
+        press(app.buttons["epub-ai"].firstMatch)
+        XCTAssertTrue(app.staticTexts["ai-source-quote"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["ai-saved-user-note"].firstMatch.exists)
+        let kind = app.popUpButtons["ai-kind"].firstMatch
+        XCTAssertTrue(kind.waitForExistence(timeout: 5)); press(kind); press(app.menuItems["选文解释"].firstMatch)
+        press(consent); press(start)
+        XCTAssertTrue(result.waitForExistence(timeout: 8)); XCTAssertTrue(textValue(result).contains("解释"))
+        press(app.buttons["ai-save-note"].firstMatch)
+        XCTAssertTrue(app.staticTexts["ai-saved-result"].firstMatch.waitForExistence(timeout: 8))
+        press(app.buttons["ai-result-source"].firstMatch)
+        app.terminate(); app.launch(); app.activate()
+        let book = app.descendants(matching: .any).matching(identifier: "library-epub").firstMatch
+        XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
+        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
+        press(app.buttons["epub-ai"].firstMatch)
+        let saved = app.staticTexts["ai-saved-result"].firstMatch
+        XCTAssertTrue(saved.waitForExistence(timeout: 8)); XCTAssertTrue(textValue(saved).contains("解释"))
+        XCTAssertTrue(textValue(app.staticTexts["ai-reading-key-status"].firstMatch).contains("请先"))
+        XCTAssertFalse(start.isEnabled, "No session key may persist across restart")
+        app.terminate()
+    }
     @MainActor func testMacAISelectionConsentMockNotesAndRestart() throws {
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate()

@@ -79,7 +79,7 @@ public struct AIResult: Codable, Sendable, Equatable {
     public let fromCache: Bool
     public init(request: AIRequest, text: String, fromCache: Bool) {
         requestID = request.id; source = request.source; provider = request.provider; kind = request.kind
-        self.text = text; promptVersion = "selection-1"; self.fromCache = fromCache
+        self.text = text; promptVersion = DeepSeekSelectionPolicy.supports(request.provider) ? DeepSeekSelectionPolicy.promptVersion : "selection-1"; self.fromCache = fromCache
     }
 }
 public struct AILearningNote: Codable, Sendable, Identifiable, Equatable {
@@ -89,17 +89,17 @@ public struct AILearningNote: Codable, Sendable, Identifiable, Equatable {
     public init(id: UUID = UUID(), result: AIResult, userText: String) { self.id = id; self.result = result; self.userText = userText }
 }
 public enum AIFailure: String, LocalizedError, Sendable {
-    case unconfigured, configuration, consent, inputLimit, credentials, authentication, rateLimit, quota, timeout, cancelled, stale, network, redirect, server, output, store
+    case unconfigured, configuration, consent, inputLimit, credentials, authentication, rateLimit, quota, timeout, cancelled, stale, network, redirect, server, output, store, remoteInputLimit, attemptLimit, truncated
     public var errorDescription: String? {
         switch self {
         case .unconfigured: "服务未配置。可明确选择本地 mock 演示；不会自动切换服务。"
         case .configuration: "服务地址或模型配置无效。使用 HTTPS 或明确的本机 loopback HTTP；地址不能包含凭据、查询或片段。"
         case .consent: "请先确认本次选文、服务、模型和处理范围。"
         case .inputLimit: "选文为空或超过本片 8000 UTF-16 单位上限；请缩小选区。"
-        case .credentials: "凭据不可用。本片未配置持久密钥，也未启用真实远程请求。"
-        case .authentication: "服务拒绝认证；请检查获准的凭据配置。"
-        case .rateLimit: "服务限流；本次不会自动重发。"
-        case .quota: "服务额度不足；本次不会自动重发。"
+        case .credentials: "当前会话密钥未配置或已清除；请在模型设置中手动输入。本片不保存持久密钥。"
+        case .authentication: "HTTP 401 / 403：服务拒绝认证；请自行检查当前会话密钥。"
+        case .rateLimit: "HTTP 429：服务限流；本次不会自动重发。"
+        case .quota: "HTTP 402：服务额度不足；本次不会自动重发。"
         case .timeout: "请求已超时并取消；迟到结果不会写入当前文档。"
         case .cancelled: "请求已取消；没有保存新笔记。"
         case .stale: "文档、选区或服务配置已改变；请重新确认来源。"
@@ -108,6 +108,9 @@ public enum AIFailure: String, LocalizedError, Sendable {
         case .server: "服务返回错误；响应正文不会进入日志。"
         case .output: "结果结构或来源引文无法验证；不会接受模型自造引用。"
         case .store: "学习数据无法验证；现有数据不会被覆盖。"
+        case .remoteInputLimit: "DeepSeek 首片只接受最多500 UTF-16单位选文；请缩小选区，不会自动截断或扩大范围。"
+        case .attemptLimit: "本次应用会话的三次阅读请求额度已用完；失败或取消也占次数，不会自动重试。"
+        case .truncated: "服务输出达到本次上限而截断；未计为成功，不会自动重试或保存。"
         }
     }
 }

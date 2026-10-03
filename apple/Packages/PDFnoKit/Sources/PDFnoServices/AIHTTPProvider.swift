@@ -42,6 +42,7 @@ public struct OpenAICompatibleSelectionProvider: AIProvider {
         self.transport = transport; self.credentials = credentials; self.credentialReference = credentialReference
     }
     public static func finalURL(_ config: AIProviderConfig) throws -> URL {
+        if DeepSeekSelectionPolicy.supports(config) { return try DeepSeekSelectionProvider.finalURL(config) }
         guard ProviderValidation.validate(endpoint: config.endpoint, model: config.model),
               var parts = URLComponents(string: config.endpoint) else { throw AIFailure.configuration }
         while parts.path.hasSuffix("/") { parts.path.removeLast() }
@@ -63,23 +64,6 @@ public struct OpenAICompatibleSelectionProvider: AIProvider {
         http.httpBody = try JSONSerialization.data(withJSONObject: ["model": request.provider.model, "stream": false, "messages": [
             ["role": "system", "content": system], ["role": "user", "content": String(decoding: input, as: UTF8.self)]
         ]], options: [.sortedKeys])
-        let response = try await transport.send(http)
-        switch response.status {
-        case 200...299: break
-        case 300...399: throw AIFailure.redirect
-        case 401, 403: throw AIFailure.authentication
-        case 402: throw AIFailure.quota
-        case 429: throw AIFailure.rateLimit
-        default: throw AIFailure.server
-        }
-        guard response.body.count <= 65536,
-              let envelope = try? JSONSerialization.jsonObject(with: response.body) as? [String: Any],
-              let choices = envelope["choices"] as? [[String: Any]], let message = choices.first?["message"] as? [String: Any],
-              message["tool_calls"] == nil, let content = message["content"] as? String,
-              let json = content.data(using: .utf8), let result = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
-              Set(result.keys) == Set(["schemaVersion", "sourceQuote", "text"]), result["schemaVersion"] as? Int == 1,
-              let quote = result["sourceQuote"] as? String, let text = result["text"] as? String,
-              quote.unicodeScalars.elementsEqual(request.source.anchor.quote.unicodeScalars), !text.isEmpty, text.utf16.count <= 16000 else { throw AIFailure.output }
-        return AIProviderOutput(sourceQuote: quote, text: text)
+        return try SelectionHTTPCodec.decode(await transport.send(http), sourceQuote: request.source.anchor.quote, requireCompletedChoice: false)
     }
 }

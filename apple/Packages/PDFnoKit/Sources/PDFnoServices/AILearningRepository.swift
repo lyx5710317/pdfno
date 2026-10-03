@@ -42,7 +42,7 @@ public actor AILearningRepository {
     }
     private static func valid(_ note: AILearningNote) -> Bool {
         note.result.source.isValid && note.result.provider.isValid && note.result.provider.mode != .unconfigured &&
-        note.result.promptVersion == "selection-1" && !note.result.text.isEmpty && note.result.text.utf16.count <= 16000 && note.userText.utf16.count <= 16000
+        ["selection-1", DeepSeekSelectionPolicy.promptVersion].contains(note.result.promptVersion) && !note.result.text.isEmpty && note.result.text.utf16.count <= 16000 && note.userText.utf16.count <= 16000
     }
     private func commit(_ state: AILearningState) throws {
         _ = try load()

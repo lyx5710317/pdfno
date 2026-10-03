@@ -1,6 +1,6 @@
 # PDFno AI 开发技术规格
 
-版本：**0.3 原生 Apple 架构＋Mac EPUB／离线选文 AI／独立 DeepSeek 自助测试实施稿**
+版本：**0.3 原生 Apple 架构＋Mac EPUB／DeepSeek 选文 AI／独立短句测试实施稿**
 修订与官方来源核验日期：**2026-10-03**（各历史证据保留原日期）
 项目标识：`pdfno`；产品显示名：`PDFno`
 目标：原生 macOS、iPhone、iPad；Mac 优先交付，先完善 Mac 再适配 iPhone/iPad；长期三端目标保留
@@ -32,7 +32,7 @@
 
 2026-10-02 用户随后明确确认“Swift＋PDFKit 保留，其他格式优先接 Kookit，并继续 AGPL 开源”，并要求继续开发；2026-10-03 再次要求继续现有 PDFno。当前增加 Mac EPUB 最小片，移动端仍编译保留、后续适配；普通提交/推送按已有授权处理。运行证据与未覆盖范围以 VALIDATION 为准。
 
-EPUB 闭环后，用户授权 Mac BYOK／选文 AI 小切片：原生服务配置、安全凭据接口、选文翻译／解释、明确范围、取消／超时／版本隔离、引用与笔记。阅读 AI 只开放明确标注的本地 mock 和非秘密配置预览；HTTP/Keychain 接口用完全隔离的虚构输入测试，**真实阅读请求和持久凭据配置未启用**。用户随后指定官方 DeepSeek endpoint/model 的独立测试；新增9.2的无书籍短句入口，agent 仍只用虚构 key/拦截网络验证。客户端每次仍需用户确认显示的内容和费用范围；配置或服务方费用限额不是agent读取／提交密钥的授权，也不是生成成功证明。最多3次、128输出tokens与无自动重试保持。整页、章节、整书及其他 N4 能力不在本片范围。
+EPUB 闭环后，用户授权 Mac BYOK／选文 AI 小切片，并在独立 DeepSeek 短句测试后报告“三次测试都成功了”（USER-REPORTED；agent 未读取真实密钥、亲自调用或核验账单）。用户随后授权在已有设置与 PDF/EPUB 学习窗口实现最小真实选文翻译／解释。当前9.1为官方 DeepSeek 的有限入口：500 UTF-16 单元、1024输出tokens、30秒、独立三次阅读请求额度、会话临时 key、每次显示范围及费用并由用户最终发送；其他配置仍预览，本地 mock 明确选择。9.2原有独立短句测试保持三次／128tokens且不共享阅读密钥。自动验证只用原创样例、虚构 key 和完全拦截的 transport；不扩大到整页／章／书、问答或完整 N4，不据用户短句成功宣称新选文质量通过。
 
 ### 0.3 原稿来源、版本与文档权威
 
@@ -120,7 +120,7 @@ Bookno 原规格基线 `zcode/develop` / `9ae3056bff8dd64fac43185d2bfa5f22b20dc6
 
 ### 4.1 Xcode 工程与共享 Swift packages
 
-以下描述模块职责。N1 实际采用一个本地 `PDFnoKit` package、四个独立 targets，并创建 Mac/Mobile app 与 UI test targets。其余 Platform、AI、同步、格式 adapters 仍未实现：
+以下描述模块职责。当前采用一个本地 `PDFnoKit` package、四个独立 targets，并创建 Mac/Mobile app 与 UI test targets；已有本地PDF／Mac EPUB、限定选文AI及来源／学习数据。其余平台完善、同步和其他格式 adapters 仍未实现：
 
 ```text
 apple/
@@ -130,10 +130,10 @@ apple/
   Apps/Mobile/               # PDFnoMobile.app，iOS application，iPhone + iPad
   Packages/PDFnoKit/
     Sources/PDFnoDomain/     # 纯值身份、来源、任务与 Unicode 契约
-    Sources/PDFnoServices/   # actor 本地 repository
-    Sources/PDFnoReaders/    # PDFKit 与 EPUB 占位接口
-    Sources/PDFnoUI/         # SwiftUI 书库、导入、笔记
-    Tests/PDFnoKitTests/     # 原生契约/存储/PDFKit tests 与原创 fixture
+    Sources/PDFnoServices/   # actor 本地 repository、AI job/provider 与会话凭据
+    Sources/PDFnoReaders/    # PDFKit 与独立受限 Mac EPUB adapter
+    Sources/PDFnoUI/         # SwiftUI 书库、导入、笔记、设置与选文学习
+    Tests/PDFnoKitTests/     # 契约/存储/PDFKit/WebKit/离线AI 与原创 fixture
   Tests/NativeUITests.swift  # 两个 UI test targets 使用同一闭环
 ```
 
@@ -416,27 +416,31 @@ URLSession delegate 默认停止带认证重定向；受允许适配需检查完
 
 模型不能调用工具读取其他文件、邮件、系统命令或改变设置；输出仅数据，HTML/Markdown 清洗并使用允许协议。高亮/语法 span 和问答引用须按第 7、10 章校验，不接受模型自报“已验证”。
 
-### 9.1 已实施的 Mac 选文离线切片与未开放边界
+### 9.1 已实施的 Mac DeepSeek 选文切片与边界
 
-2026-10-03 的实际类型为 `AIProviderConfig`、`AISourceSnapshot`、`AIRequest`、`AIConsent`、`AIResult`、`AILearningNote`；完整目标仍是上面的 PROPOSED ProviderAdapter 契约。此片没有 SSE、vision、usage、真实语言质量或文档检索，也不把编译的 HTTP 适配器当作真实 BYOK 服务已通过。详见 ADR 0004 和 VALIDATION。
+2026-10-03 的实际类型为 `AIProviderConfig`、`AISourceSnapshot`、`AIRequest`、`AIConsent`、`AIResult`、`AILearningNote`，由已有原生设置／学习窗口承载。用户授权真实选文翻译与简短解释；完整目标仍是上面的 PROPOSED ProviderAdapter 契约。没有 SSE、vision、usage、文档检索、页／章／整书请求或完整英日结构化语法验收。ADR0004保留离线基础，当前扩展见 ADR0006 与 VALIDATION。
 
-原生设置有未配置、本地 mock 和 OpenAI-compatible 配置预览。仅 endpoint/model/label/type/generation 保存；临时 SecureField 的值只在会话内，不自动写 Keychain、不读取旧凭据。`KeychainCredentialStore` 只按 UUID 访问 PDFno service 中单个条目，非 synchronizable、无 access group、device-only unlocked accessibility 和非交互 LAContext；测试注入虚构替身，实际系统钥匙串／签名策略尚未验收。阅读 AI 没有真实远程选文入口，也没有从真实服务失败自动降级到 mock；独立无书籍自助测试另见9.2，不复用配置预览密钥。
+设置支持未配置、明确选择的本地 mock 与 OpenAI-compatible 预览；DeepSeek 预设使用 `https://api.deepseek.com` 和 `deepseek-flash`。仅此官方 HTTPS origin、443／默认端口及允许的根／v1／chat-completions 路径能开启发送，最终固定为 `POST https://api.deepseek.com/chat/completions`。其他服务／model／自定义地址均不启用真实请求。仅 endpoint/model/label/type/generation 保存；用户手动输入的 key 存私有 session UUID 引用，保存空输入会清除旧值，配置变更取消在途请求并改变 generation，清除与退出失效，不自动写 Keychain、不读取现有凭据。`KeychainCredentialStore` 的精确条目、安全属性与非交互接口只用虚构替身验证，实际系统钥匙串／签名行为仍待验收。
 
-范围是一次固定选文，最多 8000 UTF-16 单位、不加前后文。快照绑定 book/edition/hash/extraction、读者 session/documentVersion 与强类型 PDF／EPUB anchor；确认绑定完整来源及 provider/config generation。服务 actor 有唯一终态，取消／超时不会等待不协作的迟到响应；UI 完成时再次检查来源和当前配置，切书取消，模式切换不发送。模型只返回正文和需逐 scalar 校验的回显引文；引用由原快照生成，回跳仍由 reader 校验。输出为纯文本，无可执行 HTML 或模型工具。
+远程范围最多500 UTF-16单元，mock基础契约仍最多8000。发送只有固定 sourceText/task 与固定系统指令，无上下文、书名、笔记、历史或文件。`stream:false`、`thinking:{type:disabled}`、`response_format:{type:json_object}`、`max_tokens:1024`（包含JSON及回显引文）；30秒deadline、每次应用会话最多三次阅读网络尝试，失败／取消／超时也保守计数，无自动重试，不与9.2共享额度。缓存命中不新增网络尝试，但仍需确认；次数不能代替服务商人民币账单限制，取消不能保证免收费。用户确认当前显示的来源、接收方、费用和限制后亲自开始，打开／选区／模式变化不发送、不自动降级mock。
 
-缓存仅内存最多 20 项、成功且已校验的结果；sorted-key 内容包括 source/provider/kind/prompt，排除 requestID、timeout 和密钥，并保守包含 reader session/version。跨请求订阅去重、持久缓存和章节恢复仍待实现。`learning-v1.json` 单独保存配置与用户明确保存的学习笔记；AI 结果／来源与用户正文分字段，生成不覆盖用户文字。未知字段、secret 字段、未来 schema 或损坏状态拒绝写入并保留原稿；既有 PDF/EPUB manifest 不改 schema。旧应用回滚时忽略而保留学习文件。
+快照绑定 book/edition/hash/extraction、reader session/documentVersion 与强类型 PDF／EPUB anchor；确认及请求绑定完整来源、provider/config generation/kind/prompt。服务actor唯一终态，取消／超时不等待不协作的迟到响应；UI完成再检查来源及配置，切书或关闭取消。仅接受单个 assistant 的完整stop终态，无实际工具/function调用，`length`为截断失败；JSON严格schemaVersion=1（拒绝boolean）、字段集合及正文限额，回显引文逐Unicode scalar相同。模型不能生成可信坐标／引用；引用由原快照生成，回跳经reader再验证。原书指令仅作为数据；输出为纯文本，无执行HTML或模型工具。
 
-独立 OpenAI-compatible adapter 用 JSON 数据消息固定 sourceText/kind，原书指令不能改变配置。URLSession ephemeral、无 cookies/cache、拒绝所有认证重定向；实际响应限 64 KiB，正文/schema/quote 校验，错误固定分型且不记录原响应、key、头或书籍文本。只用拦截每个 URL 的 URLProtocol 与虚构凭据验证；ATS/TLS/服务端协议／费用／质量仍需获准真实验证。Mac mock 的真实 UI 闭环与 PDF/EPUB 回归分开报告；移动仅编译，不宣称移动 AI 已适配。
+缓存仅内存最多20项已校验成功结果，sorted-key内容包含source/provider/kind/prompt，排除requestID/timeout/key，保守包含reader session/version与配置generation。`deepseek-selection-1`和旧`selection-1`分隔结果及缓存。每会话最多10条安全请求记录，学习窗口只显示当前书，关闭重开保留已完成结果及用户草稿；清除临时key不删除已有笔记。跨请求订阅去重、持久缓存和章节恢复仍未实现。
+
+`learning-v1.json`只保存非秘密配置与用户明确保存的学习笔记；AI结果／来源与用户正文分字段，生成／换模式不覆盖用户文字。仍用schema1，校验允许两种prompt版本；未知字段／secret／未来／损坏状态拒绝写入并保留原稿，有效写入先备份再原子替换，既有PDF/EPUB manifest及Originals不改。降级到仅接受旧prompt的AI版本时学习文件会保护性拒绝；降级前备份全学习文件，恢复旧副本需用户自行核对，不将新学习结果丢弃或谎称可由旧版本读取。回滚到更早PDF/EPUB版本忽略但保留独立学习文件。
+
+复用ephemeral URLSession，无cookies/cache，拒绝全部重定向，消费字节时限制64KiB；错误固定安全分型（401/403、402、429、取消、超时、截断等），不记录原响应、key、headers或书籍全文。agent只用虚构凭据、stub和拦截每URL的URLProtocol测试；新增DEBUG-only全拦截Mac界面fixture，不落到URLSession。四项完整Mac UI回归在独立CI运行，本机只编译隔离副本，不重启用户现用实例。新选文真实调用、费用、ATS／代理和语言质量尚未由agent验证；9.2用户报告仅为独立短句证据。移动仅编译，不宣称已适配移动AI。
 
 ### 9.2 独立 DeepSeek 原创短句自助测试
 
-**CONFIRMED** provider 为 DeepSeek、base endpoint `https://api.deepseek.com`、model `deepseek-flash`。Mac 设置中独立原生 sheet；打开不会发送，阅读 AI 仍是9.1离线切片。实际请求固定 `POST https://api.deepseek.com/chat/completions`，`stream:false`、`max_tokens:128`、`thinking:{type:disabled}`。完整可见发送内容只有原创短句 `A small blue bird rests beside a quiet window.` 和固定指令 `Translate the following original test sentence into Simplified Chinese. Return only one short sentence.`，无书籍、选文、笔记、文件、历史、工具或检索上下文。
+**CONFIRMED** provider 为 DeepSeek、base endpoint `https://api.deepseek.com`、model `deepseek-flash`。Mac 设置中独立原生 sheet；打开不会发送，与9.1阅读选文的密钥、额度和结果独立。实际请求固定 `POST https://api.deepseek.com/chat/completions`，`stream:false`、`max_tokens:128`、`thinking:{type:disabled}`。完整可见发送内容只有原创短句 `A small blue bird rests beside a quiet window.` 和固定指令 `Translate the following original test sentence into Simplified Chinese. Return only one short sentence.`，无书籍、选文、笔记、文件、历史、工具或检索上下文。
 
 用户手动输入新的临时 key，明确确认内容及费用范围，并亲自点击最终按钮。agent 不从聊天、截图、AX、日志、内存或配置读取/填入/复制 key、不点击真实发送。**拟议预算≤1元人民币／最多3次由用户在发送前确认；服务方费用设置不授权agent读取或提交key。** 客户端只强制本次应用会话最多3次和128输出tokens，不能保证服务商人民币账单硬上限。失败／取消／超时也可能计费且计次数，无自动重试；重开窗口不重置，应用重启重置内存计数，不是账户持久预算。每次重新输入并确认。
 
 服务为 bookless actor，不伪造 PDF/EPUB 锚点。复用 ephemeral URLSession、无 cookie/cache、拒绝所有重定向，实际响应≤64KiB；单一 continuation 终态与30秒期限、UI generation 阻止取消/关闭后迟到结果。仅接受单个 assistant 纯文本、stop终态、无工具/function、≤2048 UTF-16输出；length截断不假称完成。错误为固定安全分型，不记录/显示原错误、头、正文或 key；`Text(verbatim:)` 不执行链接/HTML。结果不保存笔记或缓存。
 
-发送时清空输入框，取消/关闭清除密钥和确认、取消未完成请求；安全响应／错误记录保留到本次应用退出，不写普通文件/Keychain/iCloud/Bookno。关闭重开和明确清除记录均不重置次数；3/3不是成功证明，旧版已被清除的结果无法恢复。记录放顶部，变化时自动滚到最新一条，工具栏可查看；geometry限定宽度、长文本换行和垂直滚动。HTTP401/403、402、429与30秒超时保留可见，length截断单独标失败。请求期间 Authorization 仍需留在原生网络内存；Swift/Foundation不保证安全擦除。用户已有临时输入时，未经明确更新重开许可不退出/重启/覆盖其运行bundle，不读截图/AX密钥区域。仅编译现有target的更新副本，不建新应用身份或入口；获准后正常退出、发现未保存确认则停，打开更新后的同一程序，停在用户输入/确认/发送前。密钥和内存记录不承诺跨应用重启保留，也不能用重启绕过次数。自动测试只用虚构 key、stub和拦截每个URL的URLProtocol，完整Mac UI回归在独立CI执行。2026-10-03 08:23:45 UTC无凭据检查：DNS解析、TLS1.2及证书／主机名验证通过，GET /models返回401；无Authorization/cookie/body、无生成，最初sandbox DNS失败后经正常权限审核完成。仅证明当时鉴权入口可达。**认证后的DeepSeek模型调用、账单、实际客户端代理与翻译质量 NOT-RUN**；收到用户真实运行结果后才能另记证据。ADR0005／VALIDATION记录实际代码、测试与边界；不据入口编译扩大为完整BYOK或T09通过。
+发送时清空输入框，取消/关闭清除密钥和确认、取消未完成请求；安全响应／错误记录保留到本次应用退出，不写普通文件/Keychain/iCloud/Bookno。关闭重开和明确清除记录均不重置次数；3/3不是成功证明，旧版已被清除的结果无法恢复。记录放顶部，变化时自动滚到最新一条，工具栏可查看；geometry限定宽度、长文本换行和垂直滚动。HTTP401/403、402、429与30秒超时保留可见，length截断单独标失败。请求期间 Authorization 仍需留在原生网络内存；Swift/Foundation不保证安全擦除。用户已有临时输入时，未经明确更新重开许可不退出/重启/覆盖其运行bundle，不读截图/AX密钥区域。仅编译现有target的更新副本，不建新应用身份或入口；获准后正常退出、发现未保存确认则停，打开更新后的同一程序，停在用户输入/确认/发送前。密钥和内存记录不承诺跨应用重启保留，也不能用重启绕过次数。自动测试只用虚构 key、stub和拦截每个URL的URLProtocol，完整Mac UI回归在独立CI执行。2026-10-03 08:23:45 UTC无凭据检查：DNS解析、TLS1.2及证书／主机名验证通过，GET /models返回401；无Authorization/cookie/body、无生成，最初sandbox DNS失败后经正常权限审核完成。仅证明当时鉴权入口可达。**USER-REPORTED**：用户随后报告独立短句“三次测试都成功了”；agent未读key或调用，账单、实际代理及翻译质量仍NOT-RUN，新阅读选文不据此算通过。ADR0005／VALIDATION记录实际代码、测试与边界；不据入口编译扩大为完整BYOK或T09通过。
 
 ## 10 假名与日英语法辅助
 
@@ -1158,7 +1162,7 @@ AGPL、PDFKit 和已选 Kookit 独立 EPUB 边界；不暗中更换引擎。开�
 
 ### 21.5 2026-10-03 DeepSeek 官方协议来源
 
-已读取 [Create Chat Completion](https://api-docs.deepseek.com/api/create-chat-completion/) 的POST路径、当前model、max_tokens、thinking与响应终态；[Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode/) 说明默认开启思考，可显式disabled；[Models and pricing](https://api-docs.deepseek.com/quick_start/pricing/) 用于确认服务定价是外部动态事实，不硬编码人民币承诺。[First API call](https://api-docs.deepseek.com/)为官方入口；本次中文根页超时，不把失败页当完整内容。只作为9.2实现协议依据，没有发送真实请求，不证明账号权限/连通/费用或质量。
+已读取 [Create Chat Completion](https://api-docs.deepseek.com/api/create-chat-completion/) 的POST路径、当前model、max_tokens、thinking与响应终态；[Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode/) 说明默认开启思考，可显式disabled；[Models and pricing](https://api-docs.deepseek.com/quick_start/pricing/) 用于确认服务定价是外部动态事实，不硬编码人民币承诺。[First API call](https://api-docs.deepseek.com/)为官方入口；本次中文根页超时，不把失败页当完整内容。作为9.1／9.2协议依据，agent没有发送真实请求；独立短句的用户成功报告另列，不能证明新选文质量或账单。2026-10-03再次核验chat-completion的JSON response_format与完整终态，并复核thinking disabled；[JSON Output](https://api-docs.deepseek.com/guides/json_mode/)本次读取超时，不将其算完整阅读。
 
 ## 22 原 v0.2 完整需求覆盖核对
 

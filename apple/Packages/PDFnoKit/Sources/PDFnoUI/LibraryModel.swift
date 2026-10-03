@@ -41,7 +41,14 @@ public final class LibraryModel: ObservableObject {
         } else { root = LibraryRepository.defaultRoot() }
         repository = LibraryRepository(root: root)
         epubRepository = EPUBRepository(root: root)
+        #if DEBUG
+        if let token = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"], UUID(uuidString: token) != nil,
+           ProcessInfo.processInfo.environment["PDFNO_UI_TEST_DEEPSEEK"] == "offline" {
+            learning = AILearningModel(root: root, transport: OfflineSelectionUITestTransport(), offlineTransport: true)
+        } else { learning = AILearningModel(root: root) }
+        #else
         learning = AILearningModel(root: root)
+        #endif
     }
     func load() async {
         do {

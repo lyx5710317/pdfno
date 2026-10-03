@@ -1,6 +1,6 @@
 # ADR 0005 — Independent Mac DeepSeek short-sentence self-test
 
-Date: 2026-10-03. Status: existing native entry implemented and diagnostics visibility repaired; model development requests use intercepted synthetic data only. Unauthenticated DNS/TLS/HTTP reachability is verified separately; actual authenticated generation, cost and language quality are **NOT-RUN**. The reader AI remains the offline slice in [ADR 0004](ADR-0004-SELECTION-AI.md).
+Date: 2026-10-03. Follow-up: the user subsequently reported all three original-sentence tests succeeded (USER-REPORTED, without agent credential access or submission); bill and language quality were not inspected. The bounded reading integration is specified separately in [ADR 0006](ADR-0006-DEEPSEEK-SELECTION.md), with independent credentials/limits. The original implementation-only NOT-RUN statements below retain their historical scope. Status: existing native entry implemented and diagnostics visibility repaired; model development requests use intercepted synthetic data only. Unauthenticated DNS/TLS/HTTP reachability is verified separately; actual authenticated generation, cost and language quality are **NOT-RUN**. The reader AI remains the offline slice in [ADR 0004](ADR-0004-SELECTION-AI.md).
 
 ## Authorised scope and user action
 
