@@ -1,6 +1,6 @@
 # Local conversion validation — 2026-10-03
 
-The independent conversion branch, based on `aaba190a878df9de5674491d20f1b36fa4733607`, implements DOCX body text → UTF-8 TXT / standalone escaped HTML. It is a local export operation with a new output location and does not modify a book store. [ADR 0009](ADR-0009-LOCAL-CONVERSION.md) records direction feasibility, selected licenses, safety and quality limits.
+The integrated finite converter implements DOCX body text → UTF-8 TXT / standalone escaped HTML. Its historical independent branch was based on `aaba190a878df9de5674491d20f1b36fa4733607`. It is a local export operation with a new output location and does not modify a book store. [ADR0009](ADR-0009-LOCAL-CONVERSION.md) records feasibility, selected licenses, safety and quality limits. Combined acceptance is tracked in VALIDATION and the final-SHA delivery.
 
 ## Actual results
 

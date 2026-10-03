@@ -1,6 +1,6 @@
 # Mac PDF current-page translation slice
 
-Date: 2026-10-03. Base: `aaba190a878df9de5674491d20f1b36fa4733607`; branch: `feature/page-translation`. Implements the user's delegated continuation of specification §8/§14. The old ADR0006 selection-only boundary remains valid for selection requests; this explicitly authorised page command adds a separate bounded flow. No main-branch merge, push, shared Library update, app launch, authenticated service request, signing setup or new test product is part of this slice. No applicable `AGENTS.md`, `.agents` or `.codex` skill files were present in the inspected repository/ancestor locations.
+Date: 2026-10-03. The bounded page command is integrated in main with CBZ, finite DOCX export and the actual Mammoth Word reader. Historical branch: `feature/page-translation`, base `aaba190a878df9de5674491d20f1b36fa4733607`. Implements the user's delegated continuation of specification §8/§14. ADR0006's selection-request boundary still applies to that module; this authorised page command owns a separate bounded flow. Main integration, ordinary push and same-item Library delivery belong to the coordinator, with complete isolated app CI tracked in VALIDATION and the final delivery. No owner-app launch, authenticated service request, signing-account setup or new test product occurred. No applicable `AGENTS.md`, `.agents` or `.codex` skill files were present in the inspected repository/ancestor locations.
 
 ## User-visible behavior and caps
 
@@ -22,7 +22,7 @@ The page sheet uses its own temporary input and existing `SessionCredentialStore
 
 Manual segment save calls the existing `AILearningModel`/atomic `AILearningRepository` and records `AIResult`/`AILearningNote`, with user text separate. No automatic note writes. Learning schema1 adds an exact-key whitelist for `pdfPage` and the matching page prompt/kind/provider. Old selection notes still decode. Older builds cannot decode files containing page anchors; downgrade must preserve the complete learning store/backup and explicitly recover an earlier compatible copy without discarding new user notes. This is an additive schema extension, not guaranteed backward readability.
 
-## Verification and evidence
+## Independent branch verification (historical)
 
 Local toolchain: Xcode27.0 (27A266a), Swift6.4, arm64 macOS. At the recorded source snapshot:
 
@@ -53,7 +53,7 @@ Shared edits to reconcile with comic/Word/conversion integration:
 * `LibraryModel.swift`: page model construction, Debug fixture injection, book/import cancellation and page source handling. Merge lifecycle hooks with other modules rather than replacing their cancellation.
 * `LibraryWorkspace.swift`: Mac-only page command/sheet and accurate capability text. `OfflineSelectionUITestTransport.swift`/`NativeUITests.swift`: extend the existing offline mode/suite, never add a product or network fallback.
 
-The main specification/task/validation overview intentionally remains for the integrator to update once these independent branches are combined and CI evidence exists. This standalone slice record is the exact implemented scope and its remaining acceptance gates.
+The coordinator has updated the complete native specification, task/validation overview and audit handoff to the combined implementation. This slice record retains the original branch evidence and exact bounded behavior; final combined app results use the delivered SHA and its complete CI runs.
 
 ## Coordinator integration
 

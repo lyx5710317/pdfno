@@ -1,6 +1,6 @@
 # DOCX / Kookit-Mammoth validation — 2026-10-03
 
-Current scope: actual Kookit DOCX Mammoth conversion chain, fixed Mammoth 1.13.0, in independent `feature/docx` based on `aaba190a878df9de5674491d20f1b36fa4733607`. Native semantic candidate commits `fafd0a6` / `c9630ed` remain for comparison; they are not the product fallback. Toolchain: Xcode 27.0 (27A266a), Apple Swift 6.4, Node 20.20.2, arm64 Mac. Mac/iOS deployment targets remain 14.0/17.0.
+Current scope: the actual pinned Mammoth1.13.0 conversion chain referenced by Kookit is integrated in main with the other three slices. The original `feature/docx` branch was based on `aaba190a878df9de5674491d20f1b36fa4733607`; its evidence below is historical and distinct from the final combined CI. Native semantic candidate commits `fafd0a6` / `c9630ed` remain for comparison; they are not the product fallback. Branch toolchain: Xcode27.0 (27A266a), Swift6.4, Node20.20.2, arm64 Mac. Mac/iOS deployment targets remain14.0/17.0; minimum-version acceptance remains open.
 
 ## Independent branch evidence (historical snapshot)
 
@@ -34,9 +34,9 @@ The independent branch audit originally reported the old Rangy high prototype po
 
 ## Limits
 
-The offscreen bridge verifies engine/native DOM/source behavior, not visible page geometry, keyboard/accessibility, full Word corpus compatibility or Word layout fidelity. Desktop UI/user-app acceptance, note editing/deletion, mobile DOCX UI and conversion/export remain outside this slice. No main-tree edit, push/merge, shared Library write, user document upload or real-key operation is performed.
+The offscreen bridge verifies engine/native DOM/source behavior. Combined desktop import/selection/note/source/restart and format-transition acceptance is tracked separately in VALIDATION and the final-SHA CI delivery. Comprehensive visible geometry, keyboard/accessibility, full Word corpus/layout fidelity, note editing/deletion and mobile DOCX remain open. The separate finite DOCX exporter is integrated but does not add Word layout fidelity. The historical independent branch performed no main integration/push or shared Library write; those steps belong to the coordinator. User-document upload and real-key operations were not performed.
 
-Current raw local logs: `/tmp/pdfno-docx-mammoth-js.log`, `/tmp/pdfno-docx-mammoth-swift.log`, `/tmp/pdfno-docx-mammoth-bridge.log`, `/tmp/pdfno-docx-mammoth-mac.log`, `/tmp/pdfno-docx-mammoth-mobile.log`. Build outputs stay ignored under the worktree's `.build/`. Commands and assertions above are the portable evidence; temporary logs are not part of public source.
+Historical branch logs: `/tmp/pdfno-docx-mammoth-js.log`, `/tmp/pdfno-docx-mammoth-swift.log`, `/tmp/pdfno-docx-mammoth-bridge.log`, `/tmp/pdfno-docx-mammoth-mac.log`, `/tmp/pdfno-docx-mammoth-mobile.log`. Build outputs stay ignored under the worktree's `.build/`. Commands and assertions above are the portable evidence; temporary logs are not part of public source.
 
 Historical candidate evidence remains in Git history: 10 DOCX tests / 52 non-window Swift tests and independent Mac/iOS builds at the candidate stage. Those counts and the candidate's smaller compatibility profile are not used to claim acceptance of the current engine route.
 

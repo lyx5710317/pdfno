@@ -1,6 +1,6 @@
 # DOCX integration handoff
 
-Independent feature branch: `feature/docx`, base `aaba190a878df9de5674491d20f1b36fa4733607`.
+Current status: all three approved Word commits are integrated in main with comic/export/page translation. Historical source branch: `feature/docx`, base `aaba190a878df9de5674491d20f1b36fa4733607`. The following ordered history and merge points document the completed integration and future preservation requirements.
 
 History stays additive: `fafd0a6ce474ceefee1a36b2dd2b8658a43bd3c6` (bounded native candidate), then `c9630ed94b5ae4eb7cbe85842e8d33957c7f46f0` (shared import/sidebar entry candidate), then the current audited Kookit/Mammoth implementation. The candidate semantics remain for comparison/testing only. Integrate the whole ordered branch state; applying the newest commit alone to the original base misses its new Swift modules and C ZIP target.
 
@@ -12,7 +12,7 @@ History stays additive: `fafd0a6ce474ceefee1a36b2dd2b8658a43bd3c6` (bounded nati
 - New `docx-mammoth-v1.json` is separate from the candidate `docx-v1.json`; no automatic offset migration. The retained original hash plus edition/extraction/UTF-16 anchors define source identity. Render/bind current canonical content before saving progress or notes.
 - Carry exact npm lock/source checks, build source, notices/licenses and generated DOCX engine together. EPUB resource bytes remain unchanged. Root notices need additive reconciliation with concurrent dependency audits. The integrated EPUB lock retains the independently source-verified Rangy1.3.2 repair, documented in RANGY-SECURITY-2026-10-03; GHSA metadata remains empty and Rangy is excluded from DOCX.
 
-See [implemented architecture/security/license boundaries](ADR-DOCX-KOOKIT-MAMMOTH.md) and [55 Swift / 6 JS tests plus independent builds](DOCX-VALIDATION.md). That independent branch stage performed no main-tree edit/merge/push, user-app launch or shared Library write. The coordinator has now integrated all three commits and the approved page slice; complete final-SHA app acceptance and Library delivery are tracked in VALIDATION. Visible layout/keyboard/accessibility, full Word corpus, mobile DOCX UI, note editing/deletion and conversion/export remain outside this validated slice.
+See [implemented architecture/security/license boundaries](ADR-DOCX-KOOKIT-MAMMOTH.md) and [historical55 Swift /6 JS branch evidence and current combined97 Swift /11 Node gates](DOCX-VALIDATION.md). The historical branch performed no main-tree integration/push, user-app launch or shared Library write. The coordinator has integrated the four approved slices; complete final-SHA app acceptance and same-item Library delivery are tracked in VALIDATION/delivery. Comprehensive visible layout/keyboard/accessibility, full Word corpus, mobile DOCX UI and note editing/deletion remain open. The independent finite exporter is integrated separately and does not add Word layout fidelity.
 
 ## Complete changed-file inventory relative to the base
 
