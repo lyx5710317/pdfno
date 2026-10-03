@@ -32,7 +32,7 @@
 
 2026-10-02 用户随后明确确认“Swift＋PDFKit 保留，其他格式优先接 Kookit，并继续 AGPL 开源”，并要求继续开发；2026-10-03 再次要求继续现有 PDFno。当前增加 Mac EPUB 最小片，移动端仍编译保留、后续适配；普通提交/推送按已有授权处理。运行证据与未覆盖范围以 VALIDATION 为准。
 
-EPUB 闭环后，用户授权 Mac BYOK／选文 AI 小切片，并在独立 DeepSeek 短句测试后报告“三次测试都成功了”（USER-REPORTED；agent 未读取真实密钥、亲自调用或核验账单）。用户随后授权在已有设置与 PDF/EPUB 学习窗口实现最小真实选文翻译／解释。当前9.1为官方 DeepSeek 的有限入口：500 UTF-16 单元、1024输出tokens、30秒、独立三次阅读请求额度、会话临时 key、每次显示范围及费用并由用户最终发送；其他配置仍预览，本地 mock 明确选择。9.2原有独立短句测试保持三次／128tokens且不共享阅读密钥。自动验证只用原创样例、虚构 key 和完全拦截的 transport；不扩大到整页／章／书、问答或完整 N4，不据用户短句成功宣称新选文质量通过。
+EPUB 闭环后，用户授权 Mac BYOK／选文 AI 小切片，并在独立 DeepSeek 短句测试后报告“三次测试都成功了”（USER-REPORTED；agent 未读取真实密钥、亲自调用或核验账单）。用户随后授权在已有设置与 PDF/EPUB 学习窗口实现最小真实选文翻译／解释。当前9.1为官方 DeepSeek 的有限入口：500 UTF-16 单元、1024输出tokens、30秒、独立三次阅读请求额度、会话临时 key、每次显示范围及费用并由用户最终发送；其他配置仍预览，本地 mock 明确选择。9.2原有独立短句测试保持三次／128tokens且不共享阅读密钥。自动验证只用原创样例、虚构 key 和完全拦截的 transport；选文入口不扩大到页／章／书、问答或完整 N4，不据用户短句成功宣称新选文质量通过。随后独立批准的受限 PDF 当前页入口见9.3，章节／整书仍未实现。
 
 ### 0.3 原稿来源、版本与文档权威
 
@@ -120,7 +120,7 @@ Bookno 原规格基线 `zcode/develop` / `9ae3056bff8dd64fac43185d2bfa5f22b20dc6
 
 ### 4.1 Xcode 工程与共享 Swift packages
 
-以下描述模块职责。当前采用一个本地 `PDFnoKit` package、四个独立 targets，并创建 Mac/Mobile app 与 UI test targets；已有本地PDF／Mac EPUB、限定选文AI及来源／学习数据。其余平台完善、同步和其他格式 adapters 仍未实现：
+以下描述模块职责。当前采用一个本地 `PDFnoKit` package、Domain／Services／Readers／UI四个Swift模块与私有系统zlib C target `PDFnoDOCXZIP`，并创建 Mac/Mobile app 与 UI test targets；已有本地PDF／Mac EPUB／CBZ／有限DOCX语义阅读、限定选文及PDF当前页AI、有限正文导出与来源／学习数据。其余平台完善、同步和未开放格式 adapters 仍未实现：
 
 ```text
 apple/
@@ -219,7 +219,7 @@ Mac SwiftUI 原生书库、目录、翻页、横竖排和笔记宿主通过受�
 | FB2 | 待实现，三端均未开放 | 受控FictionBook parser；文档hash／块／span | 命名空间、章节／脚注／内嵌图、编码；禁止DTD／外部实体，大小预算；N7 |
 | PDF | 已实现Mac PDFKit闭环；移动基础UI已接入但实际设备未验收 | PDFKit；页／原文／几何＋edition/hash；OCR另版本 | 文本／扫描／混合、权限／加密状态、批注／搜索／恢复、三端真机及无文本降级；N2 |
 | TXT | 待实现，三端均未开放 | 原生文本或独立Kookit adapter；编码／提取版本／块／span | 编码探测与用户修正、换行／大文本／Unicode／搜索／稳定选区；N7 |
-| DOCX | 开发中：Kookit/Mammoth阅读候选审计，尚未合入；三端未开放阅读 | 保持用户既定路线；正文转换是另一服务，不替代阅读引擎 | 官方源码／许可／安全、表格／图片／外链／标题／注释损失明示、来源锚点及三端；N7 |
+| DOCX | 已合入有限Mac语义阅读；完整应用UI按最终CI；移动待实现 | 独立adapter直接调用Kookit参考中的实际Mammoth1.13.0；原始DocxRender类不执行；edition/hash/提取版本/语义block/精确UTF-16引文 | 正文、标准标题／简单表格／列表／选文笔记；图片／分页／复杂Word语义不保真；源码／许可／安全／原件／锚点及三端；N7 |
 | MD | 待实现，三端均未开放 | 受控Markdown渲染；源块／偏移＋引文 | 明确语法版本、禁主动HTML／远程资源，代码／表格／链接／图片、源文与渲染定位；N7 |
 | CBZ | 已实现有限Mac静态PNG/JPEG阅读；移动待实现 | 固定Kookit makeComicBook＋Swift ZIP／ImageIO＋受限WK；edition/hash/页路径/index | 实际WebKit已测；完整Mac应用UI按最终CI；缩放／连续滚动／移动／区域锚点待实现；N7 |
 | CBR | 待实现，三端均未开放；当前导入明确拒绝 | 独立受控RAR decoder；页路径／图像hash／区域 | RAR版本与decoder源码／许可证／三端构建，实解压限额／路径／链接／CRC，原生交互；N7 |
@@ -248,6 +248,16 @@ CBZ限100MiB、2000条目、16MiB单项、512MiB实际总解压、24M单图／51
 ### 5.5 Rangy 最小安全修复
 
 当前EPUB锁文件与bundle由Rangy1.3.0升级为官方1.3.2，其他依赖／固定Kookit不变。GHSA-65rp-mhqf-8gj3覆盖原版本；官方tag和实际npmcore逐字节相同，merge过滤危险prototype键，新的隔离VM回归通过，更新后npm audit零已知漏洞。MIT原文、integrity、实际依赖通知和188输入bundle已重建；真实EPUB选区／高亮范围／来源回跳测试保留并加强。GHSA patched字段本次仍为空，修复依据为实际源码／发布／audit，不能虚称其列出1.3.2。用户书籍和运行实例未检查，未证明发生利用或用户数据损害。详见RANGY-SECURITY-2026-10-03；当前用户旧bundle不会自动替换。
+
+### 5.6 当前 Mac DOCX 语义阅读边界
+
+2026-10-03 已按批准顺序整合正式Word切片。独立adapter直接调用实际固定Mammoth1.13.0的`convertToHtml`，采用Kookit固定DocxRender中的同一引擎/API；原始DocxRender只作为保留、blob校验的参考类，不执行整个上游类，不导入GeneralRender或extra。官方Mammoth版本／BSD-2-Clause、精确npm integrity与GitHead记录在MAMMOTH-SOURCE，四个实际安装源码／browser／LICENSE文件的SHA256与官方commit逐字节核验。301输入、13实际bundle包和各自BSD／MIT／zlib原文单独记录；PDFno／Kookit修改继续AGPL，第三方不改许可。源码／核验日期／限制见[DOCX ADR](ADR-DOCX-KOOKIT-MAMMOTH.md)。
+
+Swift ZIP/XML预检只做安全与资源验证，正文及标准h1–h6／列表／简单表格来自真实Mammoth输出。限制20MiB原件／1000条目／4MiB单项实际展开／50MiB总量、CRC／已消费输入／路径／重复／连续区段、UTF-8 Transitional XML／深度与节点等；拒绝加密、ZIP64、宏、嵌入、altChunk、外部非超链接关系、DTD/entity等。普通外链只保留文字；关闭externalFileAccess和书籍style-map，图片仅惰性说明、不读取其字节。产出经namespace／tag白名单、所有URL／事件／style属性移除及节点／深度／文本限额，再由受限非持久WK承载；原生界面／默认拒绝资源与桥identity／generation／deadline保持独立。
+
+来源是实际清洗后DOM与原生DTO逐字核验的语义block／canonical UTF-16文本；anchor绑定edition／原始SHA256／`docx-mammoth-utf16-1`／block／引文／上下文，不伪造Word页码或几何，不模糊重定位。原件按hash保留；新`docx-mammoth-v1.json`保护原PDF／EPUB／漫画和旧候选`docx-v1.json`，无自动offset迁移。完成真实引擎绑定前拒绝笔记／进度保存，重开继续核验原件和canonical输出。与正文→TXT／HTML的独立`DOCXConversionArchive`及有损导出服务分开。
+
+Mac原生入口包含导入／示例／书库、标题目录、选文／高亮投影／手动笔记／精确回跳和进度恢复。图片／字体／分页／页眉页脚／复杂Word语义不保真；Strict OOXML／UTF-16 XML／旧DOC／宏／移动Word／Word AI未开放。组合97项Swift与11项Node及两端编译通过属于本地集成证据；两个完整Word UI与其余全部流程必须由隔离CI在最终SHA实际运行，按VALIDATION报告，不从offscreen桥或编译推导完成。
 
 ## 6 领域模型与本地数据
 
@@ -448,7 +458,7 @@ URLSession delegate 默认停止带认证重定向；受允许适配需检查完
 
 ### 9.1 已实施的 Mac DeepSeek 选文切片与边界
 
-2026-10-03 的实际类型为 `AIProviderConfig`、`AISourceSnapshot`、`AIRequest`、`AIConsent`、`AIResult`、`AILearningNote`，由已有原生设置／学习窗口承载。用户授权真实选文翻译与简短解释；完整目标仍是上面的 PROPOSED ProviderAdapter 契约。没有 SSE、vision、usage、文档检索、页／章／整书请求或完整英日结构化语法验收。ADR0004保留离线基础，当前扩展见 ADR0006 与 VALIDATION。
+2026-10-03 的实际类型为 `AIProviderConfig`、`AISourceSnapshot`、`AIRequest`、`AIConsent`、`AIResult`、`AILearningNote`，由已有原生设置／学习窗口承载。用户授权真实选文翻译与简短解释；完整目标仍是上面的 PROPOSED ProviderAdapter 契约。该选文入口没有 SSE、vision、usage、文档检索、页／章／整书范围或完整英日结构化语法验收；独立当前页入口见9.3。ADR0004保留离线基础，当前扩展见 ADR0006 与 VALIDATION。
 
 设置支持未配置、明确选择的本地 mock 与 OpenAI-compatible 预览；DeepSeek 预设使用 `https://api.deepseek.com` 和 `deepseek-flash`。仅此官方 HTTPS origin、443／默认端口及允许的根／v1／chat-completions 路径能开启发送，最终固定为 `POST https://api.deepseek.com/chat/completions`。其他服务／model／自定义地址均不启用真实请求。仅 endpoint/model/label/type/generation 保存；用户手动输入的 key 存私有 session UUID 引用，保存空输入会清除旧值，配置变更取消在途请求并改变 generation，清除与退出失效，不自动写 Keychain、不读取现有凭据。`KeychainCredentialStore` 的精确条目、安全属性与非交互接口只用虚构替身验证，实际系统钥匙串／签名行为仍待验收。
 
@@ -471,6 +481,18 @@ URLSession delegate 默认停止带认证重定向；受允许适配需检查完
 服务为 bookless actor，不伪造 PDF/EPUB 锚点。复用 ephemeral URLSession、无 cookie/cache、拒绝所有重定向，实际响应≤64KiB；单一 continuation 终态与30秒期限、UI generation 阻止取消/关闭后迟到结果。仅接受单个 assistant 纯文本、stop终态、无工具/function、≤2048 UTF-16输出；length截断不假称完成。错误为固定安全分型，不记录/显示原错误、头、正文或 key；`Text(verbatim:)` 不执行链接/HTML。结果不保存笔记或缓存。
 
 发送时清空输入框，取消/关闭清除密钥和确认、取消未完成请求；安全响应／错误记录保留到本次应用退出，不写普通文件/Keychain/iCloud/Bookno。关闭重开和明确清除记录均不重置次数；3/3不是成功证明，旧版已被清除的结果无法恢复。记录放顶部，变化时自动滚到最新一条，工具栏可查看；geometry限定宽度、长文本换行和垂直滚动。HTTP401/403、402、429与30秒超时保留可见，length截断单独标失败。请求期间 Authorization 仍需留在原生网络内存；Swift/Foundation不保证安全擦除。用户已有临时输入时，未经明确更新重开许可不退出/重启/覆盖其运行bundle，不读截图/AX密钥区域。仅编译现有target的更新副本，不建新应用身份或入口；获准后正常退出、发现未保存确认则停，打开更新后的同一程序，停在用户输入/确认/发送前。密钥和内存记录不承诺跨应用重启保留，也不能用重启绕过次数。自动测试只用虚构 key、stub和拦截每个URL的URLProtocol，完整Mac UI回归在独立CI执行。2026-10-03 08:23:45 UTC无凭据检查：DNS解析、TLS1.2及证书／主机名验证通过，GET /models返回401；无Authorization/cookie/body、无生成，最初sandbox DNS失败后经正常权限审核完成。仅证明当时鉴权入口可达。**USER-REPORTED**：用户随后报告独立短句“三次测试都成功了”；agent未读key或调用，账单、实际代理及翻译质量仍NOT-RUN，新阅读选文不据此算通过。ADR0005／VALIDATION记录实际代码、测试与边界；不据入口编译扩大为完整BYOK或T09通过。
+
+### 9.3 已实施的 Mac PDF 当前页双语切片
+
+用户在选文切片后明确批准独立当前页翻译。该命令只在Mac PDFKit读者开放；物理页以点击时完整可复制文字快照确定。无文字明确需OCR、权限不足拒绝；不发图片，不扩展到章节、整书或其他页。完整页≤3000 UTF-16、最多6个保留所有Unicode scalar／空白／完整grapheme的段落单元，每段≤500；超出任一门槛整页拒绝，不能翻译前缀却称整页完成。宽窗双列、窄窗上下原文／译文对照属于文本重排，不承诺原PDF版式叠加。
+
+全页原文预览、页号、每段、固定官方receiver/model、费用未知及限制先展示。页面模块使用独立会话临时key和最多6次实际提交额度，失败／取消消费、关闭重开／换页不重置，不借用选文或短句key／三次额度。输入、开窗或确认不发送；用户对完整计划确认后亲自点击一次开始，先检查剩余额度足够整计划，逐段串行，每段1024输出tokens（含JSON／回显）／30秒／64KiB响应。最大6144输出tokens／180秒请求期限预算不是人民币或墙钟保证；不自动重试、恢复、fallback或扩范围。
+
+沿现有coordinator／严格DeepSeek adapter，但新`deepseek-pdf-page-1`提示要求完整翻译当前段；选文prompt字节与默认三次额度不变。仅该段sourceText/task及固定指令发送，其他页／完整本地页快照／笔记／书名／上下文不随请求外发。响应须完整stop、单assistant、无tools、严格schema与逐scalar引文相同；第一个失败停止剩余段，成功段保留可见但整计划明确不完整。取消／关闭／换书清除临时输入key和任务generation，迟到结果不能显示；已提交请求可能收费。每个已完成段只能用户明确保存，用户笔记正文与AI输出仍分字段。
+
+`AISelectionAnchor.pdfPage`／`PDFPageTextAnchor`保存本地完整页文本及edition/hash／物理页／`pdfkit-page-text-1`／checked UTF-16 span，只有单段引文进入请求。执行／保存验证当前book/session／完整页原文，持久回跳重新验证原件与页文本后定位该物理页，不虚构几何高亮。学习schema1增加精确键白名单、page prompt/provider/kind校验，旧选文笔记仍可读；旧应用不能读取新增page anchor，降级必须保留完整learning manifest/backup/原件与用户笔记，恢复兼容副本，不静默删除新笔记。Word／漫画活跃时禁止使用隐藏PDF／EPUB来源；所有格式切换取消两种学习任务。
+
+[页翻译切片记录](PDF-PAGE-TRANSLATION-SLICE.md)记录全部边界、原创多段／扫描／超限PDF、离线transport及三项完整UI用例。组合本地回归／编译已经通过，最终完整应用UI以同SHA隔离CI为准。真实阅读翻译质量／费用、OCR、EPUB章节、布局保真、移动端、持久Keychain／usage／SSE／章节恢复仍未验收或未实现；自动测试完全拦截且只用虚构密钥。
 
 ## 10 假名与日英语法辅助
 
@@ -1063,7 +1085,7 @@ Koodo 将来导入属于另项能力；不直接改用户数据库。未知设�
 | T21 | 云文档与账号 | metadata先到/资产缺失、下载中断/hash失败/存储满、退出换账号、长离线墓碑/未知schema；不丢本地内容、不误上传旧账号 |
 | T22 | 触摸/Pencil/生命周期 | 选择与手势不抢占，iPad分屏/笔画页空间/撤销重启、iPhone大字/软键盘、三端VoiceOver/后台返回；未实施Pencil则明确未支持 |
 
-T01–T22及UAT01–UAT15是完整目标；N0 文档阶段全部原生运行 NOT-RUN，当前最小 PDFKit／Mac EPUB 切片只验证 `VALIDATION.md` 中列出的子集。不能把这些子集扩大为全部目标通过。未来每项记录测试ID/fixture hash、硬件/OS、commit/config/实际结果、失败原因与未覆盖；模拟器不代真实设备云/内存/手势测试。旧demo单元/桌面CI只能作对应历史行为证据。
+T01–T22及UAT01–UAT15是完整目标；N0 文档阶段全部原生运行 NOT-RUN，当前有限 PDFKit／Mac EPUB／CBZ／DOCX／AI／转换切片只验证 `VALIDATION.md` 中列出的子集。不能把这些子集扩大为全部目标通过。未来每项记录测试ID/fixture hash、硬件/OS、commit/config/实际结果、失败原因与未覆盖；模拟器不代真实设备云/内存/手势测试。旧demo单元/桌面CI只能作对应历史行为证据。
 
 语言评分区分译文忠实度、语法、日语读音和引用匹配，用授权固定语料及人工评审；performance报告本地打开/提取/定位与网络延迟分开，不承诺秒开任意大书。页/章断点恢复与取消要检查发出的实际请求计数而不是只看按钮状态。
 
@@ -1241,7 +1263,7 @@ AGPL、PDFKit 和已选 Kookit 独立 EPUB 边界；不暗中更换引擎。开�
 
 ### 22.2 核对结论与实施状态
 
-原 R01–R14 均有去向，原 T01–T19、U01–U13、S01–S08、J01–J08、UAT01–UAT15 全部保留标识和行为要求；新增三端构建/同步/Pencil 验收。没有把 Koodo/Electron、CLI-only 原生或“是否要 iOS”留为主架构必选。多格式目标保留；当前已实现限定 PDF／Mac EPUB／CBZ、选文AI与DOCX正文导出子集，其余能力继续分阶段；未把旧 demo 或官方框架支持当功能完成。
+原 R01–R14 均有去向，原 T01–T19、U01–U13、S01–S08、J01–J08、UAT01–UAT15 全部保留标识和行为要求；新增三端构建/同步/Pencil 验收。没有把 Koodo/Electron、CLI-only 原生或“是否要 iOS”留为主架构必选。多格式目标保留；当前已合入限定 PDF／Mac EPUB／CBZ／DOCX、选文／PDF当前页AI与DOCX正文导出子集，其余能力继续分阶段；未把旧 demo 或官方框架支持当功能完成。
 
 2026-10-03格式覆盖复核：5.3逐项列齐官方18个扩展名、每项状态／平台／门槛，`.doc`不混入，XML限定可阅读标记文档；DRM-free、图片序列附加目标及未来漫画AI翻译均明确保留。13区分七个原始高保真转换方向与两个有限正文导出方向。此前“17项格式”是分组计数错误，不代表撤回任何格式要求；既有95项需求／测试／UI标识继续保留。
 
@@ -1264,3 +1286,5 @@ AI 缓存/取消/保密、Unicode/ruby、Bookno两层重放/修订/回执、本�
 | 源码/账号/元数据 | 本轮只新增v0.3文档，未改/删除旧源码/工程/依赖/配置，未提交/推送 |
 
 其他任务状态不能从旧线程放置方式推出；本轮不假定已停止，不杀进程。私人 Library 已使用版本 guard 替换原项，保留身份和历史；公开副本不披露内部 ID。最终交付时再核验实际工作树，发现并发变化须如实报告，不归为本任务改动。
+
+当前四切片完成后冻结最终Git SHA，不继续新增功能，交给独立任务统一验收及累计全项目代码／依赖／许可证审计；其范围不是最后一次diff。复现步骤、全部原创夹具／hash、未验收项与缺陷分级交接见[统一验收和审计交接](UNIFIED-VALIDATION-AND-AUDIT-HANDOFF.md)。集成回归通过不等于独立全项目审计完成。

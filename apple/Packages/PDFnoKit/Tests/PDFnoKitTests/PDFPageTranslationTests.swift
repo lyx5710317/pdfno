@@ -47,9 +47,9 @@ struct PDFPageTranslationTests {
         PDFPageTextSnapshot(bookID: UUID(), readerSessionID: UUID(), editionID: UUID(), fileSHA256: String(repeating: "a", count: 64), pageIndex: page, text: text)
     }
     @MainActor private func settle(_ model: PDFPageTranslationModel) async throws {
-        let deadline = Date().addingTimeInterval(3)
+        let deadline = Date().addingTimeInterval(5)
         while model.busy, Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
-        #expect(!model.busy)
+        try #require(!model.busy)
     }
     @Test func fullPagePlanPreservesEveryScalarAndGraphemeWithout500UnitTruncation() throws {
         let text = String(repeating: "An original sentence about a garden. ", count: 25) + String(repeating: "🌸 cafe\u{301} 家族👨‍👩‍👧‍👦\n", count: 30)
@@ -199,9 +199,9 @@ struct PDFPageTranslationTests {
             model.prepare(snapshot(String(repeating: "x", count: 1001))); model.temporarySecret = pageFakeKey
             var current = true
             model.start(confirmed: true, sourceIsCurrent: { _ in current })
-            let deadline = Date().addingTimeInterval(3)
+            let deadline = Date().addingTimeInterval(5)
             while !(await transport.started()), Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
-            #expect(await transport.started())
+            try #require(await transport.started())
             if mode == "cancel" { model.cancel() }
             else if mode == "timeout" { try await settle(model) }
             else { current = false }

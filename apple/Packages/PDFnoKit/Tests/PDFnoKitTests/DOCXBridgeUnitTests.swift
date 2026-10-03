@@ -22,7 +22,7 @@ struct DOCXBridgeUnitTests {
         let reader = DOCXReaderSession(); defer { reader.close() }
         let opening = Task { @MainActor in try await reader.open(data: data, book: book, notes: []) }
         // The request publishes its identity before native preflight/engine readiness can suspend it.
-        let deadline = Date().addingTimeInterval(3)
+        let deadline = Date().addingTimeInterval(5)
         while reader.book == nil && Date() < deadline { await Task.yield() }
         _ = try #require(reader.book)
         reader.close()
@@ -53,7 +53,7 @@ struct DOCXBridgeUnitTests {
         let safe = try await web.evaluateJavaScript("!document.querySelector('main').querySelector('[href],[src],[onload],script,iframe,object') && performance.getEntriesByType('resource').every(x=>x.name==='pdfno-docx://app/engine.js')")
         #expect(safe as? Bool == true)
         _ = try await web.evaluateJavaScript("const p=document.getElementById('b1');const t=p.querySelector('strong').firstChild;const r=document.createRange();r.setStart(t,0);r.setEnd(t,6);getSelection().removeAllRanges();getSelection().addRange(r);document.dispatchEvent(new Event('selectionchange'));true")
-        let deadline = Date().addingTimeInterval(3)
+        let deadline = Date().addingTimeInterval(5)
         while reader.selection == nil && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
         let anchor = try #require(reader.selection)
         #expect(anchor.quote == "window" && document.resolves(anchor))

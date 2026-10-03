@@ -14,16 +14,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Rebuild licensed EPUB resource
+      - name: Rebuild licensed EPUB, comic and Word resources
         run: |
           npm ci --prefix engine-build --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org
           node --test engine-build/loader.test.mjs
           node --test engine-build/rangy-security.test.mjs
+          node --test engine-build/docx.test.mjs
           node engine-build/build.mjs
           node --test engine-build/comics-reader.test.mjs
           node engine-build/build-comics.mjs
+          node engine-build/build-docx.mjs
           python3 scripts/generate-epub-fixture.py
-          git diff --exit-code -- engine-build/BUNDLE-INPUTS.json apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/EPUB apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/Comics apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures
+          python3 scripts/generate-docx-fixture.py
+          node engine-build/generate-docx-extraction.mjs
+          python3 scripts/generate-original-fixture-inventory.py
+          git diff --exit-code -- scripts/ORIGINAL-FIXTURES.json engine-build/DOCX-BUNDLE-INPUTS.json engine-build/DOCX-BUNDLED-DEPENDENCIES.json engine-build/BUNDLE-INPUTS.json apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/EPUB apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/Comics apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/DOCX apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures
       - name: Toolchain
         run: |
           xcodebuild -version
@@ -39,5 +44,5 @@ jobs:
         run: xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/Mac CODE_SIGNING_ALLOWED=NO build
       - name: Native iPhone and iPad simulator build
         run: xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMobile -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath .build/Mobile CODE_SIGNING_ALLOWED=NO build
-      - name: Mac PDF, EPUB, CBZ and offline AI consent, citations and restart
+      - name: Mac PDF, EPUB, CBZ, Word, local export and offline AI consent, citations and restart
         run: xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/Mac -resultBundlePath .build/CI-Mac.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 240 test

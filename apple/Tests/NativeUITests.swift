@@ -6,6 +6,110 @@ import AppKit
 
 final class NativeUITests: XCTestCase {
     #if os(macOS)
+    @MainActor func testMacDOCXImportSemanticSelectionNotesAndRestart() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Word-UI-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appendingPathComponent("Original Semantic.docx"), bytes = originalSemanticDOCX()
+        try bytes.write(to: source)
+        let app = XCUIApplication(), token = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launch(); app.activate(); defer { app.terminate() }
+        XCTAssertTrue(app.buttons["import-pdf"].firstMatch.waitForExistence(timeout: 15))
+        try chooseInput(source, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        let navigation = app.buttons["docx-navigation"].firstMatch
+        XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
+        XCTAssertFalse(app.buttons["reader-ai"].firstMatch.exists)
+        XCTAssertFalse(app.buttons["reader-page-translation"].firstMatch.exists)
+        XCTAssertTrue(try webText(in: app, matching: "Cell one", prefix: false, timeout: 10).exists)
+        let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
+        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
+        press(app.buttons["docx-notes"].firstMatch)
+        let selection = app.staticTexts["docx-selection"].firstMatch
+        XCTAssertTrue(selection.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(selection), "window")
+        let draft = app.descendants(matching: .any).matching(identifier: "docx-user-note").firstMatch
+        XCTAssertTrue(draft.waitForExistence(timeout: 5)); enterSearch("Original independent Word note", into: draft)
+        press(app.buttons["docx-save-note"].firstMatch)
+        let saved = app.staticTexts["docx-saved-quote"].firstMatch, userNote = app.staticTexts["docx-saved-user-note"].firstMatch
+        XCTAssertTrue(saved.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(saved), "window")
+        XCTAssertTrue(userNote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(userNote), "Original independent Word note")
+        press(app.buttons["docx-return"].firstMatch)
+        XCTAssertTrue(try webText(in: app, matching: "window", prefix: true, timeout: 10).isHittable)
+        press(navigation)
+        let second = app.buttons["Second UI heading"].firstMatch
+        XCTAssertTrue(second.waitForExistence(timeout: 5)); press(second)
+        XCTAssertTrue(try webText(in: app, matching: "Second UI heading", prefix: false, timeout: 10).isHittable)
+        let store = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent("docx-mammoth-v1.json")
+        let persisted = expectation(for: NSPredicate { _, _ in
+            guard let data = try? Data(contentsOf: store), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let books = object["books"] as? [[String: Any]], let progress = books.first?["progress"] as? [String: Any] else { return false }
+            return progress["blockID"] as? Int == 4 && progress["quote"] as? String == "S" &&
+                progress["start"] as? Int == ["Original UI chapter", "window — original 日本語🌸 café", "Cell one", "Cell two"].reduce(0) { $0 + $1.utf16.count + 1 }
+        }, evaluatedWith: app)
+        wait(for: [persisted], timeout: 10)
+        XCTAssertEqual(try Data(contentsOf: source), bytes)
+        app.terminate(); app.launch(); app.activate()
+        let book = app.descendants(matching: .any).matching(identifier: "library-docx").firstMatch
+        XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
+        XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
+        XCTAssertTrue(try webText(in: app, matching: "Second UI heading", prefix: false, timeout: 10).isHittable)
+        press(app.buttons["docx-notes"].firstMatch)
+        XCTAssertTrue(saved.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(saved), "window")
+        XCTAssertTrue(userNote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(userNote), "Original independent Word note")
+        press(app.buttons["docx-return"].firstMatch)
+        XCTAssertTrue(try webText(in: app, matching: "window", prefix: true, timeout: 10).isHittable)
+        XCTAssertEqual(try Data(contentsOf: source), bytes)
+    }
+    @MainActor func testMacDOCXFailureRecoveryAndPDFEPUBTransitions() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Word-Recovery-UI-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let broken = root.appendingPathComponent("Broken Original Word.docx")
+        try Data("Original malformed Word fixture".utf8).write(to: broken)
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launch(); app.activate(); defer { app.terminate() }
+        XCTAssertTrue(app.buttons["import-pdf"].firstMatch.waitForExistence(timeout: 15))
+        try chooseInput(broken, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        let dismiss = try modalButton(app, titles: ["知道了"])
+        XCTAssertTrue(app.staticTexts["DOCX ZIP 无效、校验失败或含不安全路径／加密／不支持的归档结构。"].firstMatch.exists)
+        press(dismiss)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "library-docx").firstMatch.exists)
+        press(app.buttons["open-docx-sample"].firstMatch)
+        let navigation = app.buttons["docx-navigation"].firstMatch
+        XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
+        XCTAssertTrue(try webText(in: app, matching: "Original DOCX chapter", prefix: false, timeout: 10).exists)
+        press(app.buttons["open-sample"].firstMatch)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 15)
+        XCTAssertFalse(navigation.exists)
+        press(app.buttons["open-epub-sample"].firstMatch)
+        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
+        XCTAssertFalse(navigation.exists)
+        let word = app.descendants(matching: .any).matching(identifier: "library-docx").firstMatch
+        XCTAssertTrue(word.waitForExistence(timeout: 5)); press(word)
+        XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
+        XCTAssertTrue(try webText(in: app, matching: "Original DOCX chapter", prefix: false, timeout: 10).exists)
+        XCTAssertFalse(app.buttons["reader-ai"].firstMatch.exists)
+        XCTAssertFalse(app.buttons["epub-ai"].firstMatch.exists)
+        XCTAssertFalse(app.buttons["reader-page-translation"].firstMatch.exists)
+        let comic = root.appendingPathComponent("Original Word Transition.cbz")
+        try originalZIP([("1.png", try originalPNG(width: 12, height: 20)), ("2.png", try originalPNG(width: 12, height: 20))]).write(to: comic)
+        try chooseInput(comic, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        waitForText(["1 / 2"], in: app.staticTexts["comic-position"].firstMatch, timeout: 25)
+        XCTAssertFalse(navigation.exists)
+        press(word)
+        XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
+        XCTAssertTrue(try webText(in: app, matching: "Original DOCX chapter", prefix: false, timeout: 10).exists)
+        XCTAssertFalse(app.buttons["reader-page-translation"].firstMatch.exists)
+    }
+    private func originalSemanticDOCX() -> Data {
+        let w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+        let types = "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"xml\" ContentType=\"application/xml\"/><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/></Types>"
+        let relationships = "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"original\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/></Relationships>"
+        let stylesRelationship = "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"styles\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/></Relationships>"
+        let styles = "<w:styles xmlns:w=\"\(w)\"><w:style w:type=\"paragraph\" w:styleId=\"Heading1\"><w:name w:val=\"heading 1\"/></w:style><w:style w:type=\"paragraph\" w:styleId=\"Heading2\"><w:name w:val=\"heading 2\"/></w:style></w:styles>"
+        let xml = "<w:document xmlns:w=\"\(w)\"><w:body><w:p><w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>Original UI chapter</w:t></w:r></w:p><w:p><w:r><w:t>window — original 日本語🌸 café</w:t></w:r></w:p><w:tbl><w:tr><w:tc><w:p><w:r><w:t>Cell one</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Cell two</w:t></w:r></w:p></w:tc></w:tr></w:tbl><w:p><w:pPr><w:pStyle w:val=\"Heading2\"/></w:pPr><w:r><w:t>Second UI heading</w:t></w:r></w:p><w:p><w:r><w:t>Last original Word line</w:t></w:r></w:p><w:sectPr/></w:body></w:document>"
+        return originalZIP([("[Content_Types].xml", Data(types.utf8)), ("_rels/.rels", Data(relationships.utf8)), ("word/styles.xml", Data(styles.utf8)), ("word/_rels/document.xml.rels", Data(stylesRelationship.utf8)), ("word/document.xml", Data(xml.utf8))])
+    }
     // Each test has its own original fixtures/store. Split the independent product
     // flows so real native-panel snapshots fit the unchanged 180-second CI limit.
     @MainActor func testMacDOCXConversionSavePanelCancelAndOverwriteRefusal() throws {

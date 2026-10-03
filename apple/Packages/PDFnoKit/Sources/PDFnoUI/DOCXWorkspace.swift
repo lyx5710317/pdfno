@@ -37,12 +37,12 @@ public struct DOCXWorkspace: View {
                     }
                 }
             }
-            else { DOCXCanvas(session: session) }
+            else { DOCXCanvas(session: session).accessibilityIdentifier("docx-content") }
         }
         .navigationTitle(session.book?.title ?? "DOCX")
         .toolbar { ToolbarItemGroup {
-            Button { navigation = true } label: { Label("标题目录", systemImage: "list.bullet") }.disabled(!session.ready)
-            Button { captured = session.selection; notes = true } label: { Label("选文与笔记", systemImage: "highlighter") }.disabled(!session.ready)
+            Button { navigation = true } label: { Label("标题目录", systemImage: "list.bullet") }.disabled(!session.ready).accessibilityIdentifier("docx-navigation")
+            Button { captured = session.selection; notes = true } label: { Label("选文与笔记", systemImage: "highlighter") }.disabled(!session.ready).accessibilityIdentifier("docx-notes")
         } }
         .onChange(of: session.progress) { _, anchor in if let anchor { Task { await model.saveProgress(anchor) } } }
         .sheet(isPresented: $navigation) { navigationSheet }
@@ -60,6 +60,7 @@ public struct DOCXWorkspace: View {
                         if await session.navigate(blockID: block.id) { navigation = false }
                         else { model.error = DOCXError.sourceMismatch.localizedDescription }
                     } } label: { Text(block.text).padding(.leading, CGFloat((block.headingLevel ?? 1) - 1) * 12) }
+                        .accessibilityIdentifier("docx-chapter-\(block.id)")
                 }
             }.navigationTitle("标题目录").toolbar { ToolbarItem { Button("完成") { navigation = false } } }
         }.frame(minWidth: 320, minHeight: 400)
@@ -69,9 +70,9 @@ public struct DOCXWorkspace: View {
             List {
                 Section("当前选文") {
                     if let anchor = captured {
-                        Text(anchor.quote).textSelection(.enabled)
-                        TextField("写下笔记（可选）", text: $draft, axis: .vertical).lineLimit(3...8)
-                        Button("保存选文与笔记") { Task { if await model.saveNote(anchor, text: draft) { draft = "" } } }
+                        Text(anchor.quote).textSelection(.enabled).accessibilityIdentifier("docx-selection")
+                        TextField("写下笔记（可选）", text: $draft, axis: .vertical).lineLimit(3...8).accessibilityIdentifier("docx-user-note")
+                        Button("保存选文与笔记") { Task { if await model.saveNote(anchor, text: draft) { draft = "" } } }.accessibilityIdentifier("docx-save-note")
                     } else { Text("先在 DOCX 正文中选择文字。最多保存 16000 个 UTF-16 字元。") }
                 }
                 Section("已保存 · 本地") {
@@ -79,12 +80,12 @@ public struct DOCXWorkspace: View {
                     if saved.isEmpty { Text("这份文档还没有笔记") }
                     ForEach(saved) { note in
                         VStack(alignment: .leading, spacing: 8) {
-                            Text(note.anchor.quote).font(.callout)
-                            if !note.userText.isEmpty { Text(note.userText).foregroundStyle(.secondary) }
+                            Text(note.anchor.quote).font(.callout).accessibilityIdentifier("docx-saved-quote")
+                            if !note.userText.isEmpty { Text(note.userText).foregroundStyle(.secondary).accessibilityIdentifier("docx-saved-user-note") }
                             Button("回到原文 · 段落 \(note.anchor.blockID + 1)") { Task {
                                 if await session.navigate(to: note.anchor) { notes = false }
                                 else { model.error = DOCXError.sourceMismatch.localizedDescription }
-                            } }
+                            } }.accessibilityIdentifier("docx-return")
                         }.padding(.vertical, 4)
                     }
                 }

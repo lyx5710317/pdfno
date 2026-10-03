@@ -1,0 +1,170 @@
+[
+  {
+    "path": "apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources/study-sample.docx",
+    "bytes": 1963,
+    "sha256": "956a3c508b265f2e86f860cf470236b323fa5ef185a64d1cc6f8a52875a01b10",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources/study-sample.epub",
+    "bytes": 2388,
+    "sha256": "d8db9c9b04dc3d6f55aa3706b552e2cbaecba41e6b0ae3a0f7536ee0d8bfe7fd",
+    "generator": "scripts/generate-epub-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources/study-sample.pdf",
+    "bytes": 1850,
+    "sha256": "0364d0ca9f7317a7bbcb546faafbdd19d4b3a4ebc31afbee38d7bb30d14f0847",
+    "generator": "scripts/generate-apple-project.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/altchunk.docx",
+    "bytes": 1120,
+    "sha256": "d258f20af4b68f2229aa121f78b8af5e2a55b78368db4dd4ec1ad8ed5c05ff15",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/bad-crc.docx",
+    "bytes": 1395,
+    "sha256": "d6eb1172536aad9a5c25dd63f48dbdfa54ede1ba540ef7da7b7d55420a8abca3",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/cycle.docx",
+    "bytes": 1343,
+    "sha256": "15dc7381a73d212fa134baf94e40455b08cc15b64830b98ffe8b4d3cf68846b9",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/deep.docx",
+    "bytes": 1107,
+    "sha256": "095ade773146b8620e1f3acad1329b6902a3a80a04c6f3c93a85478edc6a7a9c",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/descriptor-sample.docx",
+    "bytes": 1459,
+    "sha256": "33da304d0b426492242f4999cfd936f088f81e8d30b7f3376812a91680ff313d",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/embedded.docx",
+    "bytes": 1551,
+    "sha256": "bdd58a914516d8d126f65693d66f9585f27da3f43070c8d5fed7a331ad11767b",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/encrypted.docx",
+    "bytes": 1395,
+    "sha256": "2e2a64ac3c2a85f3d2864e3bc9a8dd6ada46c0f381a8a2b784410b9cab2b631f",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/entities.docx",
+    "bytes": 1170,
+    "sha256": "9a0281584ffb6de41a86dc2731eac199813b49db2cf4106814206780ee186ee7",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/expansion.docx",
+    "bytes": 1167,
+    "sha256": "a9a0261829d62e2982f3c51ed6dc2d450d97440d6a70d122eec8d2b6ed108d4c",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/external.docx",
+    "bytes": 1675,
+    "sha256": "93ec801b59af07c6bb87c5236e587f1498d0581e58ca7067a946de30199ba125",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/hyperlink-sample.docx",
+    "bytes": 2070,
+    "sha256": "e278850a25647b9ed9b8ce1b4ffd46734a5fa75881f0c2c2c413044c06dd56e8",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/local-mismatch.docx",
+    "bytes": 1395,
+    "sha256": "127af5276081696e735700d7900ca1a04ad8b31f64cdfe83b0fa0ffc339469c4",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/macro.docx",
+    "bytes": 1531,
+    "sha256": "c2ac042241a948bd1abb330c064afa9bbbcd512f86791f9a954497c85225394f",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/mammoth-extraction.json",
+    "bytes": 2078,
+    "sha256": "c9b301b8b65f88fd90bebc9016bd6581aaffab0be09a4afa5c05c625ea9175ad",
+    "generator": "engine-build/generate-docx-extraction.mjs"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/mammoth-sample.docx",
+    "bytes": 1963,
+    "sha256": "956a3c508b265f2e86f860cf470236b323fa5ef185a64d1cc6f8a52875a01b10",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/oversize.docx",
+    "bytes": 5590,
+    "sha256": "08e134a3d9a670ebc728e2fdf0ac84bfa66fd860da9eae08888e05bc5a3162c8",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/paragraphbudget.docx",
+    "bytes": 2739,
+    "sha256": "82581d99dc4187c6b29d4a5ad2430a73eebcbc78255e7d38e06fb229ec623706",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/stored-sample.docx",
+    "bytes": 2451,
+    "sha256": "0a972cd2d344c3167c5454015e0585c1509a2c02a2a75e48e408f24c9a414906",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/study-sample.docx",
+    "bytes": 1395,
+    "sha256": "0559757f37a823770507782f3801ab5073296c722d8d5327c66695aad32a60a4",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/textbudget.docx",
+    "bytes": 2109,
+    "sha256": "aac6c4dd7dc73084342943ebd4f615c62fe9291082af892602e1148cd383672d",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/traversal.docx",
+    "bytes": 1518,
+    "sha256": "4f29a29b0873e3a3f5fb3e27daa336e05c93a5a62b2cb803b064f40f1dfd549c",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/utf16.docx",
+    "bytes": 1160,
+    "sha256": "9a71b9d1ad6b332c9faa419a43f50122929f9776fe463143aa7cc3b04aa5f9f3",
+    "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/security-sample.epub",
+    "bytes": 2112,
+    "sha256": "da599fe9b7760d46dfc2c2b1c63e243af483d808d1355601a7eb31e4bd17c443",
+    "generator": "scripts/generate-epub-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/study-sample.epub",
+    "bytes": 2388,
+    "sha256": "d8db9c9b04dc3d6f55aa3706b552e2cbaecba41e6b0ae3a0f7536ee0d8bfe7fd",
+    "generator": "scripts/generate-epub-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/study-sample.pdf",
+    "bytes": 1850,
+    "sha256": "0364d0ca9f7317a7bbcb546faafbdd19d4b3a4ebc31afbee38d7bb30d14f0847",
+    "generator": "scripts/generate-apple-project.py"
+  }
+]

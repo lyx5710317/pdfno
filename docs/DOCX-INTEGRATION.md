@@ -1,6 +1,6 @@
 # DOCX integration handoff
 
-Independent checkout: `/Users/artsmartluo/pdfno/worktrees/docx`, branch `feature/docx`, base `aaba190a878df9de5674491d20f1b36fa4733607`.
+Independent feature branch: `feature/docx`, base `aaba190a878df9de5674491d20f1b36fa4733607`.
 
 History stays additive: `fafd0a6ce474ceefee1a36b2dd2b8658a43bd3c6` (bounded native candidate), then `c9630ed94b5ae4eb7cbe85842e8d33957c7f46f0` (shared import/sidebar entry candidate), then the current audited Kookit/Mammoth implementation. The candidate semantics remain for comparison/testing only. Integrate the whole ordered branch state; applying the newest commit alone to the original base misses its new Swift modules and C ZIP target.
 
@@ -10,9 +10,9 @@ History stays additive: `fafd0a6ce474ceefee1a36b2dd2b8658a43bd3c6` (bounded nati
 - `LibraryModel.swift` / `LibraryWorkspace.swift`: retain DOCX importer/UTI/sample/sidebar/detail routing, active-format deactivation, the same local-versus-test repository root, explicit legacy DOC refusal and DOCX guards on existing PDF/EPUB AI snapshots. Reconcile with concurrent comics/conversion changes; do not replace those changes with these base-derived shared files.
 - Keep DOCX-specific Domain/Services/Readers/UI files independent. Product content comes from actual pinned Mammoth; never route the old native semantic parser back into reading/persistence. `DOCXReaderSession.open` independently enforces preflight and identity checks.
 - New `docx-mammoth-v1.json` is separate from the candidate `docx-v1.json`; no automatic offset migration. The retained original hash plus edition/extraction/UTF-16 anchors define source identity. Render/bind current canonical content before saving progress or notes.
-- Carry exact npm lock/source checks, build source, notices/licenses and generated DOCX engine together. EPUB resource bytes remain unchanged. Root notices need additive reconciliation with concurrent dependency audits. The existing Rangy advisory is a separate coordinator item, with no verified patched version claimed here.
+- Carry exact npm lock/source checks, build source, notices/licenses and generated DOCX engine together. EPUB resource bytes remain unchanged. Root notices need additive reconciliation with concurrent dependency audits. The integrated EPUB lock retains the independently source-verified Rangy1.3.2 repair, documented in RANGY-SECURITY-2026-10-03; GHSA metadata remains empty and Rangy is excluded from DOCX.
 
-See [implemented architecture/security/license boundaries](ADR-DOCX-KOOKIT-MAMMOTH.md) and [55 Swift / 6 JS tests plus independent builds](DOCX-VALIDATION.md). No main-tree edit, merge/push, user-app launch or shared Library write was performed. Visible layout/keyboard/accessibility, full Word corpus, mobile DOCX UI, note editing/deletion and conversion/export remain outside this validated slice.
+See [implemented architecture/security/license boundaries](ADR-DOCX-KOOKIT-MAMMOTH.md) and [55 Swift / 6 JS tests plus independent builds](DOCX-VALIDATION.md). That independent branch stage performed no main-tree edit/merge/push, user-app launch or shared Library write. The coordinator has now integrated all three commits and the approved page slice; complete final-SHA app acceptance and Library delivery are tracked in VALIDATION. Visible layout/keyboard/accessibility, full Word corpus, mobile DOCX UI, note editing/deletion and conversion/export remain outside this validated slice.
 
 ## Complete changed-file inventory relative to the base
 

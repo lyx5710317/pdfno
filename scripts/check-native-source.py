@@ -3,6 +3,7 @@
 """Small source/provenance guard; not a full security or license audit."""
 from pathlib import Path
 import hashlib
+import json
 import re
 import subprocess
 import sys
@@ -17,11 +18,35 @@ epub_hashes={Path('apple/Packages/PDFnoKit')/suffix: digest for suffix,digest in
     ('Sources/PDFnoUI/Resources/study-sample.epub','d8db9c9b04dc3d6f55aa3706b552e2cbaecba41e6b0ae3a0f7536ee0d8bfe7fd'),
     ('Tests/PDFnoKitTests/Fixtures/study-sample.epub','d8db9c9b04dc3d6f55aa3706b552e2cbaecba41e6b0ae3a0f7536ee0d8bfe7fd'),
     ('Tests/PDFnoKitTests/Fixtures/security-sample.epub','da599fe9b7760d46dfc2c2b1c63e243af483d808d1355601a7eb31e4bd17c443')]}
+docx_names=('altchunk bad-crc cycle deep descriptor-sample embedded encrypted entities '
+            'expansion external hyperlink-sample local-mismatch macro mammoth-sample '
+            'oversize paragraphbudget stored-sample study-sample textbudget traversal utf16').split()
+docx_paths={Path('apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX')/(name+'.docx') for name in docx_names}
+docx_paths.add(Path('apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources/study-sample.docx'))
+extraction_path=Path('apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/mammoth-extraction.json')
+inventory=json.loads((ROOT/'scripts/ORIGINAL-FIXTURES.json').read_text())
+expected_paths=pdf_paths | set(epub_hashes) | docx_paths | {extraction_path}
+if len(inventory)!=len(expected_paths) or {Path(x['path']) for x in inventory}!=expected_paths:
+    failures.append('Original fixture inventory differs from the explicitly approved corpus')
+for record in inventory:
+    relative=Path(record['path'])
+    if (set(record)!={'path','bytes','sha256','generator'} or relative not in expected_paths or
+            not isinstance(record['bytes'],int) or isinstance(record['bytes'],bool) or record['bytes']<=0 or
+            re.fullmatch(r'[0-9a-f]{64}',record['sha256']) is None):
+        failures.append('Invalid original fixture record'); continue
+    if relative not in files:
+        failures.append(f'Missing approved original fixture: {relative}'); continue
+    data=(ROOT/relative).read_bytes()
+    if len(data)!=record['bytes'] or hashlib.sha256(data).hexdigest()!=record['sha256']:
+        failures.append(f'Original fixture bytes changed: {relative}')
 for relative in sorted(files):
     path=ROOT/relative
     if any(part in {'.build','node_modules','xcuserdata','.private'} for part in relative.parts) or path.suffix in {'.key','.pem','.p12','.mobileprovision','.xcuserstate'}:
         failures.append(f'Private/build artifact: {relative}'); continue
     data=path.read_bytes()
+    if relative in docx_paths:
+        if not data.startswith(b'PK\x03\x04'): failures.append(f'Invalid original DOCX signature: {relative}')
+        continue
     if relative in epub_hashes:
         if hashlib.sha256(data).hexdigest()!=epub_hashes[relative]: failures.append(f'Original EPUB fixture changed: {relative}')
         continue

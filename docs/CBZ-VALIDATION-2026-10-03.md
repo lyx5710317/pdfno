@@ -58,3 +58,5 @@ Additive files:
 * `docs/CBZ-VALIDATION-2026-10-03.md`
 
 Integration review also found that a sample/format switch could leave the sidebar selected on a hidden book; clicking that already-selected row would not reopen it. Selection now follows the displayed book, avoids duplicate open requests, and closing comics updates the native active-reader state. The full CBZ close/PDF/EPUB transition test retains those assertions.
+
+Complete isolated app acceptance is now observed at e30fb2f / Native run37122417291: the full CBZ test passed79.744 seconds; all8 then-current Mac UI methods passed/zero failures. Later Word/page changes require the entire final13-method run for the delivered SHA; older passing evidence is not substituted.

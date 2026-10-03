@@ -54,3 +54,7 @@ Shared edits to reconcile with comic/Word/conversion integration:
 * `LibraryWorkspace.swift`: Mac-only page command/sheet and accurate capability text. `OfflineSelectionUITestTransport.swift`/`NativeUITests.swift`: extend the existing offline mode/suite, never add a product or network fallback.
 
 The main specification/task/validation overview intentionally remains for the integrator to update once these independent branches are combined and CI evidence exists. This standalone slice record is the exact implemented scope and its remaining acceptance gates.
+
+## Coordinator integration
+
+The approved slice is now integrated with CBZ, finite DOCX export and the actual Mammoth Word reader. All import/open/close format transitions cancel both learning modules; currentness/preparation/source-return refuse active Word/comics, and DEBUG page fixtures preserve exclusive reader flags and busy guards. Selection limits/prompt bytes and independent3-attempt budgets remain. Combined local97 Swift/14 suites,11 Node and both builds passed; all three new actual app flows await the complete13-method final-SHA CI outcome reported by VALIDATION/delivery. No owner-app launch/key/service request occurred. Freeze after that gate for the separately requested whole-project audit.
