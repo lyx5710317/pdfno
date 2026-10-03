@@ -192,14 +192,17 @@ struct AITests {
         model.prepare(selected); model.userText = "Keep my independent synthetic note"
         let presence = SyntheticReaderPresence()
         model.start(confirmed: true, sourceIsCurrent: { _ in presence.current }); presence.current = false
-        let limit = Date().addingTimeInterval(2)
+        var limit = Date().addingTimeInterval(5)
         while model.busy, Date() < limit { try await Task.sleep(for: .milliseconds(10)) }
+        try #require(!model.busy)
         #expect(model.result == nil && model.error == AIFailure.stale.localizedDescription)
         #expect(model.userText == "Keep my independent synthetic note")
         model.prepare(source()); #expect(model.userText.isEmpty)
         model.prepare(selected); #expect(model.userText == "Keep my independent synthetic note")
         model.start(confirmed: true, sourceIsCurrent: { _ in true })
+        limit = Date().addingTimeInterval(5)
         while model.busy, Date() < limit { try await Task.sleep(for: .milliseconds(10)) }
+        try #require(!model.busy)
         #expect(model.result?.provider.mode == .mock)
         #expect(await model.save(sourceIsCurrent: { _ in true }))
         #expect(try await AILearningRepository(root: root).load().notes.first?.userText == "Keep my independent synthetic note")

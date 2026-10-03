@@ -150,8 +150,9 @@ struct DeepSeekSelfTestTests {
             let model = DeepSeekTestModel(service: DeepSeekSelfTest(transport: transport))
             for ordinal in 1...3 {
                 model.temporaryKey = syntheticKey; model.confirmed = true; model.send()
-                let deadline = Date().addingTimeInterval(2)
+                let deadline = Date().addingTimeInterval(5)
                 while model.busy, Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+                try #require(!model.busy)
                 #expect(model.records.count == ordinal && model.records.last?.outcome == .failed(expected))
                 #expect(model.error == expected.localizedDescription && model.result == nil)
                 model.temporaryKey = syntheticKey; model.confirmed = true; model.close(); model.close()
