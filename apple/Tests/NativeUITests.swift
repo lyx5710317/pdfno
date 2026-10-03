@@ -418,6 +418,8 @@ final class NativeUITests: XCTestCase {
         waitForText(["Original synthetic whole page note"], in: note, timeout: 5)
         let save = app.buttons["page-save-0"].firstMatch
         scrollPageElement(save, in: app)
+        XCTAssertTrue(app.scrollViews["page-scroll"].firstMatch.frame.insetBy(dx: 4, dy: 8).contains(save.frame),
+                      "The actual save button must fit inside the scroll viewport before clicking")
         print("Original whole-page save controls: note frame =", note.frame, "; save frame =", save.frame,
               "; scroll frame =", app.scrollViews["page-scroll"].firstMatch.frame, "; enabled =", save.isEnabled)
         press(save)
@@ -664,25 +666,28 @@ final class NativeUITests: XCTestCase {
     }
     #endif
     @MainActor private func scrollPageToTop(in app: XCUIApplication) {
-        let scroll = app.scrollViews["page-scroll"].firstMatch
-        XCTAssertTrue(scroll.waitForExistence(timeout: 5))
-        for _ in 0..<12 {
-            if app.buttons["page-return-source"].firstMatch.isHittable { return }
-            scroll.scroll(byDeltaX: 0, deltaY: 300)
-        }
-        XCTAssertTrue(app.buttons["page-return-source"].firstMatch.isHittable)
+        scrollPageElement(app.buttons["page-return-source"].firstMatch, in: app)
     }
     @MainActor private func scrollPageElement(_ element: XCUIElement, in app: XCUIApplication) {
         let scroll = app.scrollViews["page-scroll"].firstMatch
         XCTAssertTrue(scroll.waitForExistence(timeout: 5))
         for _ in 0..<12 {
-            if element.isHittable { return }
-            // macOS touch-swipe synthesis did not move this AppKit scroll view.
-            // Positive deltas move toward the top. The successful auto-scroll
-            // from the initial viewport to this field was -565.5; use bounded
-            // negative steps so the first segment is not overshot.
-            scroll.scroll(byDeltaX: 0, deltaY: -300)
+            let viewport = scroll.frame.insetBy(dx: 4, dy: 8), target = element.frame
+            // CI proved isHittable could be true for a save button entirely
+            // below this clip view. Require its full physical frame, including
+            // a small edge margin, before synthesizing the real user click.
+            if !target.isEmpty, viewport.contains(target), element.isHittable { return }
+            let delta: CGFloat
+            if target.minY < viewport.minY {
+                delta = min(300, max(48, viewport.minY - target.minY + 16))
+            } else {
+                delta = -min(300, max(48, target.maxY - viewport.maxY + 16))
+            }
+            // Positive pixel deltas move toward the top. Reverse if a prior
+            // scroll passed the target; retain the same twelve-step bound.
+            scroll.scroll(byDeltaX: 0, deltaY: delta)
         }
+        XCTAssertTrue(scroll.frame.insetBy(dx: 4, dy: 8).contains(element.frame), "Target must be completely inside the page scroll viewport")
         XCTAssertTrue(element.isHittable)
     }
     @MainActor private func textValue(_ element: XCUIElement) -> String {
