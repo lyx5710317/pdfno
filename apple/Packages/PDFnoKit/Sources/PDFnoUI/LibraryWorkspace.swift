@@ -155,7 +155,7 @@ public struct FeatureStatusView: View {
                 }
                 Section("后续接入") {
                     Text("EPUB：Mac 本地重排阅读；移动适配与固定版式待验收")
-                    Text("Mac 选文 AI：本地 mock 或用户操作的 DeepSeek 翻译／解释；500字范围、来源与学习笔记；质量、页章双语与完整日英学习待验收")
+                    Text("Mac AI：选文翻译／解释与受限 PDF 当前页双语文本对照；完整范围预览、手动发送和学习笔记。真实质量、章节翻译与完整日英学习待验收")
                     Text("Bookno API：尚未接入")
                     Text("iCloud：未配置容器，数据仅保存在本地")
                     Text("CBZ：移动阅读适配待验收；当前 Mac 支持静态 PNG / JPEG")
@@ -177,6 +177,7 @@ struct ReaderWorkspace: View {
     @State private var searched = false
     @State private var draft = ""
     @State private var ai = false
+    @State private var pageTranslation = false
     var body: some View {
         Group {
             if let book = session.book {
@@ -200,6 +201,7 @@ struct ReaderWorkspace: View {
                         Button { notesPanel = true } label: { Label("高亮与笔记", systemImage: "highlighter") }
                             .accessibilityIdentifier("reader-notes")
                         #if os(macOS)
+                        Button("翻译当前页") { model.preparePageTranslation(); pageTranslation = true }.accessibilityIdentifier("reader-page-translation")
                         Button("选文 AI") { model.learning.prepare(model.captureAISource()); ai = true }.accessibilityIdentifier("reader-ai")
                         #endif
                     }
@@ -217,6 +219,7 @@ struct ReaderWorkspace: View {
         .sheet(isPresented: $notesPanel) { notesSheet }
         #if os(macOS)
         .sheet(isPresented: $ai) { AILearningWorkspace(library: model, learning: model.learning) }
+        .sheet(isPresented: $pageTranslation) { PDFPageTranslationWorkspace(library: model, translation: model.pageTranslation, learning: model.learning) }
         #endif
     }
     private var navigationSheet: some View {

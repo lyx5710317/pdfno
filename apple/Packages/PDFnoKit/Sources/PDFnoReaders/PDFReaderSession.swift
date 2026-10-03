@@ -94,6 +94,25 @@ public final class PDFReaderSession: ObservableObject {
         capturedSelection = regions.isEmpty ? nil : PDFSourceAnchor(editionID: book.editionID,
             fileSHA256: book.fileSHA256, quote: quote, regions: regions)
     }
+    public func currentPageTextSnapshot() throws -> PDFPageTextSnapshot {
+        guard let book, let document, let page = document.page(at: pageIndex) else { throw PDFPageTranslationFailure.invalidSource }
+        guard document.allowsCopying else { throw PDFPageTranslationFailure.copyingRestricted }
+        guard let text = page.string, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw PDFPageTranslationFailure.noText }
+        return PDFPageTextSnapshot(bookID: book.id, readerSessionID: readerSessionID, editionID: book.editionID,
+                                   fileSHA256: book.fileSHA256, pageIndex: pageIndex, text: text)
+    }
+    public func resolution(of anchor: PDFPageTextAnchor) -> AnchorResolution {
+        guard let book, let document else { return .sourceMissing }
+        guard anchor.isValid, anchor.editionID == book.editionID, anchor.fileSHA256 == book.fileSHA256,
+              document.allowsCopying, let text = document.page(at: anchor.pageIndex)?.string,
+              text.unicodeScalars.elementsEqual(anchor.pageText.unicodeScalars) else { return .needsRebind }
+        return .exact
+    }
+    @discardableResult public func navigate(to anchor: PDFPageTextAnchor) -> AnchorResolution {
+        let result = resolution(of: anchor)
+        if result == .exact { go(to: anchor.pageIndex) }
+        return result
+    }
     public func resolution(of anchor: PDFSourceAnchor) -> AnchorResolution {
         guard let book, let document else { return .sourceMissing }
         guard anchor.editionID == book.editionID, anchor.fileSHA256 == book.fileSHA256,

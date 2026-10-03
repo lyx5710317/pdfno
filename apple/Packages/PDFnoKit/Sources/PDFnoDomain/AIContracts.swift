@@ -16,19 +16,21 @@ public struct AIProviderConfig: Codable, Sendable, Equatable {
     }
 }
 public enum AISelectionAnchor: Codable, Sendable, Equatable {
-    case pdf(PDFSourceAnchor), epub(EPUBAnchor)
-    public var quote: String { switch self { case .pdf(let a): a.quote; case .epub(let a): a.quote } }
-    public var editionID: UUID { switch self { case .pdf(let a): a.editionID; case .epub(let a): a.editionID } }
-    public var fileSHA256: String { switch self { case .pdf(let a): a.fileSHA256; case .epub(let a): a.fileSHA256 } }
+    case pdf(PDFSourceAnchor), epub(EPUBAnchor), pdfPage(PDFPageTextAnchor)
+    public var quote: String { switch self { case .pdf(let a): a.quote; case .epub(let a): a.quote; case .pdfPage(let a): a.quote } }
+    public var editionID: UUID { switch self { case .pdf(let a): a.editionID; case .epub(let a): a.editionID; case .pdfPage(let a): a.editionID } }
+    public var fileSHA256: String { switch self { case .pdf(let a): a.fileSHA256; case .epub(let a): a.fileSHA256; case .pdfPage(let a): a.fileSHA256 } }
     public var locationLabel: String {
         switch self {
         case .pdf(let a): "PDF · 第 \((a.regions.first?.pageIndex ?? 0) + 1) 页"
+        case .pdfPage(let a): "PDF · 第 \(a.pageIndex + 1) 页 · 原文 UTF-16 \(a.start)–\(a.end)"
         case .epub(let a): "EPUB · 第 \(a.spineIndex + 1) 章 · 原文 UTF-16 \(a.start)–\(a.end)"
         }
     }
     public var isValid: Bool {
         switch self {
         case .epub(let a): a.isValid
+        case .pdfPage(let a): a.isValid
         case .pdf(let a):
             a.schemaVersion == 1 && a.extractionVersion == "pdfkit-selection-1" &&
             a.fileSHA256.count == 64 && a.fileSHA256.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) } &&
@@ -59,6 +61,12 @@ public struct AIRequest: Sendable {
         self.id = id; self.source = source; self.provider = provider; self.kind = kind; self.timeoutSeconds = timeoutSeconds
     }
 }
+extension AIRequest {
+    public var promptVersion: String {
+        if case .pdfPage = source.anchor { return PDFPageTranslationPolicy.promptVersion }
+        return DeepSeekSelectionPolicy.supports(provider) ? DeepSeekSelectionPolicy.promptVersion : "selection-1"
+    }
+}
 public struct AIConsent: Sendable {
     public let requestID: UUID
     public let scopeFingerprint: String
@@ -79,7 +87,7 @@ public struct AIResult: Codable, Sendable, Equatable {
     public let fromCache: Bool
     public init(request: AIRequest, text: String, fromCache: Bool) {
         requestID = request.id; source = request.source; provider = request.provider; kind = request.kind
-        self.text = text; promptVersion = DeepSeekSelectionPolicy.supports(request.provider) ? DeepSeekSelectionPolicy.promptVersion : "selection-1"; self.fromCache = fromCache
+        self.text = text; promptVersion = request.promptVersion; self.fromCache = fromCache
     }
 }
 public struct AILearningNote: Codable, Sendable, Identifiable, Equatable {

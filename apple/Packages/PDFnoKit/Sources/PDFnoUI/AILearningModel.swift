@@ -136,6 +136,15 @@ public final class AILearningModel: ObservableObject {
             guard generation == token else { return }; remoteAttemptsUsed = max(remoteAttemptsUsed, count); busy = false; task = nil
         }
     }
+    func savePageResult(_ result: AIResult, userText: String, sourceIsCurrent: (AISourceSnapshot) -> Bool) async -> Bool {
+        guard case .pdfPage = result.source.anchor, result.promptVersion == PDFPageTranslationPolicy.promptVersion,
+              sourceIsCurrent(result.source) else { error = AIFailure.stale.localizedDescription; return false }
+        guard !notes.contains(where: { $0.result.requestID == result.requestID }) else { return true }
+        do {
+            try await repository.saveNote(AILearningNote(result: result, userText: userText))
+            notes = try await repository.load().notes; return true
+        } catch { self.error = AIJobCoordinator.safeError(error).localizedDescription; return false }
+    }
     func save(sourceIsCurrent: (AISourceSnapshot) -> Bool) async -> Bool {
         guard let result, sourceIsCurrent(result.source), result.provider == config else { error = AIFailure.stale.localizedDescription; return false }
         guard !notes.contains(where: { $0.result.requestID == result.requestID }) else { return true }

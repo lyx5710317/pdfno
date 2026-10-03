@@ -5,14 +5,14 @@ import PDFnoServices
 
 extension LibraryModel {
     func closeComic() {
-        learning.cancel()
+        learning.cancel(); pageTranslation.cancel()
         #if os(macOS)
         comic.close()
         #endif
         readingComic = false
     }
     func importComic(_ url: URL) async {
-        learning.cancel()
+        learning.cancel(); pageTranslation.cancel()
         #if os(macOS)
         guard canImport, !isBusy else { return }
         guard url.pathExtension.lowercased() == "cbz" else { error = ComicError.unavailable.localizedDescription; return }
@@ -26,7 +26,7 @@ extension LibraryModel {
             let book = try await comicRepository.importBook(data, filename: url.lastPathComponent)
             let archive = try await comicRepository.read(book)
             await load(); try await comic.open(archive: archive, book: book)
-            epub.close(); readingEPUB = false; readingComic = true
+            epub.close(); docx.deactivate(); readingEPUB = false; readingComic = true
             status = "漫画已保存到本地 · 原文件未改写"
         } catch { self.error = error.localizedDescription }
         #else
@@ -34,7 +34,7 @@ extension LibraryModel {
         #endif
     }
     func openComic(_ book: ComicBook) async {
-        learning.cancel()
+        learning.cancel(); pageTranslation.cancel()
         #if os(macOS)
         guard !isBusy else { return }; isBusy = true; defer { isBusy = false }
         do {
@@ -42,7 +42,7 @@ extension LibraryModel {
             guard let current = state.books.first(where: { $0.id == book.id }) else { throw ComicError.sourceMismatch }
             let archive = try await comicRepository.read(current)
             try await comic.open(archive: archive, book: current)
-            epub.close(); readingEPUB = false; readingComic = true
+            epub.close(); docx.deactivate(); readingEPUB = false; readingComic = true
         } catch { self.error = error.localizedDescription }
         #else
         error = ComicError.unavailable.localizedDescription

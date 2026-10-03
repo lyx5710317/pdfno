@@ -30,7 +30,7 @@ public actor AIJobCoordinator {
         struct Scope: Encodable { let source: AISourceSnapshot; let provider: AIProviderConfig; let kind: AILearningKind; let promptVersion: String }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         return LibraryRepository.digest(try encoder.encode(Scope(source: request.source, provider: request.provider, kind: request.kind,
-            promptVersion: DeepSeekSelectionPolicy.supports(request.provider) ? DeepSeekSelectionPolicy.promptVersion : "selection-1")))
+            promptVersion: request.promptVersion)))
     }
     public func run(_ request: AIRequest, consent: AIConsent, provider: any AIProvider) async throws -> AIResult {
         try Task.checkCancellation()

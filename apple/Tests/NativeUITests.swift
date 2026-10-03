@@ -267,6 +267,91 @@ final class NativeUITests: XCTestCase {
                       u32(central.count), u32(centralOffset), u16(0)] { local.append(field) }
         return local
     }
+    @MainActor func testMacPDFWholePageOfflineConsentBilingualNotesAndSourceReturn() throws {
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        app.launchEnvironment["PDFNO_UI_TEST_PAGE_FIXTURE"] = "multi"
+        app.launch(); app.activate()
+        XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["open-sample"].firstMatch)
+        press(app.buttons["reader-page-translation"].firstMatch)
+        guard app.staticTexts["page-offline-fixture"].firstMatch.waitForExistence(timeout: 5) else {
+            XCTFail("Fully intercepted transport required before synthetic key entry"); app.terminate(); return
+        }
+        let scope = app.staticTexts["page-scope"].firstMatch
+        XCTAssertTrue(textValue(scope).contains("第 1 页") && textValue(scope).contains("3 段"))
+        let start = app.buttons["page-start"].firstMatch
+        XCTAssertFalse(start.isEnabled)
+        let key = app.descendants(matching: .any).matching(identifier: "page-session-key").firstMatch
+        press(key); key.typeText("synthetic-reading-ui-credential")
+        XCTAssertFalse(start.isEnabled, "Key entry never sends or implicitly consents")
+        press(app.descendants(matching: .any).matching(identifier: "page-scope-consent").firstMatch)
+        XCTAssertTrue(start.isEnabled); press(start)
+        waitForText(["全部 3 段", "未自动保存"], in: app.staticTexts["page-status"].firstMatch, timeout: 10)
+        for index in 0..<3 {
+            let original = app.staticTexts["page-original-\(index)"].firstMatch
+            let result = app.staticTexts["page-result-\(index)"].firstMatch
+            XCTAssertTrue(original.exists && result.exists)
+            XCTAssertTrue(textValue(result).contains("离线 DeepSeek UI 替身"))
+        }
+        XCTAssertTrue(textValue(app.staticTexts["page-original-2"].firstMatch).contains("line 18:"), "The final page text must remain in the whole-page scope")
+        let note = app.descendants(matching: .any).matching(identifier: "page-user-note-0").firstMatch
+        scrollPageElement(note, in: app); enterSearch("Original synthetic whole page note", into: note)
+        let save = app.buttons["page-save-0"].firstMatch
+        scrollPageElement(save, in: app); press(save)
+        waitForText(["已保存"], in: save, timeout: 5)
+        scrollPageToTop(in: app); press(app.buttons["page-return-source"].firstMatch)
+        XCTAssertTrue(textValue(app.staticTexts["page-position"].firstMatch).contains("1 / 1"))
+        app.terminate(); app.launch(); app.activate()
+        let book = app.descendants(matching: .any).matching(identifier: "library-book").firstMatch
+        XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
+        press(app.buttons["reader-page-translation"].firstMatch)
+        XCTAssertFalse(app.buttons["page-start"].firstMatch.isEnabled)
+        XCTAssertFalse(app.staticTexts["page-result-0"].firstMatch.exists)
+        press(app.buttons["page-close"].firstMatch)
+        press(app.buttons["reader-ai"].firstMatch)
+        let saved = app.staticTexts["ai-saved-user-note"].firstMatch
+        XCTAssertTrue(saved.waitForExistence(timeout: 5)); XCTAssertEqual(textValue(saved), "Original synthetic whole page note")
+        press(app.buttons["ai-saved-source"].firstMatch)
+        XCTAssertTrue(textValue(app.staticTexts["page-position"].firstMatch).contains("1 / 1"))
+        app.terminate()
+    }
+    @MainActor func testMacPDFPageScanAndOversizeRefuseWithoutSend() throws {
+        for mode in ["blank", "over-budget"] {
+            let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+            app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"; app.launchEnvironment["PDFNO_UI_TEST_PAGE_FIXTURE"] = mode
+            app.launch(); app.activate()
+            XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["open-sample"].firstMatch)
+            press(app.buttons["reader-page-translation"].firstMatch)
+            let error = app.staticTexts["page-preparation-error"].firstMatch
+            XCTAssertTrue(error.waitForExistence(timeout: 5)); XCTAssertTrue(textValue(error).contains(mode == "blank" ? "OCR" : "3000"))
+            XCTAssertFalse(app.buttons["page-start"].firstMatch.exists); XCTAssertFalse(app.secureTextFields["page-session-key"].firstMatch.exists)
+            press(app.buttons["page-close"].firstMatch); app.terminate()
+        }
+    }
+    @MainActor func testMacPDFPageCancelStopsRemainderAndReopenKeepsAttemptCount() throws {
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"; app.launchEnvironment["PDFNO_UI_TEST_PAGE_FIXTURE"] = "multi"
+        app.launchEnvironment["PDFNO_UI_TEST_PAGE_RESPONSE"] = "slow"
+        app.launch(); app.activate()
+        XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["open-sample"].firstMatch)
+        press(app.buttons["reader-page-translation"].firstMatch)
+        guard app.staticTexts["page-offline-fixture"].firstMatch.waitForExistence(timeout: 5) else {
+            XCTFail("Fully intercepted transport required before synthetic key entry"); app.terminate(); return
+        }
+        let key = app.descendants(matching: .any).matching(identifier: "page-session-key").firstMatch
+        press(key); key.typeText("synthetic-reading-ui-credential")
+        press(app.descendants(matching: .any).matching(identifier: "page-scope-consent").firstMatch); press(app.buttons["page-start"].firstMatch)
+        waitForText(["正在处理第 1 / 3 段"], in: app.staticTexts["page-status"].firstMatch, timeout: 5)
+        let cancel = app.buttons["page-cancel"].firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5)); press(cancel)
+        waitForText(["已取消"], in: app.staticTexts["page-status"].firstMatch, timeout: 5)
+        XCTAssertFalse(app.staticTexts["page-result-0"].firstMatch.exists)
+        waitForText(["1 / 6"], in: app.staticTexts["page-limits"].firstMatch, timeout: 5)
+        press(app.buttons["page-close"].firstMatch); press(app.buttons["reader-page-translation"].firstMatch)
+        XCTAssertFalse(app.buttons["page-start"].firstMatch.isEnabled)
+        XCTAssertTrue(textValue(app.staticTexts["page-limits"].firstMatch).contains("1 / 6"))
+        app.terminate()
+    }
     @MainActor func testMacDeepSeekSelectionOfflineTransportPDFEPUBAndRestart() throws {
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
@@ -438,6 +523,20 @@ final class NativeUITests: XCTestCase {
         app.terminate()
     }
     #endif
+    @MainActor private func scrollPageToTop(in app: XCUIApplication) {
+        for _ in 0..<12 {
+            if app.buttons["page-return-source"].firstMatch.isHittable { return }
+            app.scrollViews.firstMatch.swipeDown()
+        }
+        XCTAssertTrue(app.buttons["page-return-source"].firstMatch.isHittable)
+    }
+    @MainActor private func scrollPageElement(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<12 {
+            if element.isHittable { return }
+            app.scrollViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(element.isHittable)
+    }
     @MainActor private func textValue(_ element: XCUIElement) -> String {
         (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label
     }

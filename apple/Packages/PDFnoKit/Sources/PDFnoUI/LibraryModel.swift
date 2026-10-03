@@ -21,6 +21,7 @@ public final class LibraryModel: ObservableObject {
     @Published var comicBooks: [ComicBook] = []
     @Published var readingComic = false
     public let learning: AILearningModel
+    public let pageTranslation: PDFPageTranslationModel
     @Published var epubBooks: [EPUBBook] = []
     @Published var epubNotes: [EPUBNote] = []
     @Published var readingEPUB = false
@@ -54,9 +55,10 @@ public final class LibraryModel: ObservableObject {
         if let token = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"], UUID(uuidString: token) != nil,
            ProcessInfo.processInfo.environment["PDFNO_UI_TEST_DEEPSEEK"] == "offline" {
             learning = AILearningModel(root: root, transport: OfflineSelectionUITestTransport(), offlineTransport: true)
-        } else { learning = AILearningModel(root: root) }
+            pageTranslation = PDFPageTranslationModel(transport: OfflineSelectionUITestTransport(pageScenario: ProcessInfo.processInfo.environment["PDFNO_UI_TEST_PAGE_RESPONSE"]), offlineTransport: true)
+        } else { learning = AILearningModel(root: root); pageTranslation = PDFPageTranslationModel() }
         #else
-        learning = AILearningModel(root: root)
+        learning = AILearningModel(root: root); pageTranslation = PDFPageTranslationModel()
         #endif
     }
     func load() async {
@@ -74,7 +76,7 @@ public final class LibraryModel: ObservableObject {
         } catch { self.error = error.localizedDescription; canImport = false }
     }
     func importFile(_ url: URL) async {
-        learning.cancel()
+        learning.cancel(); pageTranslation.cancel()
         if url.pathExtension.lowercased() == "doc" { error = DOCXError.legacyDOC.localizedDescription; return }
         #if os(macOS)
         if url.pathExtension.lowercased() == "docx" { await importDOCX(url); return }
@@ -102,7 +104,7 @@ public final class LibraryModel: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
     func open(_ book: BookRecord) async {
-        learning.cancel()
+        learning.cancel(); pageTranslation.cancel()
         guard !isBusy else { return }
         isBusy = true; defer { isBusy = false }
         do {
@@ -115,6 +117,24 @@ public final class LibraryModel: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
     func openSample() async {
+        #if DEBUG
+        if let token = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"], UUID(uuidString: token) != nil,
+           ProcessInfo.processInfo.environment["PDFNO_UI_TEST_DEEPSEEK"] == "offline",
+           let mode = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_PAGE_FIXTURE"],
+           let data = OriginalPageTranslationUITestPDF.data(mode: mode) {
+            learning.cancel(); pageTranslation.cancel()
+            guard canImport, !isBusy else { return }; isBusy = true; defer { isBusy = false }
+            do {
+                let book = try await repository.importPDF(data, filename: "original-page-fixture.pdf", pageCount: 1)
+                await load(); try reader.open(data: data, book: book); reader.project(notes)
+                #if os(macOS)
+                epub.close(); comic.close(); docx.deactivate()
+                #endif
+                readingEPUB = false; readingComic = false
+            } catch { self.error = error.localizedDescription }
+            return
+        }
+        #endif
         guard let url = Bundle.module.url(forResource: "study-sample", withExtension: "pdf") else {
             error = "随应用提供的测试 PDF 缺失。"; return
         }
@@ -135,7 +155,7 @@ public final class LibraryModel: ObservableObject {
         catch { self.error = error.localizedDescription }
     }
     func importEPUB(_ url: URL) async {
-        learning.cancel()
+        learning.cancel(); pageTranslation.cancel()
         #if os(macOS)
         guard canImport, !isBusy else { return }; isBusy = true; defer { isBusy = false }
         let scoped = url.startAccessingSecurityScopedResource(); defer { if scoped { url.stopAccessingSecurityScopedResource() } }
@@ -152,7 +172,7 @@ public final class LibraryModel: ObservableObject {
         #endif
     }
     func openEPUB(_ book: EPUBBook) async {
-        learning.cancel()
+        learning.cancel(); pageTranslation.cancel()
         #if os(macOS)
         guard !isBusy else { return }; isBusy = true; defer { isBusy = false }
         do {
@@ -172,7 +192,7 @@ public final class LibraryModel: ObservableObject {
     }
     #if os(macOS)
     func importDOCX(_ url: URL) async {
-        learning.cancel()
+        learning.cancel(); pageTranslation.cancel()
         guard canImport, !isBusy else { return }; isBusy = true; defer { isBusy = false }
         do {
             try await docx.importFile(url); epub.close(); comic.close(); readingComic = false; readingEPUB = false
@@ -183,12 +203,17 @@ public final class LibraryModel: ObservableObject {
         if let url = Bundle.module.url(forResource: "study-sample", withExtension: "docx") { await importDOCX(url) }
     }
     func openDOCX(_ book: DOCXBook) async {
-        learning.cancel()
+        learning.cancel(); pageTranslation.cancel()
         guard !isBusy else { return }; isBusy = true; defer { isBusy = false }
         do { try await docx.open(book); epub.close(); comic.close(); readingComic = false; readingEPUB = false }
         catch { self.error = error.localizedDescription }
     }
     var currentAIBookID: UUID? { if readingComic || docx.isActive { return nil }; return readingEPUB ? epub.book?.id : reader.book?.id }
+    func preparePageTranslation() {
+        guard !readingEPUB, !readingComic, !docx.isActive else { pageTranslation.rejectPreparation(PDFPageTranslationFailure.invalidSource); return }
+        do { pageTranslation.prepare(try reader.currentPageTextSnapshot()) }
+        catch { pageTranslation.rejectPreparation(error) }
+    }
     func captureAISource() -> AISourceSnapshot? {
         guard !readingComic, !docx.isActive else { return nil }
         if readingEPUB {
@@ -202,6 +227,7 @@ public final class LibraryModel: ObservableObject {
     func isCurrentAISource(_ source: AISourceSnapshot) -> Bool {
         guard !readingComic, !docx.isActive, source.isValid else { return false }
         switch source.anchor {
+        case .pdfPage(let anchor): return !readingEPUB && source.bookID == reader.book?.id && source.readerSessionID == reader.readerSessionID && source.documentVersion == 0 && reader.resolution(of: anchor) == .exact
         case .pdf(let anchor): return !readingEPUB && source.bookID == reader.book?.id && source.readerSessionID == reader.readerSessionID && source.documentVersion == 0 && reader.resolution(of: anchor) == .exact
         case .epub(let anchor): return readingEPUB && source.bookID == epub.book?.id && source.readerSessionID == epub.readerSessionID && source.documentVersion == epub.documentVersion && epub.book?.accepts(anchor) == true
         }
@@ -209,6 +235,8 @@ public final class LibraryModel: ObservableObject {
     func returnToAISource(_ source: AISourceSnapshot) async -> Bool {
         guard !readingComic, !docx.isActive else { learning.error = AIFailure.stale.localizedDescription; return false }
         switch source.anchor {
+        case .pdfPage(let anchor):
+            guard !readingEPUB, reader.book?.id == source.bookID, reader.navigate(to: anchor) == .exact else { learning.error = AIFailure.stale.localizedDescription; return false }; return true
         case .pdf(let anchor):
             guard !readingEPUB, reader.book?.id == source.bookID, reader.navigate(to: anchor) == .exact else { learning.error = AIFailure.stale.localizedDescription; return false }; return true
         case .epub(let anchor):
