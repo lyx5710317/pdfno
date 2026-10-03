@@ -27,7 +27,7 @@ final class NativeUITests: XCTestCase {
         try chooseInput(source, trigger: app.buttons["conversion-source"].firstMatch, app: app)
         waitUntilEnabled(export)
         press(export)
-        XCTAssertTrue(app.buttons["Save"].firstMatch.waitForExistence(timeout: 5) || app.buttons["保存"].firstMatch.exists)
+        XCTAssertTrue(filePanelButton(app, titles: ["Save", "保存"]).waitForExistence(timeout: 5))
         app.typeKey(.escape, modifierFlags: []); waitUntilEnabled(export)
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path).sorted(), ["Broken Body.docx", "Original Body.docx"])
         let output = root.appendingPathComponent("Original Output.txt")
@@ -70,17 +70,15 @@ final class NativeUITests: XCTestCase {
     }
     @MainActor private func chooseOutput(_ url: URL, defaultName: String, trigger: XCUIElement, app: XCUIApplication) throws {
         let existed = FileManager.default.fileExists(atPath: url.path)
-        press(trigger); app.typeKey("g", modifierFlags: [.command, .shift])
-        let combo = app.comboBoxes.firstMatch, text = app.textFields.firstMatch
-        let location = combo.waitForExistence(timeout: 3) ? combo : text
-        XCTAssertTrue(location.waitForExistence(timeout: 5))
-        enterSearch(url.deletingLastPathComponent().path, into: location); app.typeKey(.return, modifierFlags: [])
-        let name = app.textFields.matching(NSPredicate(format: "value == %@", defaultName)).firstMatch
-        XCTAssertTrue(name.waitForExistence(timeout: 5)); enterSearch(url.lastPathComponent, into: name)
-        let save = app.buttons["Save"].firstMatch.exists ? app.buttons["Save"].firstMatch : app.buttons["保存"].firstMatch
-        XCTAssertTrue(save.waitForExistence(timeout: 5)); press(save)
+        press(trigger)
+        let save = filePanelButton(app, titles: ["Save", "保存"])
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        try goToFixtureLocation(url.deletingLastPathComponent(), app: app)
+        let name = app.windows.textFields.matching(NSPredicate(format: "value == %@", defaultName)).firstMatch
+        XCTAssertTrue(name.waitForExistence(timeout: 5)); enterSearch(url.lastPathComponent, into: name, replacing: true)
+        waitUntilEnabled(save); press(save)
         if existed {
-            let replace = app.buttons["Replace"].firstMatch.exists ? app.buttons["Replace"].firstMatch : app.buttons["替换"].firstMatch
+            let replace = filePanelButton(app, titles: ["Replace", "替换"])
             XCTAssertTrue(replace.waitForExistence(timeout: 5)); press(replace)
         }
     }
@@ -152,14 +150,24 @@ final class NativeUITests: XCTestCase {
     }
     @MainActor private func chooseInput(_ url: URL, trigger: XCUIElement, app: XCUIApplication) throws {
         press(trigger)
+        let open = filePanelButton(app, titles: ["Open", "打开"])
+        XCTAssertTrue(open.waitForExistence(timeout: 5))
+        try goToFixtureLocation(url, app: app)
+        waitUntilEnabled(open); press(open)
+    }
+    @MainActor private func filePanelButton(_ app: XCUIApplication, titles: [String]) -> XCUIElement {
+        // Touch Bar actions also have Open/Save labels; only actual window controls can be clicked.
+        app.windows.buttons.matching(NSPredicate(format: "label IN %@", titles)).firstMatch
+    }
+    @MainActor private func goToFixtureLocation(_ url: URL, app: XCUIApplication) throws {
         app.typeKey("g", modifierFlags: [.command, .shift])
-        let combo = app.comboBoxes.firstMatch
-        let text = app.textFields.firstMatch
-        let location = combo.waitForExistence(timeout: 3) ? combo : text
+        let location = app.windows.textFields["PathTextField"].firstMatch
         XCTAssertTrue(location.waitForExistence(timeout: 5))
-        enterSearch(url.path, into: location); app.typeKey(.return, modifierFlags: [])
-        let open = app.buttons["Open"].firstMatch.exists ? app.buttons["Open"].firstMatch : app.buttons["打开"].firstMatch
-        XCTAssertTrue(open.waitForExistence(timeout: 5)); press(open)
+        enterSearch(url.path, into: location, replacing: true)
+        XCTAssertEqual(location.value as? String, url.path)
+        app.typeKey(.return, modifierFlags: [])
+        let dismissed = expectation(for: NSPredicate(format: "hittable == false"), evaluatedWith: location)
+        wait(for: [dismissed], timeout: 5)
     }
     @MainActor private func originalPNG(width: Int, height: Int) throws -> Data {
         let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
@@ -415,9 +423,10 @@ final class NativeUITests: XCTestCase {
         element.tap()
         #endif
     }
-    @MainActor private func enterSearch(_ text: String, into input: XCUIElement) {
+    @MainActor private func enterSearch(_ text: String, into input: XCUIElement, replacing: Bool = false) {
         press(input)
         #if os(macOS)
+        if replacing { input.typeKey("a", modifierFlags: .command) }
         // A user-selected input method can turn typeText into composition text.
         // Paste only the original fixture query and restore clipboard data in memory.
         let board = NSPasteboard.general
