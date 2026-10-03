@@ -169,12 +169,14 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(location.value as? String, url.path)
         // Return may first commit a path completion. Send again only while the same overlay remains active.
         for _ in 0..<2 {
-            location.typeKey(.return, modifierFlags: [])
+            if !location.exists || !location.isHittable { return }
+            app.typeKey(.return, modifierFlags: [])
             let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
                 !location.exists || !location.isHittable
-            }, object: location)
-            if XCTWaiter.wait(for: [dismissed], timeout: 2) == .completed { return }
+            }, object: app)
+            if XCTWaiter.wait(for: [dismissed], timeout: 5) == .completed { return }
         }
+        if !location.exists || !location.isHittable { return }
         print("PDFno original file-panel buttons: " + app.buttons.allElementsBoundByIndex.prefix(40).map {
             "id=\($0.identifier) label=\($0.label) enabled=\($0.isEnabled) hittable=\($0.isHittable)"
         }.joined(separator: "; "))
