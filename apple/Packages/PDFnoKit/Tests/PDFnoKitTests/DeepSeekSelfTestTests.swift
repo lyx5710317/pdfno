@@ -131,15 +131,18 @@ struct DeepSeekSelfTestTests {
         #expect(!model.busy && !model.canSend && model.attemptsUsed == 0)
         model.confirmed = true; model.send()
         #expect(model.temporaryKey.isEmpty && !model.confirmed)
-        let deadline = Date().addingTimeInterval(2)
+        let deadline = Date().addingTimeInterval(5)
         while model.busy, Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        try #require(!model.busy)
         #expect(model.result == "离线短句回应" && model.attemptsUsed == 1)
         let recorded = model.records
         model.close(); #expect(model.result == "离线短句回应" && model.records == recorded && model.temporaryKey.isEmpty && model.attemptsUsed == 1)
         model.clearRecords(); #expect(model.result == nil && model.records.isEmpty && model.attemptsUsed == 1)
         let deferred = DeferredProbeTransport(), closed = DeepSeekTestModel(service: DeepSeekSelfTest(transport: deferred))
         closed.temporaryKey = syntheticKey; closed.confirmed = true; closed.send()
-        while !(await deferred.started()), Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        let startedDeadline = Date().addingTimeInterval(5)
+        while !(await deferred.started()), Date() < startedDeadline { try await Task.sleep(for: .milliseconds(10)) }
+        try #require(await deferred.started())
         closed.close(); await deferred.finish(); try await Task.sleep(for: .milliseconds(20))
         #expect(closed.result == nil && !closed.busy && closed.temporaryKey.isEmpty && closed.attemptsUsed == 1)
         #expect(closed.records.first?.outcome == .failed(.cancelled))
@@ -174,8 +177,9 @@ struct DeepSeekSelfTestTests {
         let transport = DeferredProbeTransport()
         let model = DeepSeekTestModel(service: DeepSeekSelfTest(transport: transport), timeoutSeconds: 0.1)
         model.temporaryKey = syntheticKey; model.confirmed = true; model.send()
-        let deadline = Date().addingTimeInterval(2)
+        let deadline = Date().addingTimeInterval(5)
         while model.busy, Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        try #require(!model.busy)
         #expect(!model.busy && model.records.first?.outcome == .failed(.timeout))
         let status = model.status; model.close()
         #expect(model.status == status && model.error == DeepSeekTestFailure.timeout.localizedDescription && model.attemptsUsed == 1)
@@ -189,8 +193,9 @@ struct DeepSeekSelfTestTests {
         let body = try JSONSerialization.data(withJSONObject: ["choices": [["finish_reason": "stop", "message": ["role": "assistant", "content": content]]]])
         let model = DeepSeekTestModel(service: DeepSeekSelfTest(transport: ProbeTransport(body: body)))
         model.temporaryKey = syntheticKey; model.confirmed = true; model.send()
-        let deadline = Date().addingTimeInterval(2)
+        let deadline = Date().addingTimeInterval(5)
         while model.busy, Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        try #require(!model.busy)
         #expect(model.result == content && model.temporaryKey.isEmpty)
         let host = NSHostingView(rootView: DeepSeekSelfTestView(model: model).background(.white).preferredColorScheme(.light))
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 620), styleMask: [.titled], backing: .buffered, defer: false)

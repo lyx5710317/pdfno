@@ -102,8 +102,9 @@ struct DeepSeekSelectionTests {
             model.start(confirmed: false, sourceIsCurrent: { _ in true })
             #expect(!model.busy)
             model.start(confirmed: true, sourceIsCurrent: { _ in true })
-            let limit = Date().addingTimeInterval(2)
+            let limit = Date().addingTimeInterval(5)
             while model.busy, Date() < limit { try await Task.sleep(for: .milliseconds(10)) }
+            try #require(!model.busy)
             #expect(model.result?.source == selected && model.result?.promptVersion == DeepSeekSelectionPolicy.promptVersion)
             #expect(model.notes.count == (epub ? 1 : 0)) // No auto-save.
             let retained = model.result; model.cancel(); model.prepare(selected)
@@ -128,9 +129,14 @@ struct DeepSeekSelectionTests {
             #expect(await model.saveConfig(DeepSeekSelectionPolicy.configuration(), temporarySecret: selectionFakeKey))
             let selected = source(); model.prepare(selected); model.userText = "Keep original independent draft"
             model.start(confirmed: true, sourceIsCurrent: { _ in true })
-            let deadline = Date().addingTimeInterval(2)
-            while !(await transport.started()), Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
-            if timeout { while model.busy, Date() < deadline { try await Task.sleep(for: .milliseconds(10)) } }
+            let startedDeadline = Date().addingTimeInterval(5)
+            while !(await transport.started()), Date() < startedDeadline { try await Task.sleep(for: .milliseconds(10)) }
+            try #require(await transport.started())
+            if timeout {
+                let finishedDeadline = Date().addingTimeInterval(5)
+                while model.busy, Date() < finishedDeadline { try await Task.sleep(for: .milliseconds(10)) }
+                try #require(!model.busy)
+            }
             else { model.prepare(source(epub: true)); model.prepare(selected) }
             #expect(model.result == nil && !model.busy && model.userText == "Keep original independent draft")
             #expect(model.attempts.first?.outcome == .failed(timeout ? .timeout : .cancelled))
