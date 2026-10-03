@@ -81,7 +81,7 @@ struct PDFPageTranslationWorkspace: View {
                         if let notice { Text(notice).accessibilityIdentifier("page-note-status") }
                     }
                 }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            }.navigationTitle("当前 PDF 页 · 双语对照")
+            }.accessibilityIdentifier("page-scroll").navigationTitle("当前 PDF 页 · 双语对照")
             .toolbar { ToolbarItem { Button("完成（取消未完成请求）") { translation.cancel(); dismiss() }.accessibilityIdentifier("page-close") } }
         }.frame(minWidth: 520, idealWidth: 860, minHeight: 560, idealHeight: 740)
         .onChange(of: translation.temporarySecret) { _, _ in confirmed = false }

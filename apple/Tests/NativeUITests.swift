@@ -25,8 +25,14 @@ final class NativeUITests: XCTestCase {
         let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
         paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
         press(app.buttons["docx-notes"].firstMatch)
-        let selection = app.staticTexts["docx-selection"].firstMatch
-        XCTAssertTrue(selection.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(selection), "window")
+        // Native selectable text may be exposed as Other on macOS 15. Match
+        // its exact app-owned identifier without imposing an AX role.
+        let selection = app.descendants(matching: .any).matching(identifier: "docx-selection").firstMatch
+        guard selection.waitForExistence(timeout: 8) else {
+            XCTFail("Real Word selection must reach the native notes sheet")
+            return
+        }
+        XCTAssertEqual(textValue(selection), "window")
         let draft = app.descendants(matching: .any).matching(identifier: "docx-user-note").firstMatch
         XCTAssertTrue(draft.waitForExistence(timeout: 5)); enterSearch("Original independent Word note", into: draft)
         press(app.buttons["docx-save-note"].firstMatch)
@@ -628,16 +634,20 @@ final class NativeUITests: XCTestCase {
     }
     #endif
     @MainActor private func scrollPageToTop(in app: XCUIApplication) {
+        let scroll = app.scrollViews["page-scroll"].firstMatch
+        XCTAssertTrue(scroll.waitForExistence(timeout: 5))
         for _ in 0..<12 {
             if app.buttons["page-return-source"].firstMatch.isHittable { return }
-            app.scrollViews.firstMatch.swipeDown()
+            scroll.swipeDown()
         }
         XCTAssertTrue(app.buttons["page-return-source"].firstMatch.isHittable)
     }
     @MainActor private func scrollPageElement(_ element: XCUIElement, in app: XCUIApplication) {
+        let scroll = app.scrollViews["page-scroll"].firstMatch
+        XCTAssertTrue(scroll.waitForExistence(timeout: 5))
         for _ in 0..<12 {
             if element.isHittable { return }
-            app.scrollViews.firstMatch.swipeUp()
+            scroll.swipeUp()
         }
         XCTAssertTrue(element.isHittable)
     }
