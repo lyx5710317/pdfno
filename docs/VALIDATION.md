@@ -16,6 +16,10 @@ CI [37103020809](https://github.com/lyx5710317/pdfno/actions/runs/37103020809) f
 
 The corrected full local Mac flow passed **2 UI tests, 0 failures**, 59.027 seconds (`.build/EPUB-CI-Predicate-Fix.xcresult`). Only test queries and this evidence changed after the full resource/Swift/build verification; reader security and behavior were not altered.
 
+CI [37103479741](https://github.com/lyx5710317/pdfno/actions/runs/37103479741) for `83c600761175e80672a19da414600df041f09c8a` passed all resource/Swift/build checks and the PDF regression. EPUB actual selection/save/source return, paging, Japanese chapter and vertical mode passed before the five-second ruby StaticText lookup timed out. The query now checks string labels across WebKit accessibility roles and typed string values, with bounded fixture-only diagnostics if no match is found. This run does not establish complete ruby UI acceptance.
+
+The broader typed accessibility query passed the same full local flow: **2 UI tests, 0 failures**, 58.445 seconds (`.build/EPUB-CI-Ruby-Query.xcresult`).
+
 ## 2026-10-02 PDF baseline and history
 
 Local environment: MacBook Air, Apple silicon, macOS 27.0 (26A428), Xcode 27.0 (27A266a), Swift 6.4, macOS/iOS SDK 27.0. Adjustable deployment settings are macOS 14 and iOS/iPadOS 17; tests on the latest local runtime do not establish oldest-version compatibility. GitHub uses its actually reported `macos-15` toolchain.

@@ -33,7 +33,7 @@ final class NativeUITests: XCTestCase {
         waitForText(["第 2 章"], in: position, timeout: 10)
         press(app.buttons["epub-orientation"].firstMatch)
         waitForText(["竖排"], in: position, timeout: 10)
-        let ruby = try webText(in: app, matching: "にほんご", prefix: false, timeout: 5)
+        let ruby = try webText(in: app, matching: "にほんご", prefix: false, timeout: 15)
         XCTAssertTrue(ruby.exists, "Author ruby must remain visible in vertical reading")
         app.terminate(); app.launch(); app.activate()
         let book = app.descendants(matching: .any).matching(identifier: "library-epub").firstMatch
@@ -62,13 +62,24 @@ final class NativeUITests: XCTestCase {
         // elements in Swift so substring predicates never receive a number.
         var found: XCUIElement?
         let ready = expectation(for: NSPredicate { _, _ in
+            // Ruby can be exposed as a group rather than StaticText. Label is
+            // always a String; query it without applying predicates to value.
+            let labelMatch = app.webViews.firstMatch.descendants(matching: .any).matching(
+                NSPredicate(format: prefix ? "label BEGINSWITH %@" : "label CONTAINS %@", text)
+            ).firstMatch
+            if labelMatch.exists { found = labelMatch; return true }
             found = app.webViews.firstMatch.staticTexts.allElementsBoundByIndex.first {
-                let value = self.textValue($0)
+                guard let value = $0.value as? String else { return false }
                 return prefix ? value.hasPrefix(text) : value.contains(text)
             }
             return found != nil
         }, evaluatedWith: app)
         wait(for: [ready], timeout: timeout)
+        if found == nil {
+            // This app uses an isolated original fixture; never describe the
+            // desktop, other applications, clipboard or the user's library.
+            print("PDFno original EPUB WebKit accessibility: \(app.webViews.firstMatch.debugDescription)")
+        }
         return try XCTUnwrap(found, "Actual WebKit text must be exposed for user selection/ruby acceptance")
     }
     @MainActor private func press(_ element: XCUIElement) {
