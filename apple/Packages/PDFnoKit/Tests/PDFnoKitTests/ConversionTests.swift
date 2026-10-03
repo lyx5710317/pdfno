@@ -173,7 +173,7 @@ struct ConversionTests {
     }
 
     @Test func compressedBombIsStoppedByActualBytesEvenWithLyingHeaders() throws {
-        let xml = ConversionFixture.document("<w:p><w:r><w:t>" + String(repeating: "A", count: DOCXArchive.entryLimit + 1) + "</w:t></w:r></w:p>")
+        let xml = ConversionFixture.document("<w:p><w:r><w:t>" + String(repeating: "A", count: DOCXConversionArchive.entryLimit + 1) + "</w:t></w:r></w:p>")
         var zip = try ConversionFixture.zip(ConversionFixture.members(xml))
         let central = ConversionFixture.centralOffsets(zip)[2]
         func u32(_ offset: Int) -> Int { (0..<4).reduce(0) { $0 | Int(zip[offset + $1]) << (8 * $1) } }

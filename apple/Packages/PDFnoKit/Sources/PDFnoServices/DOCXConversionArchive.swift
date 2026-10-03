@@ -4,7 +4,7 @@ import zlib
 import PDFnoDomain
 
 /// A bounded read-only ZIP profile. No entries are extracted to the filesystem.
-struct DOCXArchive {
+struct DOCXConversionArchive {
     struct Entry {
         let name: String
         let method: Int

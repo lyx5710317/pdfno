@@ -12,7 +12,7 @@ public struct DOCXTextConversionAdapter: DocumentConversionAdapter {
     public func convert(_ source: Data, to output: ConversionFormat,
                         progress: @Sendable (ConversionPhase) -> Void = { _ in }) throws -> ConvertedDocument {
         guard output == .plainText || output == .html else { throw ConversionError.unsupportedDirection }
-        let archive = try DOCXArchive(source)
+        let archive = try DOCXConversionArchive(source)
         let contentTypes = PackageMetadataReader(kind: .contentTypes)
         try contentTypes.parse(archive.read("[Content_Types].xml"))
         let relationships = PackageMetadataReader(kind: .relationships)
@@ -42,7 +42,7 @@ private class BoundedXMLReader: NSObject, XMLParserDelegate {
     var failure: Error?
     private var events = 0
     func parse(_ data: Data) throws {
-        guard data.count <= DOCXArchive.entryLimit, let xml = String(data: data, encoding: .utf8),
+        guard data.count <= DOCXConversionArchive.entryLimit, let xml = String(data: data, encoding: .utf8),
               !xml.contains("\0"), !xml.uppercased().contains("<!DOCTYPE"), !xml.uppercased().contains("<!ENTITY") else {
             throw ConversionError.invalidDocument
         }
@@ -137,7 +137,7 @@ private final class BodyTextReader: BoundedXMLReader {
     }
     private func append(_ value: String) throws {
         byteCount += value.utf8.count
-        guard byteCount <= DOCXArchive.entryLimit else { throw ConversionError.resourceLimit }
+        guard byteCount <= DOCXConversionArchive.entryLimit else { throw ConversionError.resourceLimit }
         text.append(value)
     }
     override func start(_ namespace: String, _ name: String, _ attributes: [String: String]) throws {
