@@ -116,7 +116,7 @@ public final class PDFReaderSession: ObservableObject {
     public func resolution(of anchor: PDFSourceAnchor) -> AnchorResolution {
         guard let book, let document else { return .sourceMissing }
         guard anchor.editionID == book.editionID, anchor.fileSHA256 == book.fileSHA256,
-              anchor.schemaVersion == 1, anchor.extractionVersion == "pdfkit-selection-1" else { return .needsRebind }
+              anchor.schemaVersion == 1, anchor.extractionVersion == "pdfkit-selection-1", anchor.hasConsistentQuote else { return .needsRebind }
         for region in anchor.regions {
             guard let page = document.page(at: region.pageIndex),
                   let selected = page.selection(for: CGRect(x: region.x, y: region.y, width: region.width, height: region.height)),

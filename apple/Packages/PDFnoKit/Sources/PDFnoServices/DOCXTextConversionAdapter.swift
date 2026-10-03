@@ -133,7 +133,7 @@ private final class BodyTextReader: BoundedXMLReader {
     var foundBody = false
     private var inBody: Bool { stack.contains { $0.namespace == wordNamespace && $0.name == "body" } }
     private var excluded: Bool {
-        stack.contains { $0.namespace == wordNamespace && ["del", "rt", "drawing", "object", "pict", "txbxContent"].contains($0.name) }
+        stack.contains { $0.namespace == wordNamespace && ["del", "moveFrom", "rt", "drawing", "object", "pict", "txbxContent"].contains($0.name) }
     }
     private func append(_ value: String) throws {
         byteCount += value.utf8.count

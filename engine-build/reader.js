@@ -15,9 +15,10 @@ function canonical() {
 }
 function makeAnchor(start,end) {
   const {text}=canonical();
-  if (end<=start || end-start>16000) return null;
   const low = value => value>=0xdc00 && value<=0xdfff;
-  if (low(text.charCodeAt(start)) || low(text.charCodeAt(end))) return null;
+  if (low(text.charCodeAt(start))) start--;
+  if (low(text.charCodeAt(end))) end++;
+  if (start<0 || end>text.length || end<=start || end-start>16000) return null;
   let before=Math.max(0,start-64), after=Math.min(text.length,end+64);
   if (low(text.charCodeAt(before))) before++;
   if (low(text.charCodeAt(after))) after--;
@@ -89,12 +90,25 @@ async function chapter(index,vertical=false) {
 }
 function progress() {
   const {nodes}=canonical(), width=renderer.element.clientWidth, height=renderer.element.clientHeight;
-  let visible=nodes.find(x => {
+  const visible=nodes.find(x => {
     const range=doc().createRange(); range.selectNodeContents(x.node);
     return [...range.getClientRects()].some(r=>r.width>0 && r.height>0 && r.left<width && r.right>0 && r.top<height && r.bottom>0);
   });
-  if (!visible) visible=nodes.find(x=>x.end>x.start);
-  return visible ? makeAnchor(visible.start,Math.min(visible.end,visible.start+128)) : null;
+  if (!visible) return null;
+  // Pagination translates preceding columns outside the viewport. Find the
+  // first visible scalar inside this text node, including a long single paragraph.
+  let low=0,high=visible.node.length;
+  const range=doc().createRange(),vertical=renderer.isVertical();
+  const rectAt=offset=>{
+    if(offset>0&&/[\uDC00-\uDFFF]/.test(visible.node.data[offset]))offset--;
+    range.setStart(visible.node,offset);range.setEnd(visible.node,Math.min(visible.node.length,offset+(visible.node.data.codePointAt(offset)>65535?2:1)));
+    return range.getBoundingClientRect();
+  };
+  while(low<high){const middle=Math.floor((low+high)/2),r=rectAt(middle);
+    if(vertical?r.bottom<=0:r.right<=0)low=middle+1;else high=middle;
+  }
+  const start=visible.start+low;
+  return makeAnchor(start,Math.min(visible.end,start+128));
 }
 function state() {
   const page=progressInfo(renderer.readerMode,doc(),renderer.element)?.currentPage ?? 1;
@@ -103,8 +117,17 @@ function state() {
 }
 async function navigate(anchor) {
   await chapter(anchor.spineIndex,anchor.vertical);
-  const range=rangeFor(anchor); const node=range.startContainer.parentElement;
-  await renderer.goToNode(node); const selection=doc().getSelection(); selection.removeAllRanges(); selection.addRange(range);
+  const range=rangeFor(anchor),glyph=range.cloneRange();
+  glyph.setEnd(range.startContainer,Math.min(range.startContainer.length,range.startOffset+(range.startContainer.data.codePointAt(range.startOffset)>65535?2:1)));
+  const r=glyph.getBoundingClientRect(),d=doc(),vertical=renderer.isVertical();
+  const section=Math.floor((vertical?renderer.element.clientHeight:renderer.element.clientWidth)/12),gap=section%2===0?section:section-1;
+  const stride=(vertical?d.body.clientHeight:d.body.clientWidth)+gap;
+  if(!Number.isFinite(stride)||stride<=0)throw Error('Reader viewport unavailable');
+  const absolute=vertical?r.top+d.body.scrollTop:r.left+d.body.scrollLeft;
+  const offset=Math.max(0,Math.floor((absolute+0.5)/stride)*stride);
+  d.body.scrollTo(vertical?0:offset,vertical?offset:0);
+  await renderer.record();renderer.trigger('rendered');
+  const selection=d.getSelection(); selection.removeAllRanges(); selection.addRange(range);
 }
 window.PDFno = {async command(message) {
   if (message.v!==1 || typeof message.requestID!=='string') throw Error('Invalid bridge version');
@@ -126,7 +149,7 @@ window.PDFno = {async command(message) {
     } finally { initialising=false; }
   } else if (message.command==='chapter') await chapter(message.payload.index,false);
   else if (message.command==='vertical') {
-    const anchor=progress(); anchor.vertical=!renderer.isVertical(); await navigate(anchor);
+    const anchor=progress(); if(!anchor)throw Error('No visible source position');anchor.vertical=!renderer.isVertical(); await navigate(anchor);
   } else if (message.command==='navigate') await navigate(message.payload.anchor);
   else if (message.command==='notes') { notes=message.payload.notes; project(); }
   else if (message.command==='resize') { const anchor=progress(); if (anchor) await navigate(anchor); }

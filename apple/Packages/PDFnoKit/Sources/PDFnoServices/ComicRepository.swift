@@ -16,7 +16,7 @@ public actor ComicRepository {
     private static func hash(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
     public func load() throws -> ComicState {
         guard FileManager.default.fileExists(atPath: manifest.path) else { return ComicState() }
-        return try Self.decode(Data(contentsOf: manifest))
+        return try Self.decode(BoundedFileReader.read(manifest, limit: 10 * 1024 * 1024))
     }
     public static func decode(_ data: Data) throws -> ComicState {
         guard data.count <= 10 * 1024 * 1024,
@@ -44,10 +44,13 @@ public actor ComicRepository {
         return state
     }
     private func commit(_ state: ComicState) throws {
+        _ = try load()
         let bytes = try JSONEncoder().encode(state); _ = try Self.decode(bytes)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         if FileManager.default.fileExists(atPath: manifest.path) {
-            try Data(contentsOf: manifest).write(to: manifest.appendingPathExtension("backup"), options: .atomic)
+            let previous = try BoundedFileReader.read(manifest, limit: 10 * 1024 * 1024)
+            _ = try Self.decode(previous)
+            try previous.write(to: manifest.appendingPathExtension("backup"), options: .atomic)
         }
         try bytes.write(to: manifest, options: .atomic)
     }

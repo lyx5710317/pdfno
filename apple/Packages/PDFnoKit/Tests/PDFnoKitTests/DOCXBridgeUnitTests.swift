@@ -12,6 +12,28 @@ import PDFnoReaders
 /// application launch, screen capture, accessibility automation or real library.
 @Suite(.serialized)
 struct DOCXBridgeUnitTests {
+    @Test @MainActor func original4000RowArchiveUsesActualHiddenEngineAndCancellationFence() async throws {
+        let application = NSApplication.shared;application.setActivationPolicy(.prohibited)
+        let visibleBefore = application.windows.filter { $0.isVisible || $0.isKeyWindow || $0.isMainWindow }.count
+        let xml = ConversionFixture.document("<w:tbl>" + String(repeating: "<w:tr><w:tc><w:p><w:r><w:t>Original audit row</w:t></w:r></w:p></w:tc></w:tr>",count: 4000) + "</w:tbl>")
+        let bytes = try ConversionFixture.zip(ConversionFixture.members(xml))
+        let book = DOCXBook(fileSHA256: SHA256.hash(data: bytes).map { String(format: "%02x",$0) }.joined(),title: "Original 4000 rows",originalFilename: "original.docx")
+        let reader = DOCXReaderSession();defer { reader.close() }
+        try await reader.open(data: bytes,book: book,notes: [])
+        #expect(reader.ready && reader.document?.blocks.count == 4000)
+        #expect(reader.webView?.window == nil)
+        reader.close()
+        let opening = Task { @MainActor in try await reader.open(data: bytes,book: book,notes: []) }
+        let deadline = Date().addingTimeInterval(5)
+        while reader.webView == nil && Date() < deadline { await Task.yield() }
+        _ = try #require(reader.webView)
+        reader.close()
+        do { try await opening.value;Issue.record("Cancelled large reader reactivated") }
+        catch DOCXError.cancelled { }
+        catch { Issue.record("Unexpected cancellation result: \(error)") }
+        #expect(reader.document == nil && reader.webView == nil && !reader.ready)
+        #expect(application.windows.filter { $0.isVisible || $0.isKeyWindow || $0.isMainWindow }.count == visibleBefore)
+    }
     @Test @MainActor func closeCancelsAnOpeningGenerationBeforeItCanReactivate() async throws {
         let application = NSApplication.shared
         application.setActivationPolicy(.prohibited)

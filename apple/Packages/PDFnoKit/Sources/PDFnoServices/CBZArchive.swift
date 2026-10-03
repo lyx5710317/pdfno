@@ -46,12 +46,9 @@ public struct CBZArchive: Sendable {
         return try Self.thumbnail(Self.expand(entry, from: data))
     }
     public static func readFile(_ url: URL) throws -> Data {
-        let info = try url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
-        guard info.isRegularFile == true, let size = info.fileSize, size <= ComicLimits.archiveBytes else { throw ComicError.resourceLimit }
-        let handle = try FileHandle(forReadingFrom: url); defer { try? handle.close() }
-        let data = try handle.read(upToCount: ComicLimits.archiveBytes + 1) ?? Data()
-        guard data.count <= ComicLimits.archiveBytes else { throw ComicError.resourceLimit }
-        return data
+        do { return try BoundedFileReader.read(url, limit: ComicLimits.archiveBytes) }
+        catch is CancellationError { throw CancellationError() }
+        catch { throw ComicError.resourceLimit }
     }
     public static func index(_ data: Data) throws -> [CBZEntry] {
         guard data.count <= ComicLimits.archiveBytes else { throw ComicError.resourceLimit }

@@ -16,7 +16,7 @@ struct AILearningAttempt: Identifiable, Equatable {
 @MainActor
 public final class AILearningModel: ObservableObject {
     #if os(macOS)
-    let deepSeekTest = DeepSeekTestModel()
+    let deepSeekTest: DeepSeekTestModel
     #endif
     @Published var config = AIProviderConfig()
     @Published var source: AISourceSnapshot?
@@ -35,7 +35,7 @@ public final class AILearningModel: ObservableObject {
     private let coordinator = AIJobCoordinator()
     private let sessionCredentials = SessionCredentialStore()
     private let transport: any AIHTTPTransport
-    private let remoteBudget = DeepSeekSelectionBudget()
+    private let remoteBudget: DeepSeekSelectionBudget
     private let timeoutSeconds: Double
     private var temporaryCredentialReference: UUID?
     private var task: Task<Void, Never>?
@@ -43,10 +43,26 @@ public final class AILearningModel: ObservableObject {
     private var drafts: [String: String] = [:]
     private func draftKey(_ source: AISourceSnapshot) -> String? {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
-        return (try? encoder.encode(source)).map(LibraryRepository.digest)
+        // Reader identity/version fences requests; drafts belong to immutable source text.
+        struct DraftSource: Encodable { let bookID: UUID; let anchor: AISelectionAnchor }
+        let anchor: AISelectionAnchor
+        if case .epub(let value) = source.anchor {
+            anchor = .epub(EPUBAnchor(editionID: value.editionID, fileSHA256: value.fileSHA256,
+                resourceHref: value.resourceHref, spineIndex: value.spineIndex, start: value.start, end: value.end,
+                quote: value.quote, prefix: value.prefix, suffix: value.suffix, vertical: false))
+        } else { anchor = source.anchor }
+        return (try? encoder.encode(DraftSource(bookID: source.bookID, anchor: anchor))).map(LibraryRepository.digest)
     }
-    public init(root: URL, transport: any AIHTTPTransport = URLSessionAITransport(), timeoutSeconds: Double = 30, offlineTransport: Bool = false) {
+    public init(root: URL, transport: any AIHTTPTransport = URLSessionAITransport(), timeoutSeconds: Double = 30, offlineTransport: Bool = false, aiSession: AppAISession = .shared) {
         repository = AILearningRepository(root: root); self.transport = transport; self.timeoutSeconds = timeoutSeconds; self.offlineTransport = offlineTransport
+        remoteBudget = aiSession.selection
+        #if os(macOS)
+        deepSeekTest = DeepSeekTestModel(service: DeepSeekSelfTest(budget: aiSession.probe))
+        #endif
+        Task { [weak self, remoteBudget] in
+            let used = await remoteBudget.attemptsUsed()
+            guard let self else { return }; remoteAttemptsUsed = max(remoteAttemptsUsed, used)
+        }
     }
     func load() async {
         do { let state = try await repository.load(); config = state.config; notes = state.notes }

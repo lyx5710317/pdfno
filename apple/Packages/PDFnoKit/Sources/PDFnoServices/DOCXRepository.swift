@@ -19,11 +19,9 @@ public actor DOCXRepository {
         root.appendingPathComponent("Originals").appendingPathComponent(book.fileSHA256 + ".docx")
     }
     public static func boundedRead(_ url: URL, limit: Int = 20 * 1024 * 1024) throws -> Data {
-        let info = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
-        guard info.isRegularFile == true, let size = info.fileSize, size <= limit else { throw DOCXError.resourceLimit }
-        let handle = try FileHandle(forReadingFrom: url); defer { try? handle.close() }
-        let data = try handle.read(upToCount: limit + 1) ?? Data()
-        guard data.count <= limit else { throw DOCXError.resourceLimit }; return data
+        do { return try BoundedFileReader.read(url, limit: limit) }
+        catch is CancellationError { throw CancellationError() }
+        catch { throw DOCXError.resourceLimit }
     }
     public func load() throws -> DOCXState {
         guard FileManager.default.fileExists(atPath: manifest.path) else { return DOCXState() }

@@ -206,7 +206,9 @@ struct ReaderWorkspace: View {
                         #endif
                     }
                 }
-                .onChange(of: session.pageIndex) { _, _ in Task { await model.saveProgress() } }
+                .onChange(of: session.pageIndex) { _, _ in
+                    if let snapshot = model.capturePDFProgress() { Task { await model.saveProgress(snapshot) } }
+                }
             } else {
                 ContentUnavailableView {
                     Label("留一点时间，读一本书", systemImage: "book")

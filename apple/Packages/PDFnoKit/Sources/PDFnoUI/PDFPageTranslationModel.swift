@@ -24,14 +24,19 @@ public final class PDFPageTranslationModel: ObservableObject {
     let offlineTransport: Bool
     private let transport: any AIHTTPTransport
     private let timeoutSeconds: Double
-    private let budget = DeepSeekSelectionBudget(maxAttempts: PDFPageTranslationPolicy.maxSessionRequests)
+    private let budget: DeepSeekSelectionBudget
     private let coordinator = AIJobCoordinator()
     private let credentials = SessionCredentialStore()
     private var credentialReference: UUID?
     private var task: Task<Void, Never>?
     private var generation = UUID()
-    public init(transport: any AIHTTPTransport = URLSessionAITransport(), timeoutSeconds: Double = 30, offlineTransport: Bool = false) {
+    public init(transport: any AIHTTPTransport = URLSessionAITransport(), timeoutSeconds: Double = 30, offlineTransport: Bool = false, aiSession: AppAISession = .shared) {
         self.transport = transport; self.timeoutSeconds = timeoutSeconds; self.offlineTransport = offlineTransport
+        budget = aiSession.page
+        Task { [weak self, budget] in
+            let used = await budget.attemptsUsed()
+            guard let self else { return }; attemptsUsed = max(attemptsUsed, used)
+        }
     }
     func prepare(_ snapshot: PDFPageTextSnapshot) {
         do {

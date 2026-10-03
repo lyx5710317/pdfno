@@ -4,6 +4,12 @@ const ENTRY = 4 * 1024 * 1024, TOTAL = 50 * 1024 * 1024;
 export const safePath = name => typeof name === 'string' && name.length > 0 && name.length <= 1024 &&
   !/^[\/]|[\\:%\x00-\x1f\x7f]/.test(name) && name.split('/').every((p,i,a) => p !== '.' && p !== '..' && (p || i === a.length-1));
 const safeReference = value => !/^[\/]|[\\:\x00-\x1f]/.test(value) && !/%(?:2e|2f|5c|00)/i.test(value);
+const mediaTypes={xhtml:'application/xhtml+xml',html:'application/xhtml+xml',opf:'application/oebps-package+xml',ncx:'application/x-dtbncx+xml',css:'text/css',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',xml:'application/xml'};
+export function contentKind(name,mime) {
+  const extension=name.split('.').pop().toLowerCase(), expected=mediaTypes[extension];
+  if(!expected || (mime && mime!==expected))throw Error('Unsupported publication resource or MIME/suffix mismatch');
+  return extension;
+}
 function css(text) {
   // Fail closed for escaped CSS and import rules; author layout/ruby CSS remains.
   return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@import[^;]*(?:;|$)/gi, '')
@@ -11,16 +17,25 @@ function css(text) {
     .replace(/(?:behavior|-moz-binding)\s*:[^;}]*/gi, '');
 }
 export function sanitise(text, name) {
+  const kind=contentKind(name);
   if (/<!DOCTYPE|<!ENTITY/i.test(text)) throw Error('XML declarations are not accepted');
-  if (/\.css$/i.test(name)) return css(text);
-  if (!/\.(?:xhtml|html|xml|opf|ncx)$/i.test(name)) return text;
+  if (kind==='css') return css(text);
+  if (!['xhtml','html','xml','opf','ncx'].includes(kind))throw Error('Binary resource cannot be loaded as text');
   const isHTML = /\.(?:xhtml|html)$/i.test(name);
   const doc = new DOMParser().parseFromString(text, isHTML ? 'application/xhtml+xml' : 'application/xml');
   if (doc.querySelector('parsererror')) throw Error('Invalid publication XML');
+  const instructions=doc.createTreeWalker(doc,64);if(instructions.nextNode())throw Error('Publication processing instructions are not accepted');
+  const namespaces=new Set(isHTML?['http://www.w3.org/1999/xhtml']:['urn:oasis:names:tc:opendocument:xmlns:container','http://www.idpf.org/2007/opf','http://purl.org/dc/elements/1.1/','http://www.daisy.org/z3986/2005/ncx/']);
   for (const node of [...doc.querySelectorAll('*')]) {
     const tag = node.localName.toLowerCase();
     if (['script','iframe','object','embed','form','input','button','base','svg','math','audio','video'].includes(tag) ||
         (tag === 'meta' && node.hasAttribute('http-equiv'))) { node.remove(); continue; }
+    if(!namespaces.has(node.namespaceURI))throw Error('Unexpected publication namespace');
+    if(kind==='opf'&&tag==='item'){
+      const href=node.getAttribute('href'),mime=node.getAttribute('media-type');
+      if(!href||!safeReference(href)||href.includes('#')||!mime)throw Error('Invalid publication manifest resource');
+      contentKind(href,mime);
+    }
     for (const attr of [...node.attributes]) {
       const key = attr.localName.toLowerCase();
       if (key.startsWith('on') || ['srcdoc','action','formaction','srcset'].includes(key)) node.removeAttributeNode(attr);
@@ -57,10 +72,12 @@ export async function makeLoader(buffer, allowedNames) {
     cache.set(name,pending); return pending;
   };
   const loadText = async name => {
+    contentKind(name);
     const data = await bytes(name);
     return data ? sanitise(new TextDecoder('utf-8',{fatal:true}).decode(data),name) : '';
   };
   const loadBlob = async name => {
+    contentKind(name);
     if (/\.(?:xhtml|html|xml|opf|ncx|css)$/i.test(name)) return new Blob([await loadText(name)]);
     if (!/\.(?:png|jpe?g)$/i.test(name)) throw Error('Only bounded static PNG/JPEG image resources are currently accepted');
     const data = await bytes(name);

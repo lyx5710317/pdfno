@@ -95,7 +95,7 @@ struct DeepSeekSelectionTests {
     @Test @MainActor func PDFAndEPUBNativeModelManualSaveSessionKeyAndSourceRecords() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Reading-AI-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let transport = SelectionStub(), model = AILearningModel(root: root, transport: transport)
+        let transport = SelectionStub(), model = AILearningModel(root: root, transport: transport, aiSession: AppAISession())
         #expect(await model.saveConfig(DeepSeekSelectionPolicy.configuration(), temporarySecret: selectionFakeKey))
         for epub in [false, true] {
             let selected = source(epub: epub); model.prepare(selected); model.kind = epub ? .explain : .translate; model.userText = "Independent original user note"
@@ -114,7 +114,7 @@ struct DeepSeekSelectionTests {
         #expect(model.notes.count == 2 && model.remoteAttemptsUsed == 2)
         let file = try Data(contentsOf: root.appendingPathComponent("learning-v1.json"))
         #expect(!String(decoding: file, as: UTF8.self).contains(selectionFakeKey))
-        let restarted = AILearningModel(root: root, transport: transport); await restarted.load()
+        let restarted = AILearningModel(root: root, transport: transport, aiSession: AppAISession()); await restarted.load()
         #expect(!restarted.hasSessionCredential && restarted.notes.count == 2)
         await model.clearSessionCredential(); #expect(!model.hasSessionCredential && model.result != nil && model.notes.count == 2)
         restarted.prepare(source()); restarted.start(confirmed: true, sourceIsCurrent: { _ in true })
@@ -125,7 +125,7 @@ struct DeepSeekSelectionTests {
         for timeout in [false, true] {
             let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Reading-Cancel-" + UUID().uuidString)
             defer { try? FileManager.default.removeItem(at: root) }
-            let transport = SelectionDeferred(), model = AILearningModel(root: root, transport: transport, timeoutSeconds: timeout ? 0.1 : 30)
+            let transport = SelectionDeferred(), model = AILearningModel(root: root, transport: transport, timeoutSeconds: timeout ? 0.1 : 30, aiSession: AppAISession())
             #expect(await model.saveConfig(DeepSeekSelectionPolicy.configuration(), temporarySecret: selectionFakeKey))
             let selected = source(); model.prepare(selected); model.userText = "Keep original independent draft"
             model.start(confirmed: true, sourceIsCurrent: { _ in true })

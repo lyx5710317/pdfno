@@ -7,7 +7,7 @@ import PDFnoDomain
 @testable import PDFnoUI
 
 /// Original synthetic OOXML/ZIP fixtures are generated in memory; no user or third-party documents.
-private enum ConversionFixture {
+enum ConversionFixture {
     static let wordNS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     static let types = "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/></Types>"
     static let relationships = "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/></Relationships>"
@@ -89,6 +89,18 @@ private struct CancellationProbeAdapter: DocumentConversionAdapter {
 }
 
 struct ConversionTests {
+    @Test func acceptedMovesExcludeOldLocationInTextAndHTML() throws {
+        let body = "<w:p><w:moveFrom w:id=\"1\"><w:r><w:t>OLD 日本語🌸</w:t></w:r></w:moveFrom></w:p><w:tbl><w:tr><w:tc><w:p><w:moveTo w:id=\"2\"><w:ins><w:r><w:t>Accepted 日本語🌸 café</w:t></w:r></w:ins></w:moveTo><w:del><w:r><w:t>Deleted</w:t></w:r></w:del></w:p></w:tc></w:tr></w:tbl>"
+        let bytes = try ConversionFixture.zip(ConversionFixture.members(ConversionFixture.document(body)))
+        let digest = LibraryRepository.digest(bytes)
+        for format in [ConversionFormat.plainText, .html] {
+            let output = try DOCXTextConversionAdapter().convert(bytes, to: format)
+            let text = String(decoding: output.data, as: UTF8.self)
+            #expect(!text.contains("OLD") && !text.contains("Deleted"))
+            #expect(text.components(separatedBy: "Accepted 日本語🌸 café").count == 2)
+        }
+        #expect(LibraryRepository.digest(bytes) == digest)
+    }
     @Test func supportedDirectionsAreExplicit() async throws {
         let service = DocumentConversionService()
         #expect(service.capabilities.count == 2)

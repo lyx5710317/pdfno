@@ -24099,15 +24099,35 @@
       if (n.nodeType === 1 && ["li", "td", "th", "div", "blockquote"].includes(tag(n))) containers.push(n);
     });
     for (const container of containers.reverse()) wrapInline(container);
-    const blocks = [], tables = [];
-    let start = 0;
-    visit(root2, (node) => {
+    const tableIndices = /* @__PURE__ */ new Map(), rowIndices = /* @__PURE__ */ new Map(), cellIndices = /* @__PURE__ */ new Map(), rowCounts = /* @__PURE__ */ new Map();
+    let work = 0;
+    const boundedVisit = (node, fn) => {
+      if (++work > 1e6) throw Error("DOCX output work budget");
+      fn(node);
+      for (const child of children(node)) boundedVisit(child, fn);
+    };
+    boundedVisit(root2, (node) => {
       if (node.nodeType !== 1) return;
-      if (tag(node) === "table") tables.push(node);
+      if (tag(node) === "table") tableIndices.set(node, tableIndices.size);
+      if (tag(node) === "tr") {
+        const table = ancestor(node, (n) => tag(n) === "table");
+        if (table) {
+          const index2 = rowCounts.get(table) || 0;
+          rowIndices.set(node, index2);
+          rowCounts.set(table, index2 + 1);
+        }
+        let index = 0;
+        for (const cell of elements(node)) if (["td", "th"].includes(tag(cell))) cellIndices.set(cell, index++);
+      }
+    });
+    const blocks = [];
+    let start = 0;
+    boundedVisit(root2, (node) => {
+      if (node.nodeType !== 1) return;
       if (!blockTags.has(tag(node))) return;
       if (blocks.length >= 1e4) throw Error("DOCX paragraph budget");
       const runs = [];
-      visit(node, (n) => {
+      boundedVisit(node, (n) => {
         if (n.nodeType === 3 && n.nodeValue) {
           runs.push({ text: n.nodeValue, bold: !!ancestor(n, (p) => tag(p) === "strong"), italic: !!ancestor(n, (p) => tag(p) === "em") });
         }
@@ -24123,13 +24143,9 @@
         block.listLevel = Math.min(8, level);
       }
       if (table && tr && cell) {
-        block.table = tables.indexOf(table);
-        const rows = [];
-        visit(table, (n) => {
-          if (tag(n) === "tr" && ancestor(n, (p) => tag(p) === "table") === table) rows.push(n);
-        });
-        block.row = rows.indexOf(tr);
-        block.cell = elements(tr).filter((n) => ["td", "th"].includes(tag(n))).indexOf(cell);
+        block.table = tableIndices.get(table);
+        block.row = rowIndices.get(tr);
+        block.cell = cellIndices.get(cell);
       }
       node.setAttribute("id", "b" + block.id);
       node.setAttribute("data-block", String(block.id));

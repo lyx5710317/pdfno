@@ -51,7 +51,7 @@ public final class LibraryModel: ObservableObject {
     }
     // Internal injection keeps native source/storage regressions in fresh test
     // directories without configuring or accessing the user's real library.
-    init(root: URL) {
+    init(root: URL, aiSession: AppAISession = .shared) {
         repository = LibraryRepository(root: root)
         epubRepository = EPUBRepository(root: root)
         comicRepository = ComicRepository(root: root)
@@ -61,11 +61,11 @@ public final class LibraryModel: ObservableObject {
         #if DEBUG
         if let token = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"], UUID(uuidString: token) != nil,
            ProcessInfo.processInfo.environment["PDFNO_UI_TEST_DEEPSEEK"] == "offline" {
-            learning = AILearningModel(root: root, transport: OfflineSelectionUITestTransport(), offlineTransport: true)
-            pageTranslation = PDFPageTranslationModel(transport: OfflineSelectionUITestTransport(pageScenario: ProcessInfo.processInfo.environment["PDFNO_UI_TEST_PAGE_RESPONSE"]), offlineTransport: true)
-        } else { learning = AILearningModel(root: root); pageTranslation = PDFPageTranslationModel() }
+            learning = AILearningModel(root: root, transport: OfflineSelectionUITestTransport(), offlineTransport: true, aiSession: aiSession)
+            pageTranslation = PDFPageTranslationModel(transport: OfflineSelectionUITestTransport(pageScenario: ProcessInfo.processInfo.environment["PDFNO_UI_TEST_PAGE_RESPONSE"]), offlineTransport: true, aiSession: aiSession)
+        } else { learning = AILearningModel(root: root, aiSession: aiSession); pageTranslation = PDFPageTranslationModel(aiSession: aiSession) }
         #else
-        learning = AILearningModel(root: root); pageTranslation = PDFPageTranslationModel()
+        learning = AILearningModel(root: root, aiSession: aiSession); pageTranslation = PDFPageTranslationModel(aiSession: aiSession)
         #endif
         #if os(macOS)
         // The sidebar reads this nested model even while its reader is inactive.
@@ -84,6 +84,7 @@ public final class LibraryModel: ObservableObject {
         return FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-UITests-" + value.uuidString)
         #endif
     }
+    private var progressSequence = 0
     func load() async {
         #if os(macOS)
         comic.persist = { [comicRepository] bookID, progress in try await comicRepository.saveProgress(progress, bookID: bookID) }
@@ -100,6 +101,7 @@ public final class LibraryModel: ObservableObject {
     }
     func importFile(_ url: URL) async {
         learning.cancel(); pageTranslation.cancel()
+        await saveProgress()
         if url.pathExtension.lowercased() == "doc" { error = DOCXError.legacyDOC.localizedDescription; return }
         #if os(macOS)
         if url.pathExtension.lowercased() == "docx" { await importDOCX(url); return }
@@ -115,7 +117,7 @@ public final class LibraryModel: ObservableObject {
             let size = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
             guard size.isRegularFile == true else { throw LibraryError.invalidDocument }
             guard let bytes = size.fileSize, bytes <= 200 * 1024 * 1024 else { throw LibraryError.fileTooLarge }
-            let data = try await Task.detached { try Data(contentsOf: url) }.value
+            let data = try await Task.detached { try BoundedFileReader.read(url, limit: 200 * 1024 * 1024) }.value
             guard let document = PDFDocument(data: data), !document.isLocked, document.pageCount > 0 else { throw ReaderError.invalidPDF }
             let book = try await repository.importPDF(data, filename: url.lastPathComponent, pageCount: document.pageCount)
             await load(); try reader.open(data: data, book: book); reader.project(notes)
@@ -131,8 +133,12 @@ public final class LibraryModel: ObservableObject {
         guard !isBusy else { return }
         isBusy = true; defer { isBusy = false }
         do {
-            let data = try await repository.readAsset(for: book)
-            try reader.open(data: data, book: book); reader.project(notes)
+            await saveProgress()
+            let state = try await repository.load()
+            guard let current = state.books.first(where: { $0.id == book.id }) else { throw LibraryError.sourceMismatch }
+            let data = try await repository.readAsset(for: current)
+            books = state.books; notes = state.notes
+            try reader.open(data: data, book: current); reader.project(notes)
             #if os(macOS)
             epub.close(); comic.close(); docx.deactivate()
             #endif
@@ -172,20 +178,39 @@ public final class LibraryModel: ObservableObject {
             await load(); reader.project(notes); status = "高亮与笔记已保存到本地"; return true
         } catch { self.error = error.localizedDescription; return false }
     }
-    func saveProgress() async {
-        guard let book = reader.book else { return }
-        do { try await repository.saveProgress(bookID: book.id, pageIndex: reader.pageIndex) }
+    struct PDFProgressSnapshot {
+        let bookID: UUID
+        let sessionID: UUID
+        let pageIndex: Int
+        let sequence: Int
+    }
+    func capturePDFProgress() -> PDFProgressSnapshot? {
+        guard !readingEPUB, !readingComic, let book = reader.book else { return nil }
+        #if os(macOS)
+        guard !docx.isActive else { return nil }
+        #endif
+        progressSequence += 1
+        return PDFProgressSnapshot(bookID: book.id, sessionID: reader.readerSessionID, pageIndex: reader.pageIndex, sequence: progressSequence)
+    }
+    func saveProgress() async { if let snapshot = capturePDFProgress() { await saveProgress(snapshot) } }
+    func saveProgress(_ snapshot: PDFProgressSnapshot) async {
+        guard snapshot.sequence == progressSequence, snapshot.sessionID == reader.readerSessionID, snapshot.bookID == reader.book?.id else { return }
+        do {
+            try await repository.saveProgress(bookID: snapshot.bookID, pageIndex: snapshot.pageIndex)
+            books = try await repository.load().books
+        }
         catch { self.error = error.localizedDescription }
     }
     func importEPUB(_ url: URL) async {
         learning.cancel(); pageTranslation.cancel()
         #if os(macOS)
         guard canImport, !isBusy else { return }; isBusy = true; defer { isBusy = false }
+        await saveProgress()
         let scoped = url.startAccessingSecurityScopedResource(); defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         do {
             let info = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
             guard info.isRegularFile == true, let size = info.fileSize, size <= 20 * 1024 * 1024 else { throw EPUBError.resourceLimit }
-            let data = try await Task.detached { try Data(contentsOf: url) }.value
+            let data = try await Task.detached { try BoundedFileReader.read(url, limit: 20 * 1024 * 1024) }.value
             let book = try await epubRepository.importBook(data, filename: url.lastPathComponent)
             await load(); try await epub.open(data: data, book: book, notes: epubNotes)
             comic.close(); docx.deactivate(); readingComic = false; readingEPUB = true
@@ -198,6 +223,7 @@ public final class LibraryModel: ObservableObject {
         learning.cancel(); pageTranslation.cancel()
         #if os(macOS)
         guard !isBusy else { return }; isBusy = true; defer { isBusy = false }
+        await saveProgress()
         do {
             let state = try await epubRepository.load()
             guard let current = state.books.first(where: { $0.id == book.id }) else { throw EPUBError.sourceMismatch }
@@ -217,6 +243,7 @@ public final class LibraryModel: ObservableObject {
     func importDOCX(_ url: URL) async {
         learning.cancel(); pageTranslation.cancel()
         guard canImport, !isBusy else { return }; isBusy = true; defer { isBusy = false }
+        await saveProgress()
         do {
             try await docx.importFile(url); epub.close(); comic.close(); readingComic = false; readingEPUB = false
             status = "DOCX 已保存到本地 · 语义重排阅读"
@@ -228,6 +255,7 @@ public final class LibraryModel: ObservableObject {
     func openDOCX(_ book: DOCXBook) async {
         learning.cancel(); pageTranslation.cancel()
         guard !isBusy else { return }; isBusy = true; defer { isBusy = false }
+        await saveProgress()
         do { try await docx.open(book); epub.close(); comic.close(); readingComic = false; readingEPUB = false }
         catch { self.error = error.localizedDescription }
     }

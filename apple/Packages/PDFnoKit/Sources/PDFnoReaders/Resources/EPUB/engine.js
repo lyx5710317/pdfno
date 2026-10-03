@@ -17880,21 +17880,37 @@
   var TOTAL = 50 * 1024 * 1024;
   var safePath = (name) => typeof name === "string" && name.length > 0 && name.length <= 1024 && !/^[\/]|[\\:%\x00-\x1f\x7f]/.test(name) && name.split("/").every((p, i, a) => p !== "." && p !== ".." && (p || i === a.length - 1));
   var safeReference = (value) => !/^[\/]|[\\:\x00-\x1f]/.test(value) && !/%(?:2e|2f|5c|00)/i.test(value);
+  var mediaTypes = { xhtml: "application/xhtml+xml", html: "application/xhtml+xml", opf: "application/oebps-package+xml", ncx: "application/x-dtbncx+xml", css: "text/css", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", xml: "application/xml" };
+  function contentKind(name, mime) {
+    const extension = name.split(".").pop().toLowerCase(), expected = mediaTypes[extension];
+    if (!expected || mime && mime !== expected) throw Error("Unsupported publication resource or MIME/suffix mismatch");
+    return extension;
+  }
   function css(text) {
     return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/@import[^;]*(?:;|$)/gi, "").replace(/url\([^)]*\)/gi, "none").replace(/[^{};]*[\\][^{};]*(?:;|$)/g, "").replace(/(?:behavior|-moz-binding)\s*:[^;}]*/gi, "");
   }
   function sanitise(text, name) {
+    const kind = contentKind(name);
     if (/<!DOCTYPE|<!ENTITY/i.test(text)) throw Error("XML declarations are not accepted");
-    if (/\.css$/i.test(name)) return css(text);
-    if (!/\.(?:xhtml|html|xml|opf|ncx)$/i.test(name)) return text;
+    if (kind === "css") return css(text);
+    if (!["xhtml", "html", "xml", "opf", "ncx"].includes(kind)) throw Error("Binary resource cannot be loaded as text");
     const isHTML = /\.(?:xhtml|html)$/i.test(name);
     const doc2 = new DOMParser().parseFromString(text, isHTML ? "application/xhtml+xml" : "application/xml");
     if (doc2.querySelector("parsererror")) throw Error("Invalid publication XML");
+    const instructions = doc2.createTreeWalker(doc2, 64);
+    if (instructions.nextNode()) throw Error("Publication processing instructions are not accepted");
+    const namespaces = new Set(isHTML ? ["http://www.w3.org/1999/xhtml"] : ["urn:oasis:names:tc:opendocument:xmlns:container", "http://www.idpf.org/2007/opf", "http://purl.org/dc/elements/1.1/", "http://www.daisy.org/z3986/2005/ncx/"]);
     for (const node2 of [...doc2.querySelectorAll("*")]) {
       const tag = node2.localName.toLowerCase();
       if (["script", "iframe", "object", "embed", "form", "input", "button", "base", "svg", "math", "audio", "video"].includes(tag) || tag === "meta" && node2.hasAttribute("http-equiv")) {
         node2.remove();
         continue;
+      }
+      if (!namespaces.has(node2.namespaceURI)) throw Error("Unexpected publication namespace");
+      if (kind === "opf" && tag === "item") {
+        const href = node2.getAttribute("href"), mime = node2.getAttribute("media-type");
+        if (!href || !safeReference(href) || href.includes("#") || !mime) throw Error("Invalid publication manifest resource");
+        contentKind(href, mime);
       }
       for (const attr of [...node2.attributes]) {
         const key = attr.localName.toLowerCase();
@@ -17943,10 +17959,12 @@
       return pending;
     };
     const loadText = async (name) => {
+      contentKind(name);
       const data = await bytes(name);
       return data ? sanitise(new TextDecoder("utf-8", { fatal: true }).decode(data), name) : "";
     };
     const loadBlob = async (name) => {
+      contentKind(name);
       if (/\.(?:xhtml|html|xml|opf|ncx|css)$/i.test(name)) return new Blob([await loadText(name)]);
       if (!/\.(?:png|jpe?g)$/i.test(name)) throw Error("Only bounded static PNG/JPEG image resources are currently accepted");
       const data = await bytes(name);
@@ -18051,9 +18069,10 @@
   }
   function makeAnchor(start, end) {
     const { text } = canonical();
-    if (end <= start || end - start > 16e3) return null;
     const low = (value) => value >= 56320 && value <= 57343;
-    if (low(text.charCodeAt(start)) || low(text.charCodeAt(end))) return null;
+    if (low(text.charCodeAt(start))) start--;
+    if (low(text.charCodeAt(end))) end++;
+    if (start < 0 || end > text.length || end <= start || end - start > 16e3) return null;
     let before2 = Math.max(0, start - 64), after2 = Math.min(text.length, end + 64);
     if (low(text.charCodeAt(before2))) before2++;
     if (low(text.charCodeAt(after2))) after2--;
@@ -18153,13 +18172,27 @@
   }
   function progress() {
     const { nodes } = canonical(), width = renderer.element.clientWidth, height = renderer.element.clientHeight;
-    let visible = nodes.find((x) => {
-      const range2 = doc().createRange();
-      range2.selectNodeContents(x.node);
-      return [...range2.getClientRects()].some((r) => r.width > 0 && r.height > 0 && r.left < width && r.right > 0 && r.top < height && r.bottom > 0);
+    const visible = nodes.find((x) => {
+      const range3 = doc().createRange();
+      range3.selectNodeContents(x.node);
+      return [...range3.getClientRects()].some((r) => r.width > 0 && r.height > 0 && r.left < width && r.right > 0 && r.top < height && r.bottom > 0);
     });
-    if (!visible) visible = nodes.find((x) => x.end > x.start);
-    return visible ? makeAnchor(visible.start, Math.min(visible.end, visible.start + 128)) : null;
+    if (!visible) return null;
+    let low = 0, high = visible.node.length;
+    const range2 = doc().createRange(), vertical = renderer.isVertical();
+    const rectAt = (offset) => {
+      if (offset > 0 && /[\uDC00-\uDFFF]/.test(visible.node.data[offset])) offset--;
+      range2.setStart(visible.node, offset);
+      range2.setEnd(visible.node, Math.min(visible.node.length, offset + (visible.node.data.codePointAt(offset) > 65535 ? 2 : 1)));
+      return range2.getBoundingClientRect();
+    };
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2), r = rectAt(middle);
+      if (vertical ? r.bottom <= 0 : r.right <= 0) low = middle + 1;
+      else high = middle;
+    }
+    const start = visible.start + low;
+    return makeAnchor(start, Math.min(visible.end, start + 128));
   }
   function state() {
     const page = progressInfo(renderer.readerMode, doc(), renderer.element)?.currentPage ?? 1;
@@ -18175,10 +18208,18 @@
   }
   async function navigate(anchor) {
     await chapter(anchor.spineIndex, anchor.vertical);
-    const range2 = rangeFor(anchor);
-    const node2 = range2.startContainer.parentElement;
-    await renderer.goToNode(node2);
-    const selection2 = doc().getSelection();
+    const range2 = rangeFor(anchor), glyph = range2.cloneRange();
+    glyph.setEnd(range2.startContainer, Math.min(range2.startContainer.length, range2.startOffset + (range2.startContainer.data.codePointAt(range2.startOffset) > 65535 ? 2 : 1)));
+    const r = glyph.getBoundingClientRect(), d = doc(), vertical = renderer.isVertical();
+    const section = Math.floor((vertical ? renderer.element.clientHeight : renderer.element.clientWidth) / 12), gap = section % 2 === 0 ? section : section - 1;
+    const stride = (vertical ? d.body.clientHeight : d.body.clientWidth) + gap;
+    if (!Number.isFinite(stride) || stride <= 0) throw Error("Reader viewport unavailable");
+    const absolute = vertical ? r.top + d.body.scrollTop : r.left + d.body.scrollLeft;
+    const offset = Math.max(0, Math.floor((absolute + 0.5) / stride) * stride);
+    d.body.scrollTo(vertical ? 0 : offset, vertical ? offset : 0);
+    await renderer.record();
+    renderer.trigger("rendered");
+    const selection2 = d.getSelection();
     selection2.removeAllRanges();
     selection2.addRange(range2);
   }
@@ -18211,6 +18252,7 @@
     } else if (message.command === "chapter") await chapter(message.payload.index, false);
     else if (message.command === "vertical") {
       const anchor = progress();
+      if (!anchor) throw Error("No visible source position");
       anchor.vertical = !renderer.isVertical();
       await navigate(anchor);
     } else if (message.command === "navigate") await navigate(message.payload.anchor);

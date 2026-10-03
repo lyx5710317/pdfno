@@ -42,16 +42,17 @@ public actor DeepSeekSelfTest {
         var timer: Task<Void, Never>?
     }
     private var pending: Pending?
-    private var attempts = 0
-    public init(transport: any AIHTTPTransport = URLSessionAITransport()) { self.transport = transport }
-    public func attemptsUsed() -> Int { attempts }
+    private let budget: DeepSeekSelectionBudget
+    public init(transport: any AIHTTPTransport = URLSessionAITransport(), budget: DeepSeekSelectionBudget = AppAISession.shared.probe) {
+        self.transport = transport; self.budget = budget
+    }
+    public func attemptsUsed() async -> Int { await budget.attemptsUsed() }
 
     public func run(temporaryKey: String, confirmedScopeAndBudget: Bool, timeoutSeconds: TimeInterval = DeepSeekSelfTest.timeoutSeconds) async throws -> String {
         guard confirmedScopeAndBudget else { throw DeepSeekTestFailure.consent }
         guard CredentialValidation.valid(temporaryKey) else { throw DeepSeekTestFailure.credentials }
         guard timeoutSeconds.isFinite, timeoutSeconds > 0, timeoutSeconds <= Self.timeoutSeconds else { throw DeepSeekTestFailure.timeout }
         guard pending == nil else { throw DeepSeekTestFailure.busy }
-        guard attempts < Self.maxAttempts else { throw DeepSeekTestFailure.limit }
         guard !Task.isCancelled else { throw DeepSeekTestFailure.cancelled }
         let id = UUID()
         // The URL is a literal, never taken from reader content or user configuration.
@@ -67,11 +68,14 @@ public actor DeepSeekSelfTest {
             ]
         ], options: [.sortedKeys])
         let http = request
+        do { try await budget.reserve() }
+        catch is CancellationError { throw DeepSeekTestFailure.cancelled }
+        catch { throw DeepSeekTestFailure.limit }
+        guard pending == nil else { throw DeepSeekTestFailure.busy }
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 guard !Task.isCancelled else { continuation.resume(throwing: DeepSeekTestFailure.cancelled); return }
                 // Failed, timed-out and cancelled submissions consume an attempt too.
-                attempts += 1
                 pending = Pending(id: id, continuation: continuation)
                 pending?.worker = Task {
                     do { self.finish(id, outcome: .success(try Self.decode(await transport.send(http)))) }

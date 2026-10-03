@@ -56,20 +56,32 @@ export function sanitiseDOCX(html,messages=[]) {
   }
   const containers=[];visit(root,n=>{if(n.nodeType===1&&['li','td','th','div','blockquote'].includes(tag(n)))containers.push(n);});
   for(const container of containers.reverse())wrapInline(container);
-  const blocks=[],tables=[];let start=0;
-  visit(root,node=>{
+  // Index each structural node once; never walk an entire table per paragraph.
+  const tableIndices=new Map(),rowIndices=new Map(),cellIndices=new Map(),rowCounts=new Map();
+  let work=0;
+  const boundedVisit=(node,fn)=>{if(++work>1000000)throw Error('DOCX output work budget');fn(node);for(const child of children(node))boundedVisit(child,fn);};
+  boundedVisit(root,node=>{
     if(node.nodeType!==1)return;
-    if(tag(node)==='table')tables.push(node);
+    if(tag(node)==='table')tableIndices.set(node,tableIndices.size);
+    if(tag(node)==='tr'){
+      const table=ancestor(node,n=>tag(n)==='table');
+      if(table){const index=rowCounts.get(table)||0;rowIndices.set(node,index);rowCounts.set(table,index+1);}
+      let index=0;for(const cell of elements(node))if(['td','th'].includes(tag(cell)))cellIndices.set(cell,index++);
+    }
+  });
+  const blocks=[];let start=0;
+  boundedVisit(root,node=>{
+    if(node.nodeType!==1)return;
     if(!blockTags.has(tag(node)))return;
     if(blocks.length>=10000)throw Error('DOCX paragraph budget');
     const runs=[];
-    visit(node,n=>{if(n.nodeType===3&&n.nodeValue){runs.push({text:n.nodeValue,bold:!!ancestor(n,p=>tag(p)==='strong'),italic:!!ancestor(n,p=>tag(p)==='em')});}});
+    boundedVisit(node,n=>{if(n.nodeType===3&&n.nodeValue){runs.push({text:n.nodeValue,bold:!!ancestor(n,p=>tag(p)==='strong'),italic:!!ancestor(n,p=>tag(p)==='em')});}});
     const text=runs.map(x=>x.text).join('');if(start+text.length>1000000)throw Error('DOCX text budget');
     const li=ancestor(node,n=>tag(n)==='li'),table=ancestor(node,n=>tag(n)==='table'),tr=ancestor(node,n=>tag(n)==='tr'),cell=ancestor(node,n=>['td','th'].includes(tag(n)));
     const block={id:blocks.length,runs,start};
     if(/^h[1-6]$/.test(tag(node)))block.headingLevel=Number(tag(node).slice(1));
     if(li){let level=0;for(let p=li.parentNode;p;p=p.parentNode)if(tag(p)==='li')level++;block.listLevel=Math.min(8,level);}
-    if(table&&tr&&cell){block.table=tables.indexOf(table);const rows=[];visit(table,n=>{if(tag(n)==='tr'&&ancestor(n,p=>tag(p)==='table')===table)rows.push(n);});block.row=rows.indexOf(tr);block.cell=elements(tr).filter(n=>['td','th'].includes(tag(n))).indexOf(cell);}
+    if(table&&tr&&cell){block.table=tableIndices.get(table);block.row=rowIndices.get(tr);block.cell=cellIndices.get(cell);}
     node.setAttribute('id','b'+block.id);node.setAttribute('data-block',String(block.id));node.setAttribute('data-start',String(start));
     blocks.push(block);start+=text.length+1;
   });

@@ -1,0 +1,698 @@
+{
+  "schemaVersion": 1,
+  "baselineSHA": "05cbcf537e0ae85b2831a6b86e500e5d7d2b0a94",
+  "formalCount": 83,
+  "categoryCounts": {
+    "R": 17,
+    "T": 22,
+    "U": 13,
+    "S": 8,
+    "J": 8,
+    "UAT": 15
+  },
+  "spec": "docs/PDFno_AI_Development_Spec_v0.3_Native.md",
+  "countCorrection": "95 mixed 83 formal IDs, 7 legacy UI IDs, 3 legacy AI IDs and 2 endpoint tokens A00/A15. A00–A15 describes a legacy 16-task range, not two formal requirements.",
+  "legacyReferences": {
+    "UI": [
+      "UI01",
+      "UI02",
+      "UI03",
+      "UI04",
+      "UI05",
+      "UI06",
+      "UI07"
+    ],
+    "AI": [
+      "AI01",
+      "AI02",
+      "AI03"
+    ],
+    "A": "A00–A15 (legacy task range; no new definitions inferred)"
+  },
+  "items": [
+    {
+      "id": "R01",
+      "title": "`pdfno` / `PDFno`，Mac 优先，长期 Mac＋iPhone＋iPad",
+      "baselineStatus": "部分/E1+E2+E3",
+      "auditBaselineAssessment": "真实原生入口、Mac优先；三端长期目标未完成，移动只基础PDF/编译输入。",
+      "specLine": 49,
+      "specRow": "| R01 | CONFIRMED | `pdfno` / `PDFno`，Mac 优先，长期 Mac＋iPhone＋iPad | 4、14、16；T18、T20 |"
+    },
+    {
+      "id": "R02",
+      "title": "5.3 全部18种格式为最终阅读目标，未来支持漫画AI翻译；Kookit public core 已选为其他格式优先路线；阶段切片不缩减目标，PDF 固定 PDFKit",
+      "baselineStatus": "部分/有缺陷",
+      "auditBaselineAssessment": "18目标保留、当前四有限Mac格式；DF-04；其余14/漫画AI未接入。",
+      "specLine": 50,
+      "specRow": "| R02 | CONFIRMED，架构已修正 | 5.3 全部18种格式为最终阅读目标，未来支持漫画AI翻译；Kookit public core 已选为其他格式优先路线；阶段切片不缩减目标，PDF 固定 PDFKit | 5；T01、T02、T03 |"
+    },
+    {
+      "id": "R03",
+      "title": "自有源码 AGPL-3.0-or-later，免费/收费未定；第三方许可独立核验",
+      "baselineStatus": "本子范围未验收",
+      "auditBaselineAssessment": "AGPL声明存在；全依赖/源码许可结论交由专门子审计，不依据声明直接通过。",
+      "specLine": 51,
+      "specRow": "| R03 | CONFIRMED | 自有源码 AGPL-3.0-or-later，免费/收费未定；第三方许可独立核验 | 2、5、16 |"
+    },
+    {
+      "id": "R04",
+      "title": "用户配置 endpoint / key / model 的 BYOK",
+      "baselineStatus": "部分/E2",
+      "auditBaselineAssessment": "官方DeepSeek session BYOK可用；其他endpoint/model预览，持久Keychain/全provider未实现。",
+      "specLine": 52,
+      "specRow": "| R04 | CONFIRMED | 用户配置 endpoint / key / model 的 BYOK | 9；T09、T10 |"
+    },
+    {
+      "id": "R05",
+      "title": "整页翻译与章节双语翻译；PDF 物理页、EPUB 页快照和章节不同",
+      "baselineStatus": "部分/E2",
+      "auditBaselineAssessment": "有限PDF物理页≤3000/≤6；EPUB页/章节双语未实现、续传/重试未实现。",
+      "specLine": 53,
+      "specRow": "| R05 | CONFIRMED | 整页翻译与章节双语翻译；PDF 物理页、EPUB 页快照和章节不同 | 8、14；T07、UAT08 |"
+    },
+    {
+      "id": "R06",
+      "title": "日语假名、日语和英语语法，保留作者 ruby、支持原文回跳",
+      "baselineStatus": "部分/E2",
+      "auditBaselineAssessment": "作者ruby保留/排除读音、选文解释；生成假名/结构化英日语法未实现。",
+      "specLine": 54,
+      "specRow": "| R06 | CONFIRMED | 日语假名、日语和英语语法，保留作者 ruby、支持原文回跳 | 7、10；T04–T06 |"
+    },
+    {
+      "id": "R07",
+      "title": "选字高亮、笔记、学习记录、可靠保存与恢复",
+      "baselineStatus": "部分/有缺陷",
+      "auditBaselineAssessment": "已保存notes闭环；DF-01/04/05/06；编辑/删除和完整恢复待补。",
+      "specLine": 55,
+      "specRow": "| R07 | CONFIRMED | 选字高亮、笔记、学习记录、可靠保存与恢复 | 6、7、15；T11、UAT02 |"
+    },
+    {
+      "id": "R08",
+      "title": "Bookno 独立 API 同步书籍、封面、高亮、笔记；契约与实现尚不存在保证",
+      "baselineStatus": "未实现",
+      "auditBaselineAssessment": "没有Bookno transport/契约/资产交换，不能用本地仓库冒充同步。",
+      "specLine": 56,
+      "specRow": "| R08 | CONFIRMED | Bookno 独立 API 同步书籍、封面、高亮、笔记；契约与实现尚不存在保证 | 11；T12–T14 |"
+    },
+    {
+      "id": "R09",
+      "title": "PDFno 三端 iCloud；内容和后端待决策，离线可用",
+      "baselineStatus": "未实现",
+      "auditBaselineAssessment": "没有CloudKit容器/身份/传输/设备同步。",
+      "specLine": 57,
+      "specRow": "| R09 | CONFIRMED | PDFno 三端 iCloud；内容和后端待决策，离线可用 | 12；T15、T16、T21 |"
+    },
+    {
+      "id": "R10",
+      "title": "PDF / Word / EPUB 等转换，方向和质量逐项验收",
+      "baselineStatus": "部分/有缺陷",
+      "auditBaselineAssessment": "只有DOCX正文TXT/HTML，DF-02/03；七原方向均未实现。",
+      "specLine": 58,
+      "specRow": "| R10 | CONFIRMED | PDF / Word / EPUB 等转换，方向和质量逐项验收 | 13；T17 |"
+    },
+    {
+      "id": "R11",
+      "title": "参考 UPDF 信息结构和交互，自有品牌，兼顾 Bookno 家族",
+      "baselineStatus": "部分/参考",
+      "auditBaselineAssessment": "自有原生UI，UPDF仅信息/交互参考；完整九屏/三栏/行为验收未完成。",
+      "specLine": 59,
+      "specRow": "| R11 | CONFIRMED | 参考 UPDF 信息结构和交互，自有品牌，兼顾 Bookno 家族 | 14；UAT01–UAT15 |"
+    },
+    {
+      "id": "R12",
+      "title": "最终 MVP、定价、收费和发布日期",
+      "baselineStatus": "决策待定",
+      "auditBaselineAssessment": "MVP/定价/日期非源码可验收事项。",
+      "specLine": 60,
+      "specRow": "| R12 | DECISION | 最终 MVP、定价、收费和发布日期 | 3、19；阶段建议不是承诺 |"
+    },
+    {
+      "id": "R13",
+      "title": "长期三端支持已定；不再询问是否支持 iOS。具体最低版本、同步数据与设备实测待定",
+      "baselineStatus": "目标保留/未验收",
+      "auditBaselineAssessment": "Mac/iPhone/iPad已定；最低OS/真机/设备矩阵未验证。",
+      "specLine": 61,
+      "specRow": "| R13 | CONFIRMED，已解除旧未定 | 长期三端支持已定；不再询问是否支持 iOS。具体最低版本、同步数据与设备实测待定 | 4、12、16 |"
+    },
+    {
+      "id": "R14",
+      "title": "首个高保真互转方向（已有有限DOCX正文TXT/HTML）、OCR 首版范围、Bookno 单向/双向及传输",
+      "baselineStatus": "决策待定",
+      "auditBaselineAssessment": "首个高保真互转/OCR/Bookno传输尚待明确，不以正文导出替代。",
+      "specLine": 62,
+      "specRow": "| R14 | DECISION | 首个高保真互转方向（已有有限DOCX正文TXT/HTML）、OCR 首版范围、Bookno 单向/双向及传输 | 11、13、19 |"
+    },
+    {
+      "id": "R15",
+      "title": "Swift 原生主界面＋PDFKit，真正 application targets，共享 Swift packages",
+      "baselineStatus": "部分/E1+E2+E3",
+      "auditBaselineAssessment": "真实两target/共享包/纯Domain；包可编译，完整应用build为输入证据。",
+      "specLine": 63,
+      "specRow": "| R15 | CONFIRMED | Swift 原生主界面＋PDFKit，真正 application targets，共享 Swift packages | 4、5；T20 |"
+    },
+    {
+      "id": "R16",
+      "title": "AI 问答；文档、选区与通用会话范围清晰，引用可校验",
+      "baselineStatus": "未实现完整目标",
+      "auditBaselineAssessment": "选文translate/explain不是文档检索问答或通用会话。",
+      "specLine": 64,
+      "specRow": "| R16 | CONFIRMED | AI 问答；文档、选区与通用会话范围清晰，引用可校验 | 8、9、14.7；UAT04、UAT12 |"
+    },
+    {
+      "id": "R17",
+      "title": "三端手势、键盘、无障碍；iPad Apple Pencil 分阶段设计",
+      "baselineStatus": "待实现/未验收",
+      "auditBaselineAssessment": "键盘/VoiceOver/触摸/Pencil完整流程未验收。",
+      "specLine": 65,
+      "specRow": "| R17 | PROPOSED | 三端手势、键盘、无障碍；iPad Apple Pencil 分阶段设计 | 14.11；T19、T22 |"
+    },
+    {
+      "id": "T01",
+      "title": "格式回归",
+      "baselineStatus": "部分/E2+E3",
+      "auditBaselineAssessment": "四当前格式正常/异常原创样本；全18及真实语料覆盖未完成。",
+      "specLine": 1029,
+      "specRow": "| T01 | 格式回归 | 已接入格式清单每格式至少正常与异常样本 | 保留旧demo基线；已接入原生格式阅读/导航不回归，未接入目标明确待实现；异常不崩溃 |"
+    },
+    {
+      "id": "T02",
+      "title": "EPUB 锚点",
+      "baselineStatus": "有缺陷",
+      "auditBaselineAssessment": "DF-04长段落/UTF16进度；字号/窗口/竖排/重启黄金100%未达。",
+      "specLine": 1030,
+      "specRow": "| T02 | EPUB 锚点 | 高亮后改字号、窗口、竖排、重启 | 固定黄金样本 100% 返回同一原文；不确定匹配明确提示 |"
+    },
+    {
+      "id": "T03",
+      "title": "PDF 锚点",
+      "baselineStatus": "部分/缺口",
+      "auditBaselineAssessment": "基本PDFKit来源/回跳；复杂旋转/CropBox/DPI/多栏/多页矩阵未覆盖，DF-06。",
+      "specLine": 1031,
+      "specRow": "| T03 | PDF 锚点 | 缩放、旋转、裁切、高 DPI | 页面与引文一致；矩形误差按固定 PDF 单位阈值测试 |"
+    },
+    {
+      "id": "T04",
+      "title": "Unicode",
+      "baselineStatus": "有缺陷",
+      "auditBaselineAssessment": "选择/计划Unicode合约通过；progress128截断DF-04仍失败。",
+      "specLine": 1032,
+      "specRow": "| T04 | Unicode | 生成、转换、恢复所有边界 offset | 不切代理对或组合字形；quote 与 span 完全一致 |"
+    },
+    {
+      "id": "T05",
+      "title": "ruby",
+      "baselineStatus": "部分/E2",
+      "auditBaselineAssessment": "EPUB/DOCX作者ruby主文与读音分离已有fixture；所有重排/语言矩阵未验收。",
+      "specLine": 1033,
+      "specRow": "| T05 | ruby | 选区、上下文、保存、恢复 | 假名不混入主原文；作者 ruby 不丢失 |"
+    },
+    {
+      "id": "T06",
+      "title": "语法校验",
+      "baselineStatus": "未实现完整目标",
+      "auditBaselineAssessment": "严格quote/UTF16合约不等于语法schema/span运行链。",
+      "specLine": 1034,
+      "specRow": "| T06 | 语法校验 | 错 offset、重复短语、重叠、不存在引文 | 所有无效跨度被拒绝或标 warning，无错位高亮 |"
+    },
+    {
+      "id": "T07",
+      "title": "页翻译",
+      "baselineStatus": "部分/未达到",
+      "auditBaselineAssessment": "整页部分失败停止/保留片段E2；durable任务重开/不重复重试未实现。",
+      "specLine": 1035,
+      "specRow": "| T07 | 页翻译 | 重排后重开任务、部分失败和重试 | 结果仍对应原文快照；成功片段不重复扣请求 |"
+    },
+    {
+      "id": "T08",
+      "title": "取消与并发",
+      "baselineStatus": "部分/E2",
+      "auditBaselineAssessment": "取消/超时/切书/generation/迟到正确；共享请求订阅者/流式任务未实现。",
+      "specLine": 1036,
+      "specRow": "| T08 | 取消与并发 | 取消、切书、关窗、共享请求 | 不再发送排队片段；任务终态可解释，无泄漏 |"
+    },
+    {
+      "id": "T09",
+      "title": "BYOK",
+      "baselineStatus": "部分/E2",
+      "auditBaselineAssessment": "离线HTTP错误/预算/限时；真实服务、SSE/usage/跨provider能力未验收。",
+      "specLine": 1037,
+      "specRow": "| T09 | BYOK | 不同服务 mock 与真实获准服务 | 错误分型、SSE、超时、配额与能力降级一致 |"
+    },
+    {
+      "id": "T10",
+      "title": "安全",
+      "baselineStatus": "部分/E2/另审",
+      "auditBaselineAssessment": "归档/WebKit/bridge恶意原创样本；完整安全由其他报告合并，不能以通过样本证明无漏洞。",
+      "specLine": 1038,
+      "specRow": "| T10 | 安全 | 恶意 EPUB、HTML、提示注入、路径穿越 | 不获得越权文件、原生桥、秘密或任意执行能力 |"
+    },
+    {
+      "id": "T11",
+      "title": "本地数据",
+      "baselineStatus": "部分/缺口",
+      "auditBaselineAssessment": "schema/revision/backup/拒绝覆盖测试通过；迁移/磁盘满/crash/双进程未验收。",
+      "specLine": 1039,
+      "specRow": "| T11 | 本地数据 | 迁移中崩溃、磁盘满、恢复旧备份 | 可恢复已提交数据；失败不损坏唯一副本 |"
+    },
+    {
+      "id": "T12",
+      "title": "Bookno 幂等",
+      "baselineStatus": "未实现",
+      "auditBaselineAssessment": "Bookno幂等/乱序/回执没有运行实现。",
+      "specLine": 1040,
+      "specRow": "| T12 | Bookno 幂等 | 同批重试、乱序、断网、重复 ID、同修订异哈希、迟到回执 | 不重复建书与笔记；旧修订不覆盖；确认游标不倒退 |"
+    },
+    {
+      "id": "T13",
+      "title": "Bookno 冲突",
+      "baselineStatus": "未实现",
+      "auditBaselineAssessment": "Bookno双端编辑冲突未实现。",
+      "specLine": 1041,
+      "specRow": "| T13 | Bookno 冲突 | 两端改同笔记或封面 | 保留 Bookno 本地编辑，产生可解决冲突 |"
+    },
+    {
+      "id": "T14",
+      "title": "封面",
+      "baselineStatus": "未实现完整目标",
+      "auditBaselineAssessment": "真实封面/Bookno资产契约未实现；CBZ缩略图不是Bookno封面链。",
+      "specLine": 1042,
+      "specRow": "| T14 | 封面 | 相同哈希、损坏 MIME、大图、缺字节 | 校验、去重、明确失败；书籍可保留待补封面 |"
+    },
+    {
+      "id": "T15",
+      "title": "iCloud",
+      "baselineStatus": "未实现",
+      "auditBaselineAssessment": "iCloud双设备/账号/离线冲突未实现。",
+      "specLine": 1043,
+      "specRow": "| T15 | iCloud | 双设备离线编辑、时钟错乱、账号退出 | 无静默数据丢失，不依赖墙钟最后写入 |"
+    },
+    {
+      "id": "T16",
+      "title": "删除",
+      "baselineStatus": "未实现",
+      "auditBaselineAssessment": "全局墓碑/旧设备删除恢复未实现。",
+      "specLine": 1044,
+      "specRow": "| T16 | 删除 | 离线旧设备重新上线与恢复 | 不误复活已删记录，不清除未确认的新记录 |"
+    },
+    {
+      "id": "T17",
+      "title": "转换",
+      "baselineStatus": "部分/有缺陷",
+      "auditBaselineAssessment": "有限DOCX正文导出测试；DF-02/03；七方向黄金质量报告未实现。",
+      "specLine": 1045,
+      "specRow": "| T17 | 转换 | 每方向黄金样本、字体缺失、取消 | 输出新文件；可阅读；质量报告覆盖已知损失 |"
+    },
+    {
+      "id": "T18",
+      "title": "三端发布",
+      "baselineStatus": "未验收",
+      "auditBaselineAssessment": "双app build输入不是三端安装升级/签名公证/渠道发布。",
+      "specLine": 1046,
+      "specRow": "| T18 | 三端发布 | Mac与iPhone/iPad安装、升级、卸载；已定Mac架构 | 数据隔离、签名与公证按渠道通过 |"
+    },
+    {
+      "id": "T19",
+      "title": "可访问性",
+      "baselineStatus": "未验收",
+      "auditBaselineAssessment": "标识可用于XCTest不等于完整VoiceOver/键盘/大字/暗色验收。",
+      "specLine": 1047,
+      "specRow": "| T19 | 可访问性 | 键盘、VoiceOver、缩放、暗色 | 核心闭环可操作；状态可感知 |"
+    },
+    {
+      "id": "T20",
+      "title": "真正原生工程",
+      "baselineStatus": "部分/E1+E2+E3",
+      "auditBaselineAssessment": "实际app targets/纯Domain已查；两个build成功仅输入；真机/最低OS未运行。",
+      "specLine": 1084,
+      "specRow": "| T20 | 真正原生工程 | Mac application＋iPhone/iPad application构建/运行，Domain无UI依赖；CLI不充app，所有设备/SDK结果逐项报告 |"
+    },
+    {
+      "id": "T21",
+      "title": "云文档与账号",
+      "baselineStatus": "未实现",
+      "auditBaselineAssessment": "云metadata/资产/账号隔离/存储满/墓碑验收缺运行实现。",
+      "specLine": 1085,
+      "specRow": "| T21 | 云文档与账号 | metadata先到/资产缺失、下载中断/hash失败/存储满、退出换账号、长离线墓碑/未知schema；不丢本地内容、不误上传旧账号 |"
+    },
+    {
+      "id": "T22",
+      "title": "触摸/Pencil/生命周期",
+      "baselineStatus": "未实现完整目标",
+      "auditBaselineAssessment": "移动基础PDF未证明手势/生命周期/分屏；Pencil不支持。",
+      "specLine": 1086,
+      "specRow": "| T22 | 触摸/Pencil/生命周期 | 选择与手势不抢占，iPad分屏/笔画页空间/撤销重启、iPhone大字/软键盘、三端VoiceOver/后台返回；未实施Pencil则明确未支持 |"
+    },
+    {
+      "id": "U01",
+      "title": "首页",
+      "baselineStatus": "参考，不计功能完成",
+      "auditBaselineAssessment": "PDFno有限书库；最近/收藏/真实封面/云Dock完整行为未实现。",
+      "specLine": 825,
+      "specRow": "| U01 | 首页 | 最近项目与收藏入口、封面卡片网格；搜索、排序和列表／缩略图切换；右上打开文件及云上传入口；底部工具、AI、云盘 Dock | 观察界面与入口；回首页保留文档标签；未执行云上传 |"
+    },
+    {
+      "id": "U02",
+      "title": "文档框架",
+      "baselineStatus": "参考，不计功能完成",
+      "auditBaselineAssessment": "PDFno有阅读/导航工作区；多文档标签/完整折叠栏未达最终设计。",
+      "specLine": 826,
+      "specRow": "| U02 | 文档框架 | 顶部文档标签；左侧窄导航轨及可收起的缩略图、目录、搜索区域；中央阅读画布 | 已观察；不把某次窗口布局当作固定尺寸 |"
+    },
+    {
+      "id": "U03",
+      "title": "阅读工具",
+      "baselineStatus": "参考，不计功能完成",
+      "auditBaselineAssessment": "PDFno部分阅读/notes/AI工具；编辑/表单/撤销非当前能力。",
+      "specLine": 827,
+      "specRow": "| U03 | 阅读工具 | 画布上三组浮动工具条；左侧工具与 AI，中间注释／编辑／表单等，右侧保存与撤销等；未编辑时保存与撤销禁用 | 已查看工具条；未验证保存或编辑；收起／展开 AI 后保留阅读位置与选区 |"
+    },
+    {
+      "id": "U04",
+      "title": "目录与搜索",
+      "baselineStatus": "参考，不计功能完成",
+      "auditBaselineAssessment": "PDFno基本目录/search有E2；统一导航返回栈与大文件搜索待验收。",
+      "specLine": 828,
+      "specRow": "| U04 | 目录与搜索 | 目录点击成功跳到测试 PDF 第二页，并出现返回原页入口；普通搜索经历“正在搜索”后返回四项按页分组结果 | 已实际测试导航和搜索；不代表所有文件或复杂版式均通过 |"
+    },
+    {
+      "id": "U05",
+      "title": "文本选区",
+      "baselineStatus": "参考，不计功能完成",
+      "auditBaselineAssessment": "PDFno选择/高亮/笔记；删除线/下划线/编辑/朗读等未验收。",
+      "specLine": 829,
+      "specRow": "| U05 | 文本选区 | 辅助功能树确认 AI、高亮、删除线、下划线、波浪线、笔记、编辑、书签、朗读、复制；注释面板有“暂无注释”空状态 | 普通工具名已确认；AI 下拉独立弹窗按钮无名称且截图异常，具体项目未可靠辨认；未执行编辑、批注写入或朗读效果测试 |"
+    },
+    {
+      "id": "U06",
+      "title": "右侧 AI 栏",
+      "baselineStatus": "参考，不计功能完成",
+      "auditBaselineAssessment": "没有把UPDF截图估值比例当作PDFno默认尺寸。",
+      "specLine": 830,
+      "specRow": "| U06 | 右侧 AI 栏 | 位于阅读工作区右侧；当前测试窗口中 AI 约占 17%，左侧约 13%，中央约 70% | 截图估算比例，非官方尺寸；不作为 PDFno 默认宽度 |"
+    },
+    {
+      "id": "U07",
+      "title": "AI 模式",
+      "baselineStatus": "参考，不计功能完成",
+      "auditBaselineAssessment": "仅两种选文task和有限PDF页；多文件/研究/问答未实现。",
+      "specLine": 831,
+      "specRow": "| U07 | AI 模式 | PDF 对话、通用对话、翻译、PDF 全文翻译、总结、解释、多文件问答、论文搜索与图谱、深度研究；翻译／总结／解释为上输入下结果 | 已观察入口和空状态；右轨切换不会把当时选文自动填入输入；未验证其他快捷链路或生成效果 |"
+    },
+    {
+      "id": "U08",
+      "title": "全文翻译配置",
+      "baselineStatus": "参考，不计功能完成",
+      "auditBaselineAssessment": "PDFno仅当前物理页计划；完整全文页范围配置未实现。",
+      "specLine": 832,
+      "specRow": "| U08 | 全文翻译配置 | 文件信息、目标语言、仅译文或双语模式卡、页面范围、预计使用次数；测试时仅译文默认选中 | 已打开配置；未提交翻译；“保留原始布局”等文案不作为版式验证结果 |"
+    },
+    {
+      "id": "U09",
+      "title": "AI 额度状态",
+      "baselineStatus": "参考，不计功能完成",
+      "auditBaselineAssessment": "PDFno会话请求次数不是账号剩余额度或真实billing。",
+      "specLine": 833,
+      "specRow": "| U09 | AI 额度状态 | 两页测试文件显示预计消耗两次，剩余次数为 0；开始按钮仍呈蓝色；文本工具空输入时发送按钮禁用 | 未点击开始，不能推断后续购买拦截、实际扣费或账号权益 |"
+    },
+    {
+      "id": "U10",
+      "title": "Word 转换配置",
+      "baselineStatus": "参考，不计功能完成",
+      "auditBaselineAssessment": "PDFno没有PDF→Word/OCR转换；正文TXT/HTML另列。",
+      "specLine": 834,
+      "specRow": "| U10 | Word 转换配置 | 文件 → 导出到 → Word；模态中有格式、预览、页范围、内容样式与版式、OCR；当前为流动样式且 OCR 关闭 | 已进入配置并取消；未执行转换，不能承诺质量、时长、处理位置或费用 |"
+    },
+    {
+      "id": "U11",
+      "title": "AI 设置与会话",
+      "baselineStatus": "参考，不计功能完成",
+      "auditBaselineAssessment": "PDFnosession BYOK设置；没有通用历史会话功能。",
+      "specLine": 835,
+      "specRow": "| U11 | AI 设置与会话 | 设置本页仅见 AI 助手开关和输出语言；通用对话显示既有全局历史 | 本页未见 BYOK 不等于整个产品无 BYOK；不记录历史正文，不把旧历史算作新生成 |"
+    },
+    {
+      "id": "U12",
+      "title": "阅读显示",
+      "baselineStatus": "参考，不计功能完成",
+      "auditBaselineAssessment": "PDF基本显示/EPUB有限竖排/CBZspread；全主题/模式/窄窗待验收。",
+      "specLine": 836,
+      "specRow": "| U12 | 阅读显示 | 可见单页／滚动／双页、适合页面／宽度／高度等，已执行适合页面；日文测试页文字正常显示 | 未测试 EPUB、竖排、ruby、主题切换和窄窗口；不能推断语言学习能力 |"
+    },
+    {
+      "id": "U13",
+      "title": "文件选择器",
+      "baselineStatus": "参考，不计功能完成",
+      "auditBaselineAssessment": "系统面板有iCloud位置不等于PDFno云同步。",
+      "specLine": 837,
+      "specRow": "| U13 | 文件选择器 | macOS 打开文件面板可见 iCloud 云盘位置 | 仅证明系统文件选择器提供该位置；不能据此认定 UPDF 实现 iCloud 同步 |"
+    },
+    {
+      "id": "S01",
+      "title": "书库首页",
+      "baselineStatus": "部分/E1+E3",
+      "auditBaselineAssessment": "四格式导入/列表/错误；真实封面网格/收藏/排序/搜索完整目标未完成。",
+      "specLine": 849,
+      "specRow": "| S01 | 书库首页 | 最近、收藏、全部；封面网格或列表；搜索、导入、打开；工具与任务入口 | 文件格式、阅读位置、导入错误；同步状态不能混作收藏状态 |"
+    },
+    {
+      "id": "S02",
+      "title": "阅读工作区",
+      "baselineStatus": "部分/有缺陷",
+      "auditBaselineAssessment": "当前reader/导航控件；完整标签/三栏/返回栈不足，DF-01/04。",
+      "specLine": 850,
+      "specRow": "| S02 | 阅读工作区 | 文档标签栏、左导航轨、可折叠导航面板、中央正文、浮动阅读工具、右侧辅助栏 | 当前书和版本、页或章节位置、当前交互模式 |"
+    },
+    {
+      "id": "S03",
+      "title": "学习工作区",
+      "baselineStatus": "部分/有缺陷",
+      "auditBaselineAssessment": "来源卡/translate/explain/保存；grammar/kana未实现，DF-05。",
+      "specLine": 851,
+      "specRow": "| S03 | 学习工作区 | 选区来源卡、翻译、语法、假名、笔记；模型与范围选择；生成及取消 | 原文、定位标签、模型、外发范围、结果与保存状态 |"
+    },
+    {
+      "id": "S04",
+      "title": "文档 AI",
+      "baselineStatus": "未实现",
+      "auditBaselineAssessment": "文档提取检索问答/总结/历史会话未实现。",
+      "specLine": 852,
+      "specRow": "| S04 | 文档 AI | 当前文档问答、总结、解释；可回跳的来源引用；历史会话 | 当前绑定文档、使用的页或章节范围、来源是否已验证 |"
+    },
+    {
+      "id": "S05",
+      "title": "翻译任务",
+      "baselineStatus": "部分/E2",
+      "auditBaselineAssessment": "有限PDF页segments/对照/失败状态；章节/批量/durable任务未实现。",
+      "specLine": 853,
+      "specRow": "| S05 | 翻译任务 | 当前页、单章节与批量范围分开；原文和译文对照；任务明细 | PDF 物理页、EPUB 原文快照或明确章节范围、完成与失败片段、费用估算可信度 |"
+    },
+    {
+      "id": "S06",
+      "title": "工具中心",
+      "baselineStatus": "部分/有缺陷",
+      "auditBaselineAssessment": "有限转换工具/警告/新文件/取消；DF-02/03；OCR/队列未实现。",
+      "specLine": 854,
+      "specRow": "| S06 | 工具中心 | 按实际支持方向显示转换、可选 OCR、任务队列；高级能力说明 | 本地或远程处理方式、质量限制、输出新文件位置 |"
+    },
+    {
+      "id": "S07",
+      "title": "连接与同步",
+      "baselineStatus": "未实现",
+      "auditBaselineAssessment": "Bookno交换/iCloud独立连接与回执状态无实现。",
+      "specLine": 855,
+      "specRow": "| S07 | 连接与同步 | Bookno 交换预览和回执；PDFno iCloud 设备与状态 | 两套连接的独立状态、冲突和最后确认时间 |"
+    },
+    {
+      "id": "S08",
+      "title": "模型与阅读设置",
+      "baselineStatus": "部分/E2",
+      "auditBaselineAssessment": "session模型/endpoint预览/官方profile；持久key、完整阅读主题偏好未验收。",
+      "specLine": 856,
+      "specRow": "| S08 | 模型与阅读设置 | BYOK 配置、密钥引用、能力与费用设置；语言、主题、阅读偏好 | 当前生效配置；未配置、测试失败与不支持能力 |"
+    },
+    {
+      "id": "J01",
+      "title": "进入阅读",
+      "baselineStatus": "部分/有缺陷",
+      "auditBaselineAssessment": "系统导入/书库开读；DF-01/04位置恢复不可靠，完整最近/封面旅程未完成。",
+      "specLine": 870,
+      "specRow": "| J01 进入阅读 | 首页最近／收藏入口与文档标签工作区可见；未把“从最近项目打开”的完整链路列为已测试 | 选封面或打开文件 → 本地解析 → 恢复锚点；失败保留书库条目并说明原因 |"
+    },
+    {
+      "id": "J02",
+      "title": "导航定位",
+      "baselineStatus": "部分/缺口",
+      "auditBaselineAssessment": "目录/search/note来源回跳；统一返回栈/缩略图/大文件搜索失败矩阵待补。",
+      "specLine": 871,
+      "specRow": "| J02 导航定位 | 左侧目录或搜索 → 选择结果 → 正文跳转；跳转已测试 | 目录、页缩略图、搜索共用导航服务；记录返回位置；搜索失败不改变阅读位置 |"
+    },
+    {
+      "id": "J03",
+      "title": "选句学习",
+      "baselineStatus": "部分/有缺陷",
+      "auditBaselineAssessment": "固定选文→同意→输出→manual save→回跳；grammar/kana未实现、DF-05/06。",
+      "specLine": 872,
+      "specRow": "| J03 选句学习 | 选择正文 → 可见选区浮层；普通工具名已确认，AI 下拉具体项未识别；从右轨切入翻译／总结／解释未自动带入选文 | 选句 → 浮动菜单“翻译／语法／假名” → 固定来源卡 → 选择或确认范围 → 生成 → 校验 → 保存笔记 → 回跳原文 |"
+    },
+    {
+      "id": "J04",
+      "title": "文档问答",
+      "baselineStatus": "未实现",
+      "auditBaselineAssessment": "文档范围检索/问答/引用回查完整旅程未实现。",
+      "specLine": 873,
+      "specRow": "| J04 文档问答 | 右侧 AI → PDF 问答与通用聊天等入口；未提交请求 | 打开文档 AI → 显示绑定文档与范围 → 提问 → 检索预览或来源说明 → 回答 → 点击引用回原文；无依据时明确说明 |"
+    },
+    {
+      "id": "J05",
+      "title": "当前页翻译",
+      "baselineStatus": "部分/E2",
+      "auditBaselineAssessment": "有限PDF当前页旅程；EPUB页/章节、自动续传/失败重试未实现。",
+      "specLine": 874,
+      "specRow": "| J05 当前页翻译 | 翻译相关入口已可见；本次未验证输出 | 点击“翻译当前页”（章节用独立命令） → 展示 PDF 页索引或 EPUB 快照 → 模型与费用说明 → 开始 → 分段进度 → 对照与失败重试 |"
+    },
+    {
+      "id": "J06",
+      "title": "批量翻译",
+      "baselineStatus": "未实现",
+      "auditBaselineAssessment": "整书/页范围/章节批量翻译未实现。",
+      "specLine": 875,
+      "specRow": "| J06 批量翻译 | 全文翻译 → 目标语言、输出形式、页范围、预计次数；止于设置 | 另设“批量翻译” → 选择页或章节范围 → 提取预检与费用估算 → 按批准范围执行；首版未支持时显示说明而非可点击假入口 |"
+    },
+    {
+      "id": "J07",
+      "title": "格式转换",
+      "baselineStatus": "部分/有缺陷",
+      "auditBaselineAssessment": "DOCXbody→TXT/HTML有限旅程；DF-02/03，七方向/质量报告/edition未实现。",
+      "specLine": 876,
+      "specRow": "| J07 格式转换 | 文件 → 导出到 → Word 配置，OCR 关闭 → 取消返回；未转换 | 工具 → 选择输入与明确方向 → 预检 → OCR 等选项 → 输出位置 → 开始 → 质量报告；原文件不覆盖 |"
+    },
+    {
+      "id": "J08",
+      "title": "数据连接",
+      "baselineStatus": "未实现",
+      "auditBaselineAssessment": "Bookno与iCloud独立连接旅程未实现。",
+      "specLine": 877,
+      "specRow": "| J08 数据连接 | 首页云入口可见；本次未上传 | 独立“Bookno 交换”和“iCloud 同步”入口 → 各自预览、进度、错误和确认状态；不连接 UPDF 官方云 |"
+    },
+    {
+      "id": "UAT01",
+      "title": "应用框架",
+      "baselineStatus": "部分/有缺陷",
+      "auditBaselineAssessment": "基本开读/目录/search/notes回跳；无完整标签返回栈，DF-01。",
+      "specLine": 1063,
+      "specRow": "| UAT01 | 应用框架 | 首页开书 → 目录跳转 → 搜索跳转 → 返回 → 切标签 | 当前文档、位置与返回栈正确；导航不触发模型请求或文件上传 |"
+    },
+    {
+      "id": "UAT02",
+      "title": "选区到学习",
+      "baselineStatus": "部分/有缺陷",
+      "auditBaselineAssessment": "ruby canonical/来源闭环；grammar/kana/调宽全链未实现，草稿DF-05。",
+      "specLine": 1064,
+      "specRow": "| UAT02 | 选区到学习 | 选择带 ruby 的句子 → 点击语法 → 焦点进侧栏 → 调宽面板 | 来源原文、选区与锚点仍一致；ruby 不混入主文本；草稿不丢 |"
+    },
+    {
+      "id": "UAT03",
+      "title": "多任务隔离",
+      "baselineStatus": "部分/E2",
+      "auditBaselineAssessment": "取消/迟到隔离正确；SSE及真实A-B-A任务持久恢复非当前能力。",
+      "specLine": 1065,
+      "specRow": "| UAT03 | 多任务隔离 | A 书发请求 → 切到 B 书 → A 流式返回 → 再回 A | 结果只归属 A 的任务和来源；B 不显示 A 的文字或引用 |"
+    },
+    {
+      "id": "UAT04",
+      "title": "模式切换",
+      "baselineStatus": "未实现完整目标",
+      "auditBaselineAssessment": "通用聊天/文档问答没有模式，草稿真实reopen有DF-05。",
+      "specLine": 1066,
+      "specRow": "| UAT04 | 模式切换 | 选句翻译 → 通用聊天 → 文档问答 → 返回选句 | 每个模式的来源与草稿清楚；无隐形上下文继承；切换不发请求 |"
+    },
+    {
+      "id": "UAT05",
+      "title": "缺配置与能力",
+      "baselineStatus": "部分/E2+E3",
+      "auditBaselineAssessment": "缺key/无选区/扫描/超限明确拒绝；跨provider降级矩阵未实现。",
+      "specLine": 1067,
+      "specRow": "| UAT05 | 缺配置与能力 | 未配置模型、扫描页、无选区、不支持结构化输出 | 分别展示可操作的原因；不发送空请求或伪造成功结果 |"
+    },
+    {
+      "id": "UAT06",
+      "title": "AI 全状态",
+      "baselineStatus": "部分/E2",
+      "auditBaselineAssessment": "HTTP失败/限流/取消/部分失败终态；真实SSE/排队订阅者未实现。",
+      "specLine": 1068,
+      "specRow": "| UAT06 | AI 全状态 | mock 排队、流式、限流、认证失败、部分失败、取消 | 状态机与真实事件一致；终态可解释；不靠计时器转完成 |"
+    },
+    {
+      "id": "UAT07",
+      "title": "重排与缩放",
+      "baselineStatus": "部分/有缺陷",
+      "auditBaselineAssessment": "固定snapshot/page source；EPUB页内DF-04；旋转/重排完整缓存恢复矩阵未达。",
+      "specLine": 1069,
+      "specRow": "| UAT07 | 重排与缩放 | EPUB 改字号／调宽，PDF 缩放／旋转；继续看旧译文 | 原请求快照与缓存键不变；能准确回原文或明确需要重绑 |"
+    },
+    {
+      "id": "UAT08",
+      "title": "当前页与批量",
+      "baselineStatus": "部分/E2",
+      "auditBaselineAssessment": "当前PDF物理页严格限定；EPUB页/批量范围无实现，不伪造全书能力。",
+      "specLine": 1070,
+      "specRow": "| UAT08 | 当前页与批量 | 点击当前页；另开批量范围设置；改变范围后取消 | PDF 与 EPUB 页定义明确；不默认为全书；取消前后无额外请求 |"
+    },
+    {
+      "id": "UAT09",
+      "title": "成本与保存",
+      "baselineStatus": "部分/有缺陷",
+      "auditBaselineAssessment": "unknown费用/手动保存/userText分离；DF-05；durable缓存与磁盘满未验收。",
+      "specLine": 1071,
+      "specRow": "| UAT09 | 成本与保存 | 价格未知、usage 缺失、保存失败、用户改笔记后再生成 | 如实显示未知；缓存、结果、保存分离；不覆盖用户编辑 |"
+    },
+    {
+      "id": "UAT10",
+      "title": "窄窗口与分屏",
+      "baselineStatus": "未验收完整目标",
+      "auditBaselineAssessment": "probe有synthetic窄布局测试；reader双侧栏/分屏/输入和任务保持未验收。",
+      "specLine": 1072,
+      "specRow": "| UAT10 | 窄窗口与分屏 | 双侧栏展开 → 拖窄 → 系统分屏 → 恢复宽度 | 正文仍可用；必要时切视图；输入、选区、位置和任务保持 |"
+    },
+    {
+      "id": "UAT11",
+      "title": "键盘与 VoiceOver",
+      "baselineStatus": "未验收",
+      "auditBaselineAssessment": "无鼠标全核心闭环及VoiceOver焦点/状态/引用未验收。",
+      "specLine": 1073,
+      "specRow": "| UAT11 | 键盘与 VoiceOver | 不用鼠标完成选书、切栏、提问、取消、回跳、保存 | 所有核心动作可达；焦点顺序和恢复正确；状态及引用可理解 |"
+    },
+    {
+      "id": "UAT12",
+      "title": "引用校验",
+      "baselineStatus": "部分/有缺陷",
+      "auditBaselineAssessment": "edition/hash/scalar拒绝、旧source needsRebind；DF-06汇总quote，文档检索引用未实现。",
+      "specLine": 1074,
+      "specRow": "| UAT12 | 引用校验 | 正确、虚构、重复、旧版本引用分别返回 | 仅校验成功引用可直接回跳；失败不绑定任意相同短语 |"
+    },
+    {
+      "id": "UAT13",
+      "title": "工具中心",
+      "baselineStatus": "部分/有缺陷",
+      "auditBaselineAssessment": "有限转换预检/取消/新文件/警告；DF-02/03；非七方向质量报告。",
+      "specLine": 1075,
+      "specRow": "| UAT13 | 工具中心 | 转换预检 → 取消；未来获准后运行单方向样本 | 不覆盖原文件；未支持功能不假装可用；输出有实际设置和质量报告 |"
+    },
+    {
+      "id": "UAT14",
+      "title": "连接状态",
+      "baselineStatus": "未实现",
+      "auditBaselineAssessment": "没有Bookno回执与iCloud离线冲突可并行状态。",
+      "specLine": 1076,
+      "specRow": "| UAT14 | 连接状态 | Bookno 待回执、iCloud 离线、冲突同时出现 | 各自状态独立；“本地保存”“已发送”“已确认”不混用 |"
+    },
+    {
+      "id": "UAT15",
+      "title": "资产与隐私",
+      "baselineStatus": "部分/E1+E2",
+      "auditBaselineAssessment": "原创fixture/源码守卫/本次报告无key私文；完整UI素材/许可由相应审计合并。",
+      "specLine": 1077,
+      "specRow": "| UAT15 | 资产与隐私 | 检查界面、fixture、日志、导出和演示素材 | 不包含 UPDF 商标素材、用户桌面截图、私人原文、旧聊天或密钥 |"
+    }
+  ]
+}

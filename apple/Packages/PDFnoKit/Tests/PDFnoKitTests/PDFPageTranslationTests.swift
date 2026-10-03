@@ -105,7 +105,7 @@ struct PDFPageTranslationTests {
         #endif
     }
     @Test @MainActor func explicitWholePlanSendAndManualExistingLearningNoteSaveNeverPersistKey() async throws {
-        let transport = PageTransport(), model = PDFPageTranslationModel(transport: transport)
+        let transport = PageTransport(), model = PDFPageTranslationModel(transport: transport, aiSession: AppAISession())
         let page = snapshot(String(repeating: "Original garden sentence. ", count: 48)), plan = try PDFPageTranslationPlan(snapshot: page)
         model.prepare(page); model.temporarySecret = pageFakeKey
         model.start(confirmed: false, sourceIsCurrent: { _ in true })
@@ -132,18 +132,18 @@ struct PDFPageTranslationTests {
         #expect(sent.unicodeScalars.elementsEqual(page.text.unicodeScalars))
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Page-Notes-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let learning = AILearningModel(root: root, transport: transport)
+        let learning = AILearningModel(root: root, transport: transport, aiSession: AppAISession())
         #expect(learning.notes.isEmpty)
         let result = try #require(model.segments.first?.result)
         #expect(result.promptVersion == PDFPageTranslationPolicy.promptVersion)
         #expect(await learning.savePageResult(result, userText: "Original user page note", sourceIsCurrent: { _ in true }))
         #expect(await learning.savePageResult(result, userText: "Do not duplicate", sourceIsCurrent: { _ in true }))
-        let restarted = AILearningModel(root: root, transport: transport); await restarted.load()
+        let restarted = AILearningModel(root: root, transport: transport, aiSession: AppAISession()); await restarted.load()
         #expect(restarted.notes.count == 1 && restarted.notes[0].userText == "Original user page note")
         #expect(restarted.notes[0].result.source == result.source && !restarted.hasSessionCredential)
         let bytes = try Data(contentsOf: root.appendingPathComponent("learning-v1.json"))
         #expect(!String(decoding: bytes, as: UTF8.self).contains(pageFakeKey))
-        let restartedPage = PDFPageTranslationModel(transport: transport)
+        let restartedPage = PDFPageTranslationModel(transport: transport, aiSession: AppAISession())
         #expect(restartedPage.temporarySecret.isEmpty)
     }
     @Test @MainActor func realLibraryPageSourceManualSaveReloadStaleRefusalAndDiskFailure() async throws {
@@ -154,7 +154,7 @@ struct PDFPageTranslationTests {
         let data = try originalSample()
         let book = try await library.repository.importPDF(data, filename: "original.pdf", pageCount: 2)
         try library.reader.open(data: data, book: book)
-        let model = PDFPageTranslationModel(transport: transport)
+        let model = PDFPageTranslationModel(transport: transport, aiSession: AppAISession())
         model.prepare(try library.reader.currentPageTextSnapshot())
         model.temporarySecret = pageFakeKey
         model.start(confirmed: true, sourceIsCurrent: library.isCurrentAISource)
@@ -176,13 +176,13 @@ struct PDFPageTranslationTests {
         #expect(try Data(contentsOf: manifest) == bytes)
         let blocked = root.appendingPathComponent("original-regular-file")
         try Data("Original disk failure fixture".utf8).write(to: blocked)
-        let failing = AILearningModel(root: blocked)
+        let failing = AILearningModel(root: blocked, aiSession: AppAISession())
         #expect(!(await failing.savePageResult(result, userText: "not written", sourceIsCurrent: { _ in true })))
         #expect(failing.notes.isEmpty && failing.error != nil)
         #expect(try Data(contentsOf: blocked) == Data("Original disk failure fixture".utf8))
     }
     @Test @MainActor func canonicallyEquivalentChangedScalarSequenceDoesNotRetainOldPageResults() async throws {
-        let transport = PageTransport(), model = PDFPageTranslationModel(transport: transport)
+        let transport = PageTransport(), model = PDFPageTranslationModel(transport: transport, aiSession: AppAISession())
         let old = snapshot("e\u{301}\u{323}")
         let new = PDFPageTextSnapshot(bookID: old.bookID, readerSessionID: old.readerSessionID, editionID: old.editionID,
             fileSHA256: old.fileSHA256, pageIndex: old.pageIndex, text: "e\u{323}\u{301}")
@@ -197,7 +197,7 @@ struct PDFPageTranslationTests {
     }
     @Test @MainActor func failureAndTruncationKeepSuccessfulSegmentsAndStopUnsentRemainder() async throws {
         let page = snapshot(String(repeating: "Original sentence. ", count: 70))
-        let transport = PageTransport(failAt: 2), model = PDFPageTranslationModel(transport: transport)
+        let transport = PageTransport(failAt: 2), model = PDFPageTranslationModel(transport: transport, aiSession: AppAISession())
         model.prepare(page); model.temporarySecret = pageFakeKey; model.start(confirmed: true, sourceIsCurrent: { _ in true })
         try await settle(model)
         #expect(await transport.requests.count == 2 && model.attemptsUsed == 2)
@@ -205,7 +205,7 @@ struct PDFPageTranslationTests {
         #expect(model.status.contains("未完成") && !model.error!.contains("unsafe-synthetic-response"))
         model.temporarySecret = pageFakeKey; model.start(confirmed: true, sourceIsCurrent: { _ in true })
         #expect(await transport.requests.count == 2) // The UI and model prohibit re-sending completed segments.
-        let truncatedTransport = PageTransport(finish: "length"), truncated = PDFPageTranslationModel(transport: truncatedTransport)
+        let truncatedTransport = PageTransport(finish: "length"), truncated = PDFPageTranslationModel(transport: truncatedTransport, aiSession: AppAISession())
         truncated.prepare(page); truncated.temporarySecret = pageFakeKey; truncated.start(confirmed: true, sourceIsCurrent: { _ in true })
         try await settle(truncated)
         #expect(await truncatedTransport.requests.count == 1 && truncated.segments[0].failure == .truncated)
@@ -213,7 +213,7 @@ struct PDFPageTranslationTests {
     }
     @Test @MainActor func remainingBudgetRefusesWholePlanAndCloseDoesNotResetAttempts() async throws {
         // Each explicit attempt fails before success; no automatic loop is present in the model.
-        let transport = PageTransport(finish: "length"), model = PDFPageTranslationModel(transport: transport)
+        let transport = PageTransport(finish: "length"), model = PDFPageTranslationModel(transport: transport, aiSession: AppAISession())
         model.prepare(snapshot("Original small text."))
         for _ in 0..<5 {
             model.temporarySecret = pageFakeKey; model.start(confirmed: true, sourceIsCurrent: { _ in true }); try await settle(model); model.cancel()
@@ -230,7 +230,7 @@ struct PDFPageTranslationTests {
     }
     @Test @MainActor func cancellationTimeoutAndChangedSourceDiscardUncooperativeLateResponse() async throws {
         for mode in ["cancel", "timeout", "stale"] {
-            let transport = PageDeferred(), model = PDFPageTranslationModel(transport: transport, timeoutSeconds: mode == "timeout" ? 0.05 : 30)
+            let transport = PageDeferred(), model = PDFPageTranslationModel(transport: transport, timeoutSeconds: mode == "timeout" ? 0.05 : 30, aiSession: AppAISession())
             model.prepare(snapshot(String(repeating: "x", count: 1001))); model.temporarySecret = pageFakeKey
             var current = true
             model.start(confirmed: true, sourceIsCurrent: { _ in current })

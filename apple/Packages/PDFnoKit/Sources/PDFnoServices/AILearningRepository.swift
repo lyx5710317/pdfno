@@ -14,7 +14,7 @@ public actor AILearningRepository {
     public init(root: URL) { self.root = root }
     public func load() throws -> AILearningState {
         guard FileManager.default.fileExists(atPath: manifest.path) else { return AILearningState() }
-        return try Self.decode(Data(contentsOf: manifest))
+        return try Self.decode(BoundedFileReader.read(manifest, limit: 5 * 1024 * 1024))
     }
     public static func decode(_ data: Data) throws -> AILearningState {
         guard data.count <= 5 * 1024 * 1024, let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -56,7 +56,9 @@ public actor AILearningRepository {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(state); _ = try Self.decode(data)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        if FileManager.default.fileExists(atPath: manifest.path) { try Data(contentsOf: manifest).write(to: manifest.appendingPathExtension("backup"), options: .atomic) }
+        if FileManager.default.fileExists(atPath: manifest.path) { let previous = try BoundedFileReader.read(manifest, limit: 5 * 1024 * 1024)
+            _ = try Self.decode(previous)
+            try previous.write(to: manifest.appendingPathExtension("backup"), options: .atomic) }
         try data.write(to: manifest, options: .atomic)
     }
     public func saveConfig(_ config: AIProviderConfig) throws -> AIProviderConfig {

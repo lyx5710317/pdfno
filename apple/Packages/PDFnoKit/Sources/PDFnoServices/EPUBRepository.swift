@@ -17,7 +17,7 @@ public actor EPUBRepository {
     private func url(_ book: EPUBBook) -> URL { root.appendingPathComponent("Originals").appendingPathComponent(book.fileSHA256 + ".epub") }
     public func load() throws -> EPUBState {
         guard FileManager.default.fileExists(atPath: manifest.path) else { return EPUBState() }
-        return try Self.decode(Data(contentsOf: manifest))
+        return try Self.decode(BoundedFileReader.read(manifest, limit: 10 * 1024 * 1024))
     }
     public static func decode(_ data: Data) throws -> EPUBState {
         guard data.count <= 10 * 1024 * 1024,
@@ -48,10 +48,13 @@ public actor EPUBRepository {
         return state
     }
     private func commit(_ state: EPUBState) throws {
+        _ = try load()
         let bytes = try JSONEncoder().encode(state); _ = try Self.decode(bytes)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         if FileManager.default.fileExists(atPath: manifest.path) {
-            try Data(contentsOf: manifest).write(to: manifest.appendingPathExtension("backup"), options: .atomic)
+            let previous = try BoundedFileReader.read(manifest, limit: 10 * 1024 * 1024)
+            _ = try Self.decode(previous)
+            try previous.write(to: manifest.appendingPathExtension("backup"), options: .atomic)
         }
         try bytes.write(to: manifest, options: .atomic)
     }
@@ -66,7 +69,7 @@ public actor EPUBRepository {
     }
     public func read(_ book: EPUBBook) throws -> Data {
         guard (try load()).books.contains(where: { $0.id == book.id && $0.fileSHA256 == book.fileSHA256 }) else { throw EPUBError.sourceMismatch }
-        let data = try Data(contentsOf: url(book))
+        let data = try BoundedFileReader.read(url(book), limit: 20 * 1024 * 1024)
         guard SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined() == book.fileSHA256 else { throw EPUBError.sourceMismatch }
         _ = try EPUBArchive.validate(data); return data
     }

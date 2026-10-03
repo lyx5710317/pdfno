@@ -42,6 +42,14 @@ public struct PDFSourceAnchor: Codable, Sendable, Equatable {
         schemaVersion = 1; self.editionID = editionID; self.fileSHA256 = fileSHA256
         self.quote = quote; self.regions = regions; extractionVersion = "pdfkit-selection-1"
     }
+    /// PDFKit may insert whitespace between line/page selections. Preserve both
+    /// raw forms, requiring their non-whitespace scalars in the same order.
+    /// Hyphens, combining marks and all other text are compared without normalization.
+    public var hasConsistentQuote: Bool {
+        func content(_ text: String) -> [Unicode.Scalar] { text.unicodeScalars.filter { !CharacterSet.whitespacesAndNewlines.contains($0) } }
+        let aggregate = content(quote)
+        return !aggregate.isEmpty && aggregate == regions.flatMap { content($0.quote) }
+    }
 }
 
 public struct ReadingNote: Codable, Sendable, Identifiable, Equatable {

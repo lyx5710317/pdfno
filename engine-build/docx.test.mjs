@@ -3,10 +3,27 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
+import JSZip from 'jszip';
 import {convertDOCX,sanitiseDOCX} from './docx-adapter.js';
 const fixtures=new URL('../apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/',import.meta.url);
 const sample=async name=>{const b=await readFile(new URL(name+'.docx',fixtures));return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);};
 const canonical=result=>result.document.blocks.map(b=>b.runs.map(r=>r.text).join('')).join('\n');
+test('4000 original OOXML rows use actual Mammoth and retain linear table indices',async()=>{
+  const zip=new JSZip();
+  zip.file('[Content_Types].xml','<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+  zip.file('_rels/.rels','<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="r1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+  zip.file('word/document.xml','<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:tbl>'+'<w:tr><w:tc><w:p><w:r><w:t>Original audit row</w:t></w:r></w:p></w:tc></w:tr>'.repeat(4000)+'</w:tbl></w:body></w:document>');
+  const input=await zip.generateAsync({type:'uint8array',compression:'DEFLATE'});
+  const started=performance.now();const r=await convertDOCX(input.buffer);
+  console.log('4000 actual Mammoth rows milliseconds:',Math.round(performance.now()-started));
+  assert.equal(r.document.blocks.length,4000);
+  for(const [row,b] of r.document.blocks.entries()){assert.equal(b.table,0);assert.equal(b.row,row);assert.equal(b.cell,0);}
+});
+test('nested tables have their own row indices and deterministic text',()=>{
+  const r=sanitiseDOCX('<table><tr><td><p>A</p><table><tr><td><p>B</p></td></tr></table></td></tr><tr><td><p>C</p></td></tr></table>');
+  assert.deepEqual(r.document.blocks.map(({table,row,cell})=>[table,row,cell]),[[0,0,0],[1,0,0],[0,1,0]]);
+  assert.equal(canonical(r),'A\nB\nC');
+});
 test('actual Kookit/Mammoth chain supplies headings, Unicode, ordered lists, tables and direct emphasis',async()=>{
   const r=await convertDOCX(await sample('mammoth-sample'));
   assert.equal(r.engine,'kookit-mammoth-1.13.0');

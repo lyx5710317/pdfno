@@ -45,7 +45,7 @@ private final class OfflineProbeURLProtocol: URLProtocol, @unchecked Sendable {
 
 struct DeepSeekSelfTestTests {
     @Test func consentAndCredentialValidationPrecedeAnySubmission() async throws {
-        let transport = ProbeTransport(), service = DeepSeekSelfTest(transport: transport)
+        let transport = ProbeTransport(), service = DeepSeekSelfTest(transport: transport, budget: DeepSeekSelectionBudget())
         await #expect(throws: DeepSeekTestFailure.consent) { try await service.run(temporaryKey: syntheticKey, confirmedScopeAndBudget: false) }
         for invalid in ["", "synthetic\r\nheader", "synthetic space"] {
             await #expect(throws: DeepSeekTestFailure.credentials) { try await service.run(temporaryKey: invalid, confirmedScopeAndBudget: true) }
@@ -54,7 +54,7 @@ struct DeepSeekSelfTestTests {
         #expect(await transport.requests.isEmpty)
     }
     @Test func fixedOfficialHostModelAndBooklessJSONWithFakeAuthorization() async throws {
-        let transport = ProbeTransport(), service = DeepSeekSelfTest(transport: transport)
+        let transport = ProbeTransport(), service = DeepSeekSelfTest(transport: transport, budget: DeepSeekSelectionBudget())
         #expect(try await service.run(temporaryKey: syntheticKey, confirmedScopeAndBudget: true) == "离线短句回应")
         let request = try #require(await transport.requests.first)
         #expect(request.url?.absoluteString == "https://api.deepseek.com/chat/completions")
@@ -71,7 +71,7 @@ struct DeepSeekSelfTestTests {
         #expect(!String(decoding: body, as: UTF8.self).contains(syntheticKey))
     }
     @Test func threeAttemptsIncludingFailuresAndNoAutomaticRetries() async throws {
-        let transport = ProbeTransport(status: 429, body: Data("sensitive-synthetic-body".utf8)), service = DeepSeekSelfTest(transport: transport)
+        let transport = ProbeTransport(status: 429, body: Data("sensitive-synthetic-body".utf8)), service = DeepSeekSelfTest(transport: transport, budget: DeepSeekSelectionBudget())
         for _ in 0..<3 {
             await #expect(throws: DeepSeekTestFailure.rateLimit) { try await service.run(temporaryKey: syntheticKey, confirmedScopeAndBudget: true) }
         }
@@ -82,24 +82,24 @@ struct DeepSeekSelfTestTests {
     @Test func HTTPAndInvalidResponsesProduceOnlySafeErrors() async throws {
         for (status, expected) in [(301,DeepSeekTestFailure.redirect),(401,.authentication),(403,.authentication),(402,.quota),(429,.rateLimit),(500,.server)] {
             let transport = ProbeTransport(status: status, body: Data("sensitive-synthetic-body".utf8))
-            await #expect(throws: expected) { try await DeepSeekSelfTest(transport: transport).run(temporaryKey: syntheticKey, confirmedScopeAndBudget: true) }
+            await #expect(throws: expected) { try await DeepSeekSelfTest(transport: transport, budget: DeepSeekSelectionBudget()).run(temporaryKey: syntheticKey, confirmedScopeAndBudget: true) }
             #expect(!expected.localizedDescription.contains("sensitive-synthetic-body") && !expected.localizedDescription.contains(syntheticKey))
             #expect(await transport.requests.count == 1)
         }
         let invalidBodies = [Data("invalid synthetic JSON".utf8), Data(repeating: 65, count: 65537),
             Data("{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"role\":\"assistant\",\"content\":\"text\",\"tool_calls\":[{}]}}]}".utf8)]
         for body in invalidBodies {
-            await #expect(throws: DeepSeekTestFailure.output) { try await DeepSeekSelfTest(transport: ProbeTransport(body: body)).run(temporaryKey: syntheticKey, confirmedScopeAndBudget: true) }
+            await #expect(throws: DeepSeekTestFailure.output) { try await DeepSeekSelfTest(transport: ProbeTransport(body: body), budget: DeepSeekSelectionBudget()).run(temporaryKey: syntheticKey, confirmedScopeAndBudget: true) }
         }
         let truncated = Data("{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"role\":\"assistant\",\"content\":\"partial\"}}]}".utf8)
-        await #expect(throws: DeepSeekTestFailure.truncated) { try await DeepSeekSelfTest(transport: ProbeTransport(body: truncated)).run(temporaryKey: syntheticKey, confirmedScopeAndBudget: true) }
+        await #expect(throws: DeepSeekTestFailure.truncated) { try await DeepSeekSelfTest(transport: ProbeTransport(body: truncated), budget: DeepSeekSelectionBudget()).run(temporaryKey: syntheticKey, confirmedScopeAndBudget: true) }
         #expect(DeepSeekSelfTest.safeError(URLError(.timedOut)) == .timeout)
         #expect(DeepSeekSelfTest.safeError(URLError(.cancelled)) == .cancelled)
         #expect(DeepSeekSelfTest.safeError(NSError(domain: "synthetic-sensitive-error", code: 1)) == .network)
     }
     @Test func cancellationAndTimeoutIgnoreUncooperativeLateResponse() async throws {
         for timedOut in [false, true] {
-            let transport = DeferredProbeTransport(), service = DeepSeekSelfTest(transport: transport)
+            let transport = DeferredProbeTransport(), service = DeepSeekSelfTest(transport: transport, budget: DeepSeekSelectionBudget())
             let task = Task { try await service.run(temporaryKey: syntheticKey, confirmedScopeAndBudget: true, timeoutSeconds: timedOut ? 0.1 : 30) }
             let deadline = Date().addingTimeInterval(2)
             while !(await transport.started()), Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
@@ -114,7 +114,7 @@ struct DeepSeekSelfTestTests {
     }
     @Test func URLSessionProbeInterceptedOfflineAndCrossHostRedirectNeverForwarded() async throws {
         let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [OfflineProbeURLProtocol.self]
-        let service = DeepSeekSelfTest(transport: URLSessionAITransport(configuration: config))
+        let service = DeepSeekSelfTest(transport: URLSessionAITransport(configuration: config), budget: DeepSeekSelectionBudget())
         #expect(try await service.run(temporaryKey: syntheticKey, confirmedScopeAndBudget: true) == "离线短句回应")
         #expect(OfflineProbeURLProtocol.capture.read()?.value(forHTTPHeaderField: "Authorization") == "Bearer " + syntheticKey)
         let session = URLSession(configuration: config); defer { session.invalidateAndCancel() }
@@ -126,7 +126,7 @@ struct DeepSeekSelfTestTests {
         RejectAIRedirects().urlSession(session, task: task, willPerformHTTPRedirection: response, newRequest: redirected) { forwarded in #expect(forwarded == nil) }
     }
     @Test @MainActor func nativeModelRequiresManualConsentClearsKeyAndIgnoresClosedResult() async throws {
-        let transport = ProbeTransport(), model = DeepSeekTestModel(service: DeepSeekSelfTest(transport: transport))
+        let transport = ProbeTransport(), model = DeepSeekTestModel(service: DeepSeekSelfTest(transport: transport, budget: DeepSeekSelectionBudget()))
         model.temporaryKey = syntheticKey; model.send()
         #expect(!model.busy && !model.canSend && model.attemptsUsed == 0)
         model.confirmed = true; model.send()
@@ -138,7 +138,7 @@ struct DeepSeekSelfTestTests {
         let recorded = model.records
         model.close(); #expect(model.result == "离线短句回应" && model.records == recorded && model.temporaryKey.isEmpty && model.attemptsUsed == 1)
         model.clearRecords(); #expect(model.result == nil && model.records.isEmpty && model.attemptsUsed == 1)
-        let deferred = DeferredProbeTransport(), closed = DeepSeekTestModel(service: DeepSeekSelfTest(transport: deferred))
+        let deferred = DeferredProbeTransport(), closed = DeepSeekTestModel(service: DeepSeekSelfTest(transport: deferred, budget: DeepSeekSelectionBudget()))
         closed.temporaryKey = syntheticKey; closed.confirmed = true; closed.send()
         let startedDeadline = Date().addingTimeInterval(5)
         while !(await deferred.started()), Date() < startedDeadline { try await Task.sleep(for: .milliseconds(10)) }
@@ -150,7 +150,7 @@ struct DeepSeekSelfTestTests {
     @Test @MainActor func safeErrorsAndThreeAttemptLimitSurviveRepeatedCloseAndRecordClear() async throws {
         for (status, expected) in [(401,DeepSeekTestFailure.authentication),(402,.quota),(429,.rateLimit)] {
             let transport = ProbeTransport(status: status, body: Data("sensitive-synthetic-body".utf8))
-            let model = DeepSeekTestModel(service: DeepSeekSelfTest(transport: transport))
+            let model = DeepSeekTestModel(service: DeepSeekSelfTest(transport: transport, budget: DeepSeekSelectionBudget()))
             for ordinal in 1...3 {
                 model.temporaryKey = syntheticKey; model.confirmed = true; model.send()
                 let deadline = Date().addingTimeInterval(5)
@@ -175,7 +175,7 @@ struct DeepSeekSelfTestTests {
     }
     @Test @MainActor func timeoutRecordRemainsVisibleAfterCloseAndLateResponse() async throws {
         let transport = DeferredProbeTransport()
-        let model = DeepSeekTestModel(service: DeepSeekSelfTest(transport: transport), timeoutSeconds: 0.1)
+        let model = DeepSeekTestModel(service: DeepSeekSelfTest(transport: transport, budget: DeepSeekSelectionBudget()), timeoutSeconds: 0.1)
         model.temporaryKey = syntheticKey; model.confirmed = true; model.send()
         let deadline = Date().addingTimeInterval(5)
         while model.busy, Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
@@ -191,7 +191,7 @@ struct DeepSeekSelfTestTests {
         _ = NSApplication.shared
         let content = String(repeating: "这是离线替身的长响应，用于验证窄窗口自动换行与记录可见性。", count: 12)
         let body = try JSONSerialization.data(withJSONObject: ["choices": [["finish_reason": "stop", "message": ["role": "assistant", "content": content]]]])
-        let model = DeepSeekTestModel(service: DeepSeekSelfTest(transport: ProbeTransport(body: body)))
+        let model = DeepSeekTestModel(service: DeepSeekSelfTest(transport: ProbeTransport(body: body), budget: DeepSeekSelectionBudget()))
         model.temporaryKey = syntheticKey; model.confirmed = true; model.send()
         let deadline = Date().addingTimeInterval(5)
         while model.busy, Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }

@@ -38,7 +38,7 @@ public actor LibraryRepository {
     }
     public func load() throws -> LibraryState {
         guard manager.fileExists(atPath: manifest.path) else { return LibraryState() }
-        let data = try Data(contentsOf: manifest)
+        let data = try BoundedFileReader.read(manifest, limit: 10 * 1024 * 1024)
         return try Self.decode(data)
     }
     public static func decode(_ data: Data) throws -> LibraryState {
@@ -72,7 +72,7 @@ public actor LibraryRepository {
     }
     public static func digest(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
     private static func valid(_ note: ReadingNote, for book: BookRecord) -> Bool {
-        note.revision > 0 && note.userText.count <= 50_000 && note.anchor.schemaVersion == 1 &&
+        note.revision > 0 && note.userText.count <= 50_000 && note.anchor.schemaVersion == 1 && note.anchor.hasConsistentQuote &&
         note.anchor.editionID == book.editionID && note.anchor.fileSHA256 == book.fileSHA256 &&
         !note.anchor.quote.isEmpty && note.anchor.quote.count <= 50_000 && !note.anchor.regions.isEmpty &&
         note.anchor.regions.count <= 5_000 && note.anchor.regions.allSatisfy {
@@ -88,7 +88,9 @@ public actor LibraryRepository {
         _ = try Self.decode(bytes)
         try manager.createDirectory(at: root, withIntermediateDirectories: true)
         if manager.fileExists(atPath: manifest.path) {
-            try Data(contentsOf: manifest).write(to: manifest.appendingPathExtension("backup"), options: .atomic)
+            let previous = try BoundedFileReader.read(manifest, limit: 10 * 1024 * 1024)
+            _ = try Self.decode(previous)
+            try previous.write(to: manifest.appendingPathExtension("backup"), options: .atomic)
         }
         try bytes.write(to: manifest, options: .atomic)
     }
@@ -110,7 +112,7 @@ public actor LibraryRepository {
     }
     public func readAsset(for book: BookRecord) throws -> Data {
         guard Self.isDigest(book.fileSHA256) else { throw LibraryError.sourceMismatch }
-        let data = try Data(contentsOf: assetURL(for: book))
+        let data = try BoundedFileReader.read(assetURL(for: book), limit: 200 * 1024 * 1024)
         guard Self.digest(data) == book.fileSHA256 else { throw LibraryError.sourceMismatch }
         return data
     }

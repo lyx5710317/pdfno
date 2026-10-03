@@ -187,7 +187,7 @@ struct AITests {
     @Test @MainActor func mockUIModelRejectsChangedDocumentsAndPreservesIndependentUserDraft() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-AI-Model-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let model = AILearningModel(root: root), selected = source()
+        let model = AILearningModel(root: root, aiSession: AppAISession()), selected = source()
         #expect(await model.saveConfig(config(), temporarySecret: ""))
         model.prepare(selected); model.userText = "Keep my independent synthetic note"
         let presence = SyntheticReaderPresence()

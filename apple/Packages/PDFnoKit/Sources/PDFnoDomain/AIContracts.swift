@@ -32,7 +32,7 @@ public enum AISelectionAnchor: Codable, Sendable, Equatable {
         case .epub(let a): a.isValid
         case .pdfPage(let a): a.isValid
         case .pdf(let a):
-            a.schemaVersion == 1 && a.extractionVersion == "pdfkit-selection-1" &&
+            a.schemaVersion == 1 && a.extractionVersion == "pdfkit-selection-1" && a.hasConsistentQuote &&
             a.fileSHA256.count == 64 && a.fileSHA256.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) } &&
             !a.regions.isEmpty && a.regions.count <= 100 && a.regions.allSatisfy {
                 $0.pageIndex >= 0 && !$0.quote.isEmpty && [$0.x, $0.y, $0.width, $0.height].allSatisfy(\.isFinite) && $0.width > 0 && $0.height > 0

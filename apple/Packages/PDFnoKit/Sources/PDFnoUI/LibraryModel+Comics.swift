@@ -17,6 +17,7 @@ extension LibraryModel {
         guard canImport, !isBusy else { return }
         guard url.pathExtension.lowercased() == "cbz" else { error = ComicError.unavailable.localizedDescription; return }
         isBusy = true; defer { isBusy = false }
+        await saveProgress()
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         do {
@@ -37,6 +38,7 @@ extension LibraryModel {
         learning.cancel(); pageTranslation.cancel()
         #if os(macOS)
         guard !isBusy else { return }; isBusy = true; defer { isBusy = false }
+        await saveProgress()
         do {
             let state = try await comicRepository.load()
             guard let current = state.books.first(where: { $0.id == book.id }) else { throw ComicError.sourceMismatch }

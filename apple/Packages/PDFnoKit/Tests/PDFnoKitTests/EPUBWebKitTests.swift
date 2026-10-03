@@ -14,7 +14,10 @@ struct EPUBWebKitTests {
         _ = NSApplication.shared
         let url = try #require(Bundle.module.url(forResource: filename, withExtension: "epub", subdirectory: "Fixtures"))
         let data = try Data(contentsOf: url), hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-        let session = EPUBReaderSession(), book = EPUBBook(fileSHA256: hash, title: "Original test", originalFilename: filename + ".epub")
+        return try await opened(data: data, book: EPUBBook(fileSHA256: hash, title: "Original test", originalFilename: filename + ".epub"))
+    }
+    @MainActor private func opened(data: Data, book: EPUBBook) async throws -> (EPUBReaderSession, NSWindow) {
+        let session = EPUBReaderSession()
         try await session.open(data: data, book: book, notes: [])
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false; window.contentView = session.webView
@@ -25,6 +28,70 @@ struct EPUBWebKitTests {
             window.close(); session.close(); throw EPUBError.bridge
         }
         return (session, window)
+    }
+    private func originalPublication(_ text: String, suffix: String = "xhtml", mime: String = "application/xhtml+xml") throws -> Data {
+        let name = "chapter." + suffix
+        return try ConversionFixture.zip([
+            ("mimetype", Data("application/epub+zip".utf8)),
+            ("META-INF/container.xml", Data("<container xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\"><rootfiles><rootfile full-path=\"book.opf\" media-type=\"application/oebps-package+xml\"/></rootfiles></container>".utf8)),
+            ("book.opf", Data("<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"id\"><metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\"><dc:identifier id=\"id\">original-audit</dc:identifier><dc:title>Original audit</dc:title><dc:language>en</dc:language></metadata><manifest><item id=\"chapter\" href=\"\(name)\" media-type=\"\(mime)\"/></manifest><spine><itemref idref=\"chapter\"/></spine></package>".utf8)),
+            (name, Data("<html xmlns=\"http://www.w3.org/1999/xhtml\"><head><title>Original</title></head><body><p>\(text)</p></body></html>".utf8))
+        ], deflated: false)
+    }
+    @Test @MainActor func longParagraphSecondAndThirdPagesRestoreExactVisibleOffsetsAndReopen() async throws {
+        let data = try originalPublication(String(repeating: "Original sentence about a garden. ", count: 300))
+        var book = EPUBBook(fileSHA256: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined(), title: "Original long paragraph", originalFilename: "original.epub")
+        let (session,window) = try await opened(data: data, book: book)
+        defer { session.close();window.close() }
+        let first = try #require(session.progress)
+        #expect(await session.command("next"));let second = try #require(session.progress)
+        #expect(session.position.contains("第 2 页") && second.start > first.start)
+        #expect(await session.command("next"));let third = try #require(session.progress)
+        #expect(session.position.contains("第 3 页") && third.start > second.start)
+        #expect(await session.command("navigate",anchor: second));#expect(session.position.contains("第 2 页"))
+        #expect(await session.command("navigate",anchor: third));#expect(session.position.contains("第 3 页"))
+        #expect(await session.command("resize"));#expect(session.position.contains("第 3 页"))
+        window.setContentSize(NSSize(width: 640,height: 480))
+        #expect(await session.command("navigate",anchor: third))
+        let selected = try await probe(session,"const d=document.querySelector('iframe').contentDocument;return d.getSelection().toString();")
+        #expect(selected == third.quote)
+        window.setContentSize(NSSize(width: 800,height: 600))
+        #expect(await session.command("navigate",anchor: third));#expect(session.position.contains("第 3 页"))
+        let verticalStart = EPUBAnchor(editionID: first.editionID,fileSHA256: first.fileSHA256,resourceHref: first.resourceHref,spineIndex: first.spineIndex,start: first.start,end: first.end,quote: first.quote,prefix: first.prefix,suffix: first.suffix,vertical: true)
+        #expect(await session.command("navigate",anchor: verticalStart))
+        #expect(session.vertical && session.position.contains("第 1 页"))
+        #expect(await session.command("next"));let verticalSecond = try #require(session.progress)
+        #expect(session.position.contains("第 2 页") && verticalSecond.start > first.start)
+        #expect(await session.command("next"));let verticalThird = try #require(session.progress)
+        #expect(session.position.contains("第 3 页") && verticalThird.start > verticalSecond.start)
+        #expect(await session.command("navigate",anchor: verticalSecond));#expect(session.position.contains("第 2 页"))
+        #expect(await session.command("navigate",anchor: verticalThird));#expect(session.position.contains("第 3 页"))
+        #expect(await session.command("navigate",anchor: third));#expect(!session.vertical && session.position.contains("第 3 页"))
+        book.progress = third
+        let (reopened,other) = try await opened(data: data, book: book)
+        defer { reopened.close();other.close() }
+        #expect(reopened.position.contains("第 3 页"))
+        #expect(!window.isVisible && !other.isVisible)
+    }
+    @Test @MainActor func surrogateBoundaryHasReadableProgressAndUnsupportedMIMERoutesFail() async throws {
+        let data = try originalPublication(String(repeating: "A", count: 127) + "🌸 remaining original text café")
+        let book = EPUBBook(fileSHA256: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined(), title: "Original Unicode", originalFilename: "original.epub")
+        let (session,window) = try await opened(data: data, book: book)
+        defer { session.close();window.close() }
+        let anchor = try #require(session.progress);#expect(anchor.isValid && anchor.quote.contains("🌸"))
+        #expect(await session.command("navigate",anchor: anchor))
+        for (suffix,mime) in [("content","application/xhtml+xml"),("svg","image/svg+xml"),("xhtml","image/png")] {
+            let hostile = try originalPublication("Original harmless label",suffix: suffix,mime: mime)
+            let candidate = EPUBBook(fileSHA256: SHA256.hash(data: hostile).map { String(format: "%02x", $0) }.joined(), title: "Original admission test", originalFilename: "original.epub")
+            do { let (accepted,host) = try await opened(data: hostile,book: candidate);accepted.close();host.close();Issue.record("Unsupported MIME/suffix was admitted") }
+            catch { #expect(error as? EPUBError == .bridge) }
+        }
+        for text in ["<span xmlns='https://example.invalid/foreign'>Original namespace test</span>","<?xml-stylesheet href='https://example.invalid/never.css'?>Original processing instruction test"] {
+            let hostile = try originalPublication(text)
+            let candidate = EPUBBook(fileSHA256: SHA256.hash(data: hostile).map { String(format: "%02x", $0) }.joined(),title: "Original XML policy test",originalFilename: "original.epub")
+            do { let (accepted,host) = try await opened(data: hostile,book: candidate);accepted.close();host.close();Issue.record("Unsupported XML policy was admitted") }
+            catch { #expect(error as? EPUBError == .bridge) }
+        }
     }
     @MainActor private func probe(_ session: EPUBReaderSession, _ source: String) async throws -> String {
         let view = try #require(session.webView)

@@ -2,7 +2,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import JSZip from 'jszip';
-import {makeLoader,safePath} from './loader.js';
+import {makeLoader,safePath,contentKind,sanitise} from './loader.js';
+test('every loader route refuses SVG and nonstandard text before any parser or raw return',async()=>{
+  const zip=new JSZip();zip.file('chapter.content','<html><script>active</script></html>');zip.file('image.svg','<svg><script>active</script></svg>');
+  const loader=await makeLoader(await zip.generateAsync({type:'uint8array'}),['chapter.content','image.svg']);
+  for(const name of ['chapter.content','image.svg']){
+    await assert.rejects(loader.loadText(name),/Unsupported publication/);
+    await assert.rejects(loader.loadBlob(name),/Unsupported publication/);
+    assert.throws(()=>sanitise('<script>active</script>',name),/Unsupported publication/);
+  }
+  for(const [name,mime] of [['chapter.content','application/xhtml+xml'],['image.jpg','image/svg+xml'],['chapter.xml','application/xhtml+xml'],['chapter.xhtml','image/png']])assert.throws(()=>contentKind(name,mime),/MIME\/suffix mismatch/);
+  assert.equal(contentKind('chapter.xhtml','application/xhtml+xml'),'xhtml');
+});
 test('raw path whitelist precedes JSZip normalisation',async()=>{
   for (const path of ['../x','/x','C:x','a\\x','a/%2e%2e/x','a//x']) assert.equal(safePath(path),false);
   const zip=new JSZip(); zip.file('../image.jpg','abc');

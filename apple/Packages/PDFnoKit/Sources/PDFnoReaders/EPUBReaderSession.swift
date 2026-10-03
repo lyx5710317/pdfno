@@ -128,6 +128,8 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
               let state = object["payload"] as? [String: Any], state["kind"] as? String == "state" else { throw EPUBError.bridge }
         documentVersion = version; selection = nil
         if let anchor = state["progress"] as? [String: Any] { progress = try anchorValue(anchor) }
+        else if state["progress"] is NSNull { progress = nil }
+        else { throw EPUBError.bridge }
         vertical = state["vertical"] as? Bool ?? false
         let chapter = state["spineIndex"] as? Int ?? 0, page = state["page"] as? String ?? "1"
         position = "第 \(chapter + 1) 章 · 第 \(page) 页" + (vertical ? " · 竖排" : "")

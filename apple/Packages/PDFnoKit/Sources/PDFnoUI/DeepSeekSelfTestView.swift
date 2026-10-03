@@ -29,6 +29,10 @@ struct DeepSeekAttemptRecord: Identifiable, Equatable {
     private var activeRecordID: UUID?
     init(service: DeepSeekSelfTest = DeepSeekSelfTest(), timeoutSeconds: TimeInterval = DeepSeekSelfTest.timeoutSeconds) {
         self.service = service; self.timeoutSeconds = timeoutSeconds
+        Task { [weak self] in
+            let used = await service.attemptsUsed()
+            guard let self else { return }; attemptsUsed = max(attemptsUsed, used)
+        }
     }
     var canSend: Bool { confirmed && CredentialValidation.valid(temporaryKey) && !busy && attemptsUsed < DeepSeekSelfTest.maxAttempts }
     func send() {
