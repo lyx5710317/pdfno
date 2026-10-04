@@ -18102,17 +18102,20 @@
     range2.setEnd(last2.node, anchor.end - last2.start);
     return range2;
   }
-  function selection() {
-    if (initialising || !renderer?.getDocument()) return;
+  function selectedAnchor() {
+    if (initialising || !renderer?.getDocument()) return null;
     const selected = doc().getSelection();
-    if (!selected?.rangeCount || selected.isCollapsed) return;
+    if (!selected?.rangeCount || selected.isCollapsed) return null;
     const range2 = selected.getRangeAt(0), { nodes } = canonical();
     const included = nodes.filter((x) => range2.intersectsNode(x.node));
-    if (!included.length) return;
+    if (!included.length) return null;
     const first2 = included[0], last2 = included[included.length - 1];
     const start = first2.start + (range2.startContainer === first2.node ? range2.startOffset : 0);
     const end = last2.start + (range2.endContainer === last2.node ? range2.endOffset : last2.node.length);
-    const anchor = makeAnchor(start, end), key = version + ":" + start + ":" + end;
+    return makeAnchor(start, end);
+  }
+  function selection() {
+    const anchor = selectedAnchor(), key = anchor && version + ":" + anchor.start + ":" + anchor.end;
     if (anchor && key !== lastSelection) {
       lastSelection = key;
       post(envelope({ kind: "selection", anchor }));
@@ -18276,7 +18279,9 @@
     } else if (message.command === "validateAnchor") rangeFor(message.payload.anchor);
     else throw Error("Command is not allowed");
     project();
-    return JSON.stringify(envelope(state(), message.requestID));
+    const response = state();
+    if (message.command === "navigate") response.navigationSelection = selectedAnchor();
+    return JSON.stringify(envelope(response, message.requestID));
   } };
   post({ v: 1, payload: { kind: "ready" } });
   setInterval(selection, 100);

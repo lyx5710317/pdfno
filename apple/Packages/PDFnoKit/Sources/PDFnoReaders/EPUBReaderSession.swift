@@ -208,7 +208,20 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
             if let index { payload["index"] = index }
             if let anchor { guard book?.accepts(anchor) == true else { throw EPUBError.sourceMismatch }; payload["anchor"] = try json(anchor) }
             if let notes { payload["notes"] = try json(notes) }
-            try await request(name, payload: payload); return true
+            let state = try await request(name, payload: payload)
+            if name == "navigate" {
+                guard let requested = anchor, let value = state["navigationSelection"] as? [String: Any] else {
+                    throw EPUBError.sourceMismatch
+                }
+                let selected = try anchorValue(value)
+                guard selected.spineIndex == requested.spineIndex, selected.resourceHref == requested.resourceHref,
+                      selected.start == requested.start, selected.end == requested.end, selected.vertical == requested.vertical,
+                      selected.quote.utf8.elementsEqual(requested.quote.utf8) else { throw EPUBError.sourceMismatch }
+                // Consume the actual engine-selected range after the identity/request/version
+                // checks in request(), independently of asynchronous selection notifications.
+                selection = selected
+            }
+            return true
         } catch {
             if generation == token { self.error = (error as? EPUBError)?.localizedDescription ?? EPUBError.bridge.localizedDescription }
             return false

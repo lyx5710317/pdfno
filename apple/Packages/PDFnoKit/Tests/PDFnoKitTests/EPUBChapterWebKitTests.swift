@@ -52,12 +52,44 @@ struct EPUBChapterWebKitTests {
         guard case .epubChapter(let anchor) = plan.sources.last!.anchor else { Issue.record("Chapter anchor missing"); return }
         #expect(await session.validateChapterAnchor(anchor))
         #expect(await session.command("navigate", anchor: anchor))
+        // A successful source return acknowledges the real DOM range before it
+        // returns; event delivery while the reader was busy cannot erase it.
+        #expect(session.selection?.quote.utf8.elementsEqual(anchor.quote.utf8) == true)
+        #expect(session.selection?.start == anchor.start && session.selection?.end == anchor.end)
         // Raw WebKit selection.toString includes rendered ruby and block separators;
         // the trusted parent maps that range back to exact canonical offsets.
         let deadline = Date().addingTimeInterval(3)
         while session.selection == nil && Date() < deadline { try await Task.sleep(for: .milliseconds(40)) }
         #expect(session.selection?.quote.unicodeScalars.elementsEqual(anchor.quote.unicodeScalars) == true)
         #expect(data == (try publication("<p>Before logical chapters.</p><h1 id='first'>Logical A</h1><p>" + String(repeating: "Original garden paragraph. ", count: 25) + "</p><h1 id='second'>Logical B</h1><p><ruby>日本語<rt>にほんご</rt><rp>(</rp></ruby> 🌸 café</p><p>Original final sentence.</p>")))
+    }
+    @Test @MainActor func sourceReturnRejectsReplyQuoteThatDiffersFromActualRequestedRange() async throws {
+        let data = try publication("<p>Original source return か\u{3099}🌸.</p>"), session = EPUBReaderSession()
+        let book = EPUBBook(fileSHA256: LibraryRepository.digest(data), title: "Original source return", originalFilename: "original.epub")
+        let window = try await mount(session, data: data, book: book)
+        defer { session.close(); window.close() }
+        let plan = try EPUBChapterTranslationPlan(snapshot: await session.currentChapterTextSnapshot())
+        guard case .epubChapter(let anchor) = plan.sources[0].anchor else { Issue.record("Chapter anchor missing"); return }
+        #expect(await session.command("navigate", anchor: anchor))
+        #expect(session.selection?.quote.utf8.elementsEqual(anchor.quote.utf8) == true)
+        let view = try #require(session.webView)
+        // Only this original offscreen test host changes the reply. The actual
+        // engine still performs navigation; a forged same-length quote must fail.
+        let installed = try await view.callAsyncJavaScript("""
+          const original = window.PDFno.command;
+          window.PDFno.command = async message => {
+            const reply = JSON.parse(await original(message));
+            if (message.command === 'navigate') {
+              const selected = reply.payload.navigationSelection;
+              selected.quote = 'x'.repeat(selected.end - selected.start);
+            }
+            return JSON.stringify(reply);
+          };
+          return 'installed';
+          """, arguments: [:], in: nil, contentWorld: .page)
+        #expect(installed as? String == "installed")
+        #expect(!(await session.command("navigate", anchor: anchor)))
+        #expect(session.error == EPUBError.sourceMismatch.localizedDescription)
     }
     @Test @MainActor func oversizedBridgeReturnsActualCountAndNoExcerptAndRejectsBeforeAnyPlan() async throws {
         let body = String(repeating: "Original long paragraph. ", count: 500)

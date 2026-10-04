@@ -38,17 +38,20 @@ function rangeFor(anchor) {
   if (!first || !last) throw Error('Source range missing');
   const range=doc().createRange(); range.setStart(first.node,anchor.start-first.start); range.setEnd(last.node,anchor.end-last.start); return range;
 }
-function selection() {
-  if (initialising || !renderer?.getDocument()) return;
+function selectedAnchor() {
+  if (initialising || !renderer?.getDocument()) return null;
   const selected=doc().getSelection();
-  if (!selected?.rangeCount || selected.isCollapsed) return;
+  if (!selected?.rangeCount || selected.isCollapsed) return null;
   const range=selected.getRangeAt(0), {nodes}=canonical();
   const included=nodes.filter(x=>range.intersectsNode(x.node));
-  if (!included.length) return;
+  if (!included.length) return null;
   const first=included[0], last=included[included.length-1];
   const start=first.start+(range.startContainer===first.node ? range.startOffset : 0);
   const end=last.start+(range.endContainer===last.node ? range.endOffset : last.node.length);
-  const anchor=makeAnchor(start,end), key=version+':'+start+':'+end;
+  return makeAnchor(start,end);
+}
+function selection() {
+  const anchor=selectedAnchor(), key=anchor && version+':'+anchor.start+':'+anchor.end;
   if (anchor && key!==lastSelection) { lastSelection=key; post(envelope({kind:'selection',anchor})); }
 }
 function project() {
@@ -161,7 +164,12 @@ window.PDFno = {async command(message) {
     return JSON.stringify(envelope({...state(),chapterText},message.requestID));
   } else if (message.command==='validateAnchor') rangeFor(message.payload.anchor);
   else throw Error('Command is not allowed');
-  project(); return JSON.stringify(envelope(state(),message.requestID));
+  project();
+  const response=state();
+  // A selection event may arrive while the native command is busy and then be
+  // deduplicated. Acknowledge the actual DOM range in this verified reply too.
+  if(message.command==='navigate') response.navigationSelection=selectedAnchor();
+  return JSON.stringify(envelope(response,message.requestID));
 }};
 post({v:1,payload:{kind:'ready'}});
 // WebKit can suppress listeners in a script-disabled book frame. Poll from
