@@ -5,6 +5,10 @@ import PDFnoDomain
 import PDFnoServices
 import PDFnoReaders
 @testable import PDFnoUI
+#if os(macOS)
+import AppKit
+import SwiftUI
+#endif
 
 @MainActor private final class DeferredNoteBodySave {
     var continuation: CheckedContinuation<NoteBodySnapshot, Error>?
@@ -47,6 +51,92 @@ struct NoteEditingTests {
         #expect(object["schemaVersion"] as? Int == 1)
         return try #require((object["notes"] as? [[String: Any]])?.first)
     }
+
+    #if os(macOS)
+    @Test @MainActor func NativeBodyInputCheckpointsExactUnicodeWithoutSavingAndReopensAfterCancel() throws {
+        let root = root(); defer { try? FileManager.default.removeItem(at: root) }
+        let note = NoteBodySnapshot.learning(learningNote())
+        let editor = NoteEditingModel(root: root) { _, _ in throw NoteBodyEditError.conflict }
+        func control() throws -> (NSScrollView, NativeNoteBodyInput.Coordinator, NSTextView) {
+            let binding = Binding(get: { editor.drafts[note.key]?.text ?? "" }, set: { editor.setText($0, for: note) })
+            let coordinator = NativeNoteBodyInput.Coordinator(text: binding)
+            let scroll = NativeNoteBodyInput.makeEditor(coordinator: coordinator, identifier: "original-edit-input", enabled: true)
+            return (scroll, coordinator, try #require(scroll.documentView as? NSTextView))
+        }
+        editor.begin(note)
+        let (scroll, coordinator, view) = try control()
+        let first = "  Original 日本語🌸 cafe\u{301}\nSecond line ‘quote’ -- ", second = "Original second edit 日本語"
+        view.insertText(first, replacementRange: NSRange(location: 0, length: view.string.utf16.count))
+        #expect(view.string.utf8.elementsEqual(first.utf8))
+        #expect(editor.drafts[note.key]?.text.utf8.elementsEqual(first.utf8) == true)
+        #expect(try NoteEditDraftJournal(root: root).load().first?.text.utf8.elementsEqual(first.utf8) == true)
+        #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("learning-v1.json").path))
+        editor.cancel(note); editor.begin(note)
+        let (reopenedScroll, reopenedCoordinator, reopened) = try control()
+        #expect(reopened.string == note.userText)
+        reopened.insertText(second, replacementRange: NSRange(location: 0, length: reopened.string.utf16.count))
+        #expect(editor.drafts[note.key]?.text == second)
+        #expect(try NoteEditDraftJournal(root: root).load().first?.text == second)
+        withExtendedLifetime((scroll, coordinator, reopenedScroll, reopenedCoordinator)) {}
+    }
+    @Test @MainActor func NativeBodyDeleteUpdatesDraftAndExplicitSaveClearsPDFBodyWithoutChangingSource() async throws {
+        let root = root(); defer { try? FileManager.default.removeItem(at: root) }
+        let repository = LibraryRepository(root: root), original = try originalSample()
+        let book = try await repository.importPDF(original, filename: "Original.pdf", pageCount: 2), note = pdfNote(book: book)
+        try await repository.saveNote(note)
+        let snapshot = NoteBodySnapshot.pdf(note)
+        let editor = NoteEditingModel(root: root) { expected, text in
+            guard case .pdf(let pdf) = expected else { throw NoteBodyEditError.conflict }
+            return .pdf(try await repository.updateNoteBody(expected: pdf, text: text))
+        }
+        editor.begin(snapshot)
+        let binding = Binding(get: { editor.drafts[snapshot.key]?.text ?? "" }, set: { editor.setText($0, for: snapshot) })
+        let coordinator = NativeNoteBodyInput.Coordinator(text: binding)
+        let scroll = NativeNoteBodyInput.makeEditor(coordinator: coordinator, identifier: "original-edit-input", enabled: true)
+        let view = try #require(scroll.documentView as? NSTextView)
+        view.selectAll(nil); view.delete(nil)
+        #expect(view.string.isEmpty && editor.drafts[snapshot.key]?.text == "")
+        #expect(try NoteEditDraftJournal(root: root).load().first?.text == "")
+        #expect(try await repository.load().notes == [note])
+        let saved = try #require(await editor.save(snapshot))
+        #expect(saved.userText.isEmpty && editor.drafts[snapshot.key] == nil)
+        let reloaded = try #require(await LibraryRepository(root: root).load().notes.first)
+        #expect(reloaded.userText.isEmpty && reloaded.anchor == note.anchor && reloaded.id == note.id)
+        #expect(try await repository.readAsset(for: book) == original)
+        withExtendedLifetime((scroll, coordinator)) {}
+    }
+    #if DEBUG
+    @Test @MainActor func UUIDAppFilesystemFixtureFailsRealBackupWriteAndRetainsDraftUntilExplicitRetry() async throws {
+        let token = UUID().uuidString, root = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let repository = LibraryRepository(root: root), original = try originalSample()
+        let book = try await repository.importPDF(original, filename: "Original.pdf", pageCount: 2), note = pdfNote(book: book)
+        try await repository.saveNote(note)
+        let environment = ["PDFNO_UI_TEST_SESSION": token, "PDFNO_UI_TEST_NOTE_FAILURE": "backup-directory"]
+        #expect(NoteEditingFilesystemUITestFixture(root: root, environment: [:]) == nil)
+        #expect(NoteEditingFilesystemUITestFixture(root: root.appendingPathComponent("other"), environment: environment) == nil)
+        let fixture = try #require(NoteEditingFilesystemUITestFixture(root: root, environment: environment))
+        let snapshot = NoteBodySnapshot.pdf(note), manifest = root.appendingPathComponent("library-v1.json")
+        let before = try Data(contentsOf: manifest), text = "Original explicit retry 日本語🌸"
+        let editor = NoteEditingModel(root: root) { expected, text in
+            guard case .pdf(let pdf) = expected else { throw NoteBodyEditError.conflict }
+            try fixture.prepareAttempt()
+            return .pdf(try await repository.updateNoteBody(expected: pdf, text: text))
+        }
+        editor.begin(snapshot); editor.setText(text, for: snapshot)
+        #expect(await editor.save(snapshot) == nil)
+        #expect(try root.appendingPathComponent("library-v1.json.backup").resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true)
+        #expect(try Data(contentsOf: manifest) == before)
+        #expect(editor.drafts[snapshot.key]?.text == text && editor.feedback[snapshot.key]?.contains("保存失败") == true)
+        #expect(try NoteEditDraftJournal(root: root).load().first?.text == text)
+        let retried = await editor.save(snapshot)
+        #expect(retried?.userText == text, "\(editor.feedback[snapshot.key] ?? "no feedback")")
+        #expect(editor.drafts[snapshot.key] == nil && editor.feedback[snapshot.key]?.contains("已保存到本地") == true)
+        #expect(try Data(contentsOf: root.appendingPathComponent("library-v1.json.backup")) == before)
+        #expect(try await repository.readAsset(for: book) == original)
+    }
+    #endif
+    #endif
 
     @Test func PDFBodySaveEmptyNoOpRestartRevisionAndOriginals() async throws {
         let root = root(); defer { try? FileManager.default.removeItem(at: root) }

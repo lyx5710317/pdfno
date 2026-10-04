@@ -42,6 +42,13 @@ final class NativeUITests: XCTestCase {
     @MainActor private func pressEditingElement(_ element: XCUIElement, app: XCUIApplication) {
         XCTAssertTrue(element.waitForExistence(timeout: 5)); scrollEditingElement(element, app: app); press(element)
     }
+    @MainActor private func waitForEditingValue(_ text: String, in input: XCUIElement) {
+        let ready = expectation(for: NSPredicate { _, _ in
+            input.exists && (input.value as? String) == text
+        }, evaluatedWith: input)
+        wait(for: [ready], timeout: 5)
+        XCTAssertEqual(input.value as? String, text)
+    }
     @MainActor private func enterEditingText(_ text: String, prefix: String, app: XCUIApplication) {
         let input = editingInput(prefix, app: app)
         // In a macOS List, the blank centre of a multiline field can select the
@@ -59,8 +66,7 @@ final class NativeUITests: XCTestCase {
         input.typeKey("v", modifierFlags: .command)
         // Verify both the actual control and its model before dismiss/save;
         // a missed keyboard event must fail here, not masquerade as data loss.
-        waitForText([text], in: input, timeout: 5)
-        XCTAssertEqual(textValue(input), text)
+        waitForEditingValue(text, in: input)
         waitForText(["正文未保存"], in: app.staticTexts[prefix + "-edit-status"].firstMatch, timeout: 5)
         if board.changeCount == change { board.clearContents(); board.writeObjects(previous) }
     }
@@ -104,6 +110,7 @@ final class NativeUITests: XCTestCase {
         let body = editingInput("pdf-note", app: app)
         body.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.15)).click()
         body.typeKey("a", modifierFlags: .command); body.typeKey(.delete, modifierFlags: [])
+        waitForEditingValue("", in: body)
         waitForText(["正文未保存"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 5)
         pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
         waitForText(["已保存到本地"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
@@ -114,27 +121,24 @@ final class NativeUITests: XCTestCase {
     }
     @MainActor func testMacPDFBodyEditingDiskFailureKeepsDraftAndExplicitRetry() throws {
         let app = XCUIApplication(), token = UUID().uuidString
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-UITests-" + token)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let root = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token)
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
-        app.launchEnvironment["TMPDIR"] = root.deletingLastPathComponent().path
-        app.launchEnvironment["PDFNO_UI_TEST_RUNNER_TMP"] = "1"
-        app.launch(); app.activate(); defer { app.terminate(); try? FileManager.default.removeItem(at: root) }
+        app.launchEnvironment["PDFNO_UI_TEST_NOTE_FAILURE"] = "backup-directory"
+        app.launch(); app.activate(); defer { app.terminate() }
         try prepareOriginalPDFNoteEditing(app)
         press(app.buttons["reader-notes"].firstMatch); press(app.buttons["save-note"].firstMatch)
         let edit = app.buttons["pdf-note-edit"].firstMatch
         XCTAssertTrue(edit.waitForExistence(timeout: 8)); pressEditingElement(edit, app: app)
         enterEditingText("Original failure recovery body", prefix: "pdf-note", app: app)
         let body = editingInput("pdf-note", app: app)
-        let manifest = root.appendingPathComponent("library-v1.json"), backup = root.appendingPathComponent("library-v1.json.backup")
+        let manifest = root.appendingPathComponent("library-v1.json")
         let before = try Data(contentsOf: manifest)
-        try FileManager.default.removeItem(at: backup)
-        try FileManager.default.createDirectory(at: backup, withIntermediateDirectories: false)
+        // The UUID-guarded Debug fixture makes a real backup-directory conflict
+        // in the app's own sandbox. The runner only reads the resulting bytes.
         pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
         waitForText(["保存失败", "草稿保留"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
         XCTAssertEqual(try Data(contentsOf: manifest), before)
         XCTAssertEqual(textValue(body), "Original failure recovery body")
-        try FileManager.default.removeItem(at: backup)
         pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
         waitForText(["已保存到本地"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
         XCTAssertEqual(try originalSavedNote(token, manifest: "library-v1.json", root: root)["userText"] as? String, "Original failure recovery body")
@@ -265,6 +269,14 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: image), imageBytes)
         // Cover writes never alter book IDs, progress or note data.
         XCTAssertEqual(try Data(contentsOf: store.appendingPathComponent("library-v1.json")), libraryBytes)
+        press(app.buttons["cover-editor-done"].firstMatch)
+        press(app.buttons["open-docx-sample"].firstMatch)
+        XCTAssertTrue(app.buttons["docx-navigation"].firstMatch.waitForExistence(timeout: 25))
+        press(app.buttons["library-grid-layout"].firstMatch)
+        XCTAssertTrue(cover("自动封面").waitForExistence(timeout: 8))
+        press(app.descendants(matching: .any).matching(identifier: "library-book").firstMatch)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 15)
+        XCTAssertEqual(try Data(contentsOf: original), originalBytes)
     }
     @MainActor func testMacDOCXDefaultCoverInListGridAndRestart() throws {
         let app = XCUIApplication(), token = UUID().uuidString

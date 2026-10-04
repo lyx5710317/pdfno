@@ -70,9 +70,17 @@ public final class LibraryModel: ObservableObject {
         #else
         learning = AILearningModel(root: root, aiSession: aiSession); pageTranslation = PDFPageTranslationModel(aiSession: aiSession)
         #endif
+        #if DEBUG && os(macOS)
+        let failureFixture = NoteEditingFilesystemUITestFixture(root: root)
+        let beforePDFBodySave: @MainActor () throws -> Void = { try failureFixture?.prepareAttempt() }
+        #else
+        let beforePDFBodySave: @MainActor () throws -> Void = {}
+        #endif
         noteEditing = NoteEditingModel(root: root) { [repository, epubRepository, learningRepository = learning.repository] snapshot, text in
             switch snapshot {
-            case .pdf(let note): return .pdf(try await repository.updateNoteBody(expected: note, text: text))
+            case .pdf(let note):
+                try beforePDFBodySave()
+                return .pdf(try await repository.updateNoteBody(expected: note, text: text))
             case .epub(let note): return .epub(try await epubRepository.updateNoteBody(expected: note, text: text))
             case .learning(let note): return .learning(try await learningRepository.updateNoteBody(expected: note, text: text))
             }
@@ -87,14 +95,7 @@ public final class LibraryModel: ObservableObject {
         #if os(macOS)
         // XCTest's runner and the launched app can have different TMPDIR values.
         // A fresh, private UUID directory is shared only by this isolated test.
-        #if DEBUG
-        // A filesystem-failure UI fixture needs a directory owned by its runner.
-        // The normal shared UUID location and all release behavior stay unchanged.
-        let parent = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_RUNNER_TMP"] == "1"
-            ? FileManager.default.temporaryDirectory : URL(fileURLWithPath: "/tmp", isDirectory: true)
-        #else
         let parent = URL(fileURLWithPath: "/tmp", isDirectory: true)
-        #endif
         let root = parent.appendingPathComponent("PDFno-UITests-" + value.uuidString)
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         return root

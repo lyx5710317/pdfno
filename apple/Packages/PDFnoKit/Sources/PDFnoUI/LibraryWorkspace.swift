@@ -33,9 +33,14 @@ public struct LibraryWorkspace: View {
                         ScrollView {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), alignment: .top)], spacing: 16) {
                                 ForEach(coverItems) { item in
-                                    Button { selectedBookID = item.id } label: {
-                                        LibraryCoverRow(covers: model.covers, item: item, grid: true) { coverEditor = item }
-                                    }.buttonStyle(.plain).accessibilityElement(children: .contain).padding(4)
+                                    LibraryCoverRow(covers: model.covers, item: item, grid: true) { coverEditor = item }
+                                        .contentShape(Rectangle())
+                                        .onTapGesture { selectedBookID = item.id }
+                                        .accessibilityAction { selectedBookID = item.id }
+                                        .focusable()
+                                        .onKeyPress(.return) { selectedBookID = item.id; return .handled }
+                                        .onKeyPress(.space) { selectedBookID = item.id; return .handled }
+                                        .padding(4)
                                         .background(selectedBookID == item.id ? Color.accentColor.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
                                 }
                             }.padding(12)
