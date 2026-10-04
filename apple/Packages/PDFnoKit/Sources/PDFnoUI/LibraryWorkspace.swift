@@ -22,17 +22,19 @@ public struct LibraryWorkspace: View {
         NavigationSplitView(preferredCompactColumn: $compactColumn) {
             VStack(spacing: 0) {
                 #if os(macOS)
-                HStack {
-                    Button { grid = false } label: { Label("列表", systemImage: "list.bullet") }
-                        .accessibilityIdentifier("library-list-layout")
-                    Button { grid = true } label: { Label("网格", systemImage: "square.grid.2x2") }
-                        .accessibilityIdentifier("library-grid-layout")
-                }.buttonStyle(.borderless).padding(8)
+                VStack(alignment: .leading, spacing: PDFnoDesign.Space.small) {
+                    HStack {
+                        Text("我的书库").font(PDFnoDesign.TypeStyle.title)
+                        Spacer()
+                        Text("\(libraryBookCount) 本").font(PDFnoDesign.TypeStyle.metadata).foregroundStyle(.secondary)
+                    }
+                    PDFnoLibraryLayoutPicker(grid: $grid)
+                }.padding(PDFnoDesign.Space.regular)
                 #endif
                 Group {
                     if grid {
                         ScrollView {
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), alignment: .top)], spacing: 16) {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 108), alignment: .top)], spacing: PDFnoDesign.Space.section) {
                                 ForEach(coverItems) { item in
                                     LibraryCoverRow(covers: model.covers, item: item, grid: true) { coverEditor = item }
                                         .contentShape(Rectangle())
@@ -41,8 +43,8 @@ public struct LibraryWorkspace: View {
                                         .focusable()
                                         .onKeyPress(.return) { selectedBookID = item.id; return .handled }
                                         .onKeyPress(.space) { selectedBookID = item.id; return .handled }
-                                        .padding(4)
-                                        .background(selectedBookID == item.id ? Color.accentColor.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+                                        .padding(PDFnoDesign.Space.small)
+                                        .background(selectedBookID == item.id ? PDFnoDesign.Palette.selection : Color.clear, in: RoundedRectangle(cornerRadius: PDFnoDesign.Metric.corner))
                                 }
                                 #if os(macOS)
                                 ForEach(model.textFormats.books) { book in
@@ -55,17 +57,18 @@ public struct LibraryWorkspace: View {
                                         .focusable()
                                         .onKeyPress(.return) { selectedBookID = book.id; return .handled }
                                         .onKeyPress(.space) { selectedBookID = book.id; return .handled }
-                                        .padding(4)
-                                        .background(selectedBookID == book.id ? Color.accentColor.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+                                        .padding(PDFnoDesign.Space.small)
+                                        .background(selectedBookID == book.id ? PDFnoDesign.Palette.selection : Color.clear, in: RoundedRectangle(cornerRadius: PDFnoDesign.Metric.corner))
                                 }
                                 #endif
-                            }.padding(12)
+                            }.padding(PDFnoDesign.Space.regular)
+                            if libraryIsEmpty { libraryEmptyState.padding(PDFnoDesign.Space.section) }
                             ebookShelf
                         }
                     } else {
                         List(selection: $selectedBookID) {
                             Section("我的书库") {
-                                if libraryIsEmpty { Text("导入书籍，开始阅读").foregroundStyle(.secondary) }
+                                if libraryIsEmpty { libraryEmptyState }
                                 ForEach(coverItems) { item in
                                     LibraryCoverRow(covers: model.covers, item: item, grid: false) { coverEditor = item }.tag(item.id)
                                 }
@@ -99,33 +102,37 @@ public struct LibraryWorkspace: View {
                         Task { await model.openEPUB(book); compactColumn = .detail }
                     }
                 }
-                VStack(spacing: 10) {
-                    Button { importer = true } label: { Label(importTitle, systemImage: "plus") }
-                        .buttonStyle(.borderedProminent).disabled(!model.canImport || model.isBusy)
-                        .accessibilityIdentifier("import-pdf")
-                    Button("打开示例 PDF") {
-                        Task { await model.openSample(); if model.reader.book != nil { compactColumn = .detail } }
-                    }.disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-sample")
-                    #if os(macOS)
-                    Button("打开示例 DOCX") { Task { await model.openDOCXSample(); compactColumn = .detail } }
-                        .disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-docx-sample")
-                    Button("打开示例 EPUB") { Task { await model.openEPUBSample(); compactColumn = .detail } }
-                        .disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-epub-sample")
-                    Button("Bookno 离线预览") { booknoPreview = true }
-                        .disabled(!model.canImport || model.isBusy).accessibilityIdentifier("bookno-preview-open")
-                    #endif
-                    #if os(macOS)
-                    Menu("打开电子书示例") {
-                        ForEach(EbookFormat.allCases, id: \.self) { format in
-                            Button(format.rawValue.uppercased()) { Task { await model.openEbookSample(format); compactColumn = .detail } }
-                                .accessibilityIdentifier("open-ebook-sample-\(format.rawValue)")
-                        }
-                    }.disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-ebook-sample")
-                    #endif
-                    Text("仅在设备本地处理").font(.caption).foregroundStyle(.secondary)
-                }.padding()
-            }.navigationTitle("PDFno")
-            .navigationSplitViewColumnWidth(min: 220, ideal: 270, max: 360)
+                Divider()
+                ScrollView {
+                    VStack(spacing: PDFnoDesign.Space.small) {
+                        Button { importer = true } label: { Label(importTitle, systemImage: "plus").frame(maxWidth: .infinity) }
+                            .buttonStyle(PDFnoActionStyle(role: .primary)).disabled(!model.canImport || model.isBusy)
+                            .accessibilityIdentifier("import-pdf")
+                        Button("打开示例 PDF") {
+                            Task { await model.openSample(); if model.reader.book != nil { compactColumn = .detail } }
+                        }.disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-sample")
+                        #if os(macOS)
+                        Button("打开示例 DOCX") { Task { await model.openDOCXSample(); compactColumn = .detail } }
+                            .disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-docx-sample")
+                        Button("打开示例 EPUB") { Task { await model.openEPUBSample(); compactColumn = .detail } }
+                            .disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-epub-sample")
+                        Button("Bookno 离线预览") { booknoPreview = true }
+                            .disabled(!model.canImport || model.isBusy).accessibilityIdentifier("bookno-preview-open")
+                        #endif
+                        #if os(macOS)
+                        Menu("打开电子书示例") {
+                            ForEach(EbookFormat.allCases, id: \.self) { format in
+                                Button(format.rawValue.uppercased()) { Task { await model.openEbookSample(format); compactColumn = .detail } }
+                                    .accessibilityIdentifier("open-ebook-sample-\(format.rawValue)")
+                            }
+                        }.disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-ebook-sample")
+                        #endif
+                        Text("仅在设备本地处理").font(.caption).foregroundStyle(.secondary)
+                    }.buttonStyle(PDFnoActionStyle(role: .quiet))
+                        .padding(PDFnoDesign.Space.regular)
+                }.frame(maxHeight: 260)
+            }.background(PDFnoDesign.Palette.chrome).navigationTitle("PDFno")
+            .navigationSplitViewColumnWidth(min: PDFnoDesign.Metric.sidebarMinimum, ideal: PDFnoDesign.Metric.sidebarIdeal, max: PDFnoDesign.Metric.sidebarMaximum)
         } detail: {
             #if os(macOS)
             if model.ebook.isActive { EbookWorkspace(model: model.ebook) }
@@ -154,9 +161,9 @@ public struct LibraryWorkspace: View {
                     .disabled(!coverItems.contains { $0.id == selectedBookID }).accessibilityIdentifier("library-edit-cover")
                     .help(model.textFormats.isActive ? "文本格式封面尚未开放" : "编辑选中书籍的本地封面")
             }
-            ToolbarItem { Button { librarySearch = true } label: { Label("书库与笔记搜索", systemImage: "magnifyingglass") }.accessibilityIdentifier("library-search") }
-            ToolbarItem { Button { conversion = true } label: { Label("格式转换", systemImage: "arrow.triangle.2.circlepath") }.accessibilityIdentifier("document-conversion") }
-            ToolbarItem { Button { aiSettings = true } label: { Label("模型与 BYOK 设置", systemImage: "slider.horizontal.3") }.accessibilityIdentifier("ai-settings") }
+            ToolbarItem { Button { librarySearch = true } label: { Label("书库与笔记搜索", systemImage: "magnifyingglass") }.accessibilityIdentifier("library-search").keyboardShortcut("f", modifiers: [.command, .shift]).help("搜索书名与已保存笔记") }
+            ToolbarItem { Button { conversion = true } label: { Label("格式转换", systemImage: "arrow.triangle.2.circlepath") }.accessibilityIdentifier("document-conversion").help("打开本地格式转换") }
+            ToolbarItem { Button { aiSettings = true } label: { Label("模型与 BYOK 设置", systemImage: "slider.horizontal.3") }.accessibilityIdentifier("ai-settings").help("配置模型与会话临时密钥") }
             #endif
         }
         .sheet(isPresented: $about) { FeatureStatusView() }
@@ -172,6 +179,19 @@ public struct LibraryWorkspace: View {
         } message: { Text(model.error ?? "") }
         .overlay { if model.isBusy { ProgressView("正在打开…").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14)) } }
     }
+    private var libraryBookCount: Int {
+        #if os(macOS)
+        coverItems.count + model.textFormats.books.count + model.ebook.books.count
+        #else
+        coverItems.count
+        #endif
+    }
+    private var libraryEmptyState: some View {
+        VStack(alignment: .leading, spacing: PDFnoDesign.Space.small) {
+            Label("导入书籍，开始阅读", systemImage: "books.vertical").font(PDFnoDesign.TypeStyle.section)
+            Text("选择本地文件，或试读下方自制示例。").font(PDFnoDesign.TypeStyle.body).foregroundStyle(.secondary)
+        }.padding(.vertical, PDFnoDesign.Space.regular).accessibilityIdentifier("library-empty-state")
+    }
     private var libraryIsEmpty: Bool {
         #if os(macOS)
         coverItems.isEmpty && model.textFormats.books.isEmpty && model.ebook.books.isEmpty
@@ -182,8 +202,11 @@ public struct LibraryWorkspace: View {
     #if os(macOS)
     private func ebookRow(_ book: EbookBook) -> some View {
         HStack {
-            Image(systemName: "book.closed").font(.title)
-            VStack(alignment: .leading) { Text(book.title); Text("\(book.format.rawValue.uppercased()) · 本地").font(.caption).foregroundStyle(.secondary) }
+            Image(systemName: "book.closed").font(.title2).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: PDFnoDesign.Space.tight) {
+                Text(book.title).font(PDFnoDesign.TypeStyle.section).lineLimit(2)
+                Text("\(book.format.rawValue.uppercased()) · 本地").font(PDFnoDesign.TypeStyle.metadata).foregroundStyle(.secondary)
+            }
         }.accessibilityElement(children: .combine).accessibilityIdentifier("library-ebook-\(book.format.rawValue)")
     }
     private var ebookShelf: some View {
@@ -276,6 +299,8 @@ struct ReaderWorkspace: View {
     @ObservedObject var session: PDFReaderSession
     @State private var navigation = false
     @State private var notesPanel = false
+    @State private var panels = PDFnoReaderPanels()
+    @State private var readerWidth: CGFloat = 0
     @State private var searchText = ""
     @State private var searched = false
     @State private var draft = ""
@@ -291,27 +316,44 @@ struct ReaderWorkspace: View {
                         model.prepareJapaneseLearning(); japaneseLearning = true
                     }
                     #endif
-                    PDFCanvas(session: session).background(.secondary.opacity(0.1))
+                    #if os(macOS)
+                    PDFnoReaderShell(panels: panels) {
+                        PDFCanvas(session: session).background(PDFnoDesign.Palette.canvas)
+                    } navigation: {
+                        PDFnoPanel(title: "导航与搜索", icon: "list.bullet", closeIdentifier: "close-navigation", close: { panels.navigation = false }) { navigationContent }
+                    } notes: {
+                        PDFnoPanel(title: "高亮与笔记", icon: "highlighter", closeIdentifier: "close-notes", close: { panels.notes = false }) { notesContent }
+                    }
+                    .background {
+                        GeometryReader { geometry in
+                            Color.clear.onAppear { readerWidth = geometry.size.width }
+                                .onChange(of: geometry.size.width) { _, width in readerWidth = width }
+                        }
+                    }
+                    #else
+                    PDFCanvas(session: session).background(PDFnoDesign.Palette.canvas)
+                    #endif
                     HStack {
                         Text("第 \(session.pageIndex + 1) / \(book.pageCount) 页").monospacedDigit()
                             .accessibilityIdentifier("page-position")
                         Spacer()
                         Text(model.status).lineLimit(1)
-                    }.font(.caption).foregroundStyle(.secondary).padding(10)
+                    }.font(PDFnoDesign.TypeStyle.metadata).foregroundStyle(.secondary).padding(PDFnoDesign.Space.regular)
+                        .background(PDFnoDesign.Palette.chrome)
                 }.navigationTitle(book.title)
                 .toolbar {
                     ToolbarItemGroup {
-                        Button { navigation = true } label: { Label("导航与搜索", systemImage: "list.bullet") }
-                            .accessibilityIdentifier("reader-navigation")
+                        Button { openNavigation() } label: { Label("导航与搜索", systemImage: "list.bullet") }
+                            .accessibilityIdentifier("reader-navigation").keyboardShortcut("f", modifiers: .command).accessibilityValue(navigationVisible ? "已展开" : "已收起").help("显示或收起 PDF 目录与文本搜索")
                         Button { session.go(to: session.pageIndex - 1) } label: { Label("上一页", systemImage: "chevron.left") }
-                            .disabled(session.pageIndex == 0).accessibilityIdentifier("previous-page")
+                            .disabled(session.pageIndex == 0).accessibilityIdentifier("previous-page").help("阅读上一页")
                         Button { session.go(to: session.pageIndex + 1) } label: { Label("下一页", systemImage: "chevron.right") }
-                            .disabled(session.pageIndex >= book.pageCount - 1).accessibilityIdentifier("next-page")
-                        Button { notesPanel = true } label: { Label("高亮与笔记", systemImage: "highlighter") }
-                            .accessibilityIdentifier("reader-notes")
+                            .disabled(session.pageIndex >= book.pageCount - 1).accessibilityIdentifier("next-page").help("阅读下一页")
+                        Button { openNotes() } label: { Label("高亮与笔记", systemImage: "highlighter") }
+                            .accessibilityIdentifier("reader-notes").accessibilityValue(notesVisible ? "已展开" : "已收起").help("显示或收起高亮与笔记，保留草稿和选区")
                         #if os(macOS)
-                        Button("翻译当前页") { model.preparePageTranslation(); pageTranslation = true }.accessibilityIdentifier("reader-page-translation")
-                        Button("选文 AI") { model.learning.prepare(model.captureAISource()); ai = true }.accessibilityIdentifier("reader-ai")
+                        Button("翻译当前页") { model.preparePageTranslation(); pageTranslation = true }.accessibilityIdentifier("reader-page-translation").help("预览当前页翻译范围，确认后手动发送")
+                        Button("选文 AI") { model.learning.prepare(model.captureAISource()); ai = true }.accessibilityIdentifier("reader-ai").help("预览已捕获选文的 AI 任务")
                         #endif
                     }
                 }
@@ -326,79 +368,119 @@ struct ReaderWorkspace: View {
                 }
             }
         }
+        #if !os(macOS)
         .sheet(isPresented: $navigation) { navigationSheet }
         .sheet(isPresented: $notesPanel) { notesSheet }
+        #endif
         #if os(macOS)
         .sheet(isPresented: $japaneseLearning) { JapaneseLearningSheet(library: model) }
         .sheet(isPresented: $ai) { AILearningWorkspace(library: model, learning: model.learning) }
         .sheet(isPresented: $pageTranslation) { PDFPageTranslationWorkspace(library: model, translation: model.pageTranslation, learning: model.learning) }
         #endif
     }
+    private var navigationVisible: Bool {
+        #if os(macOS)
+        panels.placement(width: readerWidth).showNavigation
+        #else
+        navigation
+        #endif
+    }
+    private var notesVisible: Bool {
+        #if os(macOS)
+        panels.placement(width: readerWidth).showNotes
+        #else
+        notesPanel
+        #endif
+    }
+    private func openNavigation() {
+        #if os(macOS)
+        panels.toggle(.navigation, width: readerWidth)
+        #else
+        navigation = true
+        #endif
+    }
+    private func openNotes() {
+        #if os(macOS)
+        panels.toggle(.notes, width: readerWidth)
+        #else
+        notesPanel = true
+        #endif
+    }
+    private func closeNavigation() { navigation = false; panels.navigation = false }
+    private func closeNotes() { notesPanel = false; panels.notes = false }
     private var navigationSheet: some View {
         NavigationStack {
-            List {
-                Section("查找文本") {
-                    TextField("输入关键词", text: $searchText).accessibilityIdentifier("search-input")
-                        .onSubmit { session.search(searchText); searched = true }
-                    Button("查找") { session.search(searchText); searched = true }.accessibilityIdentifier("search-submit")
-                    if searched {
-                        Text("找到 \(session.searchMatches.count) 项（最多显示 100 项）").font(.caption)
-                            .accessibilityIdentifier("search-status")
-                    }
-                    ForEach(session.searchMatches, id: \.self) { match in
-                        Button(match.string ?? "匹配结果") { session.show(match); navigation = false }
-                            .accessibilityIdentifier("search-result")
-                    }
-                    if searched && session.searchMatches.isEmpty { Text("没有匹配文本。扫描页可能没有可选文字。").font(.caption) }
-                }
-                Section("目录") {
-                    if session.outline.isEmpty { Text("此 PDF 没有内置目录") }
-                    ForEach(session.outline) { item in Button(item.title) { session.go(to: item.pageIndex); navigation = false } }
-                }
-                Section("页面") {
-                    ForEach(0..<(session.document?.pageCount ?? 0), id: \.self) { index in
-                        Button("第 \(index + 1) 页") { session.go(to: index); navigation = false }
-                    }
-                }
-            }.buttonStyle(.borderless).navigationTitle("导航与搜索").toolbar { ToolbarItem { Button("完成") { navigation = false }.accessibilityIdentifier("close-navigation") } }
+            navigationContent.navigationTitle("导航与搜索")
+                .toolbar { ToolbarItem { Button("完成", action: closeNavigation).accessibilityIdentifier("close-navigation") } }
         }.frame(minWidth: 300, minHeight: 400)
+    }
+    private var navigationContent: some View {
+        List {
+            Section("查找文本") {
+                TextField("输入关键词", text: $searchText).accessibilityIdentifier("search-input")
+                    .onSubmit { session.search(searchText); searched = true }
+                Button("查找") { session.search(searchText); searched = true }.accessibilityIdentifier("search-submit")
+                if searched {
+                    Text("找到 \(session.searchMatches.count) 项（最多显示 100 项）").font(.caption)
+                        .accessibilityIdentifier("search-status")
+                }
+                ForEach(session.searchMatches, id: \.self) { match in
+                    Button(match.string ?? "匹配结果") { session.show(match); closeNavigation() }
+                        .accessibilityIdentifier("search-result")
+                }
+                if searched && session.searchMatches.isEmpty { Text("没有匹配文本。扫描页可能没有可选文字。").font(.caption) }
+            }
+            Section("目录") {
+                if session.outline.isEmpty { Text("此 PDF 没有内置目录") }
+                ForEach(session.outline) { item in Button(item.title) { session.go(to: item.pageIndex); closeNavigation() } }
+            }
+            Section("页面") {
+                ForEach(0..<(session.document?.pageCount ?? 0), id: \.self) { index in
+                    Button("第 \(index + 1) 页") { session.go(to: index); closeNavigation() }
+                }
+            }
+        }.buttonStyle(.borderless).font(PDFnoDesign.TypeStyle.body)
     }
     private var notesSheet: some View {
         NavigationStack {
-            List {
-                Section("当前选区") {
-                    if let anchor = session.capturedSelection {
-                        Text(anchor.quote).textSelection(.enabled)
-                        TextField("写下你的笔记（可选）", text: $draft, axis: .vertical).lineLimit(3...8)
-                            .accessibilityIdentifier("note-input")
-                        Button("保存高亮与笔记") {
-                            Task { if await model.saveNote(anchor: anchor, text: draft) { draft = "" } }
-                        }.accessibilityIdentifier("save-note")
-                    } else { Text("在 PDF 中选中文字，再打开这里。扫描页或受限文件可能不可选择。") }
-                }
-                Section("已保存 · 本地") {
-                    let notes = model.notes.filter { $0.bookID == session.book?.id }
-                    if notes.isEmpty { Text("这本书还没有笔记") }
-                    ForEach(notes) { note in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(note.anchor.quote).font(.callout).accessibilityIdentifier("saved-note-quote")
-                            if !note.userText.isEmpty { Text(verbatim: note.userText).foregroundStyle(.secondary).accessibilityIdentifier("saved-note-user-text") }
-                            #if os(macOS)
-                            NoteBodyEditor(editor: model.noteEditing, note: .pdf(note), identifier: "pdf-note") {
-                                await model.saveEditedNote(.pdf(note))
-                            } reload: { await model.reloadEditedNote(.pdf(note)) }
-                            #endif
-                            Button("回到原文 · 第 \((note.anchor.regions.first?.pageIndex ?? 0) + 1) 页") {
-                                if session.navigate(to: note.anchor) == .exact { notesPanel = false }
-                                else { model.error = "来源无法精确恢复，旧引文已保留；请重新选择原文。" }
-                            }.accessibilityIdentifier("return-to-source")
-                        }.padding(.vertical, 4)
-                    }
-                }
-                #if os(macOS)
-                JapaneseSavedNotesSection(library: model, bookID: session.book?.id) { notesPanel = false }
-                #endif
-            }.accessibilityIdentifier("pdf-notes-list").navigationTitle("高亮与笔记").toolbar { ToolbarItem { Button("完成") { notesPanel = false }.accessibilityIdentifier("close-notes") } }
+            notesContent.navigationTitle("高亮与笔记")
+                .toolbar { ToolbarItem { Button("完成", action: closeNotes).accessibilityIdentifier("close-notes") } }
         }.frame(minWidth: 300, minHeight: 420)
+    }
+    private var notesContent: some View {
+        List {
+            Section("当前选区") {
+                if let anchor = session.capturedSelection {
+                    Text(anchor.quote).textSelection(.enabled)
+                    TextField("写下你的笔记（可选）", text: $draft, axis: .vertical).lineLimit(3...8)
+                        .accessibilityIdentifier("note-input")
+                    Button("保存高亮与笔记") {
+                        Task { if await model.saveNote(anchor: anchor, text: draft) { draft = "" } }
+                    }.accessibilityIdentifier("save-note")
+                } else { Text("在 PDF 中选中文字，再打开这里。扫描页或受限文件可能不可选择。") }
+            }
+            Section("已保存 · 本地") {
+                let notes = model.notes.filter { $0.bookID == session.book?.id }
+                if notes.isEmpty { Text("这本书还没有笔记") }
+                ForEach(notes) { note in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(note.anchor.quote).font(.callout).accessibilityIdentifier("saved-note-quote")
+                        if !note.userText.isEmpty { Text(verbatim: note.userText).foregroundStyle(.secondary).accessibilityIdentifier("saved-note-user-text") }
+                        #if os(macOS)
+                        NoteBodyEditor(editor: model.noteEditing, note: .pdf(note), identifier: "pdf-note") {
+                            await model.saveEditedNote(.pdf(note))
+                        } reload: { await model.reloadEditedNote(.pdf(note)) }
+                        #endif
+                        Button("回到原文 · 第 \((note.anchor.regions.first?.pageIndex ?? 0) + 1) 页") {
+                            if session.navigate(to: note.anchor) == .exact { closeNotes() }
+                            else { model.error = "来源无法精确恢复，旧引文已保留；请重新选择原文。" }
+                        }.accessibilityIdentifier("return-to-source")
+                    }.padding(.vertical, 4)
+                }
+            }
+            #if os(macOS)
+            JapaneseSavedNotesSection(library: model, bookID: session.book?.id) { closeNotes() }
+            #endif
+        }.font(PDFnoDesign.TypeStyle.body).accessibilityIdentifier("pdf-notes-list")
     }
 }

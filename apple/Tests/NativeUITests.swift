@@ -6,6 +6,52 @@ import AppKit
 
 final class NativeUITests: XCTestCase {
     #if os(macOS)
+    // UI foundation acceptance is compile-only locally. Run on an isolated CI/OS user.
+    @MainActor func testMacLibraryLayoutSelectionAndOriginalSampleEntrypoints() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launch(); app.activate(); defer { app.terminate() }
+        let list = app.buttons["library-list-layout"].firstMatch
+        let grid = app.buttons["library-grid-layout"].firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 10)); XCTAssertTrue(grid.exists)
+        XCTAssertEqual(list.value as? String, "已选中")
+        press(grid); XCTAssertEqual(grid.value as? String, "已选中")
+        XCTAssertEqual(list.value as? String, "未选中")
+        XCTAssertTrue(japaneseElement("library-empty-state", in: app).exists)
+        press(list); XCTAssertEqual(list.value as? String, "已选中")
+        for id in ["open-sample", "open-epub-sample", "open-docx-sample", "bookno-preview-open", "import-pdf", "open-ebook-sample"] {
+            XCTAssertTrue(japaneseElement(id, in: app).exists, "Existing entry must remain: " + id)
+        }
+        press(app.buttons["open-sample"].firstMatch)
+        XCTAssertTrue(app.staticTexts["page-position"].firstMatch.waitForExistence(timeout: 15))
+    }
+    @MainActor func testMacPDFPanelSwitchRetainsOriginalSelectionAndUnsavedDraft() throws {
+        let app = XCUIApplication(), token = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launch(); app.activate(); defer { app.terminate() }
+        try prepareOriginalPDFNoteEditing(app)
+        press(app.buttons["reader-notes"].firstMatch)
+        let input = japaneseElement("note-input", in: app)
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        let draft = "Original shell draft 日本語 cafe\u{301} 👩🏽‍🚀"
+        enterSearch(draft, into: input)
+        press(app.buttons["reader-navigation"].firstMatch)
+        let search = app.textFields["search-input"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5)); XCTAssertEqual(textValue(search), "window")
+        // Both panels may dock on a wide CI screen; close navigation before returning.
+        press(app.buttons["close-navigation"].firstMatch)
+        if !input.exists { press(app.buttons["reader-notes"].firstMatch) }
+        XCTAssertTrue(input.waitForExistence(timeout: 5)); XCTAssertEqual(textValue(input), draft)
+        press(app.buttons["close-notes"].firstMatch)
+        press(app.buttons["reader-notes"].firstMatch)
+        XCTAssertTrue(input.waitForExistence(timeout: 5)); XCTAssertEqual(textValue(input), draft)
+        press(app.buttons["save-note"].firstMatch)
+        let saved = try originalSavedNote(token, manifest: "library-v1.json")
+        XCTAssertEqual(saved["userText"] as? String, draft)
+        XCTAssertEqual((saved["anchor"] as? [String: Any])?["quote"] as? String, "window")
+        press(app.buttons["return-to-source"].firstMatch)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
+    }
     // Japanese flows extend the original 30 tests without modifying them. Compile locally;
     // execute only on the authorized isolated CI host, using UUID stores and an intercepted
     // transport. Confirm the visible offline marker BEFORE entering a synthetic credential.
