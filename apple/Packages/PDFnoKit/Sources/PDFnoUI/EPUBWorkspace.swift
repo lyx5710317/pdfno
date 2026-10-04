@@ -60,13 +60,16 @@ struct EPUBWorkspace: View {
                         ForEach(model.epubNotes.filter { $0.bookID == session.book?.id }) { note in
                             VStack(alignment: .leading) {
                                 Text(note.anchor.quote).accessibilityIdentifier("epub-saved-quote")
-                                if !note.userText.isEmpty { Text(note.userText).foregroundStyle(.secondary) }
+                                if !note.userText.isEmpty { Text(verbatim: note.userText).foregroundStyle(.secondary).accessibilityIdentifier("epub-saved-user-text") }
+                                NoteBodyEditor(editor: model.noteEditing, note: .epub(note), identifier: "epub-note") {
+                                    await model.saveEditedNote(.epub(note))
+                                } reload: { await model.reloadEditedNote(.epub(note)) }
                                 Button("回到原文") { Task { if await session.command("navigate", anchor: note.anchor) { notes = false } } }
                                     .accessibilityIdentifier("epub-return")
                             }
                         }
                     }
-                }.navigationTitle("高亮与笔记").toolbar { ToolbarItem { Button("完成") { notes = false }.accessibilityIdentifier("epub-close-notes") } }
+                }.accessibilityIdentifier("epub-notes-list").navigationTitle("高亮与笔记").toolbar { ToolbarItem { Button("完成") { notes = false }.accessibilityIdentifier("epub-close-notes") } }
             }.frame(minWidth: 360, minHeight: 420)
         }
         .sheet(isPresented: $ai) { AILearningWorkspace(library: model, learning: model.learning) }

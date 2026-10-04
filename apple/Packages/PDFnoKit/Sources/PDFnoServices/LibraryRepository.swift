@@ -124,6 +124,19 @@ public actor LibraryRepository {
         state.books[index].lastPageIndex = pageIndex
         try commit(state)
     }
+    /// Compare-and-set the complete saved baseline; copy all immutable fields.
+    public func updateNoteBody(expected: ReadingNote, text: String) throws -> ReadingNote {
+        guard NoteBodySnapshot.pdf(expected).accepts(text) else { throw NoteBodyEditError.tooLong }
+        var state = try load()
+        guard let index = state.notes.firstIndex(where: { $0.id == expected.id && $0.bookID == expected.bookID }),
+              state.notes[index] == expected,
+              state.notes[index].userText.utf8.elementsEqual(expected.userText.utf8),
+              expected.revision < Int.max else { throw NoteBodyEditError.conflict }
+        var next = state.notes[index]
+        guard !next.userText.utf8.elementsEqual(text.utf8) else { return next }
+        next.userText = text; next.revision += 1; next.updatedAt = Date()
+        state.notes[index] = next; try commit(state); return next
+    }
     public func saveNote(_ note: ReadingNote) throws {
         var state = try load()
         guard let book = state.books.first(where: { $0.id == note.bookID }), Self.valid(note, for: book) else {

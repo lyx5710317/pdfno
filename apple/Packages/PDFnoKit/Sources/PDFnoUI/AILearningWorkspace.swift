@@ -122,12 +122,15 @@ struct AILearningWorkspace: View {
                             Text(verbatim: note.result.source.anchor.quote).accessibilityIdentifier("ai-saved-quote")
                             Text(verbatim: note.result.text).foregroundStyle(.secondary).accessibilityIdentifier("ai-saved-result")
                             if !note.userText.isEmpty { Text(verbatim: note.userText).accessibilityIdentifier("ai-saved-user-note") }
+                            NoteBodyEditor(editor: library.noteEditing, note: .learning(note), identifier: "ai-note") {
+                                await library.saveEditedNote(.learning(note))
+                            } reload: { await library.reloadEditedNote(.learning(note)) }
                             Button("引用 · 回到原文") { Task { learning.cancel(); if await library.returnToAISource(note.result.source) { dismiss() } } }
                                 .accessibilityIdentifier("ai-saved-source")
                         }
                     }
                 }
-            }.navigationTitle("选文学习")
+            }.accessibilityIdentifier("ai-notes-list").navigationTitle("选文学习")
             .toolbar {
                 ToolbarItem { Button("查看结果／错误") { proxy.scrollTo(learning.result == nil ? "ai-task-state" : "ai-current-result", anchor: .top) } }
                 ToolbarItem { Button("完成（取消未完成请求）") { learning.cancel(); dismiss() }.accessibilityIdentifier("ai-close") }

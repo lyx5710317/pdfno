@@ -67,6 +67,18 @@ public actor AILearningRepository {
         next.id = state.config.id; next.generation = state.config.generation + 1
         state.config = next; try commit(state); return next
     }
+    /// Editing user text never regenerates or modifies the saved AI result.
+    public func updateNoteBody(expected: AILearningNote, text: String) throws -> AILearningNote {
+        guard NoteBodySnapshot.learning(expected).accepts(text) else { throw NoteBodyEditError.tooLong }
+        var state = try load()
+        guard let index = state.notes.firstIndex(where: { $0.id == expected.id }),
+              state.notes[index] == expected,
+              state.notes[index].userText.utf8.elementsEqual(expected.userText.utf8) else { throw NoteBodyEditError.conflict }
+        let old = state.notes[index]
+        guard !old.userText.utf8.elementsEqual(text.utf8) else { return old }
+        let next = AILearningNote(id: old.id, result: old.result, userText: text)
+        state.notes[index] = next; try commit(state); return next
+    }
     public func saveNote(_ note: AILearningNote) throws {
         guard Self.valid(note) else { throw AIFailure.output }
         var state = try load()

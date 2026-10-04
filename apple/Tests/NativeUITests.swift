@@ -6,6 +6,182 @@ import AppKit
 
 final class NativeUITests: XCTestCase {
     #if os(macOS)
+    // These flows are for the isolated integration CI host only. They use
+    // original bundled books and a fresh UUID store, never real keys/API calls.
+    @MainActor private func prepareOriginalPDFNoteEditing(_ app: XCUIApplication) throws {
+        let sample = app.buttons["open-sample"].firstMatch
+        XCTAssertTrue(sample.waitForExistence(timeout: 15)); press(sample)
+        let position = app.staticTexts["page-position"].firstMatch
+        XCTAssertTrue(position.waitForExistence(timeout: 15))
+        press(app.buttons["reader-navigation"].firstMatch)
+        let search = app.textFields["search-input"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5)); enterSearch("window", into: search)
+        press(app.buttons["search-submit"].firstMatch)
+        let result = app.buttons["search-result"].firstMatch
+        XCTAssertTrue(result.waitForExistence(timeout: 5)); press(result)
+    }
+    @MainActor private func editingInput(_ prefix: String, app: XCUIApplication) -> XCUIElement {
+        let input = app.descendants(matching: .any).matching(identifier: prefix + "-edit-input").firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 5)); scrollEditingElement(input, app: app); return input
+    }
+    @MainActor private func scrollEditingElement(_ element: XCUIElement, app: XCUIApplication) {
+        let prefix = element.identifier.hasPrefix("epub-note") ? "epub" : element.identifier.hasPrefix("ai-note") ? "ai" : "pdf"
+        let list = app.descendants(matching: .any).matching(identifier: prefix + "-notes-list").firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 5))
+        for _ in 0..<12 {
+            let viewport = list.frame.insetBy(dx: 4, dy: 8), target = element.frame
+            if !target.isEmpty, viewport.contains(target), element.isHittable { return }
+            let delta: CGFloat = target.minY < viewport.minY
+                ? min(300, max(48, viewport.minY - target.minY + 16))
+                : -min(300, max(48, target.maxY - viewport.maxY + 16))
+            list.scroll(byDeltaX: 0, deltaY: delta)
+        }
+        XCTAssertTrue(list.frame.insetBy(dx: 4, dy: 8).contains(element.frame), "Editor action must be fully visible inside the notes list")
+        XCTAssertTrue(element.isHittable)
+    }
+    @MainActor private func pressEditingElement(_ element: XCUIElement, app: XCUIApplication) {
+        XCTAssertTrue(element.waitForExistence(timeout: 5)); scrollEditingElement(element, app: app); press(element)
+    }
+    private func originalSavedNote(_ token: String, manifest: String) throws -> [String: Any] {
+        let url = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent(manifest)
+        let state = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        XCTAssertEqual(state["schemaVersion"] as? Int, 1)
+        return try XCTUnwrap((state["notes"] as? [[String: Any]])?.first)
+    }
+    @MainActor func testMacPDFBodyEditingCancelDraftRestartEmptyAndSource() throws {
+        let app = XCUIApplication(), token = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launch(); app.activate(); defer { app.terminate() }
+        try prepareOriginalPDFNoteEditing(app)
+        press(app.buttons["reader-notes"].firstMatch)
+        let input = app.descendants(matching: .any).matching(identifier: "note-input").firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 5)); enterSearch("Original saved body", into: input)
+        press(app.buttons["save-note"].firstMatch)
+        let edit = app.buttons["pdf-note-edit"].firstMatch
+        XCTAssertTrue(edit.waitForExistence(timeout: 8))
+        let before = try originalSavedNote(token, manifest: "library-v1.json")
+        pressEditingElement(edit, app: app); enterSearch("Original cancelled edit", into: editingInput("pdf-note", app: app), replacing: true)
+        pressEditingElement(app.buttons["pdf-note-edit-cancel"].firstMatch, app: app)
+        XCTAssertEqual(try originalSavedNote(token, manifest: "library-v1.json")["userText"] as? String, "Original saved body")
+        pressEditingElement(edit, app: app); enterSearch("Original recovered 日本語🌸 café", into: editingInput("pdf-note", app: app), replacing: true)
+        press(app.buttons["close-notes"].firstMatch); press(app.buttons["reader-notes"].firstMatch)
+        XCTAssertEqual(textValue(editingInput("pdf-note", app: app)), "Original recovered 日本語🌸 café")
+        app.terminate(); app.launch(); app.activate()
+        let book = app.descendants(matching: .any).matching(identifier: "library-book").firstMatch
+        XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
+        XCTAssertTrue(app.buttons["reader-notes"].firstMatch.waitForExistence(timeout: 10)); press(app.buttons["reader-notes"].firstMatch)
+        XCTAssertEqual(textValue(editingInput("pdf-note", app: app)), "Original recovered 日本語🌸 café")
+        pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
+        waitForText(["已保存到本地"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
+        let after = try originalSavedNote(token, manifest: "library-v1.json")
+        XCTAssertEqual(after["userText"] as? String, "Original recovered 日本語🌸 café")
+        XCTAssertEqual(NSDictionary(dictionary: try XCTUnwrap(before["anchor"] as? [String: Any])), NSDictionary(dictionary: try XCTUnwrap(after["anchor"] as? [String: Any])))
+        XCTAssertEqual(after["id"] as? String, before["id"] as? String)
+        pressEditingElement(edit, app: app)
+        let body = editingInput("pdf-note", app: app)
+        press(body); body.typeKey("a", modifierFlags: .command); body.typeKey(.delete, modifierFlags: [])
+        pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
+        waitForText(["已保存到本地"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
+        XCTAssertEqual(try originalSavedNote(token, manifest: "library-v1.json")["userText"] as? String, "")
+        XCTAssertEqual(textValue(app.staticTexts["saved-note-quote"].firstMatch), "window")
+        press(app.buttons["return-to-source"].firstMatch)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
+    }
+    @MainActor func testMacPDFBodyEditingDiskFailureKeepsDraftAndExplicitRetry() throws {
+        let app = XCUIApplication(), token = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launch(); app.activate(); defer { app.terminate() }
+        try prepareOriginalPDFNoteEditing(app)
+        press(app.buttons["reader-notes"].firstMatch); press(app.buttons["save-note"].firstMatch)
+        let edit = app.buttons["pdf-note-edit"].firstMatch
+        XCTAssertTrue(edit.waitForExistence(timeout: 8)); pressEditingElement(edit, app: app)
+        let body = editingInput("pdf-note", app: app)
+        enterSearch("Original failure recovery body", into: body, replacing: true)
+        let root = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token)
+        let manifest = root.appendingPathComponent("library-v1.json"), backup = root.appendingPathComponent("library-v1.json.backup")
+        let before = try Data(contentsOf: manifest)
+        try FileManager.default.removeItem(at: backup)
+        try FileManager.default.createDirectory(at: backup, withIntermediateDirectories: false)
+        pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
+        waitForText(["保存失败", "草稿保留"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
+        XCTAssertEqual(try Data(contentsOf: manifest), before)
+        XCTAssertEqual(textValue(body), "Original failure recovery body")
+        try FileManager.default.removeItem(at: backup)
+        pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
+        waitForText(["已保存到本地"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
+        XCTAssertEqual(try originalSavedNote(token, manifest: "library-v1.json")["userText"] as? String, "Original failure recovery body")
+        XCTAssertEqual(textValue(app.staticTexts["saved-note-quote"].firstMatch), "window")
+    }
+    @MainActor func testMacEPUBBodyEditingBookSwitchRestartAndSource() throws {
+        let app = XCUIApplication(), token = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launch(); app.activate(); defer { app.terminate() }
+        XCTAssertTrue(app.buttons["open-epub-sample"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["open-epub-sample"].firstMatch)
+        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
+        let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
+        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
+        press(app.buttons["epub-notes"].firstMatch)
+        XCTAssertTrue(app.buttons["epub-save-note"].firstMatch.waitForExistence(timeout: 8)); press(app.buttons["epub-save-note"].firstMatch)
+        let edit = app.buttons["epub-note-edit"].firstMatch
+        XCTAssertTrue(edit.waitForExistence(timeout: 8))
+        let before = try originalSavedNote(token, manifest: "epub-v1.json")
+        pressEditingElement(edit, app: app); enterSearch("Original EPUB edited body 日本語🌸", into: editingInput("epub-note", app: app), replacing: true)
+        press(app.buttons["epub-close-notes"].firstMatch); press(app.buttons["open-sample"].firstMatch)
+        XCTAssertTrue(app.buttons["reader-notes"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["reader-notes"].firstMatch)
+        XCTAssertFalse(app.buttons["epub-note-edit-save"].firstMatch.exists)
+        press(app.buttons["close-notes"].firstMatch)
+        let book = app.descendants(matching: .any).matching(identifier: "library-epub").firstMatch
+        XCTAssertTrue(book.waitForExistence(timeout: 8)); press(book)
+        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
+        press(app.buttons["epub-notes"].firstMatch)
+        XCTAssertEqual(textValue(editingInput("epub-note", app: app)), "Original EPUB edited body 日本語🌸")
+        pressEditingElement(app.buttons["epub-note-edit-save"].firstMatch, app: app)
+        waitForText(["已保存到本地"], in: app.staticTexts["epub-note-edit-status"].firstMatch, timeout: 8)
+        let after = try originalSavedNote(token, manifest: "epub-v1.json")
+        XCTAssertEqual(Set(before.keys), Set(after.keys))
+        XCTAssertEqual(NSDictionary(dictionary: try XCTUnwrap(before["anchor"] as? [String: Any])), NSDictionary(dictionary: try XCTUnwrap(after["anchor"] as? [String: Any])))
+        app.terminate(); app.launch(); app.activate()
+        XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
+        XCTAssertTrue(app.buttons["epub-notes"].firstMatch.waitForExistence(timeout: 25)); press(app.buttons["epub-notes"].firstMatch)
+        let body = app.staticTexts["epub-saved-user-text"].firstMatch
+        XCTAssertTrue(body.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(body), "Original EPUB edited body 日本語🌸")
+        press(app.buttons["epub-return"].firstMatch)
+        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 10)
+    }
+    @MainActor func testMacLearningBodyEditingPreservesResultRestartAndSource() throws {
+        let app = XCUIApplication(), token = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launch(); app.activate(); defer { app.terminate() }
+        try prepareOriginalPDFNoteEditing(app)
+        press(app.buttons["ai-settings"].firstMatch)
+        let mock = app.buttons["ai-use-mock"].firstMatch
+        XCTAssertTrue(mock.waitForExistence(timeout: 5)); press(mock); press(app.buttons["ai-settings-save"].firstMatch)
+        press(app.buttons["reader-ai"].firstMatch)
+        let consent = app.descendants(matching: .any).matching(identifier: "ai-scope-consent").firstMatch
+        XCTAssertTrue(consent.waitForExistence(timeout: 5)); press(consent); press(app.buttons["ai-start"].firstMatch)
+        XCTAssertTrue(app.staticTexts["ai-result"].firstMatch.waitForExistence(timeout: 8))
+        press(app.buttons["ai-save-note"].firstMatch)
+        let edit = app.buttons["ai-note-edit"].firstMatch
+        XCTAssertTrue(edit.waitForExistence(timeout: 8))
+        let before = try originalSavedNote(token, manifest: "learning-v1.json")
+        pressEditingElement(edit, app: app); enterSearch("Original independent edited AI body", into: editingInput("ai-note", app: app), replacing: true)
+        pressEditingElement(app.buttons["ai-note-edit-save"].firstMatch, app: app)
+        waitForText(["已保存到本地"], in: app.staticTexts["ai-note-edit-status"].firstMatch, timeout: 8)
+        let after = try originalSavedNote(token, manifest: "learning-v1.json")
+        XCTAssertEqual(Set(before.keys), Set(after.keys))
+        XCTAssertEqual(NSDictionary(dictionary: try XCTUnwrap(before["result"] as? [String: Any])), NSDictionary(dictionary: try XCTUnwrap(after["result"] as? [String: Any])))
+        XCTAssertEqual(after["userText"] as? String, "Original independent edited AI body")
+        press(app.buttons["ai-close"].firstMatch)
+        app.terminate(); app.launch(); app.activate()
+        let book = app.descendants(matching: .any).matching(identifier: "library-book").firstMatch
+        XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
+        XCTAssertTrue(app.buttons["reader-ai"].firstMatch.waitForExistence(timeout: 10)); press(app.buttons["reader-ai"].firstMatch)
+        let body = app.staticTexts["ai-saved-user-note"].firstMatch
+        XCTAssertTrue(body.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(body), "Original independent edited AI body")
+        XCTAssertEqual(textValue(app.staticTexts["ai-saved-quote"].firstMatch), "window")
+        press(app.buttons["ai-saved-source"].firstMatch)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
+    }
     @MainActor func testMacDOCXImportSemanticSelectionNotesAndRestart() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Word-UI-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

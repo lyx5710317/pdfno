@@ -272,7 +272,12 @@ struct ReaderWorkspace: View {
                     ForEach(notes) { note in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(note.anchor.quote).font(.callout).accessibilityIdentifier("saved-note-quote")
-                            if !note.userText.isEmpty { Text(note.userText).foregroundStyle(.secondary) }
+                            if !note.userText.isEmpty { Text(verbatim: note.userText).foregroundStyle(.secondary).accessibilityIdentifier("saved-note-user-text") }
+                            #if os(macOS)
+                            NoteBodyEditor(editor: model.noteEditing, note: .pdf(note), identifier: "pdf-note") {
+                                await model.saveEditedNote(.pdf(note))
+                            } reload: { await model.reloadEditedNote(.pdf(note)) }
+                            #endif
                             Button("回到原文 · 第 \((note.anchor.regions.first?.pageIndex ?? 0) + 1) 页") {
                                 if session.navigate(to: note.anchor) == .exact { notesPanel = false }
                                 else { model.error = "来源无法精确恢复，旧引文已保留；请重新选择原文。" }
@@ -280,7 +285,7 @@ struct ReaderWorkspace: View {
                         }.padding(.vertical, 4)
                     }
                 }
-            }.navigationTitle("高亮与笔记").toolbar { ToolbarItem { Button("完成") { notesPanel = false }.accessibilityIdentifier("close-notes") } }
+            }.accessibilityIdentifier("pdf-notes-list").navigationTitle("高亮与笔记").toolbar { ToolbarItem { Button("完成") { notesPanel = false }.accessibilityIdentifier("close-notes") } }
         }.frame(minWidth: 300, minHeight: 420)
     }
 }

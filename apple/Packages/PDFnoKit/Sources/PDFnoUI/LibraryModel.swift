@@ -23,6 +23,7 @@ public final class LibraryModel: ObservableObject {
     @Published var readingComic = false
     public let learning: AILearningModel
     public let pageTranslation: PDFPageTranslationModel
+    let noteEditing: NoteEditingModel
     @Published var epubBooks: [EPUBBook] = []
     @Published var epubNotes: [EPUBNote] = []
     @Published var readingEPUB = false
@@ -67,6 +68,13 @@ public final class LibraryModel: ObservableObject {
         #else
         learning = AILearningModel(root: root, aiSession: aiSession); pageTranslation = PDFPageTranslationModel(aiSession: aiSession)
         #endif
+        noteEditing = NoteEditingModel(root: root) { [repository, epubRepository, learningRepository = learning.repository] snapshot, text in
+            switch snapshot {
+            case .pdf(let note): return .pdf(try await repository.updateNoteBody(expected: note, text: text))
+            case .epub(let note): return .epub(try await epubRepository.updateNoteBody(expected: note, text: text))
+            case .learning(let note): return .learning(try await learningRepository.updateNoteBody(expected: note, text: text))
+            }
+        }
         #if os(macOS)
         // The sidebar reads this nested model even while its reader is inactive.
         // Forward asynchronous load/restart changes as well as routed imports.

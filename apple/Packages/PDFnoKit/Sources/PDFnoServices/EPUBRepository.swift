@@ -79,6 +79,19 @@ public actor EPUBRepository {
         guard state.books[index].progress != anchor else { return }
         state.books[index].progress = anchor; try commit(state)
     }
+    /// Legacy EPUB notes have no revision field; the saved snapshot is the
+    /// compare-and-set baseline, preserving compatibility with schema 1.
+    public func updateNoteBody(expected: EPUBNote, text: String) throws -> EPUBNote {
+        guard NoteBodySnapshot.epub(expected).accepts(text) else { throw NoteBodyEditError.tooLong }
+        var state = try load()
+        guard let index = state.notes.firstIndex(where: { $0.id == expected.id && $0.bookID == expected.bookID }),
+              state.notes[index] == expected,
+              state.notes[index].userText.utf8.elementsEqual(expected.userText.utf8) else { throw NoteBodyEditError.conflict }
+        let old = state.notes[index]
+        guard !old.userText.utf8.elementsEqual(text.utf8) else { return old }
+        let next = EPUBNote(id: old.id, bookID: old.bookID, anchor: old.anchor, userText: text)
+        state.notes[index] = next; try commit(state); return next
+    }
     public func saveNote(_ note: EPUBNote) throws {
         var state = try load()
         guard note.userText.utf8.count <= 16000, !state.notes.contains(where: { $0.id == note.id }),

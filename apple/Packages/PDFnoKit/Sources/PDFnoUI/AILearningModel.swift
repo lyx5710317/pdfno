@@ -31,7 +31,7 @@ public final class AILearningModel: ObservableObject {
     @Published private(set) var remoteAttemptsUsed = 0
     @Published private(set) var attempts: [AILearningAttempt] = []
     let offlineTransport: Bool
-    private let repository: AILearningRepository
+    let repository: AILearningRepository
     private let coordinator = AIJobCoordinator()
     private let sessionCredentials = SessionCredentialStore()
     private let transport: any AIHTTPTransport
