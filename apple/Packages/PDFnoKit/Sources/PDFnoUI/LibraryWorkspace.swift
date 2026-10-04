@@ -12,6 +12,7 @@ public struct LibraryWorkspace: View {
     @State private var aiSettings = false
     @State private var conversion = false
     @State private var librarySearch = false
+    @State private var booknoPreview = false
     @State private var compactColumn: NavigationSplitViewColumn = .sidebar
     @State private var selectedBookID: UUID?
     @State private var grid = false
@@ -107,6 +108,8 @@ public struct LibraryWorkspace: View {
                         .disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-docx-sample")
                     Button("打开示例 EPUB") { Task { await model.openEPUBSample(); compactColumn = .detail } }
                         .disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-epub-sample")
+                    Button("Bookno 离线预览") { booknoPreview = true }
+                        .disabled(!model.canImport || model.isBusy).accessibilityIdentifier("bookno-preview-open")
                     #endif
                     Text("仅在设备本地处理").font(.caption).foregroundStyle(.secondary)
                 }.padding()
@@ -148,6 +151,7 @@ public struct LibraryWorkspace: View {
         #if os(macOS)
         .sheet(item: $coverEditor) { item in LibraryCoverEditor(covers: model.covers, item: item) }
         .sheet(isPresented: $librarySearch) { LibrarySearchWorkspace(library: model) }
+        .sheet(isPresented: $booknoPreview) { BooknoPreviewWorkspace(model: model.booknoPreview) }
         .sheet(isPresented: $conversion) { ConversionWorkspace() }
         .sheet(isPresented: $aiSettings) { AISettingsView(learning: model.learning) }
         #endif

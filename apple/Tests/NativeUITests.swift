@@ -77,6 +77,70 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(state["schemaVersion"] as? Int, 1)
         return try XCTUnwrap((state["notes"] as? [[String: Any]])?.first)
     }
+    // Added to the original 29 flows. Executed only on an authorized isolated UI
+    // host; local integration compiles this test without launching the user app.
+    @MainActor func testMacBooknoExplicitOfflinePreviewSavedBodyMockReplayAndClose() throws {
+        let app = XCUIApplication(), token = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launch(); app.activate(); defer { app.terminate() }
+        try prepareOriginalPDFNoteEditing(app)
+        press(app.buttons["reader-notes"].firstMatch)
+        let input = app.descendants(matching: .any).matching(identifier: "note-input").firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 5)); enterSearch("Original saved Bookno body", into: input)
+        press(app.buttons["save-note"].firstMatch)
+        XCTAssertTrue(app.buttons["pdf-note-edit"].firstMatch.waitForExistence(timeout: 8))
+        let saved = try originalSavedNote(token, manifest: "library-v1.json")
+        pressEditingElement(app.buttons["pdf-note-edit"].firstMatch, app: app)
+        enterEditingText("Original private unsaved Bookno draft", prefix: "pdf-note", app: app)
+        press(app.buttons["close-notes"].firstMatch)
+        let open = app.buttons["bookno-preview-open"].firstMatch
+        XCTAssertTrue(open.waitForExistence(timeout: 5)); press(open)
+        let enable = app.checkBoxes["bookno-preview-enabled"].firstMatch
+        XCTAssertTrue(enable.waitForExistence(timeout: 5)); XCTAssertEqual(enable.value as? String, "0")
+        let prepare = app.buttons["bookno-prepare"].firstMatch
+        XCTAssertTrue(prepare.waitForExistence(timeout: 5)); XCTAssertFalse(prepare.isEnabled)
+        press(enable)
+        let book = app.checkBoxes.matching(NSPredicate(format: "identifier BEGINSWITH %@", "bookno-book-pdfno:book:pdf:")).firstMatch
+        XCTAssertTrue(book.waitForExistence(timeout: 5)); scrollBooknoElement(book, in: app); press(book)
+        let notes = app.checkBoxes["bookno-include-notes"].firstMatch
+        scrollBooknoElement(notes, in: app); XCTAssertEqual(notes.value as? String, "0"); press(notes)
+        scrollBooknoElement(prepare, in: app); XCTAssertTrue(prepare.isEnabled); press(prepare)
+        waitForText(["2 个对象", "1 本书", "1 条已保存笔记", "0 个封面资产"], in: app.staticTexts["bookno-preview-summary"].firstMatch, timeout: 8)
+        let body = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH %@", "bookno-note-body-")).firstMatch
+        XCTAssertTrue(body.waitForExistence(timeout: 5)); XCTAssertEqual(textValue(body), "Original saved Bookno body")
+        let quote = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH %@", "bookno-note-quote-")).firstMatch
+        XCTAssertEqual(textValue(quote), "window")
+        let lose = app.buttons["bookno-mock-lose-receipt"].firstMatch
+        scrollBooknoElement(lose, in: app); press(lose)
+        waitForText(["尚未确认", "Bookno 未连接"], in: app.staticTexts["bookno-preview-status"].firstMatch, timeout: 5)
+        let counts = app.staticTexts["bookno-mock-counts"].firstMatch
+        waitForText(["mock 记录 2", "连续确认游标 0"], in: counts, timeout: 5)
+        let replay = app.buttons["bookno-run-mock"].firstMatch
+        scrollBooknoElement(replay, in: app); press(replay); press(replay)
+        waitForText(["mock 记录 2", "连续确认游标 1"], in: counts, timeout: 5)
+        waitForText(["不是实际同步", "Bookno 未连接"], in: app.staticTexts["bookno-preview-status"].firstMatch, timeout: 5)
+        XCTAssertEqual(NSDictionary(dictionary: try originalSavedNote(token, manifest: "library-v1.json")), NSDictionary(dictionary: saved))
+        press(app.buttons["bookno-preview-close"].firstMatch); press(open)
+        XCTAssertTrue(enable.waitForExistence(timeout: 5)); XCTAssertEqual(enable.value as? String, "0")
+        XCTAssertFalse(prepare.isEnabled); XCTAssertFalse(app.staticTexts["bookno-preview-summary"].firstMatch.exists)
+        XCTAssertFalse(counts.exists)
+        let store = URL(fileURLWithPath: "/tmp").appendingPathComponent("PDFno-UITests-" + token)
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: store.path).contains { $0.lowercased().contains("bookno") })
+    }
+    @MainActor private func scrollBooknoElement(_ element: XCUIElement, in app: XCUIApplication) {
+        let scroll = app.scrollViews["bookno-preview-scroll"].firstMatch
+        XCTAssertTrue(scroll.waitForExistence(timeout: 5)); XCTAssertTrue(element.waitForExistence(timeout: 5))
+        for _ in 0..<12 {
+            let viewport = scroll.frame.insetBy(dx: 4, dy: 8), target = element.frame
+            if !target.isEmpty, viewport.contains(target), element.isHittable { return }
+            let delta: CGFloat = target.minY < viewport.minY
+                ? min(300, max(48, viewport.minY - target.minY + 16))
+                : -min(300, max(48, target.maxY - viewport.maxY + 16))
+            scroll.scroll(byDeltaX: 0, deltaY: delta)
+        }
+        XCTAssertTrue(scroll.frame.insetBy(dx: 4, dy: 8).contains(element.frame), "Bookno control must be fully visible inside preview")
+        XCTAssertTrue(element.isHittable)
+    }
     @MainActor func testMacPDFBodyEditingCancelDraftRestartEmptyAndSource() throws {
         let app = XCUIApplication(), token = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token

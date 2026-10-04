@@ -7,6 +7,10 @@ public struct CoverThumbnail: Sendable {
     public let record: CoverRecord
     public let png: Data?
 }
+public struct CoverStoredSnapshot: Sendable {
+    public let record: CoverRecord
+    public let png: Data?
+}
 private struct CoverState: Codable {
     var schemaVersion = 1
     var records: [CoverRecord] = []
@@ -62,6 +66,15 @@ public actor CoverRepository {
     }
     public func record(for identity: CoverIdentity) throws -> CoverRecord? {
         try load().records.first { $0.identity == identity }
+    }
+    /// Existing original cover asset only: no generation, rebinding, cache or disk writes.
+    public func readOnlySnapshot(for identity: CoverIdentity) throws -> CoverStoredSnapshot? {
+        try Task.checkCancellation()
+        guard let record = try record(for: identity) else { return nil }
+        guard let hash = record.imageSHA256 else { return CoverStoredSnapshot(record: record, png: nil) }
+        let bytes = try BoundedFileReader.read(asset(hash), limit: CoverLimits.inputBytes)
+        guard LibraryRepository.digest(bytes) == hash, bytes.count == record.byteLength else { throw CoverError.invalidImage }
+        return CoverStoredSnapshot(record: record, png: bytes)
     }
     private func save(_ record: CoverRecord, raster: CoverRaster?) throws {
         var state = try load()

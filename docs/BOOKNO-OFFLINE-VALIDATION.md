@@ -1,5 +1,7 @@
 # Bookno 离线预览验证与整合交接
 
+本文保留 `89aca0ba68201e2e38acd72f25b982977e033832` 首片的历史记录。后续在绿色 `f3ed484` 上的本地来源适配、Mac 预览入口及实际验证，见 [BOOKNO-INTEGRATION-2026-10-04.md](BOOKNO-INTEGRATION-2026-10-04.md)；本文件的“未来 UI”“未移动编译”等描述仅指首片。
+
 日期：2026-10-04。候选分支：`feature/bookno-sync`。起点：`8cf6ab8e93e057aa73a6607a17e6e2fe42269315`；没有使用未验证的文本/章节候选作为基线。未 push、merge、改 main/release 或共享 Library，也未修改 Bookno 仓库、用户 app、私有书籍/数据库、真实 key/API/账号。
 
 ## 实际验证

@@ -1,8 +1,8 @@
-# ADR: PDFno → Bookno 离线交换预览首片
+# ADR: PDFno → Bookno 离线交换预览与原生整合
 
 状态：**PROPOSED 契约／已实现本地预览与 mock；待 Bookno 接入确认**。日期：2026-10-04。
 
-基线为已通过 22 项 Mac UI 的 `8cf6ab8e93e057aa73a6607a17e6e2fe42269315`；该 UI 证据来自交接，本片没有重新运行 UI。主规格第 11 章仍是权威需求；这里实现一份有明确 preview 标识的候选契约，不把规格的说明 JSON 或本片 DTO 声称为已发布 API。
+首片 `89aca0ba68201e2e38acd72f25b982977e033832` 起于 `8cf6ab8e93e057aa73a6607a17e6e2fe42269315`。当前独立本地整合基线为 `f3ed484fee815effed2d955f8eb21bcd66d8546e`，该 SHA 的完整 Native + CBZ CI 及 29 项 Mac UI 已通过；本次新增预览 UI 只编译、尚未执行。主规格第 11 章仍是权威需求；这里实现一份有明确 preview 标识的候选契约，不把规格的说明 JSON 或本片 DTO 声称为已发布 API。
 
 ## 只读接收端证据
 
@@ -35,13 +35,17 @@
 | 学习笔记 | `annotationKind=learning`；`aiAttachments` 保存作者 `ai`、task、生成正文和 promptVersion，用户正文另存。不导出 provider 配置、endpoint、凭据或临时 reader session |
 | 删除 | 显式 tombstone 含 kind、稳定 ID、lastKnownRevision；仅列入 `deletionPreviewIDs`。缺席不删除；本片没有任何远端删除动作 |
 
-`BooknoExportAdapter.book` 接受明确选中的 `LibrarySearchBook` 与可选 `CoverRecord`；`note` 接受已保存的 `NoteBodySnapshot`（PDF/EPUB/学习记录）。不主动扫描书库、生成封面、读取原书或打开文件。CBZ/DOCX 可预览书籍 metadata；其高亮适配尚未实现，其他后续格式应增加 DTO/能力协商，不能静默转成 PDF/EPUB。
+`BooknoFormat` 独立于 native `CoverFormat`，明确支持 pdf/epub/cbz/docx/txt/markdown/html 七个预览命名空间。纯 `BooknoExportAdapter` 接受调用方提供的 `LibrarySearchBook`、`TextFormatBook`、已保存的 `NoteBodySnapshot` / `TextFormatNote` 与可选 `CoverRecord`，不自行读取磁盘。CBZ/DOCX 当前仅书目/既存封面，笔记未适配；文本格式有书目和普通高亮，但 native 文本封面尚未支持。其他格式不混入本次整合，也不能标成 PDF/EPUB。
+
+Mac 书库侧栏的“Bookno 离线预览”调用独立 `BooknoLibraryPreviewRepository`。打开只读本地 manifest/metadata 显示书目；默认关闭、无预选。用户明确选书并生成时重新核对 edition/hash，读取最新已保存书名/作者及所选范围。已保存笔记和封面均另勾选、默认不含；不读取原书、草稿或 Keychain，不创建导出文件。学习笔记与 provider settings 目前共处同一 manifest，repository 只映射其中 notes，不把配置/endpoint/provider/session/凭据导出。读取 metadata source revision、note edit revision、cover source revision 为诊断字段，不拿它们充当交换 revision。
+
+既存封面用 `CoverRepository.readOnlySnapshot` 读取 `Covers/Assets/<hash>.png` 原字节并校验，不能把重采样 thumbnail 字节配上原资产 hash。无 record 明确提示；已有 record 缺字节/损坏时整次拒绝，保留原记录，不生成、修复、重绑或缓存。相同哈希只保留一份内存资产。预览 UI 当前建议最多20本、1000对象、封面合计20MiB，并保留协议 JSON 4MiB 限制；超限拒绝、不截断，不代表 Bookno 生产限额。
 
 封面字节通过 mock 的独立 `assetBytes` 字典提供，不嵌入批次 JSON，也没有 `transferRef` 路径/URL。先验证整个批次及每个引用；mock 有已验证哈希时可省略字节，否则缺失明确失败，不能给封面成功回执。实际类型、单帧完整解码、SHA-256、尺寸、字节数均校验。本片提议 PNG/JPEG、10 MiB、4096×4096 上限，**不是 Bookno 已有生产限额**；native cover 本身常更小，原件不改写。
 
 ## 原文与 Unicode 保全
 
-`BooknoSourceDTO` 完整保留 native `AISelectionAnchor`，包括 book UUID、edition/hash、PDF user-space regions 或 EPUB resourceHref/spine/start/end/prefix/suffix/vertical、schema 与 extractionVersion。现有 PDF current-page 学习 anchor 同样可携带。
+`BooknoSourceDTO` 使用独立平铺 `BooknoSourceAnchor`，完整保留 native `.pdf`、`.epub`、`.pdfPage`、`.epubChapter` 及文本 `.text` locator，包括 book UUID、edition/hash、PDF user-space regions 或资源/spine/block/UTF-16区间、quote/prefix/suffix/vertical、schema 与 extractionVersion。旧三种 source case 的 preview JSON 形状不变，原创黄金批次仍通过。整章仅接收已保存的 `.translate` 学习记录和 `EPUBChapterTranslationPolicy.promptVersion`，不冒充选文记录或扩大 AI 范围。文本保留自己的 `kookit-text-marked15-utf16-1` / block locator，不能伪装成 EPUB locator。
 
 EPUB 当前 locator 明确为 `epub-canonical-utf16-1`，offsetUnit 为 `utf16CodeUnit`；PDF selection 是 `pdfUserSpace`，PDF current-page anchor 是 UTF-16。不能将这些数字重新标为规格草案的 code point 区间；未来采用 code point 时必须提供资源级文本映射与新版本。`textNormalizationVersion=native-verbatim-1` 表示不 trim、不 NFC、不压空白、不拼全书偏移。
 
@@ -49,7 +53,7 @@ EPUB 当前 locator 明确为 `epub-canonical-utf16-1`，offsetUnit 为 `utf16Co
 
 ## 哈希、增量与确认
 
-`swift-json-verbatim-1` 用 Swift JSONEncoder 的 sortedKeys、withoutEscapingSlashes 编码、原样 UTF-8 与 SHA-256。语义哈希包括版本与 typed payload（Swift enum 使用 case 标签和 `_0`）；不包含 batch ID/cursor/receiver、网络地址、时间、native `localEditRevision` 或 native `coverSourceRevision`。nil 字段省略；缺省空数组/空正文明确编码。`decode` 拒绝 future version、未知字段（含 nested anchors）、错误类型、重复实体 ID、越界资源、哈希不符和未声明封面。
+`swift-json-verbatim-1` 用 Swift JSONEncoder 的 sortedKeys、withoutEscapingSlashes 编码、原样 UTF-8 与 SHA-256。语义哈希包括版本与 typed payload（Swift enum 使用 case 标签和 `_0`）；不包含 batch ID/cursor/receiver、网络地址、时间、native `localEditRevision`、`metadataSourceRevision` 或 `coverSourceRevision`。nil 字段省略；缺省空数组/空正文明确编码。`decode` 拒绝 future version、未知字段（含 nested anchors）、错误类型、重复实体 ID、越界资源、哈希不符和未声明封面。新增字段/case 是未发布 preview 的扩展，旧严格 reader 可拒绝；不声称生产向后兼容或能力协商已完成。
 
 这是 **Swift 预览编码约定**，不是 RFC 8785/JCS，也不是已冻结的跨语言生产 schema。黄金向量：`{"book":"😀","title":"が"}` 的 UTF-8 SHA-256 为 `2208d213de7944da4e517a27d5197c597ca96cedabf7fbdc3d3c652013ac76aa`。生产接入前须双方确认 numeric/enum/optional 编码、duplicate JSON keys 策略、完整 JSON Schema 与更多端到端黄金样本。
 
@@ -82,6 +86,8 @@ cursor 为 `(single-export-owner epoch UUID, sequence)`，另绑定 receiver UUI
 
 没有修改 `FeatureAvailability.bookno`（仍为不可用），没有 UI 自动导出，没有 URLSession、listener、OAuth/key/CloudKit、shared Library 写入或实际 Bookno 导入。
 
+UI 提供只读对象卡片/JSON、明确的内存 mock/重放和“提交后丢回执”模拟。scope 改变即清除已展示批次，需显式重新生成；批次体现准备时的已保存快照。关闭/关闭开关清除内存 ledger、mock 记录、回执与游标；重新打开默认关闭。关闭过程中迟到的读取不能重新展示内容。没有跨退出的 outbox/发布历史；Mac sheet 已接入，iPhone/iPad 未增加此入口，仅共享契约/服务编译。
+
 开发调用顺序：用明确的已保存 snapshot 创建 DTO → `BooknoOfflinePreview(mode: .preview)` stage → `BooknoExchangeCodec.encode/decode` 校验预览 → `BooknoMockReceiver.receive` 验证计划/回执 → `BooknoConfirmationTracker` register/acknowledge 验证恢复语义。接收端 receipt 类型明确包含 Mock，不能展示为“Bookno 已同步”。
 
 未来真实接入必须先在 Bookno 批准 namespace/ID、存储完整 locator/AI/highlight、导入 revision/hash/field baselines、资产限制/事务与回执；然后冻结版本协商/schema，再实现默认关闭的受保护传输与显式用户配置/确认。本机 API 不能被描述为三端跨设备通路。
@@ -96,4 +102,4 @@ cursor 为 `(single-export-owner epoch UUID, sequence)`，另绑定 receiver UUI
 
 ## 整合与验证
 
-变更全部为新增 Domain/Services/测试/本 ADR 与验证记录，无现有模型、manifest、UI、Package.swift、Xcode project、引擎或审批门禁修改。相关测试和明确未验证范围见 [BOOKNO-OFFLINE-VALIDATION.md](BOOKNO-OFFLINE-VALIDATION.md)。现有安全专项 UNVERIFIED 平台阻断原样保留；本片不重试其受阻动作，不将 mock 成功计作安全/真实 API/真实回跳/同步上线验收。
+首片为新增协议模块；本次增加来源适配、read-only cover 方法与 Mac 预览 sheet，保留既有 native 数据模型/manifest schema、Package.swift、Xcode project、引擎、原29 UI与审批门禁。具体新增测试/编译和仍未执行的范围见 [BOOKNO-INTEGRATION-2026-10-04.md](BOOKNO-INTEGRATION-2026-10-04.md)，首片历史验证保留于 [BOOKNO-OFFLINE-VALIDATION.md](BOOKNO-OFFLINE-VALIDATION.md)。上述五项生产决策均仍未定；现有安全专项 UNVERIFIED 平台阻断原样保留，不重试其受阻动作，不将 mock 成功计作安全/真实 API/真实回跳/同步上线验收。

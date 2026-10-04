@@ -13,7 +13,7 @@ private enum ExchangeFixture {
     static let epoch = UUID(uuidString: "50000000-0000-0000-0000-000000000001")!
     static let hash = LibraryRepository.digest(Data("original fixture source bytes".utf8))
     static let quote = " A😀か\u{3099}👩‍💻\n本 "
-    static func book(title: String = "原创样书", cover: BooknoCoverAssetDTO? = nil, format: CoverFormat = .pdf) -> BooknoBookDTO {
+    static func book(title: String = "原创样书", cover: BooknoCoverAssetDTO? = nil, format: BooknoFormat = .pdf) -> BooknoBookDTO {
         BooknoBookDTO(bookUUID: bookID, edition: BooknoEditionDTO(id: editionID, format: format, sourceFileSHA256: hash),
                       title: title, coverAssetID: cover?.assetID, coverOrigin: cover == nil ? nil : .userImage,
                       coverSourceRevision: cover == nil ? nil : 1)

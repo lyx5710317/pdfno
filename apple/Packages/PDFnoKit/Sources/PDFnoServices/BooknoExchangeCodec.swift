@@ -77,7 +77,7 @@ public enum BooknoExchangeCodec {
         let parts = id.split(separator: ":", omittingEmptySubsequences: false)
         let count = kind == .book ? 4 : 5
         guard parts.count == count, parts[0] == "pdfno", parts[1] == Substring(kind.rawValue),
-              CoverFormat(rawValue: String(parts[2])) != nil, let uuid = UUID(uuidString: String(parts.last!)),
+              BooknoFormat(rawValue: String(parts[2])) != nil, let uuid = UUID(uuidString: String(parts.last!)),
               parts.last! == Substring(uuid.uuidString.lowercased()) else { return false }
         return kind == .book || BooknoAnnotationKind(rawValue: String(parts[3])) != nil
     }
@@ -88,6 +88,8 @@ public enum BooknoExchangeCodec {
                   LibraryRepository.isDigest(b.edition.sourceFileSHA256), !b.title.isEmpty, b.title.utf8.count <= 4096,
                   b.authors.count <= 32, b.authors.allSatisfy({ $0.utf8.count <= 4096 }),
                   b.coverSourceRevision.map({ $0 > 0 && $0 < Int.max }) ?? true,
+                  b.metadataSourceRevision.map({ $0 > 0 && $0 < Int.max }) ?? true,
+                  b.edition.format.coverFormat != nil || (b.coverAssetID == nil && b.coverOrigin == nil && b.coverSourceRevision == nil),
                   b.coverAssetID.map({ $0.hasPrefix("sha256:") && LibraryRepository.isDigest(String($0.dropFirst(7))) }) ?? true,
                   (b.coverOrigin == nil ? b.coverAssetID == nil && b.coverSourceRevision == nil : b.coverSourceRevision != nil),
                   (b.coverOrigin == .placeholder ? b.coverAssetID == nil : b.coverOrigin == nil || b.coverAssetID != nil),
@@ -107,6 +109,13 @@ public enum BooknoExchangeCodec {
             case .pdf: guard n.source.format == .pdf, n.source.offsetUnit == .pdfUserSpace else { throw BooknoPreviewError.sourceMismatch }
             case .pdfPage: guard n.source.format == .pdf, n.source.offsetUnit == .utf16CodeUnit else { throw BooknoPreviewError.sourceMismatch }
             case .epub: guard n.source.format == .epub, n.source.offsetUnit == .utf16CodeUnit else { throw BooknoPreviewError.sourceMismatch }
+            case .epubChapter:
+                guard n.source.format == .epub, n.source.offsetUnit == .utf16CodeUnit, n.annotationKind == .learning,
+                      n.aiAttachments.count == 1, n.aiAttachments[0].kind == .translate,
+                      n.aiAttachments[0].promptVersion == EPUBChapterTranslationPolicy.promptVersion else { throw BooknoPreviewError.sourceMismatch }
+            case .text:
+                guard [.txt, .markdown, .html].contains(n.source.format), n.source.offsetUnit == .utf16CodeUnit,
+                      n.annotationKind == .highlight, n.aiAttachments.isEmpty else { throw BooknoPreviewError.sourceMismatch }
             }
         }
     }
@@ -152,9 +161,10 @@ public enum BooknoExportAdapter {
             return BooknoCoverAssetDTO(sha256: hash, mimeType: mime, byteLength: c.byteLength, width: c.width, height: c.height)
         }
         let dto = BooknoBookDTO(bookUUID: book.identity.bookID,
-            edition: BooknoEditionDTO(id: book.identity.editionID, format: format, sourceFileSHA256: book.identity.fileSHA256),
+            edition: BooknoEditionDTO(id: book.identity.editionID, format: BooknoFormat(format), sourceFileSHA256: book.identity.fileSHA256),
             title: book.title, authors: book.author.isEmpty ? [] : [book.author], coverAssetID: asset?.assetID,
-            coverOrigin: cover?.origin, coverSourceRevision: cover?.revision)
+            coverOrigin: cover?.origin, coverSourceRevision: cover?.revision,
+            metadataSourceRevision: book.metadataRevision > 0 ? book.metadataRevision : nil)
         try BooknoExchangeCodec.validate(.book(dto)); return (dto, asset)
     }
     public static func note(_ snapshot: NoteBodySnapshot, book: BooknoBookDTO) throws -> BooknoNoteDTO {
@@ -165,8 +175,8 @@ public enum BooknoExportAdapter {
         case .epub(let n): source = BooknoSourceDTO(bookUUID: n.bookID, format: .epub, anchor: .epub(n.anchor))
             id = n.id; body = n.userText; revision = nil; kind = .highlight; ai = []
         case .learning(let n):
-            let format: CoverFormat
-            switch n.result.source.anchor { case .pdf, .pdfPage: format = .pdf; case .epub: format = .epub }
+            let format: BooknoFormat
+            switch n.result.source.anchor { case .pdf, .pdfPage: format = .pdf; case .epub, .epubChapter: format = .epub }
             source = BooknoSourceDTO(bookUUID: n.result.source.bookID, format: format, anchor: n.result.source.anchor)
             id = n.id; body = n.userText; revision = nil; kind = .learning
             ai = [BooknoAIAttachmentDTO(kind: n.result.kind, text: n.result.text, promptVersion: n.result.promptVersion)]
@@ -174,5 +184,33 @@ public enum BooknoExportAdapter {
         let dto = BooknoNoteDTO(noteUUID: id, annotationKind: kind, userText: body, source: source, localEditRevision: revision, aiAttachments: ai)
         try BooknoExchangeCodec.validate(.note(dto))
         guard BooknoExchangeCodec.sourceMatches(dto, book: book) else { throw BooknoPreviewError.sourceMismatch }; return dto
+    }
+    public static func book(_ book: TextFormatBook) throws -> BooknoBookDTO {
+        let dto = BooknoBookDTO(bookUUID: book.id,
+            edition: BooknoEditionDTO(id: book.editionID, format: BooknoFormat(book.format), sourceFileSHA256: book.fileSHA256), title: book.title)
+        try BooknoExchangeCodec.validate(.book(dto)); return dto
+    }
+    public static func note(_ note: TextFormatNote, book: TextFormatBook) throws -> BooknoNoteDTO {
+        guard note.bookID == book.id, book.accepts(note.anchor) else { throw BooknoPreviewError.sourceMismatch }
+        let dto = BooknoNoteDTO(noteUUID: note.id, userText: note.userText,
+            source: BooknoSourceDTO(bookUUID: book.id, format: BooknoFormat(book.format), textAnchor: note.anchor))
+        try BooknoExchangeCodec.validate(.note(dto)); return dto
+    }
+    public static func addingCover(to book: BooknoBookDTO, record: CoverRecord) throws -> (BooknoBookDTO, BooknoCoverAssetDTO?) {
+        guard let format = book.edition.format.coverFormat,
+              record.identity == CoverIdentity(bookID: book.bookUUID, editionID: book.edition.id,
+                  fileSHA256: book.edition.sourceFileSHA256, format: format) else { throw BooknoPreviewError.sourceMismatch }
+        let asset: BooknoCoverAssetDTO?
+        if record.origin == .placeholder {
+            guard record.imageSHA256 == nil, record.byteLength == 0, record.width == 0, record.height == 0 else { throw BooknoPreviewError.assetInvalid }
+            asset = nil
+        } else {
+            guard let hash = record.imageSHA256, let mime = record.mimeType else { throw BooknoPreviewError.assetInvalid }
+            asset = BooknoCoverAssetDTO(sha256: hash, mimeType: mime, byteLength: record.byteLength, width: record.width, height: record.height)
+        }
+        let dto = BooknoBookDTO(bookUUID: book.bookUUID, edition: book.edition, title: book.title, authors: book.authors,
+            coverAssetID: asset?.assetID, coverOrigin: record.origin, coverSourceRevision: record.revision,
+            metadataSourceRevision: book.metadataSourceRevision)
+        try BooknoExchangeCodec.validate(.book(dto)); return (dto, asset)
     }
 }

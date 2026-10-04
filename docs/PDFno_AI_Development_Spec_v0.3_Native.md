@@ -569,6 +569,8 @@ EPUB 可开关新增逐词/句读音层，不替作者 ruby；PDF 在词浮卡�
 
 用户要求 API，因此目标是明确可实现的跨应用 API 契约。本文不假定 Bookno 已运行 HTTP 服务。首先将交换 DTO、验证器、导入预览和幂等引擎做成与传输方式无关的模块，再决定采用 loopback 本地 API、原生 app bridge 或其他经批准的服务方式。
 
+**2026-10-04 本地候选状态**：已在绿色 `f3ed484` 基线独立整合 preview-only DTO/严格校验/内存 mock/回执及 Mac 书库侧栏预览 sheet，默认关闭、明确选书、笔记/既存封面分别勾选。支持 PDF/EPUB/CBZ/DOCX 书目与既存封面、TXT/Markdown/HTML 书目与普通高亮、PDF/EPUB 已保存选文/整页/整章学习记录及独立用户正文；原字节 Unicode 和 typed locator 保留。读取已保存 metadata/note/cover 修订仅作诊断，不读原书/草稿/Keychain，不生成封面、不创建发布文件、不配置网络。关闭清除本次内存模拟；移动仅共享模块编译，无预览入口。真实 Bookno API、同步、持久 outbox、多设备协调、真实回跳及安全验收仍未实现/未验收，`FeatureAvailability.bookno` 仍 false。主规格以下 JSON 为生产目标说明，不是此未发布 preview 编码；完整当前边界、测试和五项生产决策见 [协议 ADR](ADR-BOOKNO-OFFLINE-PREVIEW.md) 与 [本地整合记录](BOOKNO-INTEGRATION-2026-10-04.md)。未 push/main/Library/release，未混入 ebook 候选。
+
 **PROPOSED 最小方向**：PDFno → Bookno 书籍、封面、笔记的单向 upsert。Bookno → PDFno 回传状态、双向编辑与删除传播另行批准。文件交换可作为开发测试和故障恢复通道，不把它冒充用户要求的最终 API。
 
 双方共同拥有契约版本；建议 Bookno 定义接收模型并复用现有 importer，PDFno 实现 export adapter。禁止直接写 Bookno 的 CloudKit schema、SwiftData 或内部数据库。也不借用 Bookno 容器作为 PDFno 自己的同步后端。

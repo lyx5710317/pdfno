@@ -8,19 +8,19 @@ public enum BooknoOffsetUnit: String, Codable, Sendable { case utf16CodeUnit, pd
 public enum BooknoAnnotationKind: String, Codable, Sendable { case highlight, learning }
 
 public enum BooknoIdentity {
-    public static func book(_ id: UUID, format: CoverFormat) -> String {
+    public static func book(_ id: UUID, format: BooknoFormat) -> String {
         "pdfno:book:" + format.rawValue + ":" + id.uuidString.lowercased()
     }
-    public static func note(_ id: UUID, format: CoverFormat, kind: BooknoAnnotationKind = .highlight) -> String {
+    public static func note(_ id: UUID, format: BooknoFormat, kind: BooknoAnnotationKind = .highlight) -> String {
         "pdfno:note:" + format.rawValue + ":" + kind.rawValue + ":" + id.uuidString.lowercased()
     }
 }
 
 public struct BooknoEditionDTO: Codable, Sendable, Equatable {
     public let id: UUID
-    public let format: CoverFormat
+    public let format: BooknoFormat
     public let sourceFileSHA256: String
-    public init(id: UUID, format: CoverFormat, sourceFileSHA256: String) {
+    public init(id: UUID, format: BooknoFormat, sourceFileSHA256: String) {
         self.id = id; self.format = format; self.sourceFileSHA256 = sourceFileSHA256
     }
 }
@@ -34,11 +34,14 @@ public struct BooknoBookDTO: Codable, Sendable, Equatable {
     public let coverAssetID: String?
     public let coverOrigin: CoverOrigin?
     public let coverSourceRevision: Int?
+    public let metadataSourceRevision: Int?
     public init(bookUUID: UUID, edition: BooknoEditionDTO, title: String, authors: [String] = [],
-                coverAssetID: String? = nil, coverOrigin: CoverOrigin? = nil, coverSourceRevision: Int? = nil) {
+                coverAssetID: String? = nil, coverOrigin: CoverOrigin? = nil, coverSourceRevision: Int? = nil,
+                metadataSourceRevision: Int? = nil) {
         self.externalID = BooknoIdentity.book(bookUUID, format: edition.format); self.bookUUID = bookUUID
         self.edition = edition; self.title = title; self.authors = authors; self.coverAssetID = coverAssetID
         self.coverOrigin = coverOrigin; self.coverSourceRevision = coverSourceRevision
+        self.metadataSourceRevision = metadataSourceRevision
     }
 }
 
@@ -46,14 +49,18 @@ public struct BooknoBookDTO: Codable, Sendable, Equatable {
 /// This is a typed operation reference, not a registered deep link or URL containing note text.
 public struct BooknoSourceDTO: Codable, Sendable, Equatable {
     public let bookUUID: UUID
-    public let format: CoverFormat
+    public let format: BooknoFormat
     public let offsetUnit: BooknoOffsetUnit
     public let textNormalizationVersion: String
-    public let anchor: AISelectionAnchor
-    public init(bookUUID: UUID, format: CoverFormat, anchor: AISelectionAnchor) {
-        self.bookUUID = bookUUID; self.format = format; self.anchor = anchor
-        switch anchor { case .pdf: offsetUnit = .pdfUserSpace; case .epub, .pdfPage: offsetUnit = .utf16CodeUnit }
+    public let anchor: BooknoSourceAnchor
+    public init(bookUUID: UUID, format: BooknoFormat, anchor: AISelectionAnchor) {
+        self.bookUUID = bookUUID; self.format = format; self.anchor = BooknoSourceAnchor(anchor)
+        switch anchor { case .pdf: offsetUnit = .pdfUserSpace; case .epub, .pdfPage, .epubChapter: offsetUnit = .utf16CodeUnit }
         textNormalizationVersion = "native-verbatim-1"
+    }
+    public init(bookUUID: UUID, format: BooknoFormat, textAnchor: TextFormatAnchor) {
+        self.bookUUID = bookUUID; self.format = format; anchor = .text(textAnchor)
+        offsetUnit = .utf16CodeUnit; textNormalizationVersion = "native-verbatim-1"
     }
 }
 
@@ -184,5 +191,5 @@ public struct BooknoMockReceipt: Codable, Sendable, Equatable {
 }
 public enum BooknoPreviewError: Error, Sendable, Equatable {
     case disabled, invalidContract, sourceMismatch, assetInvalid, assetMissing
-    case batchContentMismatch, receiptMismatch, mockResultUnknown, revisionOverflow
+    case batchContentMismatch, receiptMismatch, mockResultUnknown, revisionOverflow, selectionLimit
 }

@@ -34,6 +34,7 @@ public final class LibraryModel: ObservableObject {
     public let comic = ComicReaderSession()
     public let docx: DOCXLibraryModel
     public let textFormats: TextFormatLibraryModel
+    let booknoPreview: BooknoPreviewModel
     private var textChanges: AnyCancellable?
     private var docxChanges: AnyCancellable?
     #endif
@@ -64,6 +65,7 @@ public final class LibraryModel: ObservableObject {
         #if os(macOS)
         docx = DOCXLibraryModel(root: root)
         textFormats = TextFormatLibraryModel(root: root)
+        booknoPreview = BooknoPreviewModel(repository: BooknoLibraryPreviewRepository(root: root))
         #endif
         #if DEBUG
         if let token = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"], UUID(uuidString: token) != nil,
