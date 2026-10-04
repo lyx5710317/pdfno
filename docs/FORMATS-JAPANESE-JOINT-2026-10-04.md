@@ -13,7 +13,7 @@
 
 唯一冲突在 `LibraryModel` 初始化：同时保留 ebook 变化通知、PDF/EPUB 选区/会话失效观察和日语取消回调。各格式导入/打开继续通过既有 learning 取消入口失效日语任务。保存时仍验证当前 PDF/EPUB、真实版次/哈希、配置与规范选区；非 PDF/EPUB 不能取得隐藏阅读器的 AI 来源。明确打开原书后，已保存记录才能执行原来的精确返回校验。
 
-原 main 30 项 UI、全格式 40 项 UI、日语 33 项 UI 文件的全部原始行按序保留。并集为 **43 项**：[完整清单](FORMATS-JAPANESE-UI-INVENTORY.json)。保留全格式 7z fixture 的 Xcode 16 类型拆分，以及日语最终 named Form viewport、可点击入口与单 AX 角色图例修复。无缩减断言、超时、跳过或 Native only-testing；Native 总预算仍为50分钟，单项仍180/240秒。
+原 main 30 项 UI、全格式 40 项 UI、日语 33 项 UI 文件的全部原始行按序保留。并集为 **43 项**：[完整清单](FORMATS-JAPANESE-UI-INVENTORY.json)。保留全格式 7z fixture 的 Xcode 16 类型拆分，以及日语最终 named Form viewport、可点击入口与单 AX 角色图例修复。无缩减断言、超时、跳过或 Native only-testing；完整 Swift 套件明确 `--no-parallel` 顺序执行，避免默认 WKContentRuleListStore 同标识编译竞争；Native 总预算仍为50分钟，单项仍180/240秒。
 
 原 main 的 EPUB reader/engine/实际章节验证测试、Bookno 协议测试及83项需求台账原样保留。原批准漫画 codec 的108项源码/资源/许可证原样保留；96项 pin 和6个真实容器 fixture 继续校验，不增加解码器。独立工作树保留其他工人、本机主工作树及其 Xcode 用户元数据。
 
@@ -32,6 +32,12 @@ Bookno 离线预览新增明确文案/内存提示：日语独立学习记录尚
 联合分支与随后 main 各自必须执行完整 Native checks 和 bounded comic checks。Native 必须包含无筛选完整 Swift（所有 NSWindow 回归）、25项 Node、资源/fixture/project 复现、source/codec/8项台账检查、Mac 与 iPhone/iPad Simulator 构建，以及 **43/43 实际 UI，0失败/跳过/缺失/重名**。漫画工作流的有限离线筛选保持，但不能替代完整 Native。
 
 日志、API 返回的 head SHA/结论、逐项实际 UI 事件、原件与用户元数据哈希组成独立验收回执。CI 失败只修相关问题，保留43项及断言，对新 SHA 完整重跑；未经联合确切 SHA 全部通过不改 main。合入后再次核对 main 远端 SHA、两条输入祖先、实际 UI 和完整 CI。此文随候选提交，**不预先宣称联合/main 通过**；最终状态由确切提交的 CI 与交付回执绑定。
+
+## 首次联合 CI 失败与必要修正
+
+联合 `5ddb55ca2176bb83643daf4a5f3695425afd9c76` 的 [Native 37214224781](https://github.com/lyx5710317/pdfno/actions/runs/37214224781) 实际运行完整324项 Swift（19.353s），旧 EPUBWebKitTests 的长段落窗口方法遇到 WebKit `Rule list compilation failed`／`Mapping file failed`，1项失败；后续双端构建与43项 UI 尚未执行。新增边界回归通过；[漫画 37214224724](https://github.com/lyx5710317/pdfno/actions/runs/37214224724) 46 Swift／4 Node 通过。没有合入 main，也没有把漫画通过算作联合完成。
+
+仅修 CI 完整 Swift 命令，明确 `--no-parallel`：所有测试及参数、窗口方法、来源断言仍执行。生产 reader、网络规则、EPUB 选区校验不变。本地同305项非窗口范围顺序执行（13.234s）已通过，日志验证每个测试方法开始前上一方法已结束；此项不代替远端全部324项及43项 UI。修正后的新 SHA 必须完整重跑 Native 和漫画。
 
 ## 实际能力边界
 
