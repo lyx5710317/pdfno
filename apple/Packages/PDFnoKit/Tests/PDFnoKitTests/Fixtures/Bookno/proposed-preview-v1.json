@@ -1,0 +1,83 @@
+{
+  "assets": [],
+  "batchID": "60000000-0000-0000-0000-000000000001",
+  "canonicalizationVersion": "swift-json-verbatim-1",
+  "cursor": {
+    "epoch": "50000000-0000-0000-0000-000000000001",
+    "sequence": 1
+  },
+  "mode": "preview",
+  "mutations": [
+    {
+      "baseRevision": 0,
+      "contentHash": "08be8576e1b6d655e4183a51657410c333186cd896fd57451f5be22924932b5f",
+      "payload": {
+        "book": {
+          "_0": {
+            "authors": [],
+            "bookUUID": "10000000-0000-0000-0000-000000000001",
+            "edition": {
+              "format": "pdf",
+              "id": "20000000-0000-0000-0000-000000000001",
+              "sourceFileSHA256": "232b22bb643946cb2cef32de571fbffff8bd2fe48d06b5fabe0fd905b6367dee"
+            },
+            "externalID": "pdfno:book:pdf:10000000-0000-0000-0000-000000000001",
+            "title": "原创样书"
+          }
+        }
+      },
+      "revision": 1
+    },
+    {
+      "baseRevision": 0,
+      "contentHash": "8ded2935c35d36b79b924515f36560d45e1596cc5f44e04531d075e3bf45d490",
+      "payload": {
+        "note": {
+          "_0": {
+            "aiAttachments": [],
+            "annotationKind": "highlight",
+            "externalBookID": "pdfno:book:pdf:10000000-0000-0000-0000-000000000001",
+            "externalID": "pdfno:note:pdf:highlight:30000000-0000-0000-0000-000000000001",
+            "localEditRevision": 12,
+            "noteUUID": "30000000-0000-0000-0000-000000000001",
+            "quote": " A😀が👩‍💻\n本 ",
+            "source": {
+              "anchor": {
+                "pdf": {
+                  "_0": {
+                    "editionID": "20000000-0000-0000-0000-000000000001",
+                    "extractionVersion": "pdfkit-selection-1",
+                    "fileSHA256": "232b22bb643946cb2cef32de571fbffff8bd2fe48d06b5fabe0fd905b6367dee",
+                    "quote": " A😀が👩‍💻\n本 ",
+                    "regions": [
+                      {
+                        "height": 15,
+                        "pageIndex": 0,
+                        "quote": " A😀が👩‍💻\n本 ",
+                        "width": 90,
+                        "x": 12,
+                        "y": 34
+                      }
+                    ],
+                    "schemaVersion": 1
+                  }
+                }
+              },
+              "bookUUID": "10000000-0000-0000-0000-000000000001",
+              "format": "pdf",
+              "offsetUnit": "pdfUserSpace",
+              "textNormalizationVersion": "native-verbatim-1"
+            },
+            "userText": "\n  原创备注が😀  "
+          }
+        }
+      },
+      "revision": 1
+    }
+  ],
+  "protocolName": "pdfno-bookno-exchange-preview",
+  "receiverID": "40000000-0000-0000-0000-000000000001",
+  "schemaVersion": 1,
+  "sourceNamespace": "pdfno",
+  "tombstones": []
+}
