@@ -95,17 +95,17 @@ struct LibraryCoverRow: View {
     var body: some View {
         Group {
             if grid {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: PDFnoDesign.Space.small) {
                     LibraryCoverImage(covers: covers, identity: item.identity, width: 90, height: 124)
-                    Text(item.title).font(.callout).lineLimit(2)
-                    Text(item.subtitle).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    Text(item.title).font(PDFnoDesign.TypeStyle.section).lineLimit(2)
+                    Text(item.subtitle).font(PDFnoDesign.TypeStyle.metadata).foregroundStyle(.secondary).lineLimit(1)
                 }.frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                HStack(spacing: 12) {
+                HStack(spacing: PDFnoDesign.Space.regular) {
                     LibraryCoverImage(covers: covers, identity: item.identity)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.title).font(.headline).lineLimit(2)
-                        Text(item.subtitle).font(.caption).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: PDFnoDesign.Space.tight) {
+                        Text(item.title).font(PDFnoDesign.TypeStyle.section).lineLimit(2)
+                        Text(item.subtitle).font(PDFnoDesign.TypeStyle.metadata).foregroundStyle(.secondary)
                     }
                 }.padding(.vertical, 6).frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -124,7 +124,7 @@ struct LibraryCoverEditor: View {
         NavigationStack {
             VStack(spacing: 16) {
                 LibraryCoverImage(covers: covers, identity: item.identity, width: 150, height: 208)
-                Text(item.title).font(.headline).lineLimit(2)
+                Text(item.title).font(PDFnoDesign.TypeStyle.section).lineLimit(2)
                 Text("选择本地图片作为封面，或重新生成自动封面。原书不会被改写。")
                     .font(.callout).foregroundStyle(.secondary)
                 Button("选择本地图片") { importer = true }.buttonStyle(.borderedProminent)
