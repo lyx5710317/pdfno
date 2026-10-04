@@ -7,6 +7,7 @@ public final class AppAISession: Sendable {
     public static let shared = AppAISession()
     public let probe = DeepSeekSelectionBudget(maxAttempts: DeepSeekSelfTest.maxAttempts)
     public let selection = DeepSeekSelectionBudget()
+    public let chapter = DeepSeekSelectionBudget(maxAttempts: EPUBChapterTranslationPolicy.maxSessionRequests)
     public let page = DeepSeekSelectionBudget(maxAttempts: PDFPageTranslationPolicy.maxSessionRequests)
     public init() {}
 }

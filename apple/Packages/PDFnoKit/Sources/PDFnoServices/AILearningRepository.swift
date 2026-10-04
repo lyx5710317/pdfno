@@ -29,10 +29,10 @@ public actor AILearningRepository {
                   configValid(result["provider"]), let source = result["source"] as? [String: Any],
                   Set(source.keys) == Set(["bookID", "readerSessionID", "documentVersion", "anchor"]),
                   let anchor = source["anchor"] as? [String: Any], anchor.count == 1,
-                  let type = anchor.keys.first, ["pdf", "epub", "pdfPage"].contains(type), let payload = anchor[type] as? [String: Any],
+                  let type = anchor.keys.first, ["pdf", "epub", "pdfPage", "epubChapter"].contains(type), let payload = anchor[type] as? [String: Any],
                   Set(payload.keys) == Set(["_0"]), let value = payload["_0"] as? [String: Any] else { return false }
             if type == "pdfPage" { return Set(value.keys) == Set(["schemaVersion", "extractionVersion", "editionID", "fileSHA256", "pageIndex", "pageText", "start", "end", "quote"]) }
-            if type == "epub" { return Set(value.keys) == Set(["schemaVersion", "extractionVersion", "editionID", "fileSHA256", "resourceHref", "spineIndex", "start", "end", "quote", "prefix", "suffix", "vertical"]) }
+            if type == "epub" || type == "epubChapter" { return Set(value.keys) == Set(["schemaVersion", "extractionVersion", "editionID", "fileSHA256", "resourceHref", "spineIndex", "start", "end", "quote", "prefix", "suffix", "vertical"]) }
             guard Set(value.keys) == Set(["schemaVersion", "editionID", "fileSHA256", "quote", "regions", "extractionVersion"]), let regions = value["regions"] as? [[String: Any]] else { return false }
             return regions.allSatisfy { Set($0.keys) == Set(["pageIndex", "x", "y", "width", "height", "quote"]) }
         }), let state = try? JSONDecoder().decode(AILearningState.self, from: data), state.config.isValid,
@@ -44,6 +44,9 @@ public actor AILearningRepository {
     private static func validPrompt(_ result: AIResult) -> Bool {
         if case .pdfPage = result.source.anchor {
             return result.promptVersion == PDFPageTranslationPolicy.promptVersion && result.kind == .translate && DeepSeekSelectionPolicy.supports(result.provider)
+        }
+        if case .epubChapter = result.source.anchor {
+            return result.promptVersion == EPUBChapterTranslationPolicy.promptVersion && result.kind == .translate && DeepSeekSelectionPolicy.supports(result.provider)
         }
         return ["selection-1", DeepSeekSelectionPolicy.promptVersion].contains(result.promptVersion)
     }

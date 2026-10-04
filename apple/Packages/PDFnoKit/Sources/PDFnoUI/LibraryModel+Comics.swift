@@ -5,14 +5,14 @@ import PDFnoServices
 
 extension LibraryModel {
     func closeComic() {
-        learning.cancel(); pageTranslation.cancel()
+        learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
         #if os(macOS)
         comic.close()
         #endif
         readingComic = false
     }
     func importComic(_ url: URL) async {
-        learning.cancel(); pageTranslation.cancel()
+        learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
         #if os(macOS)
         guard canImport, !isBusy else { return }
         guard url.pathExtension.lowercased() == "cbz" else { error = ComicError.unavailable.localizedDescription; return }
@@ -35,7 +35,7 @@ extension LibraryModel {
         #endif
     }
     func openComic(_ book: ComicBook) async {
-        learning.cancel(); pageTranslation.cancel()
+        learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
         #if os(macOS)
         guard !isBusy else { return }; isBusy = true; defer { isBusy = false }
         await saveProgress()

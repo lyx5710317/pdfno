@@ -961,6 +961,138 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(textValue(app.staticTexts["page-position"].firstMatch).contains("1 / 1"))
         app.terminate()
     }
+    @MainActor func testMacEPUBChapterCompleteScopeConsentBilingualManualSaveRestartAndSourceReturn() throws {
+        let app = XCUIApplication(), token = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        app.launch(); app.activate()
+        defer { app.terminate() }
+        openChapterFixture(in: app, japanese: true)
+        press(app.buttons["epub-chapter-translation"].firstMatch)
+        guard app.staticTexts["chapter-offline-fixture"].firstMatch.waitForExistence(timeout: 5) else {
+            XCTFail("Fully intercepted transport required before synthetic key entry"); return
+        }
+        XCTAssertTrue(textValue(app.staticTexts["chapter-definition"].firstMatch).contains("目录"))
+        waitForText(["2 / 2", "OEBPS/japanese.xhtml", "2837", "0–2837"], in: app.staticTexts["chapter-scope"].firstMatch, timeout: 5)
+        waitForText(["完整计划 6 段", "6144", "180", "0 / 6"], in: app.staticTexts["chapter-limits"].firstMatch, timeout: 5)
+        XCTAssertFalse(app.buttons["chapter-start"].firstMatch.isEnabled)
+        let original = app.descendants(matching: .any).matching(identifier: "chapter-original-0").firstMatch
+        XCTAssertTrue(original.exists); XCTAssertTrue(textValue(original).contains("日本語")); XCTAssertFalse(textValue(original).contains("にほんご"))
+        XCTAssertFalse(app.staticTexts["chapter-result-0"].firstMatch.exists)
+        let key = app.descendants(matching: .any).matching(identifier: "chapter-session-key").firstMatch
+        scrollChapterElement(key, in: app); press(key); key.typeText("synthetic-reading-ui-credential")
+        XCTAssertFalse(app.buttons["chapter-start"].firstMatch.isEnabled)
+        let consent = app.descendants(matching: .any).matching(identifier: "chapter-scope-consent").firstMatch
+        scrollChapterElement(consent, in: app); press(consent)
+        let start = app.buttons["chapter-start"].firstMatch; scrollChapterElement(start, in: app); press(start)
+        waitForText(["全部 6 段", "未自动保存"], in: app.staticTexts["chapter-status"].firstMatch, timeout: 15)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "chapter-session-key").firstMatch.exists)
+        let result = app.descendants(matching: .any).matching(identifier: "chapter-result-0").firstMatch
+        XCTAssertTrue(result.exists); XCTAssertTrue(textValue(result).contains("离线 DeepSeek"))
+        let note = app.descendants(matching: .any).matching(identifier: "chapter-user-note-0").firstMatch
+        scrollChapterElement(note, in: app); enterSearch("Original synthetic whole chapter note", into: note)
+        let save = app.buttons["chapter-save-0"].firstMatch
+        scrollChapterElement(save, in: app); press(save); waitForText(["已保存"], in: save, timeout: 5)
+        let store = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent("learning-v1.json")
+        let bytes = try Data(contentsOf: store), object = try XCTUnwrap(try JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+        let notes = try XCTUnwrap(object["notes"] as? [[String: Any]])
+        XCTAssertEqual(notes.count, 1); XCTAssertEqual(notes[0]["userText"] as? String, "Original synthetic whole chapter note")
+        let saved = try XCTUnwrap(notes[0]["result"] as? [String: Any])
+        XCTAssertEqual(saved["promptVersion"] as? String, "deepseek-epub-chapter-1")
+        let source = try XCTUnwrap(saved["source"] as? [String: Any]), anchor = try XCTUnwrap(source["anchor"] as? [String: Any])
+        XCTAssertNotNil(anchor["epubChapter"]); XCTAssertFalse(String(decoding: bytes, as: UTF8.self).contains("synthetic-reading-ui-credential"))
+        let back = app.buttons["chapter-return-source"].firstMatch
+        scrollChapterElement(back, in: app); press(back)
+        waitForText(["第 2 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 10)
+        app.terminate(); app.launch(); app.activate()
+        let book = app.descendants(matching: .any).matching(identifier: "library-epub").firstMatch
+        XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
+        waitForText(["第 2 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
+        press(app.buttons["epub-chapter-translation"].firstMatch)
+        XCTAssertFalse(app.buttons["chapter-start"].firstMatch.isEnabled)
+        XCTAssertFalse(app.staticTexts["chapter-result-0"].firstMatch.exists)
+        let restartedKey = app.descendants(matching: .any).matching(identifier: "chapter-session-key").firstMatch
+        XCTAssertTrue(restartedKey.exists); XCTAssertTrue((restartedKey.value as? String ?? "").isEmpty)
+        press(app.buttons["chapter-close"].firstMatch)
+        press(app.buttons["epub-ai"].firstMatch)
+        let savedText = app.descendants(matching: .any).matching(identifier: "ai-saved-user-note").firstMatch
+        XCTAssertTrue(savedText.waitForExistence(timeout: 5)); XCTAssertEqual(textValue(savedText), "Original synthetic whole chapter note")
+        press(app.buttons["ai-saved-source"].firstMatch)
+        waitForText(["第 2 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 10)
+    }
+    @MainActor func testMacEPUBChapterOversizeRefusesWholeDocumentWithoutKeyOrSend() throws {
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        app.launch(); app.activate(); defer { app.terminate() }
+        openChapterFixture(in: app, japanese: false)
+        press(app.buttons["epub-chapter-translation"].firstMatch)
+        waitForText(["3000", "不会静默截断", "选文 AI"], in: app.staticTexts["chapter-preparation-error"].firstMatch, timeout: 5)
+        XCTAssertTrue(textValue(app.staticTexts["chapter-scope"].firstMatch).contains("OEBPS/english.xhtml"))
+        XCTAssertFalse(app.buttons["chapter-start"].firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "chapter-session-key").firstMatch.exists)
+        XCTAssertFalse(app.staticTexts["chapter-result-0"].firstMatch.exists)
+    }
+    @MainActor func testMacEPUBChapterCancelStopsRemainderAndReopenCannotRetryOrRestoreKey() throws {
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"; app.launchEnvironment["PDFNO_UI_TEST_CHAPTER_RESPONSE"] = "slow"
+        app.launch(); app.activate(); defer { app.terminate() }
+        openChapterFixture(in: app, japanese: true)
+        startChapterFixture(in: app)
+        waitForText(["正在处理第 1 / 6 段"], in: app.staticTexts["chapter-status"].firstMatch, timeout: 5)
+        press(app.buttons["chapter-cancel"].firstMatch)
+        waitForText(["已取消"], in: app.staticTexts["chapter-status"].firstMatch, timeout: 5)
+        waitForText(["1 / 6"], in: app.staticTexts["chapter-limits"].firstMatch, timeout: 5)
+        XCTAssertFalse(app.staticTexts["chapter-result-0"].firstMatch.exists)
+        press(app.buttons["chapter-close"].firstMatch); press(app.buttons["epub-chapter-translation"].firstMatch)
+        XCTAssertFalse(app.buttons["chapter-start"].firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "chapter-session-key").firstMatch.exists)
+        waitForText(["1 / 6"], in: app.staticTexts["chapter-limits"].firstMatch, timeout: 5)
+    }
+    @MainActor func testMacEPUBChapterPartialFailureKeepsFirstSegmentAndStopsAllRemaining() throws {
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"; app.launchEnvironment["PDFNO_UI_TEST_CHAPTER_RESPONSE"] = "fail-second"
+        app.launch(); app.activate(); defer { app.terminate() }
+        openChapterFixture(in: app, japanese: true); startChapterFixture(in: app)
+        waitForText(["未完成", "已完成 1 / 6", "无自动重试"], in: app.staticTexts["chapter-status"].firstMatch, timeout: 10)
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "chapter-result-0").firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "chapter-result-1").firstMatch.exists)
+        waitForText(["2 / 6"], in: app.staticTexts["chapter-limits"].firstMatch, timeout: 5)
+        XCTAssertFalse(app.buttons["chapter-start"].firstMatch.exists)
+        let save = app.buttons["chapter-save-0"].firstMatch
+        scrollChapterElement(save, in: app); press(save); waitForText(["已保存"], in: save, timeout: 5)
+    }
+    @MainActor private func openChapterFixture(in app: XCUIApplication, japanese: Bool) {
+        let sample = app.buttons["open-epub-sample"].firstMatch
+        XCTAssertTrue(sample.waitForExistence(timeout: 15)); press(sample)
+        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
+        if japanese {
+            press(app.buttons["epub-contents"].firstMatch); press(app.buttons["epub-chapter-1"].firstMatch)
+            waitForText(["第 2 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 20)
+        }
+    }
+    @MainActor private func startChapterFixture(in app: XCUIApplication) {
+        press(app.buttons["epub-chapter-translation"].firstMatch)
+        guard app.staticTexts["chapter-offline-fixture"].firstMatch.waitForExistence(timeout: 5) else {
+            XCTFail("Fully intercepted transport required before synthetic key entry"); return
+        }
+        let key = app.descendants(matching: .any).matching(identifier: "chapter-session-key").firstMatch
+        scrollChapterElement(key, in: app); press(key); key.typeText("synthetic-reading-ui-credential")
+        let consent = app.descendants(matching: .any).matching(identifier: "chapter-scope-consent").firstMatch
+        scrollChapterElement(consent, in: app); press(consent)
+        let start = app.buttons["chapter-start"].firstMatch
+        scrollChapterElement(start, in: app); press(start)
+    }
+    @MainActor private func scrollChapterElement(_ element: XCUIElement, in app: XCUIApplication) {
+        let scroll = app.scrollViews["chapter-scroll"].firstMatch
+        XCTAssertTrue(scroll.waitForExistence(timeout: 5))
+        for _ in 0..<12 {
+            let viewport = scroll.frame.insetBy(dx: 4, dy: 8), target = element.frame
+            if !target.isEmpty, viewport.contains(target), element.isHittable { return }
+            let delta = target.minY < viewport.minY ? min(300, max(48, viewport.minY - target.minY + 16)) : -min(300, max(48, target.maxY - viewport.maxY + 16))
+            scroll.scroll(byDeltaX: 0, deltaY: delta)
+        }
+        XCTAssertTrue(scroll.frame.insetBy(dx: 4, dy: 8).contains(element.frame), "Chapter control must be completely inside scroll viewport")
+    }
     @MainActor func testMacPDFPageScanAndOversizeRefuseWithoutSend() throws {
         for mode in ["blank", "over-budget"] {
             let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString

@@ -16,20 +16,22 @@ public struct AIProviderConfig: Codable, Sendable, Equatable {
     }
 }
 public enum AISelectionAnchor: Codable, Sendable, Equatable {
-    case pdf(PDFSourceAnchor), epub(EPUBAnchor), pdfPage(PDFPageTextAnchor)
-    public var quote: String { switch self { case .pdf(let a): a.quote; case .epub(let a): a.quote; case .pdfPage(let a): a.quote } }
-    public var editionID: UUID { switch self { case .pdf(let a): a.editionID; case .epub(let a): a.editionID; case .pdfPage(let a): a.editionID } }
-    public var fileSHA256: String { switch self { case .pdf(let a): a.fileSHA256; case .epub(let a): a.fileSHA256; case .pdfPage(let a): a.fileSHA256 } }
+    case pdf(PDFSourceAnchor), epub(EPUBAnchor), pdfPage(PDFPageTextAnchor), epubChapter(EPUBAnchor)
+    public var quote: String { switch self { case .pdf(let a): a.quote; case .epub(let a), .epubChapter(let a): a.quote; case .pdfPage(let a): a.quote } }
+    public var editionID: UUID { switch self { case .pdf(let a): a.editionID; case .epub(let a), .epubChapter(let a): a.editionID; case .pdfPage(let a): a.editionID } }
+    public var fileSHA256: String { switch self { case .pdf(let a): a.fileSHA256; case .epub(let a), .epubChapter(let a): a.fileSHA256; case .pdfPage(let a): a.fileSHA256 } }
     public var locationLabel: String {
         switch self {
         case .pdf(let a): "PDF · 第 \((a.regions.first?.pageIndex ?? 0) + 1) 页"
         case .pdfPage(let a): "PDF · 第 \(a.pageIndex + 1) 页 · 原文 UTF-16 \(a.start)–\(a.end)"
         case .epub(let a): "EPUB · 第 \(a.spineIndex + 1) 章 · 原文 UTF-16 \(a.start)–\(a.end)"
+        case .epubChapter(let a): "EPUB · spine 文档 \(a.spineIndex + 1) · \(a.resourceHref) · 原文 UTF-16 \(a.start)–\(a.end)"
         }
     }
     public var isValid: Bool {
         switch self {
         case .epub(let a): a.isValid
+        case .epubChapter(let a): a.isValid && a.quote.utf16.count <= DeepSeekSelectionPolicy.maxSourceUTF16 && a.end <= EPUBChapterTranslationPolicy.maxChapterUTF16
         case .pdfPage(let a): a.isValid
         case .pdf(let a):
             a.schemaVersion == 1 && a.extractionVersion == "pdfkit-selection-1" && a.hasConsistentQuote &&
@@ -64,6 +66,7 @@ public struct AIRequest: Sendable {
 extension AIRequest {
     public var promptVersion: String {
         if case .pdfPage = source.anchor { return PDFPageTranslationPolicy.promptVersion }
+        if case .epubChapter = source.anchor { return EPUBChapterTranslationPolicy.promptVersion }
         return DeepSeekSelectionPolicy.supports(provider) ? DeepSeekSelectionPolicy.promptVersion : "selection-1"
     }
 }

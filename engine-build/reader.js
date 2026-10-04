@@ -153,6 +153,13 @@ window.PDFno = {async command(message) {
   } else if (message.command==='navigate') await navigate(message.payload.anchor);
   else if (message.command==='notes') { notes=message.payload.notes; project(); }
   else if (message.command==='resize') { const anchor=progress(); if (anchor) await navigate(anchor); }
+  else if (message.command==='chapterText') {
+    // Bounds checked before bridging any body text. Oversize returns a true count and null, never an excerpt.
+    const {text}=canonical();
+    const chapterText={resourceHref:renderer.book.sections[current].id,spineIndex:current,
+      chapterCount:renderer.book.sections.length,utf16Count:text.length,text:text.length<=3000?text:null,vertical:renderer.isVertical()};
+    return JSON.stringify(envelope({...state(),chapterText},message.requestID));
+  } else if (message.command==='validateAnchor') rangeFor(message.payload.anchor);
   else throw Error('Command is not allowed');
   project(); return JSON.stringify(envelope(state(),message.requestID));
 }};

@@ -11,6 +11,7 @@ struct EPUBWorkspace: View {
     @State private var notes = false
     @State private var draft = ""
     @State private var ai = false
+    @State private var chapterTranslation = false
     var body: some View {
         VStack(spacing: 0) {
             EPUBCanvas(session: session)
@@ -31,6 +32,8 @@ struct EPUBWorkspace: View {
                 Button(session.vertical ? "横排" : "竖排") { Task { _ = await session.command("vertical") } }
                     .accessibilityIdentifier("epub-orientation")
                 Button("高亮与笔记") { notes = true }.accessibilityIdentifier("epub-notes")
+                Button("翻译当前文档") { Task { await model.prepareChapterTranslation(); chapterTranslation = true } }.accessibilityIdentifier("epub-chapter-translation")
+                    .disabled(session.busy)
                 Button("选文 AI") { model.learning.prepare(model.captureAISource()); ai = true }.accessibilityIdentifier("epub-ai")
                 Button("取消并关闭") { session.close() }.accessibilityIdentifier("epub-close")
             }
@@ -72,6 +75,7 @@ struct EPUBWorkspace: View {
                 }.accessibilityIdentifier("epub-notes-list").navigationTitle("高亮与笔记").toolbar { ToolbarItem { Button("完成") { notes = false }.accessibilityIdentifier("epub-close-notes") } }
             }.frame(minWidth: 360, minHeight: 420)
         }
+        .sheet(isPresented: $chapterTranslation) { EPUBChapterTranslationWorkspace(library: model, translation: model.chapterTranslation, learning: model.learning) }
         .sheet(isPresented: $ai) { AILearningWorkspace(library: model, learning: model.learning) }
     }
 }

@@ -44,16 +44,19 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
     @Published public private(set) var error: String?
     private var generation = UUID()
     public private(set) var documentVersion = 0
+    public private(set) var spineIndex = 0
+    public var translationScopeDidChange: (@MainActor () -> Void)?
     public var readerSessionID: UUID { generation }
     private var pendingOpen: [String: Any]?
     private var pending: [UUID: CheckedContinuation<String, Error>] = [:]
     public func close() {
+        translationScopeDidChange?()
         generation = UUID(); pendingOpen = nil
         let requests = pending; pending.removeAll()
         for continuation in requests.values { continuation.resume(throwing: EPUBError.cancelled) }
         webView?.stopLoading(); webView?.configuration.userContentController.removeScriptMessageHandler(forName: "epub")
         webView?.navigationDelegate = nil; webView = nil; book = nil
-        selection = nil; progress = nil; outline = []; position = ""; busy = false; documentVersion = 0
+        selection = nil; progress = nil; outline = []; position = ""; busy = false; documentVersion = 0; spineIndex = 0
     }
     public func open(data: Data, book: EPUBBook, notes: [EPUBNote]) async throws {
         let names = try EPUBArchive.validate(data)
@@ -98,7 +101,8 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
         object["bookID"] as? String == book.id.uuidString && object["editionID"] as? String == book.editionID.uuidString &&
         object["fileSHA256"] as? String == book.fileSHA256
     }
-    private func request(_ command: String, payload: [String: Any] = [:]) async throws {
+    @discardableResult
+    private func request(_ command: String, payload: [String: Any] = [:]) async throws -> [String: Any] {
         guard let view = webView else { throw EPUBError.cancelled }
         let token = generation, id = UUID(); var message = try identity()
         message["requestID"] = id.uuidString; message["command"] = command; message["payload"] = payload
@@ -126,17 +130,50 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
         guard matches(object), object["requestID"] as? String == id.uuidString,
               let version = object["documentVersion"] as? Int, version >= documentVersion,
               let state = object["payload"] as? [String: Any], state["kind"] as? String == "state" else { throw EPUBError.bridge }
+        if documentVersion != version { translationScopeDidChange?() }
         documentVersion = version; selection = nil
         if let anchor = state["progress"] as? [String: Any] { progress = try anchorValue(anchor) }
         else if state["progress"] is NSNull { progress = nil }
         else { throw EPUBError.bridge }
         vertical = state["vertical"] as? Bool ?? false
         let chapter = state["spineIndex"] as? Int ?? 0, page = state["page"] as? String ?? "1"
+        spineIndex = chapter
         position = "第 \(chapter + 1) 章 · 第 \(page) 页" + (vertical ? " · 竖排" : "")
         outline = (state["outline"] as? [[String: Any]] ?? []).prefix(1000).compactMap {
             guard let title = $0["title"] as? String, title.utf8.count < 4096, let index = $0["index"] as? Int, (0..<1000).contains(index) else { return nil }
             return EPUBOutlineItem(title: title, index: index)
         }
+        return state
+    }
+    /// Read-only extraction: includes the whole current spine resource, independent of its viewport and TOC anchors.
+    public func currentChapterTextSnapshot() async throws -> EPUBChapterTextSnapshot {
+        guard !busy, let book else { throw EPUBChapterTranslationFailure.invalidSource }
+        let token = generation
+        busy = true; defer { if generation == token { busy = false } }
+        let state = try await request("chapterText")
+        struct TextPayload: Decodable {
+            let resourceHref: String; let spineIndex: Int; let chapterCount: Int
+            let utf16Count: Int; let text: String?; let vertical: Bool
+        }
+        guard generation == token, let object = state["chapterText"] as? [String: Any],
+              Set(object.keys) == Set(["resourceHref", "spineIndex", "chapterCount", "utf16Count", "text", "vertical"]) else { throw EPUBChapterTranslationFailure.invalidSource }
+        let value = try JSONDecoder().decode(TextPayload.self, from: JSONSerialization.data(withJSONObject: object))
+        let snapshot = EPUBChapterTextSnapshot(bookID: book.id, readerSessionID: token, documentVersion: documentVersion,
+            editionID: book.editionID, fileSHA256: book.fileSHA256, resourceHref: value.resourceHref,
+            spineIndex: value.spineIndex, chapterCount: value.chapterCount, utf16Count: value.utf16Count,
+            text: value.text, vertical: value.vertical)
+        guard snapshot.hasValidMetadata, snapshot.spineIndex == spineIndex,
+              (value.utf16Count > EPUBChapterTranslationPolicy.maxChapterUTF16 ? value.text == nil : value.text?.utf16.count == value.utf16Count) else { throw EPUBChapterTranslationFailure.invalidSource }
+        return snapshot
+    }
+    /// Exact canonical quote/context validation without navigation or document mutation.
+    /// After a chapter switch, the user returns to that source before saving retained output.
+    public func validateChapterAnchor(_ anchor: EPUBAnchor) async -> Bool {
+        guard !busy, book?.accepts(anchor) == true, anchor.spineIndex == spineIndex else { return false }
+        let token = generation
+        busy = true; defer { if generation == token { busy = false } }
+        do { try await request("validateAnchor", payload: ["anchor": try json(anchor)]); return true }
+        catch { return false }
     }
     private func decode(_ text: String) throws -> [String: Any] {
         guard text.utf8.count <= 1024 * 1024, let data = text.data(using: .utf8),
