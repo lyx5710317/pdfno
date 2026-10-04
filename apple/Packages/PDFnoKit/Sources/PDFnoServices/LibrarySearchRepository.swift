@@ -109,7 +109,7 @@ public actor LibrarySearchRepository {
             try Task.checkCancellation()
             let source = n.result.source
             let format: LocalBookFormat
-            switch source.anchor { case .epub: format = .epub; case .pdf, .pdfPage: format = .pdf }
+            switch source.anchor { case .epub, .epubChapter: format = .epub; case .pdf, .pdfPage: format = .pdf }
             let identity = LocalBookIdentity(format: format, bookID: source.bookID, editionID: source.anchor.editionID, fileSHA256: source.anchor.fileSHA256)
             let candidate = book(format, source.bookID)
             let b = candidate?.identity == identity ? candidate! : LibrarySearchBook(identity: identity, title: "来源书籍不在书库", sourceAvailable: false)

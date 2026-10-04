@@ -37,11 +37,11 @@ extension LibraryModel {
                     switch anchor {
                     case .pdf(let value): guard verifier.resolution(of: value) == .exact else { return false }
                     case .pdfPage(let value): guard verifier.resolution(of: value) == .exact else { return false }
-                    case .epub: return false
+                    case .epub, .epubChapter: return false
                     }
                 }
                 await open(book)
-                guard error == nil, !readingEPUB, !readingComic, !docx.isActive,
+                guard error == nil, !readingEPUB, !readingComic, !docx.isActive, !textFormats.isActive,
                       reader.book?.editionID == book.editionID, reader.book?.id == book.id else { return false }
                 if target.kind == .book { return true }
                 if target.kind == .note {
@@ -56,11 +56,15 @@ extension LibraryModel {
                     guard state.notes.contains(where: { $0.id == target.noteID && $0.bookID == book.id && book.accepts($0.anchor) }) else { return false }
                 }
                 if let learningSource {
-                    guard case .epub(let anchor) = learningSource.anchor, book.accepts(anchor) else { return false }
+                    switch learningSource.anchor {
+                    case .epub(let anchor), .epubChapter(let anchor): guard book.accepts(anchor) else { return false }
+                    case .pdf, .pdfPage: return false
+                    }
                 }
                 await openEPUB(book)
                 guard error == nil, readingEPUB, epub.book?.id == book.id, epub.book?.editionID == book.editionID else { return false }
                 if target.kind == .book { return true }
+                guard await waitForSearchEPUB(book) else { return false }
                 if target.kind == .note {
                     let current = try await epubRepository.load()
                     guard let note = current.notes.first(where: { $0.id == target.noteID && $0.bookID == book.id }), book.accepts(note.anchor) else { return false }
@@ -95,6 +99,22 @@ extension LibraryModel {
             // Persisted session IDs are not reused; each reader verifies the edition/hash and exact anchor.
             return await returnToAISource(note.result.source)
         } catch { return false }
+    }
+    /// Opening creates the view before its canonical document is ready. Keep
+    /// this captured reader scope while the native workspace mounts WebKit.
+    private func waitForSearchEPUB(_ book: EPUBBook) async -> Bool {
+        let session = epub.readerSessionID, deadline = Date().addingTimeInterval(20)
+        func sameReader() -> Bool {
+            readingEPUB && !readingComic && !docx.isActive && !textFormats.isActive &&
+            epub.readerSessionID == session && epub.book?.id == book.id &&
+            epub.book?.editionID == book.editionID && epub.book?.fileSHA256 == book.fileSHA256
+        }
+        while epub.busy {
+            guard sameReader(), !Task.isCancelled, Date() < deadline else { return false }
+            do { try await Task.sleep(for: .milliseconds(40)) }
+            catch { return false }
+        }
+        return sameReader() && !Task.isCancelled && epub.error == nil && epub.webView != nil
     }
 }
 #endif

@@ -471,6 +471,12 @@ final class NativeUITests: XCTestCase {
         try chooseInput(file, trigger: app.buttons["import-pdf"].firstMatch, app: app)
         let navigation = app.buttons["textformat-navigation"].firstMatch
         XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
+        XCTAssertFalse(app.buttons["library-edit-cover"].firstMatch.isEnabled)
+        press(app.buttons["library-grid-layout"].firstMatch)
+        let textRow = app.descendants(matching: .any).matching(identifier: "library-textformat").firstMatch
+        XCTAssertTrue(textRow.waitForExistence(timeout: 5)); XCTAssertTrue(textRow.isHittable)
+        press(app.buttons["library-list-layout"].firstMatch)
+        XCTAssertTrue(textRow.waitForExistence(timeout: 5)); XCTAssertTrue(textRow.isHittable)
         XCTAssertFalse(app.buttons["reader-ai"].firstMatch.exists)
         XCTAssertFalse(app.buttons["epub-ai"].firstMatch.exists)
         XCTAssertFalse(app.buttons["reader-page-translation"].firstMatch.exists)

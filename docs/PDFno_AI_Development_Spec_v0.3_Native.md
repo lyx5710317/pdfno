@@ -32,7 +32,7 @@
 
 2026-10-02 用户随后明确确认“Swift＋PDFKit 保留，其他格式优先接 Kookit，并继续 AGPL 开源”，并要求继续开发；2026-10-03 再次要求继续现有 PDFno。当前增加 Mac EPUB 最小片，移动端仍编译保留、后续适配；普通提交/推送按已有授权处理。运行证据与未覆盖范围以 VALIDATION 为准。
 
-EPUB 闭环后，用户授权 Mac BYOK／选文 AI 小切片，并在独立 DeepSeek 短句测试后报告“三次测试都成功了”（USER-REPORTED；agent 未读取真实密钥、亲自调用或核验账单）。用户随后授权在已有设置与 PDF/EPUB 学习窗口实现最小真实选文翻译／解释。当前9.1为官方 DeepSeek 的有限入口：500 UTF-16 单元、1024输出tokens、30秒、独立三次阅读请求额度、会话临时 key、每次显示范围及费用并由用户最终发送；其他配置仍预览，本地 mock 明确选择。9.2原有独立短句测试保持三次／128tokens且不共享阅读密钥。自动验证只用原创样例、虚构 key 和完全拦截的 transport；选文入口不扩大到页／章／书、问答或完整 N4，不据用户短句成功宣称新选文质量通过。随后独立批准的受限 PDF 当前页入口见9.3，章节／整书仍未实现。
+EPUB 闭环后，用户授权 Mac BYOK／选文 AI 小切片，并在独立 DeepSeek 短句测试后报告“三次测试都成功了”（USER-REPORTED；agent 未读取真实密钥、亲自调用或核验账单）。用户随后授权在已有设置与 PDF/EPUB 学习窗口实现最小真实选文翻译／解释。当前9.1为官方 DeepSeek 的有限入口：500 UTF-16 单元、1024输出tokens、30秒、独立三次阅读请求额度、会话临时 key、每次显示范围及费用并由用户最终发送；其他配置仍预览，本地 mock 明确选择。9.2原有独立短句测试保持三次／128tokens且不共享阅读密钥。自动验证只用原创样例、虚构 key 和完全拦截的 transport；选文入口不扩大到页／章／书、问答或完整 N4，不据用户短句成功宣称新选文质量通过。随后独立批准的受限 PDF 当前页入口见9.3；已授权的完整当前 EPUB spine 文档候选见9.4，逻辑目录章节推断与整书仍未实现。
 
 ### 0.3 原稿来源、版本与文档权威
 
@@ -498,7 +498,19 @@ URLSession delegate 默认停止带认证重定向；受允许适配需检查完
 
 `AISelectionAnchor.pdfPage`／`PDFPageTextAnchor`保存本地完整页文本及edition/hash／物理页／`pdfkit-page-text-1`／checked UTF-16 span，只有单段引文进入请求。执行／保存验证当前book/session／完整页原文，持久回跳重新验证原件与页文本后定位该物理页，不虚构几何高亮。学习schema1增加精确键白名单、page prompt/provider/kind校验，旧选文笔记仍可读；旧应用不能读取新增page anchor，降级必须保留完整learning manifest/backup/原件与用户笔记，恢复兼容副本，不静默删除新笔记。Word／漫画活跃时禁止使用隐藏PDF／EPUB来源；所有格式切换取消两种学习任务。
 
-[页翻译切片记录](PDF-PAGE-TRANSLATION-SLICE.md)记录全部边界、原创多段／扫描／超限PDF、离线transport及三项完整UI用例。组合本地回归／编译已经通过，最终完整应用UI以同SHA隔离CI为准。真实阅读翻译质量／费用、OCR、EPUB章节、布局保真、移动端、持久Keychain／usage／SSE／章节恢复仍未验收或未实现；自动测试完全拦截且只用虚构密钥。
+[页翻译切片记录](PDF-PAGE-TRANSLATION-SLICE.md)记录全部边界、原创多段／扫描／超限PDF、离线transport及三项完整UI用例。组合本地回归／编译已经通过，最终完整应用UI以同SHA隔离CI为准。真实阅读翻译质量／费用、OCR、布局保真、移动端、持久Keychain／usage／SSE／章节恢复仍未验收或未实现；独立完整当前 EPUB spine 文档候选见9.4，自动测试完全拦截且只用虚构密钥。
+
+### 9.4 已授权的 Mac 完整当前 EPUB spine 文档候选
+
+2026-10-04 的本地整合候选增加“翻译当前文档”：范围是当前 spine 资源中全部 `epub-canonical-utf16-1` 正文，包含现有标题与 ruby 基底，排除 rt/rp；不是当前视口、分页、TOC fragment、推断逻辑章或全书。确认页同时展示 href、spine 序号、完整 `[0, UTF16Count)`、全部原文预览、每段原文及计划。超过3000 UTF-16或完整计划超过6段时拒绝；桥接回传真实长度且 text=null，不偷偷截取局部内容。单段最多500 UTF-16，按 Character 边界分割且拼合必须 scalar-exact 等于全范围。
+
+沿用固定 DeepSeek `deepseek-flash` 接收方，但每批临时 key、完整范围/费用说明、人手确认与显式发送独立于选文和当前页。每段1024输出tokens、30秒、最多64 KiB响应；完整计划最多6144输出tokens／180秒请求期限，失败／取消也计已提交次数且可能收费。进程级 chapter owner 独立6次额度，发送前一次性 claim 全计划；不足、其他窗口冲突或来源已变均在首段外发前拒绝，不自动重发。临时 key 不存磁盘、Keychain、JS或其他AI凭证；结束、关闭、切书／版本／重排／文本路由时清除。
+
+`AISelectionAnchor.epubChapter(EPUBAnchor)` 与 `deepseek-epub-chapter-1` 保持来源及缓存分隔。逐段严格校验，任何失败／取消停止后续，迟到结果不能落入新范围；成功段和独立用户草稿留在内存，可手动逐段保存。切书后保存须先回到精确原文并只读验证canonical span、quote、context与edition/hash；不模糊重绑。新增学习笔记继续走严格原子/备份schema1，旧应用安全拒绝新variant，降级需保留完整学习文件和原件。已保存章节笔记接入既有正文编辑／草稿隔离／搜索刷新与精确回跳，生成结果和来源不被正文改写。
+
+TXT／Markdown／HTML 的首片阅读见5.7；活动文本读者不能使用隐藏PDF／EPUB范围或任何现有AI入口。文本书籍保留列表和网格入口，封面编辑、文本笔记正文编辑与文本书目/笔记搜索不在本候选范围；搜索窗口明确当前格式范围。全文目标与未来 typed text AI 契约继续保留。
+
+[章节切片记录](EPUB-CHAPTER-TRANSLATION-SLICE.md)和[两模块整合交接](TEXT-CHAPTER-INTEGRATION-2026-10-04.md)区分本地回归、编译与未执行UI。本候选本地提交、不推送、不合main、不写共享Library；29个完整UI须取得发布许可后在隔离CI按确切整合SHA执行。真实语言质量、账单/TLS/账号、TOC逻辑范围、整书、自动恢复、移动阅读与独立安全专项不因离线功能验证变为通过。
 
 ## 10 假名与日英语法辅助
 

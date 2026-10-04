@@ -299,12 +299,12 @@ public final class LibraryModel: ObservableObject {
         catch { pageTranslation.rejectPreparation(error) }
     }
     func prepareChapterTranslation() async {
-        guard readingEPUB, !readingComic, !docx.isActive else { chapterTranslation.rejectPreparation(EPUBChapterTranslationFailure.invalidSource); return }
+        guard readingEPUB, !readingComic, !docx.isActive, !textFormats.isActive else { chapterTranslation.rejectPreparation(EPUBChapterTranslationFailure.invalidSource); return }
         do { chapterTranslation.prepare(try await epub.currentChapterTextSnapshot()) }
         catch { chapterTranslation.rejectPreparation(error) }
     }
     func validateChapterSource(_ source: AISourceSnapshot) async -> Bool {
-        guard readingEPUB, !readingComic, !docx.isActive, source.isValid,
+        guard readingEPUB, !readingComic, !docx.isActive, !textFormats.isActive, source.isValid,
               case .epubChapter(let anchor) = source.anchor, source.bookID == epub.book?.id,
               epub.book?.accepts(anchor) == true else { return false }
         return await epub.validateChapterAnchor(anchor)

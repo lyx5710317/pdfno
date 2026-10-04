@@ -32,7 +32,7 @@ private struct LibrarySearchContent: View {
                 TextField("书名、作者、笔记或引文", text: $query)
                     .textFieldStyle(.roundedBorder).accessibilityIdentifier("library-search-input")
                     .onChange(of: query) { _, value in sourceError = nil; model.updateQuery(value) }
-                Text("仅搜索本地书目、已保存的笔记与 AI 学习笔记；不搜索全书正文或扫描图片。")
+                Text("当前搜索 PDF／EPUB／DOCX／CBZ 书目、已保存的笔记与 AI 学习笔记；不搜索全书正文、扫描图片或文本格式笔记。")
                     .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
                 HStack {
                     Text(status).font(.caption).accessibilityIdentifier("library-search-status")

@@ -137,6 +137,7 @@ public struct LibraryWorkspace: View {
             ToolbarItem {
                 Button { coverEditor = coverItems.first { $0.id == selectedBookID } } label: { Label("编辑封面", systemImage: "photo") }
                     .disabled(!coverItems.contains { $0.id == selectedBookID }).accessibilityIdentifier("library-edit-cover")
+                    .help(model.textFormats.isActive ? "文本格式封面尚未开放" : "编辑选中书籍的本地封面")
             }
             ToolbarItem { Button { librarySearch = true } label: { Label("书库与笔记搜索", systemImage: "magnifyingglass") }.accessibilityIdentifier("library-search") }
             ToolbarItem { Button { conversion = true } label: { Label("格式转换", systemImage: "arrow.triangle.2.circlepath") }.accessibilityIdentifier("document-conversion") }
@@ -214,7 +215,7 @@ public struct FeatureStatusView: View {
                 }
                 Section("后续接入") {
                     Text("EPUB：Mac 本地重排阅读；移动适配与固定版式待验收")
-                    Text("Mac AI：选文翻译／解释与受限 PDF 当前页双语文本对照；完整范围预览、手动发送和学习笔记。真实质量、章节翻译与完整日英学习待验收")
+                    Text("Mac AI：选文翻译／解释、受限 PDF 当前页与 EPUB 当前完整文档双语对照；范围预览、手动确认发送和学习笔记。当前 EPUB 文档不等于目录逻辑章节；真实质量与完整日英学习待验收")
                     Text("Bookno API：尚未接入")
                     Text("iCloud：未配置容器，数据仅保存在本地")
                     Text("CBZ：移动阅读适配待验收；当前 Mac 支持静态 PNG / JPEG")
