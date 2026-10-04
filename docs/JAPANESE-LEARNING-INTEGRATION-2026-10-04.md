@@ -1,10 +1,10 @@
 # 日语选文学习整合候选 · 2026-10-04
 
-独立分支 `feature/integration-japanese-learning-20261004`，worktree `worktrees/integration-japanese-learning-20261004`（位于主 checkout 的同级 worktrees 目录），从已验收主线 `71d54540c417915702506f67fef7d337605aa9e2` 建立；首片 `fb8aee9a2513e5d0a94f5012b2030a7e63c491c4` 已 cherry-pick 为本地 `83aa3e6`。交付 SHA 为随本报告提交的 HEAD。此候选只本地提交，未 push/merge/main/Library；主线既有 CI 不构成本候选的验收。
+独立分支 `feature/integration-japanese-learning-20261004`，worktree `worktrees/integration-japanese-learning-20261004`（位于主 checkout 的同级 worktrees 目录），从已验收主线 `71d54540c417915702506f67fef7d337605aa9e2` 建立；首片 `fb8aee9a2513e5d0a94f5012b2030a7e63c491c4` 已 cherry-pick 为本地 `83aa3e6`。首次整合候选本地交付为 `55405ad`；后续已获用户直接授权推送此独立分支并修复、完整重跑隔离 CI。没有合 main 或写入 Library。当前准确 SHA 和最终结果以交付回执及其对应 CI 为准，历史运行不替代新提交的验收。
 
 ## 可用流程与实现边界
 
-Mac PDF/EPUB 阅读器底部新增“日语选文学习”。点击固定现有 `captureAISource()` 原生来源后，独立 sheet 显示原文、定位、接收方、范围/额度/费用、确认框。手动确认并点击开始才运行。沿用 AILearningModel 已保存的非秘密配置、当前临时 session 凭据引用、同一 transport 和同一个 AppAISession.selection；factory 本身不读密钥、不发送。配置/密钥缺失或配置不受支持时明确拒绝，不隐式切换 mock。用户明确配置 mock 才使用离线演示。
+Mac PDF/EPUB 阅读器画布上方的独立控件行提供“日语选文学习”。点击固定现有 `captureAISource()` 原生来源后，独立 sheet 显示原文、定位、接收方、范围/额度/费用、确认框。手动确认并点击开始才运行。沿用 AILearningModel 已保存的非秘密配置、当前临时 session 凭据引用、同一 transport 和同一个 AppAISession.selection；factory 本身不读密钥、不发送。配置/密钥缺失或配置不受支持时明确拒绝，不隐式切换 mock。用户明确配置 mock 才使用离线演示。
 
 读音候选、中文译文、中文语法解释、句子成分、警告、用户假名修正与独立正文分别展示。新分析不覆盖用户草稿/修正；相同来源重开保留当前结果。换书、格式切换、真实替换选区、reader session、EPUB 重排/文档版本、AI 配置/密钥变化取消旧 scope；聚焦审阅 sheet 导致选区 nil 不丢失固定来源。开始、完成、保存均验证当前 scope；异步凭据读取或额度等待取消后不再提交。非合作迟到输出由 coordinator continuation 与 model generation 双重隔离。
 
@@ -42,14 +42,14 @@ wire JSON 根仍为 schemaVersion1、language ja、sourceQuote、offsetUnit unic
 
 - `AILearningModel.swift`：同 owner BYOK factory 与 scope invalidation 回调；保持旧 AIRequest/AIResult/AILearningKind、旧 repository 与额度协议不变。
 - `LibraryModel.swift` + 新 `LibraryModel+JapaneseLearning.swift`：独立 repository/学习模型、选择/会话订阅、保存前核对与原生来源返回；测试 transport 注入使用全新合成根目录。
-- `LibraryWorkspace.swift` / `EPUBWorkspace.swift`：阅读器底部入口、独立 sheet、只读已保存日语记录。旧 AI toolbar 未增加拥挤动作。
+- `LibraryWorkspace.swift` / `EPUBWorkspace.swift`：画布上方日语入口、独立 sheet、只读已保存日语记录。旧 AI toolbar 未增加拥挤动作。
 - `OfflineSelectionUITestTransport.swift` / `NativeUITests.swift`：UUID 隔离且明确 offline 的 Debug transport 合成响应、成分切层/省略和错误/取消场景。原有30条 UI 用例代码完整保留，新增3条。
 
 未改格式/解码引擎、reader资源、Bookno、外部依赖、Package.swift、Xcode工程或既有 library-v1.json/epub-v1.json/learning-v1.json schema。离线测试以原始 fixture 验证旧 manifest 和原书字节不变；没有访问当前用户 App、密钥或私人书库。
 
 ## 验证与待验收
 
-最终本机结果如下（arm64 macOS27/Swift6.4，Mac deployment14、iOS deployment17；编译不证明最低系统实际运行）：
+初始整合候选的本机结果如下（arm64 macOS27/Swift6.4，Mac deployment14、iOS deployment17；编译不证明最低系统实际运行）：
 
 | 检查 | 结果 | 本机证据 |
 | --- | --- | --- |
@@ -92,3 +92,8 @@ git diff --check
 后续 `8962f1b` 的 [Native run 37205587117](https://github.com/lyx5710317/pdfno/actions/runs/37205587117) 仍为失败：279项 Swift、资源重建、两端构建与原30项 UI 全过；全部33项 UI 已执行、零跳过，新增3项累计14条失败断言。对应 [CBZ run 37205587109](https://github.com/lyx5710317/pdfno/actions/runs/37205587109) 通过（14项 Swift、4项 Node）。纵向滚动修复已奏效，后续流程暴露两个底部入口不可点击，以及图例复合元素/可选择原文的 AX label 为空。浅色模式环境值已出现，但该轮角色/原文断言失败，不能将日志中的“verified”字样当作通过证据。
 
 本轮仅针对上述问题：新增独立 `JapaneseLearningEntry` 将日语入口放在阅读画布上方的控件行；原工具栏保持原有动作，不模拟不可点击按钮的坐标。图例以单个 AX 元素明确提供颜色/角色 label；可选择原文按 macOS AX value/label 读取并与固定来源逐字相等核对，保留七类 label 的严格相等断言。入口必须存在、启用、可点击且完整在其 native window 内；关闭 sheet 后重新打开同样等待这些真实条件。只有外观、原文和全部七类 label 验证成功才输出外观已验证记录。原30项测试仍逐字保留，33项、全部既有测试预算和完整 CI 工作流不变。实际通过以本轮修复提交对应的新完整运行结果为准。
+
+
+`57709cc` 的 [Native run 37208001373](https://github.com/lyx5710317/pdfno/actions/runs/37208001373) 已执行33项实际 UI、零跳过：32项通过（含原30项、日语 PDF 完整保存/重启/来源返回、无效输出/取消），仅日语 EPUB 用例失败。浅色真实 SwiftUI 环境、七类严格 AX label 和可读原文逐字相等通过；深色验证尚未执行到。279项 Swift、两端构建、354源文件守卫和8项账本检查均过；[CBZ run 37208001372](https://github.com/lyx5710317/pdfno/actions/runs/37208001372) 通过（14项 Swift、4项 Node）。
+
+唯一失败来自新增滚动 helper 在已有 named Form 可用时，仍预先枚举全局按索引绑定的 ScrollView；底层 EPUB AX 节点变化导致 index2 快照不存在。修正为仅通过 `japanese-learning-form` 稳定标识定位已证实的原生纵向 viewport，并要求高度、目标完整位于 viewport 和真实可点击。无全局/按索引滚动节点回退，不操作底层 WebKit AX 树，不删除或缩短 EPUB 选区、保存、来源返回及 ruby 断言。全部33项与完整CI仍须在本次修复提交上重新执行。

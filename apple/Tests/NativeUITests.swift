@@ -16,20 +16,14 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(element.waitForExistence(timeout: 8))
         let form = japaneseElement("japanese-learning-form", in: app)
         XCTAssertTrue(form.waitForExistence(timeout: 5))
-        // Form may itself be the vertical ScrollView. Its first descendant can be the
-        // horizontal color legend, which cannot bring a lower review control into view.
-        let identified = app.scrollViews["japanese-learning-form"].firstMatch
-        let nested = form.descendants(matching: .scrollView).allElementsBoundByIndex.first { $0.frame.height > 250 }
-        let nearby = app.scrollViews.allElementsBoundByIndex.filter {
-            $0.frame.height > 250 && $0.frame.width >= form.frame.width - 8 && $0.frame.intersects(form.frame)
-        }.min { a, b in
-            abs(a.frame.width - form.frame.width) + abs(a.frame.height - form.frame.height)
-                < abs(b.frame.width - form.frame.width) + abs(b.frame.height - form.frame.height)
-        }
-        guard let scroll = identified.exists ? identified : (nested ?? nearby) else {
+        // The review Form exposes its own vertical ScrollView by this stable identifier.
+        // Never enumerate global/index-bound scroll nodes: the underlying EPUB WebKit
+        // accessibility tree can change while the native review is opening.
+        let scroll = app.scrollViews["japanese-learning-form"].firstMatch
+        guard scroll.waitForExistence(timeout: 5) else {
             XCTFail("Japanese review must expose its own vertical viewport"); return
         }
-        XCTAssertTrue(scroll.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(scroll.frame.height, 250, "The review viewport must be vertical, not its horizontal legend")
         for _ in 0..<16 {
             let viewport = scroll.frame.insetBy(dx: 4, dy: 8), target = element.frame
             if !target.isEmpty, viewport.contains(target), element.isHittable { return }
