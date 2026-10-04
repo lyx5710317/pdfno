@@ -1,0 +1,85 @@
+{
+  "version": "15.0.12",
+  "repository": "https://github.com/markedjs/marked",
+  "tag": "v15.0.12",
+  "gitHead": "b4eb83bbb48107720d95162ccecf829ba16be91e",
+  "dist": {
+    "shasum": "30722c7346e12d0a2d0207ab9b0c4f0102d86c4e",
+    "tarball": "https://registry.npmjs.org/marked/-/marked-15.0.12.tgz",
+    "fileCount": 16,
+    "integrity": "sha512-8dD6FusOQSrpv9Z1rdNMdlSgQOIP880DHqnohobOmYLElGEqAL/JvxvuxZO16r4HtjTlfPRDC1hbvxC9dPN2nA==",
+    "signatures": [
+      {
+        "sig": "MEYCIQCRp/2va+VJSg9mivgEd6SztYxUqZKgtx0bkZq7xPW/mQIhAKIaKmJ5aM6xT81v9UoVydEsQJiGzJUdnDE2BHYCrQ3h",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      }
+    ],
+    "attestations": {
+      "url": "https://registry.npmjs.org/-/npm/v1/attestations/marked@15.0.12",
+      "provenance": {
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    },
+    "unpackedSize": 757923
+  },
+  "files": [
+    {
+      "path": "lib/marked.esm.js",
+      "sha256": "29e25cdf1a06075c90e9885af06ddd23fb22a5424ed23a61dda986c73a8af641"
+    },
+    {
+      "path": "lib/marked.esm.js.map",
+      "sha256": "7c071e67c5460850d5b3065b2577c67e0090ec888e7c7a3f39887364ea9f3004"
+    },
+    {
+      "path": "LICENSE.md",
+      "sha256": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c"
+    }
+  ],
+  "sources": [
+    {
+      "path": "src/defaults.ts",
+      "sha256": "95334fe1cd3821ea57f0589b1dc1fb21f8ae9001eb00fef55a5a2bb052ab0c75"
+    },
+    {
+      "path": "src/rules.ts",
+      "sha256": "8201b3e71b1dd44b9efd73766b7842c7e4093dfc6645c6aa7de167ab6d61a026"
+    },
+    {
+      "path": "src/helpers.ts",
+      "sha256": "78a700b7c75dab3531912e7ba921454b3b11904d29ec9b8dae251754cee99d8a"
+    },
+    {
+      "path": "src/Tokenizer.ts",
+      "sha256": "d139d76a3f613b6e91173570011be937957cf89eba5398b8cebe3842858acd94"
+    },
+    {
+      "path": "src/Lexer.ts",
+      "sha256": "ce2b1d5fcdf8e1a885af0853bca2cc91a1b2ce42cf4d3dd00478af50528298cf"
+    },
+    {
+      "path": "src/Renderer.ts",
+      "sha256": "4ef4227783f9defcfc8768d71a5d857560709454012b18cecabfa196cc6a9a5c"
+    },
+    {
+      "path": "src/TextRenderer.ts",
+      "sha256": "f486cb21d8501eee7b439f666f6e9269752403cd23e245d142175935500cc4fd"
+    },
+    {
+      "path": "src/Parser.ts",
+      "sha256": "048b2878a68491f49f0302b739d4b20596c4c194ada9a170376a63c51e4bb89c"
+    },
+    {
+      "path": "src/Hooks.ts",
+      "sha256": "fd630cbe9bd0176213ae900066b2868fded18950e4c0083b262e3b4a7b2eb5fb"
+    },
+    {
+      "path": "src/Instance.ts",
+      "sha256": "038e20976ad8e1230afe3526966038237807b546e716b84e190cb3f3da9829b2"
+    },
+    {
+      "path": "src/marked.ts",
+      "sha256": "11df34d11269aa25e5fb6a0ff679fc005cb8531ef6f0eac6327ad78f097c5199"
+    }
+  ]
+}

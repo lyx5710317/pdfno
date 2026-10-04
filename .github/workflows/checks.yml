@@ -24,11 +24,12 @@ jobs:
           node --test engine-build/comics-reader.test.mjs
           node engine-build/build-comics.mjs
           node engine-build/build-docx.mjs
+          node engine-build/build-text.mjs
           python3 scripts/generate-epub-fixture.py
           python3 scripts/generate-docx-fixture.py
           node engine-build/generate-docx-extraction.mjs
           python3 scripts/generate-original-fixture-inventory.py
-          git diff --exit-code -- scripts/ORIGINAL-FIXTURES.json engine-build/DOCX-BUNDLE-INPUTS.json engine-build/DOCX-BUNDLED-DEPENDENCIES.json engine-build/BUNDLE-INPUTS.json apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/EPUB apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/Comics apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/DOCX apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures
+          git diff --exit-code -- scripts/ORIGINAL-FIXTURES.json engine-build/TEXT-BUNDLE-INPUTS.json engine-build/DOCX-BUNDLE-INPUTS.json engine-build/DOCX-BUNDLED-DEPENDENCIES.json engine-build/BUNDLE-INPUTS.json apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/TextFormats apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/EPUB apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/Comics apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/DOCX apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures
       - name: Toolchain
         run: |
           xcodebuild -version

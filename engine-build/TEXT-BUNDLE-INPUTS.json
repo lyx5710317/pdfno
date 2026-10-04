@@ -1,0 +1,7 @@
+[
+  "node_modules/marked/lib/marked.esm.js",
+  "text-adapter.js",
+  "text-reader.js",
+  "vendor/kookit/src/libs/html.ts",
+  "vendor/kookit/src/libs/textProcessor.ts"
+]

@@ -218,15 +218,15 @@ Mac SwiftUI 原生书库、目录、翻页、横竖排和笔记宿主通过受�
 | AZW3 | 待实现，三端均未开放 | 独立DRM-free KF8审计；结构位置＋引文 | KF8资源／CSS／目录／重复引文，安全预算与跨重排恢复；N7 |
 | FB2 | 待实现，三端均未开放 | 受控FictionBook parser；文档hash／块／span | 命名空间、章节／脚注／内嵌图、编码；禁止DTD／外部实体，大小预算；N7 |
 | PDF | 已实现Mac PDFKit闭环；移动基础UI已接入但实际设备未验收 | PDFKit；页／原文／几何＋edition/hash；OCR另版本 | 文本／扫描／混合、权限／加密状态、批注／搜索／恢复、三端真机及无文本降级；N2 |
-| TXT | 待实现，三端均未开放 | 原生文本或独立Kookit adapter；编码／提取版本／块／span | 编码探测与用户修正、换行／大文本／Unicode／搜索／稳定选区；N7 |
+| TXT | 已实现有限Mac首片；完整UI待独立验收，移动未开放 | 固定Kookit文本适配；严格UTF-8／BOM UTF-16，edition/hash／渲染正文提取版本／块／span | 编码探测与用户修正、换行／大文本／Unicode／搜索／稳定选区；N7 |
 | DOCX | 已合入有限Mac语义阅读；完整应用UI按最终CI；移动待实现 | 独立adapter直接调用Kookit参考中的实际Mammoth1.13.0；原始DocxRender类不执行；edition/hash/提取版本/语义block/精确UTF-16引文 | 正文、标准标题／简单表格／列表／选文笔记；图片／分页／复杂Word语义不保真；源码／许可／安全／原件／锚点及三端；N7 |
-| MD | 待实现，三端均未开放 | 受控Markdown渲染；源块／偏移＋引文 | 明确语法版本、禁主动HTML／远程资源，代码／表格／链接／图片、源文与渲染定位；N7 |
+| MD | 已实现有限Mac首片；完整UI待独立验收，移动未开放 | 固定Kookit／Marked15.0.12；规范化显示正文UTF-16偏移＋精确引文，原始Markdown保留 | 明确语法版本、禁主动HTML／远程资源，代码／表格／链接／图片、源文与渲染定位；N7 |
 | CBZ | 已实现有限Mac静态PNG/JPEG阅读；移动待实现 | 固定Kookit makeComicBook＋Swift ZIP／ImageIO＋受限WK；edition/hash/页路径/index | 实际WebKit已测；完整Mac应用UI按最终CI；缩放／连续滚动／移动／区域锚点待实现；N7 |
 | CBR | 待实现，三端均未开放；当前导入明确拒绝 | 独立受控RAR decoder；页路径／图像hash／区域 | RAR版本与decoder源码／许可证／三端构建，实解压限额／路径／链接／CRC，原生交互；N7 |
 | CBT | 待实现，三端均未开放 | 独立受控TAR adapter；复用漫画页／区域模型 | TAR变体、头校验、路径／特殊文件／链接／预算，稳定页序与三端交互；N7 |
 | CB7 | 待实现，三端均未开放 | 独立受控7z decoder；复用漫画页／区域模型 | decoder许可／三端构建，solid／实际解压预算、加密／路径／CRC拒绝及恢复；N7 |
-| HTML | 待实现，三端均未开放 | 离线净化adapter；资源／结构／提取版本＋引文 | 脚本／表单／远程资源禁用，CSS／本地资源／链接策略、选文／重排恢复；N7 |
-| HTM | 待实现，三端均未开放 | 与HTML共享已审计adapter，独立扩展名准入 | 同HTML验收，并测试大小写／文件头／扩展名错配；N7 |
+| HTML | 已实现有限Mac首片；完整UI待独立验收，移动未开放 | 固定Kookit HTML适配＋语义净化；edition/hash／规范化正文提取版本＋引文 | 脚本／表单／远程资源禁用，CSS／本地资源／链接策略、选文／重排恢复；N7 |
+| HTM | Mac首片作为HTML别名；完整UI待独立验收，移动未开放 | 与HTML共享限定adapter，大小写扩展名准入与原件hash保留 | 同HTML验收，并测试大小写／文件头／扩展名错配；N7 |
 | XHTML | 待实现，三端均未开放 | 受控XML解析＋离线渲染；结构／span＋引文 | 命名空间／编码、DTD／实体禁用、HTML一致性、资源预算／来源回跳；N7 |
 | MHTML | 待实现，三端均未开放 | 独立MIME归档解析＋HTML净化；part/resource/hash | multipart／编码／Content-Location映射、重复与恶意part、总预算、无网络、选文恢复；N7 |
 | XML | 待实现，三端均未开放；限定可阅读标记文档 | 已定义可读schema的受控parser／视图，或明确安全文本视图 | 不是任意XML的通用业务解释器；schema白名单、DTD／外部实体禁用、结构／编码／来源验收；N7 |
@@ -258,6 +258,12 @@ Swift ZIP/XML预检只做安全与资源验证，正文及标准h1–h6／列表
 来源是实际清洗后DOM与原生DTO逐字核验的语义block／canonical UTF-16文本；anchor绑定edition／原始SHA256／`docx-mammoth-utf16-1`／block／引文／上下文，不伪造Word页码或几何，不模糊重定位。程序化导航保留其明确锚点，直到用户滚动／输入；自身滚动回调不能改存为另一可见block。父书库订阅独立Word子模型变化，重启异步加载后的书籍行也更新。原件按hash保留；新`docx-mammoth-v1.json`保护原PDF／EPUB／漫画和旧候选`docx-v1.json`，无自动offset迁移。完成真实引擎绑定前拒绝笔记／进度保存，重开继续核验原件和canonical输出。与正文→TXT／HTML的独立`DOCXConversionArchive`及有损导出服务分开。
 
 Mac原生入口包含导入／示例／书库、标题目录、选文／高亮投影／手动笔记／精确回跳和进度恢复。选区桥先取得实际DOM范围的不可变快照，原生工具栏失焦不把它清空；正文主动取消选择仍清除，笔记入口重新校验当前session、canonical文本与精确UTF-16引文，关闭／换书后的快照失效。图片／字体／分页／页眉页脚／复杂Word语义不保真；Strict OOXML／UTF-16 XML／旧DOC／宏／移动Word／Word AI未开放。组合97项Swift与11项Node及两端编译通过属于本地集成证据；两个完整Word UI与其余全部流程必须由隔离CI在最终SHA实际运行，按VALIDATION报告，不从offscreen桥或编译推导完成。
+
+### 5.7 TXT／Markdown／HTML Mac 首片边界
+
+2026-10-04 从已验证的11d32265基线建立独立文本分支。固定Kookit原始Txt/Md/Html类只作为blob核验参考，运行原始txtToHtml、makeHtmlBook与MdRender所用的Marked15.0.12；不引入GeneralRender、chardet或mhtml2html。Mac原生书库／导入／正文／标题或启发式章节导航／选文笔记／精确回跳与进度已实现。严格UTF-8或带BOM的UTF-16，4MiB原件／100万UTF-16／10000块／10万节点／64层限额；链接仅文字，图片／CSS／字体／脚本与嵌入内容不加载。XML／XHTML／MHTML、格式内搜索、笔记编辑、封面与本格式AI／移动阅读仍待实现。
+
+独立text-formats-v1.json与原件保持其他格式／learning manifest不变，Markdown原始字节不改。锚点绑定edition／原件hash／kookit-text-marked15-utf16-1／语义block／精确引文与上下文；偏移是规范化显示正文UTF-16，不冒称原始Markdown标记或文件字节位置。重开先核原件，再复现固定引擎与DOM／DTO逐字一致，不模糊重定位。126项组合Swift、源文件／需求守卫与Mac build-for-testing／iPhone+iPad模拟器构建通过；三项新增原生UI仅准备并编译，未运行。全项目安全专项仍UNVERIFIED、平台blocked；不以此局部回归改变结论。范围／许可／预算／未验边界及封面／搜索／章节AI整合点见[文本格式交接](TEXT-FORMATS-SLICE.md)。
 
 ## 6 领域模型与本地数据
 

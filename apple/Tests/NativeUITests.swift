@@ -448,6 +448,68 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(after["id"] as? String, before["id"] as? String)
         XCTAssertEqual(try Data(contentsOf: original), originalBytes)
     }
+    // Prepared for isolated CI; local task does not launch the user's running app.
+    @MainActor func testMacTXTImportSelectionNotesNavigationAndRestart() throws {
+        try runTextFormatUI(extension: "TXT", source: "Chapter 1\nwindow original 日本語🌸 café\nChapter 2\nLast original line")
+    }
+    @MainActor func testMacMarkdownImportSelectionNotesNavigationAndRestart() throws {
+        try runTextFormatUI(extension: "MD", source: "# Chapter 1\n\n**window** original 日本語🌸 café\n\n## Chapter 2\n\nLast original line [ordinary link](https://example.invalid)")
+    }
+    @MainActor func testMacHTMLAliasImportSelectionNotesNavigationAndRestart() throws {
+        try runTextFormatUI(extension: "HTM", source: "<!doctype html><html><body><h1>Chapter 1</h1><p><strong>window</strong> original 日本語🌸 café</p><h2>Chapter 2</h2><p>Last original line <a href='https://example.invalid'>ordinary link</a></p><script>window.sourceExecuted=true</script></body></html>")
+    }
+    @MainActor private func runTextFormatUI(extension ext: String, source: String) throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Text-UI-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = root.appendingPathComponent("Original Reading." + ext), bytes = Data(source.utf8)
+        try bytes.write(to: file)
+        let app = XCUIApplication(), token = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launch(); app.activate(); defer { app.terminate() }
+        XCTAssertTrue(app.buttons["import-pdf"].firstMatch.waitForExistence(timeout: 15))
+        try chooseInput(file, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        let navigation = app.buttons["textformat-navigation"].firstMatch
+        XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
+        XCTAssertFalse(app.buttons["reader-ai"].firstMatch.exists)
+        XCTAssertFalse(app.buttons["epub-ai"].firstMatch.exists)
+        XCTAssertFalse(app.buttons["reader-page-translation"].firstMatch.exists)
+        let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
+        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
+        press(app.buttons["textformat-notes"].firstMatch)
+        let selection = app.descendants(matching: .any).matching(identifier: "textformat-selection").firstMatch
+        XCTAssertTrue(selection.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(selection), "window")
+        let draft = app.descendants(matching: .any).matching(identifier: "textformat-user-note").firstMatch
+        XCTAssertTrue(draft.waitForExistence(timeout: 5)); enterSearch("Original text format observation", into: draft)
+        press(app.buttons["textformat-save-note"].firstMatch)
+        let saved = app.staticTexts["textformat-saved-quote"].firstMatch, note = app.staticTexts["textformat-saved-user-note"].firstMatch
+        XCTAssertTrue(saved.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(saved), "window")
+        XCTAssertTrue(note.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(note), "Original text format observation")
+        press(app.buttons["textformat-return"].firstMatch)
+        press(navigation)
+        let second = app.buttons["textformat-chapter-2"].firstMatch
+        XCTAssertTrue(second.waitForExistence(timeout: 5)); press(second)
+        XCTAssertTrue(try webText(in: app, matching: "Chapter 2", prefix: false, timeout: 10).isHittable)
+        let store = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent("text-formats-v1.json")
+        let persisted = expectation(for: NSPredicate { _, _ in
+            guard let data = try? Data(contentsOf: store), let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let books = state["books"] as? [[String: Any]], let progress = books.first?["progress"] as? [String: Any], let notes = state["notes"] as? [[String: Any]] else { return false }
+            return progress["blockID"] as? Int == 2 && progress["quote"] as? String == "C" && notes.count == 1
+        }, evaluatedWith: app)
+        wait(for: [persisted], timeout: 10)
+        XCTAssertEqual(try Data(contentsOf: file), bytes)
+        app.terminate(); app.launch(); app.activate()
+        let row = app.descendants(matching: .any).matching(identifier: "library-textformat").firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10)); press(row)
+        XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
+        XCTAssertTrue(try webText(in: app, matching: "Chapter 2", prefix: false, timeout: 10).isHittable)
+        press(app.buttons["textformat-notes"].firstMatch)
+        XCTAssertTrue(saved.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(saved), "window")
+        XCTAssertTrue(note.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(note), "Original text format observation")
+        press(app.buttons["textformat-return"].firstMatch)
+        XCTAssertTrue(try webText(in: app, matching: "window", prefix: true, timeout: 10).isHittable)
+        XCTAssertEqual(try Data(contentsOf: file), bytes)
+    }
     @MainActor func testMacDOCXImportSemanticSelectionNotesAndRestart() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Word-UI-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

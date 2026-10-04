@@ -43,15 +43,36 @@ public struct LibraryWorkspace: View {
                                         .padding(4)
                                         .background(selectedBookID == item.id ? Color.accentColor.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
                                 }
+                                #if os(macOS)
+                                ForEach(model.textFormats.books) { book in
+                                    Label(book.title + " · " + book.format.label, systemImage: "doc.plaintext")
+                                        .accessibilityElement(children: .contain)
+                                        .accessibilityIdentifier("library-textformat")
+                                        .contentShape(Rectangle())
+                                        .onTapGesture { selectedBookID = book.id }
+                                        .accessibilityAction { selectedBookID = book.id }
+                                        .focusable()
+                                        .onKeyPress(.return) { selectedBookID = book.id; return .handled }
+                                        .onKeyPress(.space) { selectedBookID = book.id; return .handled }
+                                        .padding(4)
+                                        .background(selectedBookID == book.id ? Color.accentColor.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+                                }
+                                #endif
                             }.padding(12)
                         }
                     } else {
                         List(selection: $selectedBookID) {
                             Section("我的书库") {
-                                if coverItems.isEmpty { Text("导入 PDF，开始阅读").foregroundStyle(.secondary) }
+                                if libraryIsEmpty { Text("导入书籍，开始阅读").foregroundStyle(.secondary) }
                                 ForEach(coverItems) { item in
                                     LibraryCoverRow(covers: model.covers, item: item, grid: false) { coverEditor = item }.tag(item.id)
                                 }
+                                #if os(macOS)
+                                ForEach(model.textFormats.books) { book in
+                                    Label(book.title + " · " + book.format.label, systemImage: "doc.plaintext")
+                                        .tag(book.id).accessibilityIdentifier("library-textformat")
+                                }
+                                #endif
                             }
                         }
                     }
@@ -59,6 +80,9 @@ public struct LibraryWorkspace: View {
                 .onChange(of: selectedBookID) { _, id in
                     guard id != displayedBookID else { return }
                     #if os(macOS)
+                    if let book = model.textFormats.books.first(where: { $0.id == id }) {
+                        Task { await model.openTextFormat(book); if model.textFormats.isActive { compactColumn = .detail } }; return
+                    }
                     if let book = model.docx.books.first(where: { $0.id == id }) {
                         Task { await model.openDOCX(book); if model.docx.isActive { compactColumn = .detail } }; return
                     }
@@ -90,7 +114,8 @@ public struct LibraryWorkspace: View {
             .navigationSplitViewColumnWidth(min: 220, ideal: 270, max: 360)
         } detail: {
             #if os(macOS)
-            if model.docx.isActive { DOCXWorkspace(model: model.docx) }
+            if model.textFormats.isActive { TextFormatWorkspace(model: model.textFormats) }
+            else if model.docx.isActive { DOCXWorkspace(model: model.docx) }
             else if model.readingComic { ComicWorkspace(session: model.comic, close: { model.closeComic() }) }
             else if model.readingEPUB { EPUBWorkspace(model: model, session: model.epub) }
             else { ReaderWorkspace(model: model, session: model.reader) }
@@ -111,7 +136,7 @@ public struct LibraryWorkspace: View {
             #if os(macOS)
             ToolbarItem {
                 Button { coverEditor = coverItems.first { $0.id == selectedBookID } } label: { Label("编辑封面", systemImage: "photo") }
-                    .disabled(selectedBookID == nil).accessibilityIdentifier("library-edit-cover")
+                    .disabled(!coverItems.contains { $0.id == selectedBookID }).accessibilityIdentifier("library-edit-cover")
             }
             ToolbarItem { Button { librarySearch = true } label: { Label("书库与笔记搜索", systemImage: "magnifyingglass") }.accessibilityIdentifier("library-search") }
             ToolbarItem { Button { conversion = true } label: { Label("格式转换", systemImage: "arrow.triangle.2.circlepath") }.accessibilityIdentifier("document-conversion") }
@@ -130,6 +155,13 @@ public struct LibraryWorkspace: View {
         } message: { Text(model.error ?? "") }
         .overlay { if model.isBusy { ProgressView("正在打开…").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14)) } }
     }
+    private var libraryIsEmpty: Bool {
+        #if os(macOS)
+        coverItems.isEmpty && model.textFormats.books.isEmpty
+        #else
+        coverItems.isEmpty
+        #endif
+    }
     private var coverItems: [LibraryCoverItem] {
         var items = model.books.map { LibraryCoverItem(identity: CoverIdentity($0), title: $0.title, subtitle: "PDF · \($0.pageCount) 页 · 本地", accessibilityID: "library-book") }
         #if os(macOS)
@@ -141,13 +173,14 @@ public struct LibraryWorkspace: View {
     }
     private var importTitle: String {
         #if os(macOS)
-        "导入 PDF / EPUB / DOCX / CBZ"
+        "导入书籍 / 文本"
         #else
         "导入 PDF"
         #endif
     }
     private var displayedBookID: UUID? {
         #if os(macOS)
+        if model.textFormats.isActive { return model.textFormats.reader.book?.id }
         if model.docx.isActive { return model.docx.reader.book?.id }
         if model.readingComic { return model.comic.book?.id }
         if model.readingEPUB { return model.epub.book?.id }
@@ -156,7 +189,7 @@ public struct LibraryWorkspace: View {
     }
     private var importTypes: [UTType] {
         #if os(macOS)
-        [.pdf, UTType(filenameExtension: "epub") ?? .data, UTType(filenameExtension: "docx") ?? .data, UTType(filenameExtension: "cbz", conformingTo: .zip) ?? .zip]
+        [.pdf, .plainText, .html, UTType(filenameExtension: "htm") ?? .html, UTType(filenameExtension: "md") ?? .plainText, UTType(filenameExtension: "markdown") ?? .plainText, UTType(filenameExtension: "epub") ?? .data, UTType(filenameExtension: "docx") ?? .data, UTType(filenameExtension: "cbz", conformingTo: .zip) ?? .zip]
         #else
         [.pdf]
         #endif
@@ -173,6 +206,7 @@ public struct FeatureStatusView: View {
                     Label("本地 PDF 导入、阅读、目录与搜索", systemImage: "checkmark.circle")
                     Label("选区高亮、笔记与本地保存", systemImage: "checkmark.circle")
                     #if os(macOS)
+                    Text("TXT／Markdown／HTML：Mac 本地阅读、标题导航、选文笔记与进度；严格 UTF-8 或带 BOM 的 UTF-16，链接仅显示文字")
                     Text("DOCX：Mac 语义重排阅读、标题目录与选文笔记；与 Word 原版式不同；DOC 未支持")
                     Label("CBZ 漫画：导入、页序、左右方向、单双页与进度恢复", systemImage: "checkmark.circle")
                     Label("DOCX 正文转 TXT / 简化 HTML（有损副本）", systemImage: "checkmark.circle")

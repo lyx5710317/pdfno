@@ -1,0 +1,32 @@
+{
+  "repository": "https://github.com/koodo-reader/kookit",
+  "commit": "95f602ed62d204af0de9278cf53212c309b34bfc",
+  "files": [
+    {
+      "path": "package.json",
+      "sha": "95b278b6d78a26e30bfca1e516610ad233907411",
+      "size": 2025,
+      "localPath": "vendor/text-kookit-package.json"
+    },
+    {
+      "path": "src/renders/TxtRender.ts",
+      "sha": "aef9e87036fb5bc8405bcf80bbab0fbe7f07a9f4",
+      "size": 3002
+    },
+    {
+      "path": "src/renders/MdRender.ts",
+      "sha": "b27d8ed41ee7c6d5915f4b197fe3ff051b9056a8",
+      "size": 1683
+    },
+    {
+      "path": "src/renders/HtmlRender.ts",
+      "sha": "26343297a2aeb6ed1f083f73d59898caa32941a7",
+      "size": 1928
+    },
+    {
+      "path": "src/libs/html.ts",
+      "sha": "dc765422d0b3f83166f1c9c088fb960c026052e7",
+      "size": 4019
+    }
+  ]
+}
