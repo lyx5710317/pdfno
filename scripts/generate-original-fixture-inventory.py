@@ -21,6 +21,9 @@ for name in DOCX_NAMES:
     paths[KIT + 'Tests/PDFnoKitTests/Fixtures/DOCX/' + name + '.docx'] = 'scripts/generate-docx-fixture.py'
 paths[KIT + 'Sources/PDFnoUI/Resources/study-sample.docx'] = 'scripts/generate-docx-fixture.py'
 paths[KIT + 'Tests/PDFnoKitTests/Fixtures/DOCX/mammoth-extraction.json'] = 'engine-build/generate-docx-extraction.mjs'
+for folder in ['Sources/PDFnoUI/Resources/Ebooks', 'Tests/PDFnoKitTests/Fixtures/Ebooks']:
+    for ext in ['mobi', 'azw', 'azw3', 'fb2']:
+        paths[KIT + folder + '/study-sample.' + ext] = 'scripts/generate-ebook-fixtures.py'
 records = []
 for name, generator in sorted(paths.items()):
     data = (ROOT / name).read_bytes()

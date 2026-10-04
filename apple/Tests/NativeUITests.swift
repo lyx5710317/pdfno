@@ -531,6 +531,17 @@ final class NativeUITests: XCTestCase {
     @MainActor func testMacHTMLAliasImportSelectionNotesNavigationAndRestart() throws {
         try runTextFormatUI(extension: "HTM", source: "<!doctype html><html><body><h1>Chapter 1</h1><p><strong>window</strong> original 日本語🌸 café</p><h2>Chapter 2</h2><p>Last original line <a href='https://example.invalid'>ordinary link</a></p><script>window.sourceExecuted=true</script></body></html>")
     }
+    @MainActor func testMacXHTMLImportSelectionNotesNavigationAndRestart() throws {
+        try runTextFormatUI(extension: "XHTML", source: "<?xml version='1.0' encoding='UTF-8'?><html xmlns='http://www.w3.org/1999/xhtml'><body><h1>Chapter 1</h1><p><strong>window</strong> original 日本語🌸 café</p><h2>Chapter 2</h2><p>Last original line</p><script>window.sourceExecuted=true</script></body></html>")
+    }
+    @MainActor func testMacReadableXMLImportSelectionNotesNavigationAndRestart() throws {
+        try runTextFormatUI(extension: "XML", source: "<?xml version='1.0' encoding='UTF-8'?><document><title>Chapter 1</title><p><bold>window</bold> original 日本語🌸 café</p><section><title>Chapter 2</title><p>Last original line</p></section></document>")
+    }
+    @MainActor func testMacMHTMLImportSelectionNotesNavigationAndRestart() throws {
+        let html = "<h1>Chapter 1</h1><p><strong>window</strong> original 日本語🌸 café</p><h2>Chapter 2</h2><p>Last original line</p><script>window.sourceExecuted=true</script><img src='https://example.invalid/private' alt='Original image'>"
+        let archive = "MIME-Version: 1.0\r\nContent-Type: multipart/related; boundary=OriginalUIArchive; type=\"text/html\"\r\n\r\n--OriginalUIArchive\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\nContent-ID: <original>\r\nContent-Location: https://example.invalid/original\r\n\r\n" + Data(html.utf8).base64EncodedString() + "\r\n--OriginalUIArchive--\r\n"
+        try runTextFormatUI(extension: "MHTML", source: archive)
+    }
     @MainActor private func runTextFormatUI(extension ext: String, source: String) throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Text-UI-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -877,6 +888,149 @@ final class NativeUITests: XCTestCase {
         press(app.buttons["open-epub-sample"].firstMatch)
         waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
         press(comic); waitForText(["5 / 7"], in: position, timeout: 25)
+    }
+    @MainActor func testMacCBTImportSpreadsDirectionPageJumpAndRestart() throws {
+        try macComicImportSpreadsDirectionPageJumpAndRestart(format: "cbt")
+    }
+    @MainActor func testMacCB7ImportSpreadsDirectionPageJumpAndRestart() throws {
+        try macComicImportSpreadsDirectionPageJumpAndRestart(format: "cb7")
+    }
+    @MainActor func testMacCBRImportSpreadsDirectionPageJumpAndRestart() throws {
+        try macComicImportSpreadsDirectionPageJumpAndRestart(format: "cbr")
+    }
+    private func original7zCopy(_ entries: [(String, Data)]) -> Data {
+        func number(_ n: Int) -> Data {
+            let value = UInt64(n)
+            for i in 0..<8 where value < (UInt64(1) << (7 * (i + 1))) {
+                var bytes = Data([UInt8(((UInt64(1) << i) - 1) << (8 - i) | (value >> (8 * i)))])
+                for j in 0..<i { bytes.append(UInt8((value >> (8 * j)) & 255)) }; return bytes
+            }
+            return Data([255]) + little(value, width: 8)
+        }
+        var payload = Data(), stream = Data([6]) + number(0) + number(entries.count) + Data([9])
+        for (_, bytes) in entries { payload += bytes; stream += number(bytes.count) }
+        stream += Data([0,7,11]) + number(entries.count) + Data([0])
+        for _ in entries { stream += Data([1,1,0]) }
+        stream += Data([12]); for (_, bytes) in entries { stream += number(bytes.count) }
+        stream += Data([0,8,10,1]); for (_, bytes) in entries { stream += little(UInt64(originalComicCRC(bytes)), width: 4) }
+        stream += Data([0,0])
+        var names = Data([0]); for (name,_) in entries { names += (name + "\0").data(using: .utf16LittleEndian)! }
+        var header = Data([1,4]) + stream + Data([5]) + number(entries.count) + Data([17])
+        header += number(names.count) + names + Data([0,0])
+        let start = little(UInt64(payload.count), width: 8) + little(UInt64(header.count), width: 8) + little(UInt64(originalComicCRC(header)), width: 4)
+        return Data([0x37,0x7a,0xbc,0xaf,0x27,0x1c,0,4]) + little(UInt64(originalComicCRC(start)), width: 4) + start + payload + header
+    }
+    private func originalRAR4Store(_ entries: [(String, Data)]) -> Data {
+        func header(_ type: UInt8, flags: UInt64, body: Data) -> Data {
+            let bytes = Data([type]) + little(flags, width: 2) + little(UInt64(body.count + 7), width: 2) + body
+            return little(UInt64(originalComicCRC(bytes) & 0xffff), width: 2) + bytes
+        }
+        var result = Data([0x52,0x61,0x72,0x21,0x1a,0x07,0]) + header(0x73, flags: 0, body: Data(repeating: 0, count: 6))
+        for (name, bytes) in entries {
+            var body = little(UInt64(bytes.count), width: 4) + little(UInt64(bytes.count), width: 4) + Data([3])
+            body += little(UInt64(originalComicCRC(bytes)), width: 4) + little(0, width: 4) + Data([29,0x30])
+            body += little(UInt64(name.utf8.count), width: 2) + little(0o100644, width: 4) + Data(name.utf8)
+            result += header(0x74, flags: 0x8000, body: body) + bytes
+        }
+        return result + header(0x7b, flags: 0, body: Data())
+    }
+    private func little(_ n: UInt64, width: Int) -> Data { Data((0..<width).map { UInt8((n >> ($0 * 8)) & 255) }) }
+    private func originalComicCRC(_ bytes: Data) -> UInt32 {
+        var value = UInt32.max
+        for byte in bytes { value ^= UInt32(byte); for _ in 0..<8 { value = value & 1 == 0 ? value >> 1 : (value >> 1) ^ 0xedb88320 } }
+        return value ^ UInt32.max
+    }
+    /// Original uncompressed POSIX USTAR fixture, distinct from ZIP bytes.
+    private func originalUSTAR(_ entries: [(String, Data)]) -> Data {
+        var result = Data()
+        for (name, data) in entries {
+            var header = [UInt8](repeating: 0, count: 512)
+            func text(_ value: String, _ at: Int) { header.replaceSubrange(at..<(at + value.utf8.count), with: value.utf8) }
+            text(name, 0); text("ustar\0", 257); text("00", 263)
+            for (at, count, value) in [(100, 8, 0o644), (108, 8, 0), (116, 8, 0), (124, 12, data.count), (136, 12, 0), (329, 8, 0), (337, 8, 0)] {
+                let digits = String(value, radix: 8)
+                text(String(repeating: "0", count: count - digits.count - 1) + digits + "\0", at)
+            }
+            header[156] = 48; header.replaceSubrange(148..<156, with: [UInt8](repeating: 32, count: 8))
+            let digits = String(header.reduce(0) { $0 + Int($1) }, radix: 8)
+            text(String(repeating: "0", count: 6 - digits.count) + digits + "\0 ", 148)
+            result.append(contentsOf: header); result.append(data)
+            result.append(Data(repeating: 0, count: (512 - data.count % 512) % 512))
+        }
+        result.append(Data(repeating: 0, count: 1024)); return result
+    }
+    @MainActor private func macComicImportSpreadsDirectionPageJumpAndRestart(format: String) throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-CBZ-UI-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let archive = root.appendingPathComponent("Original Comic." + format)
+        let entries = try (0..<7).map { index in
+            ("pages/\(index + 1).PNG", try originalPNG(width: index == 3 ? 30 : 12, height: index == 3 ? 10 : 20))
+        }
+        let bytes: Data
+        switch format { case "cbt": bytes = originalUSTAR(Array(entries.reversed())); case "cb7": bytes = original7zCopy(Array(entries.reversed())); case "cbr": bytes = originalRAR4Store(Array(entries.reversed())); default: bytes = originalZIP(entries) }
+        try bytes.write(to: archive)
+        let broken = root.appendingPathComponent("Broken Original." + format)
+        try Data("Original malformed CBZ fixture".utf8).write(to: broken)
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launch(); app.activate(); defer { app.terminate() }
+        XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15))
+        try chooseInput(archive, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        let position = app.staticTexts["comic-position"].firstMatch
+        waitForText(["1 / 7"], in: position, timeout: 25)
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "comic-content").firstMatch.exists)
+        let layout = app.popUpButtons["comic-layout"].firstMatch
+        XCTAssertTrue(layout.waitForExistence(timeout: 5)); press(layout); press(app.menuItems["双页"].firstMatch)
+        waitForText(["双页"], in: layout, timeout: 10)
+        waitUntilEnabled(app.buttons["comic-next"].firstMatch)
+        press(app.buttons["comic-next"].firstMatch)
+        waitForText(["2–3 / 7"], in: position, timeout: 15)
+        let direction = app.popUpButtons["comic-direction"].firstMatch
+        press(direction); press(app.menuItems["从右到左"].firstMatch)
+        waitForText(["从右到左"], in: direction, timeout: 10)
+        waitForText(["2–3 / 7"], in: position, timeout: 15)
+        waitUntilEnabled(app.buttons["comic-next"].firstMatch)
+        press(app.buttons["comic-next"].firstMatch)
+        waitForText(["4 / 7"], in: position, timeout: 15)
+        waitUntilEnabled(app.buttons["comic-next"].firstMatch)
+        press(app.buttons["comic-next"].firstMatch)
+        waitForText(["5–6 / 7"], in: position, timeout: 15)
+        waitUntilEnabled(app.buttons["comic-next"].firstMatch)
+        press(app.buttons["comic-next"].firstMatch)
+        waitForText(["7 / 7"], in: position, timeout: 15)
+        XCTAssertFalse(app.buttons["comic-next"].firstMatch.isEnabled)
+        press(app.buttons["comic-pages"].firstMatch)
+        let page = app.buttons["comic-page-4"].firstMatch
+        XCTAssertTrue(page.waitForExistence(timeout: 5)); press(page)
+        waitForText(["5–6 / 7"], in: position, timeout: 15)
+        press(layout); press(app.menuItems["单页"].firstMatch)
+        waitForText(["单页"], in: layout, timeout: 10)
+        waitForText(["5 / 7"], in: position, timeout: 15)
+        press(app.buttons["comic-close"].firstMatch)
+        let comic = app.descendants(matching: .any).matching(identifier: "library-comic").firstMatch
+        XCTAssertTrue(comic.waitForExistence(timeout: 5)); press(comic)
+        waitForText(["5 / 7"], in: position, timeout: 25)
+        app.terminate(); app.launch(); app.activate()
+        XCTAssertTrue(comic.waitForExistence(timeout: 10)); press(comic)
+        waitForText(["5 / 7"], in: position, timeout: 25)
+        XCTAssertTrue(textValue(direction).contains("从右到左")); XCTAssertTrue(textValue(layout).contains("单页"))
+        try chooseInput(broken, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        let dismissError = try modalButton(app, titles: ["知道了"])
+        let archiveError: String
+        switch format {
+        case "cbt": archiveError = "CBT 无效或 TAR 结构不受支持；仅接受未压缩 POSIX USTAR 普通文件／目录，不支持 PAX、GNU 扩展、链接、特殊文件、分卷或加密容器。"
+        case "cb7", "cbr": archiveError = "CB7 / CBR 无效或结构不受支持：CB7 仅 COPY/LZMA/LZMA2、明文头、非 solid；CBR 仅 RAR4/RAR5 STORE。均不支持加密、分卷、自解压、扩展记录或其他解码路线。"
+        default: archiveError = "CBZ 无效、路径不安全、校验失败或 ZIP 结构不受支持（加密、分卷、ZIP64）。"
+        }
+        XCTAssertTrue(app.staticTexts[archiveError].firstMatch.exists)
+        press(dismissError)
+        waitForText(["5 / 7"], in: position, timeout: 5)
+        press(app.buttons["open-sample"].firstMatch)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 10)
+        press(app.buttons["open-epub-sample"].firstMatch)
+        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
+        press(comic); waitForText(["5 / 7"], in: position, timeout: 25)
+        XCTAssertEqual(try Data(contentsOf: archive), bytes)
     }
     @MainActor private func waitUntilEnabled(_ element: XCUIElement) {
         let ready = expectation(for: NSPredicate(format: "enabled == true AND hittable == true"), evaluatedWith: element)

@@ -89,7 +89,7 @@ public actor LibrarySearchRepository {
         for b in pdf.books { try Task.checkCancellation(); add(.pdf, b.id, b.editionID, b.fileSHA256, b.title) }
         for b in epub.books { try Task.checkCancellation(); add(.epub, b.id, b.editionID, b.fileSHA256, b.title) }
         for b in docx.books { try Task.checkCancellation(); add(.docx, b.id, b.editionID, b.fileSHA256, b.title) }
-        for b in comics.books { try Task.checkCancellation(); add(.comic, b.id, b.editionID, b.fileSHA256, b.title) }
+        for b in comics.books { try Task.checkCancellation(); add(LocalBookFormat(b.archiveFormat ?? .cbz), b.id, b.editionID, b.fileSHA256, b.title) }
         let catalog = Dictionary(uniqueKeysWithValues: books.map { ($0.identity.format.rawValue + ":" + $0.identity.bookID.uuidString, $0) })
         func book(_ format: LocalBookFormat, _ id: UUID) -> LibrarySearchBook? { catalog[format.rawValue + ":" + id.uuidString] }
         entries = books.map { LibrarySearchEntry(book: $0, kind: .book) }

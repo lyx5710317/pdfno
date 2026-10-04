@@ -5,25 +5,28 @@ public enum TextFormatError: LocalizedError {
     case resourceLimit, unsupportedContent, encoding, invalidStore, sourceMismatch, unavailable, bridge, cancelled
     public var errorDescription: String? {
         switch self {
-        case .resourceLimit: "文本超出限额：4 MiB 原文件、100万 UTF-16 字元、10000 段、10万节点、64 层结构。"
-        case .unsupportedContent: "此文件不属于 TXT／Markdown／HTML 首片，或包含不支持的二进制／声明。XML 与 MHTML 尚未支持。"
-        case .encoding: "无法可靠解码。请另存为 UTF-8，或带 BOM 的 UTF-16；不会用替换字元猜测编码。HTML 编码声明必须与实际编码一致。"
+        case .resourceLimit: "文本超出限额：4 MiB 原件、100万字元、10000 段、10万节点、64 层结构；MHTML 最多64个内容项，每项1 MiB。"
+        case .unsupportedContent: "此文件包含不支持的格式、二进制、XML 结构或 MIME 内容。XHTML／可读 XML 必须结构有效且无 DTD；MHTML 仅支持受限离线 MIME 正文。"
+        case .encoding: "无法可靠解码。请另存为 UTF-8，或带 BOM 的 UTF-16；不会用替换字元猜测编码。HTML／XML／MIME 编码声明必须与实际编码一致。"
         case .invalidStore: "文本格式本地书库无法验证；现有记录不会被覆盖。"
         case .sourceMismatch: "文本来源、版本或引文无法精确恢复；原笔记已保留，请重新选择。"
-        case .unavailable: "TXT／Markdown／HTML 阅读当前仅在 Mac 开放。"
+        case .unavailable: "文本与网页归档阅读当前仅在 Mac 开放。"
         case .bridge: "文本转换／阅读失败或超时，请重新打开；此文件可能超出显示结构限制。"
         case .cancelled: "文本阅读已取消。"
         }
     }
 }
 public enum TextFileFormat: String, Codable, Sendable, CaseIterable {
-    case txt, markdown, html
-    public var label: String { switch self { case .txt: "TXT"; case .markdown: "Markdown"; case .html: "HTML" } }
+    case txt, markdown, html, xhtml, mhtml, xml
+    public var label: String { switch self { case .txt: "TXT"; case .markdown: "Markdown"; case .html: "HTML"; case .xhtml: "XHTML"; case .mhtml: "MHTML"; case .xml: "可读 XML" } }
     public static func from(filename: String) -> Self? {
         switch URL(fileURLWithPath: filename).pathExtension.lowercased() {
         case "txt": .txt
         case "md", "markdown": .markdown
         case "html", "htm": .html
+        case "xhtml": .xhtml
+        case "mhtml": .mhtml
+        case "xml": .xml
         default: nil
         }
     }

@@ -41,7 +41,7 @@ extension LibraryModel {
                     }
                 }
                 await open(book)
-                guard error == nil, !readingEPUB, !readingComic, !docx.isActive, !textFormats.isActive,
+                guard error == nil, !readingEPUB, !readingComic, !docx.isActive, !textFormats.isActive, !ebook.isActive,
                       reader.book?.editionID == book.editionID, reader.book?.id == book.id else { return false }
                 if target.kind == .book { return true }
                 if target.kind == .note {
@@ -80,11 +80,12 @@ extension LibraryModel {
                 if target.kind == .book { return true }
                 guard target.kind == .note, let note = docx.notes.first(where: { $0.id == target.noteID && $0.bookID == book.id }) else { return false }
                 return await docx.reader.navigate(to: note.anchor)
-            case .comic:
+            case .comic, .cbt, .cb7, .cbr:
                 guard target.kind == .book else { return false }
                 let state = try await comicRepository.load()
                 guard let book = state.books.first(where: { $0.id == target.book.bookID }),
-                      book.editionID == target.book.editionID, book.fileSHA256 == target.book.fileSHA256 else { return false }
+                      book.editionID == target.book.editionID, book.fileSHA256 == target.book.fileSHA256,
+                      LocalBookFormat(book.archiveFormat ?? .cbz) == target.book.format else { return false }
                 await openComic(book)
                 return error == nil && readingComic && comic.book?.id == book.id && comic.book?.editionID == book.editionID
             }
@@ -105,7 +106,7 @@ extension LibraryModel {
     private func waitForSearchEPUB(_ book: EPUBBook) async -> Bool {
         let session = epub.readerSessionID, deadline = Date().addingTimeInterval(20)
         func sameReader() -> Bool {
-            readingEPUB && !readingComic && !docx.isActive && !textFormats.isActive &&
+            readingEPUB && !readingComic && !docx.isActive && !textFormats.isActive && !ebook.isActive &&
             epub.readerSessionID == session && epub.book?.id == book.id &&
             epub.book?.editionID == book.editionID && epub.book?.fileSHA256 == book.fileSHA256
         }

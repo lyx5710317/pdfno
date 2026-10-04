@@ -1,10 +1,13 @@
 // Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
 import Foundation
 
+public enum ComicArchiveFormat: String, Sendable, CaseIterable { case cbz, cbt, cb7, cbr }
 public enum ComicDirection: String, Codable, Sendable, CaseIterable { case leftToRight, rightToLeft }
 public enum ComicLayout: String, Codable, Sendable, CaseIterable { case automatic, single, double }
 public enum ComicLimits {
     public static let archiveBytes = 100 * 1024 * 1024
+    public static let decoderBytes = 64 * 1024 * 1024
+    public static let headerBytes = 1024 * 1024
     public static let entries = 2000
     public static let entryBytes = 16 * 1024 * 1024
     public static let expandedBytes = 512 * 1024 * 1024
@@ -14,16 +17,18 @@ public enum ComicLimits {
     public static let thumbnailDimension = 2400
 }
 public enum ComicError: LocalizedError, Sendable {
-    case invalidArchive, resourceLimit, invalidImage, noPages, invalidStore, sourceMismatch, unavailable, bridge, cancelled
+    case invalidArchive, invalidTAR, invalidNativeArchive, resourceLimit, invalidImage, noPages, invalidStore, sourceMismatch, unavailable, bridge, cancelled
     public var errorDescription: String? {
         switch self {
         case .invalidArchive: "CBZ 无效、路径不安全、校验失败或 ZIP 结构不受支持（加密、分卷、ZIP64）。"
-        case .resourceLimit: "漫画超出限额：100 MiB 归档、2000 条目、16 MiB 单项、512 MiB 总解压、24M 像素单图、512M 总像素。"
+        case .invalidTAR: "CBT 无效或 TAR 结构不受支持；仅接受未压缩 POSIX USTAR 普通文件／目录，不支持 PAX、GNU 扩展、链接、特殊文件、分卷或加密容器。"
+        case .invalidNativeArchive: "CB7 / CBR 无效或结构不受支持：CB7 仅 COPY/LZMA/LZMA2、明文头、非 solid；CBR 仅 RAR4/RAR5 STORE。均不支持加密、分卷、自解压、扩展记录或其他解码路线。"
+        case .resourceLimit: "漫画超出限额：100 MiB 归档、2000 条目、16 MiB 单项、512 MiB 总解压、24M 像素单图、512M 总像素；原生解码工作内存64 MiB、明文归档头1 MiB。"
         case .invalidImage: "漫画含无效或不支持的图片；当前支持静态 PNG / JPEG。"
-        case .noPages: "CBZ 中没有可阅读的 PNG / JPEG 页面。"
+        case .noPages: "漫画归档中没有可阅读的 PNG / JPEG 页面。"
         case .invalidStore: "漫画书库无法验证；现有数据不会被覆盖。"
         case .sourceMismatch: "漫画原文件或保存的位置已改变，无法精确恢复。"
-        case .unavailable: "当前仅开放 Mac CBZ 阅读；CBR 尚未接入。"
+        case .unavailable: "当前开放 Mac CBZ / CBT / 有限 CB7 / CBR 阅读；移动漫画阅读尚未开放。"
         case .bridge: "漫画阅读失败或超时，请重新打开。"
         case .cancelled: "漫画打开已取消。"
         }
@@ -61,6 +66,7 @@ public struct ComicBook: Codable, Sendable, Equatable, Identifiable {
     public let originalFilename: String
     public let pages: [ComicPage]
     public var progress: ComicProgress?
+    public var archiveFormat: ComicArchiveFormat? { ComicArchiveFormat(rawValue: URL(fileURLWithPath: originalFilename).pathExtension.lowercased()) }
     public init(id: UUID = UUID(), editionID: UUID = UUID(), fileSHA256: String, title: String,
                 originalFilename: String, pages: [ComicPage]) {
         self.id = id; self.editionID = editionID; self.fileSHA256 = fileSHA256; self.title = title

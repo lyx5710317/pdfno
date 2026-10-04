@@ -1,4 +1,4 @@
-name: CBZ comic checks
+name: Bounded comic archive checks
 on: [push, pull_request]
 permissions:
   contents: read
@@ -16,5 +16,7 @@ jobs:
           node engine-build/build-comics.mjs
           git diff --exit-code -- apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/Comics
           node --test engine-build/comics-reader.test.mjs
+      - name: Verify selected native source and original fixture hashes
+        run: python3 scripts/check-comic-codecs.py
       - name: Original comic archive, image, ordering and persistence tests
-        run: swift test --package-path apple/Packages/PDFnoKit --scratch-path .build/Comics --filter ComicTests
+        run: PDFNO_COMIC_OFFLINE_ONLY=1 swift test --package-path apple/Packages/PDFnoKit --scratch-path .build/Comics --filter 'NativeComicTests|ComicTests|CBTTests|CoverTests' --skip ComicWebKitTests

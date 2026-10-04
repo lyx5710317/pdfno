@@ -1,0 +1,7 @@
+{
+  "generator": "scripts/generate-cbt-fixture.py",
+  "license": "AGPL-3.0-or-later",
+  "decodedBytes": 10240,
+  "decodedSHA256": "3a2fa00f098eabc419b3f2d0a4f494b090e914286e6a0119ce33a961ba4d97a3",
+  "hexSHA256": "52f13eedbd016dc06a5e7feadef0a85557d5cce897d85d46cd319709c208f04f"
+}

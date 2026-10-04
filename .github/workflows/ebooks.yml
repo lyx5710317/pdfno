@@ -1,0 +1,27 @@
+name: Isolated ebook candidate checks
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  ebook:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Original fixtures and licensed resource reproduction
+        run: |
+          npm ci --prefix engine-build --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org
+          python3 scripts/generate-ebook-fixtures.py
+          node engine-build/build-ebooks.mjs
+          node --test engine-build/ebook.test.mjs engine-build/ebook-bridge.test.mjs
+          python3 scripts/generate-original-fixture-inventory.py
+          python3 scripts/generate-apple-project.py
+          python3 scripts/check-native-source.py
+          git diff --exit-code -- apple scripts/ORIGINAL-FIXTURES.json engine-build/EBOOK-BUNDLE-INPUTS.json
+      - name: Native ebook source and storage checks
+        run: swift test --package-path apple/Packages/PDFnoKit --scratch-path .build/Ebooks --filter Ebook
+      - name: Mac build and isolated original ebook UI flows
+        run: xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/Mac -resultBundlePath .build/Ebooks.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 240 -only-testing:PDFnoMacUITests/EbookFormatUITests test

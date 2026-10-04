@@ -1,0 +1,6 @@
+[
+  "ebook-adapter.js",
+  "ebook-index.js",
+  "vendor/kookit/src/libs/fb2.js",
+  "vendor/kookit/src/libs/mobi.js"
+]

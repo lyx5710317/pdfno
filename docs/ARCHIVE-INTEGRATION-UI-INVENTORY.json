@@ -1,0 +1,47 @@
+{
+  "source": "apple/Tests/NativeUITests.swift",
+  "baselineSHA": "f3ed484fee815effed2d955f8eb21bcd66d8546e",
+  "webArchiveSHA": "0b75e6cc7913e5f91ac8cf512c8bd7a9e744c53b",
+  "comicArchiveSHA": "1ca74253b80ce6de5a945be1e4a294126adf8455",
+  "total": 33,
+  "baseline": [
+    "testLocalPDFReadingAndNoteFlow",
+    "testMacAISelectionConsentMockNotesAndRestart",
+    "testMacCBZImportSpreadsDirectionPageJumpAndRestart",
+    "testMacCoverSelectionGridListRestartAndRestore",
+    "testMacDOCXConversionFailureRecoveryAndEscapedHTML",
+    "testMacDOCXConversionSavePanelCancelAndOverwriteRefusal",
+    "testMacDOCXConversionWorkerCancellationLeavesNoOutput",
+    "testMacDOCXDefaultCoverInListGridAndRestart",
+    "testMacDOCXFailureRecoveryAndPDFEPUBTransitions",
+    "testMacDOCXImportSemanticSelectionNotesAndRestart",
+    "testMacDeepSeekSelectionOfflineTransportPDFEPUBAndRestart",
+    "testMacEPUBBodyEditingBookSwitchRestartAndSource",
+    "testMacEPUBChapterCancelStopsRemainderAndReopenCannotRetryOrRestoreKey",
+    "testMacEPUBChapterCompleteScopeConsentBilingualManualSaveRestartAndSourceReturn",
+    "testMacEPUBChapterOversizeRefusesWholeDocumentWithoutKeyOrSend",
+    "testMacEPUBChapterPartialFailureKeepsFirstSegmentAndStopsAllRemaining",
+    "testMacEPUBSelectionRubyNotesAndRestart",
+    "testMacEditedNoteSearchDraftExclusionCoverLayoutsAndExactSource",
+    "testMacHTMLAliasImportSelectionNotesNavigationAndRestart",
+    "testMacLearningBodyEditingPreservesResultRestartAndSource",
+    "testMacLibrarySearchMetadataUnicodeEmptyNoResultsAndRestart",
+    "testMacLibrarySearchUserNoteSavedLocalMockAIAndExactSource",
+    "testMacMarkdownImportSelectionNotesNavigationAndRestart",
+    "testMacPDFBodyEditingCancelDraftRestartEmptyAndSource",
+    "testMacPDFBodyEditingDiskFailureKeepsDraftAndExplicitRetry",
+    "testMacPDFPageCancelStopsRemainderAndReopenKeepsAttemptCount",
+    "testMacPDFPageScanAndOversizeRefuseWithoutSend",
+    "testMacPDFWholePageOfflineConsentBilingualNotesAndSourceReturn",
+    "testMacTXTImportSelectionNotesNavigationAndRestart"
+  ],
+  "addedWebArchive": [
+    "testMacMHTMLImportSelectionNotesNavigationAndRestart",
+    "testMacReadableXMLImportSelectionNotesNavigationAndRestart",
+    "testMacXHTMLImportSelectionNotesNavigationAndRestart"
+  ],
+  "addedComicArchive": [
+    "testMacCBTImportSpreadsDirectionPageJumpAndRestart"
+  ],
+  "execution": "NOT-RUN locally; complete native UI reserved for isolated final-SHA CI"
+}

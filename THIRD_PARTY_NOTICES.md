@@ -37,3 +37,21 @@ The original `PDFnoDOCXZIP` C target links Apple SDK/system `libz` for bounded r
 ## Current Kookit DOCX conversion resource
 
 Mammoth 1.13.0, lop/option/dingbat-to-unicode retain BSD-2-Clause; xmldom/base64-js/Underscore/xmlbuilder/immediate/lie/setimmediate retain MIT; JSZip 3.10.1 uses its MIT alternative, and pako 1.0.11 retains its MIT plus original zlib notice. Actual versions/integrity/source inputs are in `engine-build/MAMMOTH-SOURCE.json`, `DOCX-DEPENDENCIES.json`, `DOCX-BUNDLED-DEPENDENCIES.json`, `DOCX-BUNDLE-INPUTS.json` and the npm lock. All actual runtime license texts are in app `Resources/DOCX/Notices.txt`; original Kookit reference remains AGPL-3.0-or-later, without third-party relicensing. The build excludes Rangy and Node fs/external-file access. The separate EPUB profile retains the verified official Rangy1.3.2 dangerous-key repair; GHSA patched metadata remains empty. See `docs/RANGY-SECURITY-2026-10-03.md` for actual source/regression evidence.
+
+## Restricted MOBI / AZW / KF8 / FB2 candidate
+
+The new Ebooks resource adds Kookit1.0.4 original MOBI/FB2 sources at fixed commit95f602ed62d204af0de9278cf53212c309b34bfc, retaining AGPL-3.0-or-later and the separate embedded-foliate John Factotum MIT notice. Actual bundle has four source inputs and no npm runtime dependency; unknown extra, fflate, fonts, HUFF/CDIC, CFI/Rangy and decryption are excluded. Engine manifest/input list, corresponding source, checked bounded transforms and complete resource Notices.txt are supplied. Exact foliate copy identity beyond the reference commit is not asserted.
+
+Test-only jsdom26.1.0 uses MIT; its39 locked installed dependency records retain their individual MIT/MIT-0/ISC/BSD declarations and original license files in engine-build/test-licenses. saxes6.0.0's missing npm license file is supplemented from the official v6.0.0 source with full original ISC/history notices. Test dependencies do not enter any app resource; there is still no external Swift package. See engine-build/EBOOK-TEST-DEPENDENCIES.json and docs/ADR-EBOOK-KOOKIT.md.
+
+## Web archive input adapters (2026-10-04)
+
+The XHTML/MHTML/readable XML slice reuses the existing fixed Kookit95f602ed core (AGPL-3.0-or-later) and unchanged text resource/notices. Kookit upstream dispatches these formats to HtmlRender; its mhtml2html dependency is not installed or executed here. Original Swift XML/MIME input adapters use installed Foundation XMLParser/CryptoKit/WebKit, adding no package or copied framework source. Existing Marked15.0.12 MIT/Markdown notices remain intact. See docs/WEB-ARCHIVE-FORMATS.md for exact upstream entries and finite support.
+
+## Bounded CBT / unselected CB7 and CBR candidates (2026-10-04)
+
+CBT adds only original AGPL Swift parsing and tests, reusing the fixed Kookit comic model and Apple system ImageIO/Foundation/zlib already described above. Python tarfile/zlib only generates the original hex fixture at development time and is not bundled with the app. No js-untar, 7z-wasm, RAR worker, UnRAR or libarchive implementation is installed or redistributed. Candidate upstream source/license/platform gaps and exact unsupported structures are in [ADR-COMIC-ARCHIVE-FORMATS](docs/ADR-COMIC-ARCHIVE-FORMATS.md); those research references are not selected dependency inventory or distribution approval. The Kookit source hash, npm lock and existing complete app notices remain unchanged.
+
+## Approved finite native CB7 / CBR increment (2026-10-04)
+
+Official fixed libarchive3.8.9 and XZ5.8.4 selected sources are now vendored following explicit human route/source approval. Per-file original/vendored hashes and controlling licenses are in `Sources/PDFnoComicCodecs/SOURCE.json`: BSD2/BSD3 libarchive, public-domain PPMd, CC0-selected BLAKE2, and0BSD liblzma. Complete retained file notices/license texts are bundled in `PDFnoServices/Resources/ComicCodecs/NOTICES.txt`. No UnRAR/full7zz/WASM, external filter, CLI or globally installed dependency is used. Original bridge/guards/Swift/tests/real-format fixtures stay AGPL. Exact finite support and reproducible source/build instructions are in [native codec validation](docs/COMIC-CODEC-VALIDATION-2026-10-04.md); earlier closed-decoder paragraphs describe the prior CBT slice.

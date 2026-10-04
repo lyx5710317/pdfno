@@ -52,7 +52,7 @@ private actor BooknoDeferredCatalog {
         BooknoBookDTO(bookUUID: UUID(), edition: BooknoEditionDTO(id: UUID(), format: format, sourceFileSHA256: String(repeating: "a", count: 64)), title: "Original standalone")
     }
 
-    @Test(arguments: TextFileFormat.allCases) func textAnchorsKeepOwnNamespaceExactUnicodeAndNoFakeCover(format: TextFileFormat) async throws {
+    @Test(arguments: [TextFileFormat.txt, .markdown, .html]) func textAnchorsKeepOwnNamespaceExactUnicodeAndNoFakeCover(format: TextFileFormat) async throws {
         let root = root(); defer { try? FileManager.default.removeItem(at: root) }
         let text = "  Original か\u{3099}😀👩‍💻\nEnd  ", repository = TextFormatRepository(root: root)
         let filename = "Original." + (format == .markdown ? "md" : format.rawValue)

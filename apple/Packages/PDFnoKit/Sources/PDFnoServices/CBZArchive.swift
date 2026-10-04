@@ -23,18 +23,10 @@ public struct CBZArchive: Sendable {
         for entry in entries {
             try Task.checkCancellation()
             let bytes = try Self.expand(entry, from: data)
-            let parts = entry.path.split(separator: "/")
-            if entry.path.hasSuffix("/") || parts.contains(where: { $0.hasPrefix(".") || $0 == "__MACOSX" }) { continue }
-            let ext = URL(fileURLWithPath: entry.path).pathExtension.lowercased()
-            if ["png", "jpg", "jpeg"].contains(ext) {
-                let page = try Self.inspect(bytes, path: entry.path)
+            if let page = try Self.admit(bytes, path: entry.path) {
                 totalPixels += page.width * page.height
                 guard totalPixels <= ComicLimits.totalImagePixels else { throw ComicError.resourceLimit }
-                // Decode only a bounded thumbnail to reject corrupt raster payloads during import.
-                _ = try Self.thumbnail(bytes)
                 pages.append(page)
-            } else if ["gif", "webp", "svg", "bmp", "tif", "tiff", "heic", "avif", "jpe", "jfif"].contains(ext) {
-                throw ComicError.invalidImage
             }
         }
         guard !pages.isEmpty else { throw ComicError.noPages }
@@ -137,6 +129,19 @@ public struct CBZArchive: Sendable {
         guard UInt32(crc) == entry.crc else { throw ComicError.invalidArchive }
         return output
     }
+    /// Shared static image admission for validated comic containers, never archive fallback.
+    static func admit(_ bytes: Data, path: String) throws -> ComicPage? {
+        let parts = path.split(separator: "/")
+        if path.hasSuffix("/") || parts.contains(where: { $0.hasPrefix(".") || $0 == "__MACOSX" }) { return nil }
+        let ext = URL(fileURLWithPath: path).pathExtension.lowercased()
+        if ["png", "jpg", "jpeg"].contains(ext) {
+            let page = try inspect(bytes, path: path)
+            _ = try thumbnail(bytes)
+            return page
+        }
+        if ["gif", "webp", "svg", "bmp", "tif", "tiff", "heic", "avif", "jpe", "jfif"].contains(ext) { throw ComicError.invalidImage }
+        return nil
+    }
     private static func source(_ data: Data) throws -> CGImageSource {
         guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
               CGImageSourceGetCount(source) == 1, let type = CGImageSourceGetType(source),
@@ -155,7 +160,7 @@ public struct CBZArchive: Sendable {
         guard page.isValid else { throw ComicError.resourceLimit }
         return page
     }
-    private static func thumbnail(_ data: Data) throws -> Data {
+    static func thumbnail(_ data: Data) throws -> Data {
         let source = try source(data)
         // Always inspect dimensions before the first raster allocation.
         _ = try inspect(data, path: "page.png")

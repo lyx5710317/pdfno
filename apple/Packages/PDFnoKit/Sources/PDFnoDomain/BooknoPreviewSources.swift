@@ -4,11 +4,17 @@ import Foundation
 /// Exchange namespaces do not enable unsupported native cover formats.
 public enum BooknoFormat: String, Codable, Sendable, CaseIterable {
     case pdf, epub, cbz, docx, txt, markdown, html
-    public init(_ format: CoverFormat) {
-        switch format { case .pdf: self = .pdf; case .epub: self = .epub; case .cbz: self = .cbz; case .docx: self = .docx }
+    public init?(_ format: CoverFormat) {
+        switch format {
+        case .pdf: self = .pdf; case .epub: self = .epub; case .cbz: self = .cbz; case .docx: self = .docx
+        case .cbt, .cb7, .cbr: return nil
+        }
     }
-    public init(_ format: TextFileFormat) {
-        switch format { case .txt: self = .txt; case .markdown: self = .markdown; case .html: self = .html }
+    public init?(_ format: TextFileFormat) {
+        switch format {
+        case .txt: self = .txt; case .markdown: self = .markdown; case .html: self = .html
+        case .xhtml, .mhtml, .xml: return nil
+        }
     }
     public var coverFormat: CoverFormat? {
         switch self { case .pdf: .pdf; case .epub: .epub; case .cbz: .cbz; case .docx: .docx; case .txt, .markdown, .html: nil }
@@ -47,6 +53,26 @@ public struct BooknoPreviewChoice: Sendable, Equatable, Identifiable {
     public let book: BooknoBookDTO
     public var id: String { book.externalID }
     public init(book: BooknoBookDTO) { self.book = book }
+}
+
+/// Native books outside the seven admitted exchange namespaces are visible without fabricating a DTO.
+public struct BooknoUnsupportedBook: Sendable, Equatable, Identifiable {
+    public let bookID: UUID
+    public let editionID: UUID
+    public let fileSHA256: String
+    public let format: String
+    public let title: String
+    public var id: String { format + ":" + bookID.uuidString + ":" + editionID.uuidString + ":" + fileSHA256 }
+    public init(bookID: UUID, editionID: UUID, fileSHA256: String, format: String, title: String) {
+        self.bookID = bookID; self.editionID = editionID; self.fileSHA256 = fileSHA256; self.format = format; self.title = title
+    }
+}
+public struct BooknoPreviewCatalog: Sendable, Equatable {
+    public let choices: [BooknoPreviewChoice]
+    public let unsupported: [BooknoUnsupportedBook]
+    public init(choices: [BooknoPreviewChoice], unsupported: [BooknoUnsupportedBook] = []) {
+        self.choices = choices; self.unsupported = unsupported
+    }
 }
 
 /// Explicitly selected saved content and existing cover bytes, held in memory only.

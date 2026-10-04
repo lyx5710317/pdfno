@@ -8,13 +8,13 @@ concurrency:
 jobs:
   native:
     runs-on: macos-15
-    timeout-minutes: 35
+    timeout-minutes: 50 # Full 40-method UI suite; individual 180/240-second limits remain.
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # verified v4, 2026-10-03
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # verified v4, 2026-10-03
         with:
           node-version: '22'
-      - name: Rebuild licensed EPUB, comic and Word resources
+      - name: Rebuild licensed EPUB, comic, Word, text and ebook resources
         run: |
           npm ci --prefix engine-build --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org
           node --test engine-build/loader.test.mjs
@@ -25,11 +25,16 @@ jobs:
           node engine-build/build-comics.mjs
           node engine-build/build-docx.mjs
           node engine-build/build-text.mjs
+          node --test engine-build/ebook.test.mjs engine-build/ebook-bridge.test.mjs
+          node engine-build/build-ebooks.mjs
+          python3 -B scripts/generate-ebook-fixtures.py
+          python3 -B scripts/generate-cbt-fixture.py
+          python3 -B scripts/generate-native-comic-fixtures.py
           python3 scripts/generate-epub-fixture.py
           python3 scripts/generate-docx-fixture.py
           node engine-build/generate-docx-extraction.mjs
           python3 scripts/generate-original-fixture-inventory.py
-          git diff --exit-code -- scripts/ORIGINAL-FIXTURES.json engine-build/TEXT-BUNDLE-INPUTS.json engine-build/DOCX-BUNDLE-INPUTS.json engine-build/DOCX-BUNDLED-DEPENDENCIES.json engine-build/BUNDLE-INPUTS.json apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/TextFormats apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/EPUB apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/Comics apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/DOCX apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures
+          git diff --exit-code -- scripts/ORIGINAL-FIXTURES.json engine-build/EBOOK-BUNDLE-INPUTS.json engine-build/TEXT-BUNDLE-INPUTS.json engine-build/DOCX-BUNDLE-INPUTS.json engine-build/DOCX-BUNDLED-DEPENDENCIES.json engine-build/BUNDLE-INPUTS.json apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/Ebooks apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/TextFormats apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/EPUB apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/Comics apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/DOCX apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures
       - name: Toolchain
         run: |
           xcodebuild -version
@@ -37,6 +42,7 @@ jobs:
       - name: Source and original fixture guards
         run: |
           python3 scripts/check-native-source.py
+          python3 scripts/check-comic-codecs.py
           python3 -B scripts/test-requirement-ledger.py
           python3 scripts/generate-apple-project.py
           git diff --exit-code -- apple/PDFno.xcodeproj apple/PDFno.xcworkspace apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures

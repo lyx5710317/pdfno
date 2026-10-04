@@ -1,7 +1,7 @@
 // Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
 import Foundation
 
-public enum CoverFormat: String, Codable, Sendable { case pdf, epub, cbz, docx }
+public enum CoverFormat: String, Codable, Sendable { case pdf, epub, cbz, cbt, cb7, cbr, docx }
 /// Stable source identity, independent of title, progress, UI and future transport.
 public struct CoverIdentity: Codable, Hashable, Sendable {
     public let bookID: UUID
@@ -13,10 +13,10 @@ public struct CoverIdentity: Codable, Hashable, Sendable {
     }
     public init(_ book: BookRecord) { self.init(bookID: book.id, editionID: book.editionID, fileSHA256: book.fileSHA256, format: .pdf) }
     public init(_ book: EPUBBook) { self.init(bookID: book.id, editionID: book.editionID, fileSHA256: book.fileSHA256, format: .epub) }
-    public init(_ book: ComicBook) { self.init(bookID: book.id, editionID: book.editionID, fileSHA256: book.fileSHA256, format: .cbz) }
+    public init(_ book: ComicBook) { self.init(bookID: book.id, editionID: book.editionID, fileSHA256: book.fileSHA256, format: CoverFormat(rawValue: book.archiveFormat?.rawValue ?? "cbz") ?? .cbz) }
     public init(_ book: DOCXBook) { self.init(bookID: book.id, editionID: book.editionID, fileSHA256: book.fileSHA256, format: .docx) }
 }
-public enum CoverOrigin: String, Codable, Sendable { case pdfFirstPage, epubEmbedded, cbzFirstImage, placeholder, userImage }
+public enum CoverOrigin: String, Codable, Sendable { case pdfFirstPage, epubEmbedded, cbzFirstImage, cbtFirstImage, cb7FirstImage, cbrFirstImage, placeholder, userImage }
 /// Asset hash + dimensions + provenance/revision can be transported by a future Bookno adapter.
 /// No absolute filename, bookmark, executable data, remote URL or backend identity is persisted.
 public struct CoverRecord: Codable, Equatable, Sendable {

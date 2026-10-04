@@ -192,4 +192,5 @@ public struct BooknoMockReceipt: Codable, Sendable, Equatable {
 public enum BooknoPreviewError: Error, Sendable, Equatable {
     case disabled, invalidContract, sourceMismatch, assetInvalid, assetMissing
     case batchContentMismatch, receiptMismatch, mockResultUnknown, revisionOverflow, selectionLimit
+    case unsupportedFormat(String)
 }

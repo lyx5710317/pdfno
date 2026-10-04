@@ -5,9 +5,15 @@ import PDFnoDomain
 public struct DecodedTextFile: Sendable {
     public let text: String
     public let encoding: String
+    public let engineFormat: TextFileFormat
+    public let warnings: [String]
+    public init(text: String, encoding: String, engineFormat: TextFileFormat, warnings: [String] = []) {
+        self.text = text; self.encoding = encoding; self.engineFormat = engineFormat; self.warnings = warnings
+    }
 }
 public enum TextFileDecoder {
     public static func decode(_ data: Data, format: TextFileFormat) throws -> DecodedTextFile {
+        if format == .mhtml { return try MHTMLArchive.decode(data) }
         guard !data.isEmpty, data.count <= 4 * 1024 * 1024 else { throw TextFormatError.resourceLimit }
         let bytes = [UInt8](data.prefix(4))
         guard !bytes.starts(with: [0,0,0xfe,0xff]), !bytes.starts(with: [0xff,0xfe,0,0]) else { throw TextFormatError.encoding }
@@ -35,8 +41,6 @@ public enum TextFileDecoder {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               text.unicodeScalars.allSatisfy({ $0.value >= 32 || [9,10,13].contains($0.value) }) else { throw TextFormatError.unsupportedContent }
         if format == .html {
-            // Permit HTML's ordinary doctype, never XML/DTD/entity declarations.
-            guard text.range(of: #"<!ENTITY|<!DOCTYPE[^>]*\[|<\?xml"#, options: [.regularExpression,.caseInsensitive]) == nil else { throw TextFormatError.unsupportedContent }
             let expression = try NSRegularExpression(pattern: #"(?i)<meta\b[^>]*charset\s*=\s*["']?([a-z0-9_-]+)"#)
             for match in expression.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
                 guard let range = Range(match.range(at: 1), in: text) else { throw TextFormatError.encoding }
@@ -45,6 +49,17 @@ public enum TextFileDecoder {
                 guard permitted.contains(declared) else { throw TextFormatError.encoding }
             }
         }
-        return DecodedTextFile(text: text, encoding: encoding)
+        if format == .xhtml || format == .xml {
+            let html = try ReadableXML.html(text, encoding: encoding, requiresXHTML: format == .xhtml)
+            return DecodedTextFile(text: html, encoding: encoding, engineFormat: .html, warnings: [
+                "XML 按限定可读结构转换；DTD、实体声明、外部样式表和未知 schema 不支持。原件完整保留。",
+                "网页归档只显示离线语义正文；图片、CSS、字体、链接目标与主动内容不加载。"
+            ])
+        }
+        if format == .html {
+            // Permit HTML's ordinary doctype, never XML/DTD/entity declarations.
+            guard text.range(of: #"<!ENTITY|<!DOCTYPE[^>]*\[|<\?xml"#, options: [.regularExpression,.caseInsensitive]) == nil else { throw TextFormatError.unsupportedContent }
+        }
+        return DecodedTextFile(text: text, encoding: encoding, engineFormat: format)
     }
 }

@@ -36,7 +36,7 @@ private struct ComicThumbnail: Sendable { let index: Int; let data: String }
     @Published public private(set) var busy = false
     @Published public private(set) var error: String?
     public var persist: ((UUID, ComicProgress) async throws -> Void)?
-    private var archive: CBZArchive?
+    private var archive: ComicArchive?
     private var generation = UUID()
     private var waitingForReady = false
     private var pending: [UUID: CheckedContinuation<String, Error>] = [:]
@@ -60,7 +60,10 @@ private struct ComicThumbnail: Sendable { let index: Int; let data: String }
         progress = nil; visibleIndices = []; busy = false; waitingForReady = false
     }
     public func open(archive: CBZArchive, book: ComicBook) async throws {
-        guard archive.pages == book.pages, book.progress.map(book.accepts) ?? true else { throw ComicError.sourceMismatch }
+        try await open(archive: .cbz(archive), book: book)
+    }
+    public func open(archive: ComicArchive, book: ComicBook) async throws {
+        guard archive.format == book.archiveFormat, archive.pages == book.pages, book.progress.map(book.accepts) ?? true else { throw ComicError.sourceMismatch }
         close(); error = nil; busy = true; self.archive = archive; self.book = book
         pageIndex = book.progress?.pageIndex ?? 0; direction = book.progress?.direction ?? .leftToRight; layout = book.progress?.layout ?? .automatic
         let token = generation

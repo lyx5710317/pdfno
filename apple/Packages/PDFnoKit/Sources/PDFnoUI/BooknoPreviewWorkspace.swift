@@ -22,6 +22,13 @@ struct BooknoPreviewWorkspace: View {
                             Text(choice.book.title + " · " + choice.book.edition.format.rawValue.uppercased())
                         }.accessibilityIdentifier("bookno-book-" + choice.id)
                     }
+                    if !model.unsupportedBooks.isEmpty {
+                        Text("以下格式尚未适配 Bookno，不能包含在本次预览中：").font(.callout)
+                        ForEach(model.unsupportedBooks) { book in
+                            Text(book.title + " · " + book.format + " · 暂不可预览")
+                                .foregroundStyle(.secondary).accessibilityIdentifier("bookno-unsupported-" + book.id)
+                        }
+                    }
                     Toggle("包含所选书籍的已保存高亮与学习笔记", isOn: $model.includeSavedNotes)
                         .accessibilityIdentifier("bookno-include-notes")
                     Text("不含编辑草稿。PDF／EPUB 包含已保存AI结果与独立用户正文；TXT／Markdown／HTML 包含普通高亮。漫画／Word 当前仅书目与封面，笔记尚未适配。")

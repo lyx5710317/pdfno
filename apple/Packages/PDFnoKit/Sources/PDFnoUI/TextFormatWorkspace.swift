@@ -16,7 +16,7 @@ public struct TextFormatWorkspace: View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
                 Text((session.book?.format.label ?? "文本") + " · 本地阅读").font(.headline)
-                Text("TXT 章节为自动识别；Markdown／HTML 按标题导航。链接仅显示文字。引文定位于规范化显示正文，原文件保持不变。")
+                Text("TXT 章节为自动识别；标记文档按实际标题导航。网页归档仅离线正文，图片与样式不显示。链接仅显示文字。引文定位于规范化显示正文，原文件保持不变。")
                     .font(.caption).foregroundStyle(.secondary)
                 if session.ready && !session.highlightsSupported {
                     Text("当前 WebKit 不支持持久高亮显示；选文笔记与精确回到原文仍可使用。").font(.caption).foregroundStyle(.secondary)

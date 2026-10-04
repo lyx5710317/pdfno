@@ -1,0 +1,378 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-04",
+  "baselineSHA": "71d54540c417915702506f67fef7d337605aa9e2",
+  "featureBranch": "feature/integration-all-formats-20261004",
+  "inputSHAs": {
+    "main": "71d54540c417915702506f67fef7d337605aa9e2",
+    "ebook": "f7a7afede582e17e2f2fc783437ab8464aaebcd1",
+    "webCBT": "a751c22ae400a46b2c96d17798a5efd5db62c538",
+    "nativeComicIncrement": "90ed6d6329986f6fd909c939b25df90f84e02004"
+  },
+  "authorization": "Local integration/offline regression/unsigned low-concurrency build-for-testing only. No push/main/Library/actual UI/API/Japanese/security-special retry.",
+  "candidateBinding": "Final delivery receipt contains exact candidate commit/tree SHA; this file is committed in that candidate. Tested implementation fingerprint excludes documentation and evidence.",
+  "testedImplementationFingerprint": {
+    "algorithm": "SHA256 of canonical compact sorted path-to-SHA256 JSON plus newline",
+    "files": 490,
+    "sha256": "9cfbecede4179b8eb446ea2d8d2eb91b5933ade5323996cd11f9a8e6e1852d56",
+    "fullHashInventory": "TESTED-SOURCE-HASHES.json in local evidence directory"
+  },
+  "toolchain": {
+    "Xcode": "27.0 (27A266a)",
+    "Swift": "6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "Node": "20.20.2",
+    "Python": "3.9.6"
+  },
+  "Swift": {
+    "status": "PASS_SELECTED_SCOPE",
+    "tests": 254,
+    "suites": 34,
+    "seconds": 3.392,
+    "jobs": 2,
+    "package": "apple/Packages/PDFnoKit",
+    "environment": {
+      "PDFNO_COMIC_OFFLINE_ONLY": "1"
+    },
+    "skipRegex": "ComicWebKitTests|EPUBWebKitTests|EPUBChapterWebKitTests|TextChapterIntegrationTests|isolatedNativeViewFitsNarrowWindowWithLongSyntheticResponse|actualKookitSourceNotesAndProgressReopen|directEbookImportAndOpenCancelChapterSecretAndRejectHiddenSourcesWithoutSending",
+    "deferredNSWindowMethodDefinitions": 16,
+    "deferredSuiteDefinitionCounts": {
+      "ComicWebKitTests": 2,
+      "EPUBWebKitTests": 4,
+      "EPUBChapterWebKitTests": 4,
+      "TextChapterIntegrationTests": 3,
+      "DeepSeekSelfTestTests.isolatedNativeView": 1,
+      "EbookReaderTests.actualKookitSourceNotesAndProgressReopen": 1,
+      "EbookTextChapterIntegrationTests.directEbookImport": 1
+    },
+    "fullUnfilteredFinalCandidateSuiteExecuted": false,
+    "newJointRegressionDefinitions": 3
+  },
+  "Node": {
+    "status": "PASS",
+    "tests": 25,
+    "failures": 0,
+    "skipped": 0,
+    "milliseconds": 534.959,
+    "command": [
+      "node",
+      "--test",
+      "engine-build/loader.test.mjs",
+      "engine-build/rangy-security.test.mjs",
+      "engine-build/docx.test.mjs",
+      "engine-build/comics-reader.test.mjs",
+      "engine-build/ebook.test.mjs",
+      "engine-build/ebook-bridge.test.mjs"
+    ]
+  },
+  "reproduction": {
+    "commands": [
+      [
+        "node",
+        "engine-build/build.mjs"
+      ],
+      [
+        "node",
+        "engine-build/build-comics.mjs"
+      ],
+      [
+        "node",
+        "engine-build/build-docx.mjs"
+      ],
+      [
+        "node",
+        "engine-build/build-text.mjs"
+      ],
+      [
+        "node",
+        "engine-build/build-ebooks.mjs"
+      ],
+      [
+        "python3",
+        "-B",
+        "scripts/generate-ebook-fixtures.py"
+      ],
+      [
+        "python3",
+        "-B",
+        "scripts/generate-cbt-fixture.py"
+      ],
+      [
+        "python3",
+        "-B",
+        "scripts/generate-native-comic-fixtures.py"
+      ],
+      [
+        "python3",
+        "-B",
+        "scripts/generate-original-fixture-inventory.py"
+      ],
+      [
+        "python3",
+        "-B",
+        "scripts/generate-apple-project.py"
+      ],
+      [
+        "python3",
+        "-B",
+        "scripts/check-comic-codecs.py"
+      ],
+      [
+        "python3",
+        "-B",
+        "scripts/check-native-source.py"
+      ],
+      [
+        "python3",
+        "-B",
+        "scripts/test-requirement-ledger.py"
+      ]
+    ],
+    "unchangedResourceFixtureProjectCodecFiles": 169
+  },
+  "guards": {
+    "sourceFiles": 556,
+    "formalRequirementDefinitionsAndStatusUnchanged": 83,
+    "ledgerTests": 8,
+    "codecSourceHeaderLicenseChecks": 96,
+    "realComicContainerFixtures": 6
+  },
+  "buildForTesting": {
+    "Mac": {
+      "status": "TEST_BUILD_SUCCEEDED",
+      "log": "MAC-BUILD.log",
+      "jobs": 2,
+      "unsigned": true,
+      "architectures": [
+        "arm64",
+        "x86_64"
+      ],
+      "actualAppOrUITestExecution": false
+    },
+    "iPhoneIPadSimulator": {
+      "status": "TEST_BUILD_SUCCEEDED",
+      "log": "MOBILE-BUILD.log",
+      "jobs": 2,
+      "unsigned": true,
+      "architectures": [
+        "arm64",
+        "x86_64"
+      ],
+      "actualAppOrUITestExecution": false
+    }
+  },
+  "UI": {
+    "MacMethods": 40,
+    "breakdown": {
+      "original": 29,
+      "Bookno": 1,
+      "ebook": 4,
+      "web": 3,
+      "CBT": 1,
+      "CB7CBR": 2
+    },
+    "NativeUITests": 36,
+    "EbookFormatUITests": 4,
+    "compiledArchitectures": [
+      "arm64",
+      "x86_64"
+    ],
+    "missing": 0,
+    "duplicate": 0,
+    "actualLocalExecuted": 0,
+    "fullInventory": "docs/ALL-FORMATS-UI-INVENTORY.json"
+  },
+  "preservation": {
+    "apple/Packages/PDFnoKit/Sources/PDFnoReaders/EPUBReaderSession.swift": {
+      "byteIdenticalToMain": true,
+      "sha256": "8bfa97b61bfd75425e3307b0c94e4e9e238de757f484fa0836bfc4802c8c3288"
+    },
+    "apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/EPUB/engine.js": {
+      "byteIdenticalToMain": true,
+      "sha256": "d4f6fedcf30c08c71876c60190fd70ec649c74e1e1a603c3bac1ce0e20b35cb6"
+    },
+    "engine-build/reader.js": {
+      "byteIdenticalToMain": true,
+      "sha256": "fed3f5424938f8ddd15b5d747a4a8ebf44f42ea6880705549a473c0f7bd716a1"
+    },
+    "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/EPUBChapterWebKitTests.swift": {
+      "byteIdenticalToMain": true,
+      "sha256": "a436c95dccdd8403f36d20b60a849e160716f3a9fd95767089d6d150f142f0d4"
+    },
+    "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/BooknoExchangeTests.swift": {
+      "byteIdenticalToMain": true,
+      "sha256": "15b9b305333f67ca646d59774d27f6b613683b9e171e83a5dbdb34c0fd8ec3b8"
+    },
+    "docs/REQUIREMENTS-LEDGER.json": {
+      "byteIdenticalToMain": true,
+      "sha256": "028b650540070c6aebcf50a1862414c919c4c2159e333e029d14ea8566d62cac"
+    },
+    "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/BooknoIntegrationTests.swift": {
+      "allOriginalBodiesAndAssertionsRetained": true,
+      "onlyChange": "Restore the original three admitted text-format argument cases explicitly",
+      "sha256": "b7ba59b12af93337f1c311526ef088b02c5627137db518d8d69e93e58084805c"
+    },
+    "apple/Tests/NativeUITests.swift": {
+      "allMainLinesPreservedInOrder": true,
+      "baselineLines": 1555,
+      "sha256": "638123c4cd73eb7847d68ce5d24aba38ff1675af56a110df253280a4f67200aa"
+    },
+    "uiInventory": {
+      "total": 40,
+      "unique": 40,
+      "baselineMissing": [],
+      "executedLocally": 0
+    },
+    "reproducedResourcesFixturesProjectCodecs": {
+      "unchangedFiles": 169,
+      "allHashesMatch": true
+    },
+    "approvedComicIncrementSourceAndLicenses": {
+      "files": 108,
+      "byteIdenticalToInput": true
+    },
+    "conflictMarkers": [],
+    "compiledArchitectures": {
+      "MacApplication": [
+        "x86_64",
+        "arm64"
+      ],
+      "MacUITests": [
+        "x86_64",
+        "arm64"
+      ],
+      "MobileSimulatorApplication": [
+        "x86_64",
+        "arm64"
+      ]
+    },
+    "nativeUIFilesCompiledInMacBuild": {
+      "NativeUITests.swift": [
+        "arm64",
+        "x86_64"
+      ],
+      "EbookFormatUITests.swift": [
+        "arm64",
+        "x86_64"
+      ]
+    }
+  },
+  "dependencyReuse": {
+    "networkDownloadOrInstall": false,
+    "installedVersionsVerified": 67,
+    "originalTestDependencyLicenseRecords": 39
+  },
+  "originalWhitespace": {
+    "diagnostics": 105,
+    "files": 19,
+    "bytesPreservedAgainstOriginalInput": true,
+    "authoredDiffCheck": "PASS",
+    "fullHashInventory": "ORIGINAL-WHITESPACE-PRESERVATION.json in local evidence directory"
+  },
+  "Bookno": {
+    "wireNamespacesUnchanged": [
+      "pdf",
+      "epub",
+      "cbz",
+      "docx",
+      "txt",
+      "markdown",
+      "html"
+    ],
+    "explicitUnsupportedNativeFormats": [
+      "CBT",
+      "CB7",
+      "CBR",
+      "XHTML",
+      "MHTML",
+      "XML",
+      "MOBI",
+      "AZW",
+      "AZW3",
+      "FB2"
+    ],
+    "actualConnected": false
+  },
+  "failureHistory": [
+    {
+      "log": "SWIFT-MANIFEST-EPERM.log",
+      "outcome": "OS outer sandbox EPERM; no compilation/tests. Same standard SwiftPM sandbox command subsequently executed by approved tool."
+    },
+    {
+      "log": "SWIFT-TYPECHECK-FAILURE.log",
+      "outcome": "No tests; grouped explicitly typed UTType lists fixed compiler expression budget."
+    },
+    {
+      "log": "SWIFT-FIRST-FUNCTIONAL-FAILURE.log",
+      "outcome": "254 tests/34 suites failed with 5 issues; original Bookno three-case parameter scope restored and new regression separated viewport reading checkpoint from note selection. Production progress/reader unchanged."
+    }
+  ],
+  "futureJapaneseOverlap": {
+    "japaneseCandidateSHA": "55405ad8e221b38d2a3f710ba277bf85ec94ccc6",
+    "readOnlyNameComparisonOnly": true,
+    "overlappingChangedPaths": [
+      "apple/Packages/PDFnoKit/Sources/PDFnoUI/LibraryModel.swift",
+      "apple/Packages/PDFnoKit/Sources/PDFnoUI/LibraryWorkspace.swift",
+      "apple/Tests/NativeUITests.swift"
+    ],
+    "scope": "No Japanese code applied or tested."
+  },
+  "safetySpecial": "UNVERIFIED / original platform blocker; not retried or replaced by routine regression",
+  "remoteCIExecuted": false,
+  "publishedOrMerged": false,
+  "nextGate": "Separate authorization to ordinary-push this exact feature candidate and run unfiltered Native checks/full Swift/all40 UI plus Bounded comic archive checks. No main merge authorization.",
+  "localEvidenceDirectory": "/tmp/pdfno-all-formats-20261004-xwr12xf1",
+  "logs": {
+    "REPRODUCTION.log": {
+      "sha256": "8008177a37c0fa26813759e75c9266e3c91d16b2d191fb9cc62284a5c69da353",
+      "bytes": 4571
+    },
+    "NODE.log": {
+      "sha256": "e95604c72e29f0fe75585df1b7c9e97b3a8721ce5f21f196da8034a672b8d3ab",
+      "bytes": 5088
+    },
+    "SWIFT-MANIFEST-EPERM.log": {
+      "sha256": "09ba4f63dec5362188f0ae4c5e2ec0f5655dbf6f4eb87da073781e75ca48a291",
+      "bytes": 1745
+    },
+    "SWIFT-TYPECHECK-FAILURE.log": {
+      "sha256": "84a3eef5f9ca3c592b7c8b737e3b36d55a9c5d91107a75730020b86e51537925",
+      "bytes": 23849
+    },
+    "SWIFT-FIRST-FUNCTIONAL-FAILURE.log": {
+      "sha256": "4d10d8ec712aad7a06abd5c4e8e469803882c0770bc83ac69b824e3adbab05c2",
+      "bytes": 59876
+    },
+    "SWIFT-SELECTED.log": {
+      "sha256": "d2924c2779ba1e435304f2e7b052dc9c83987219fbe164ba5678601327c8cf04",
+      "bytes": 55316
+    },
+    "MAC-BUILD.log": {
+      "sha256": "082cedbc623ecabd7f5178ee7a58cf59ddd4f511d4bcdd25793672d79cb676fd",
+      "bytes": 1210567
+    },
+    "MOBILE-BUILD.log": {
+      "sha256": "2ea27a438119903d557a8e91a2dbecdfaf0f2a156645115e3862fc183b21fce7",
+      "bytes": 1272170
+    },
+    "FINAL-SOURCE-GUARD.log": {
+      "sha256": "eff7cddd79433ece1b8c9d2fa5bba54e00082ecfd61d5fa7f5d863db69224227",
+      "bytes": 146
+    },
+    "FINAL-LEDGER.log": {
+      "sha256": "3c9e7f44db0476eb4426265034f3ea86f2c2c546244f44cc16d3955bf20008d7",
+      "bytes": 106
+    },
+    "FINAL-CODEC-GUARD.log": {
+      "sha256": "341c791f7bea0eacfb27d0d60e59b41e7ec3e2412a5f4955d602019290dab66a",
+      "bytes": 108
+    },
+    "WHITESPACE-ALL.log": {
+      "sha256": "fe7675ee3acb8b058f9a4efb83540b30cb69db942172d95ff1a6b17a37a382be",
+      "bytes": 13259
+    },
+    "WHITESPACE-AUTHORED.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  }
+}

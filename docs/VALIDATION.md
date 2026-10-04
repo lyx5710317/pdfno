@@ -1,4 +1,16 @@
+# 2026-10-04 local web + CBT integration candidate
+
+Independent `feature/integration-web-comic-archives-20261004` combines the exact web and CBT worker commits without Bookno/ebook. Two joint temporary-library regressions, 201 selected no-window Swift tests/29 suites, 4 Node tests and unsigned Mac + Simulator app/UI-target builds passed; all 33 app UI methods are preserved and compiled, full UI NOT-RUN. Thirteen existing window test methods are deferred to isolated exact-SHA CI. See [candidate lineage, evidence, full UI inventory and historical window-scope disclosure](WEB-COMIC-ARCHIVE-INTEGRATION-2026-10-04.md). Independent security remains UNVERIFIED/platform-blocked; no main/worker edits, push/merge, app UI or Library access.
+
+# 2026-10-04 bounded CBT branch
+
+Independent `feature/comic-archive-formats` from accepted `f3ed484` implements finite Mac CBT/POSIX USTAR on the fixed Kookit comic model and existing controls/limits, with separate CBT originals/manifest and real original fixtures.37 offline Swift/4 Node/8 ledger checks and unsigned Mac + Simulator app/UI-target compilation passed. Full CBT app UI remains NOT-RUN. CB7/CBR remain blocked on approved exact decoder source/license/Apple/bounded-decode work. An earlier filter accidentally ran two existing hidden-window WebKit tests; that out-of-scope run was immediately disclosed and excluded from the corrected offline run. Independent full-project security stays UNVERIFIED/platform-blocked. See [full validation and deviation](COMIC-ARCHIVE-VALIDATION-2026-10-04.md) and [source/license/support/merge boundaries](ADR-COMIC-ARCHIVE-FORMATS.md). No push/merge/Library/private-key use.
+
 # Native validation evidence
+
+## All-format local joint candidate — 2026-10-04
+
+Accepted main `71d5454` plus exact ebook/web+CBT/native-comic inputs:254 selected Swift/34 suites,25 Node,169 unchanged reproduced resources/fixtures/project/codecs,8 ledger regressions,96 selected codec source/header/license checks and6 original real-container fixtures passed. Mac and iPhone/iPad Simulator unsigned jobs=2 build-for-testing succeeded for arm64+x86_64. Complete40 Mac UI methods compiled; local actual UI0,16 window-dependent Swift method definitions deferred. The old30 UI content, main strict EPUB selection implementation/negative case and Bookno original assertion bodies remain. Main/input trees/user metadata untouched; no remote/Library/API/Japanese work. Failures, exact scope, format bounds and publish/CI gate are in [joint handoff](ALL-FORMATS-INTEGRATION-2026-10-04.md) and [machine evidence](ALL-FORMATS-LOCAL-EVIDENCE.json). Independent security remains UNVERIFIED/platform-blocked.
 
 ## TXT / Markdown / HTML independent slice — 2026-10-04
 
@@ -180,3 +192,5 @@ Real-device iPhone/iPad and oldest deployment versions; VoiceOver/keyboard cover
 [Historical demo validation](historical/VALIDATION-LEGACY.md) retains the earlier Electron/CLI evidence. Its commands and successful old CI apply only to recoverable old source, not the current native runtime.
 
 WindowGroup follows Apple’s [SwiftUI app scene guidance](https://developer.apple.com/documentation/technologyoverviews/swiftui), verified 2026-10-02. This phase hides new-window commands and does not promise multiple-window repository coordination. [XCUIApplication launchEnvironment](https://developer.apple.com/documentation/xcuiautomation/xcuiapplication/launchenvironment) provides the supported test-session transport. The interpretation of earlier positional arguments as file requests is a diagnostic hypothesis until the corrected exact-commit CI establishes the outcome; the confirmed observation is a foreground process with no windows.
+
+Native CB7/CBR local increment (2026-10-04): offline46 tests/4 suites, official selected source/fixture hash checks, and unsigned native Mac/iOS Simulator application/UI compilation. No window/App/simulator run; finite compressed7z and STORE-only RAR boundary, decoder heap budget/performance samples and source/licenses are in [codec validation](COMIC-CODEC-VALIDATION-2026-10-04.md). Independent security remains UNVERIFIED.

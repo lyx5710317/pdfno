@@ -22,6 +22,7 @@ import PDFnoServices
     @Published var includeSavedNotes = false { didSet { if includeSavedNotes != oldValue { invalidate() } } }
     @Published var includeCovers = false { didSet { if includeCovers != oldValue { invalidate() } } }
     @Published private(set) var choices: [BooknoPreviewChoice] = []
+    @Published private(set) var unsupportedBooks: [BooknoUnsupportedBook] = []
     @Published private(set) var busy = false
     @Published private(set) var batch: BooknoPreviewBatch?
     @Published private(set) var json = ""
@@ -32,7 +33,7 @@ import PDFnoServices
     @Published private(set) var mockRecordCount = 0
     @Published private(set) var mockAssetCount = 0
     @Published private(set) var confirmedCursor = 0
-    private let catalog: @Sendable () async throws -> [BooknoPreviewChoice]
+    private let catalog: @Sendable () async throws -> BooknoPreviewCatalog
     private let materialize: @Sendable ([BooknoPreviewChoice], Bool, Bool) async throws -> BooknoPreviewMaterial
     private var ledger = BooknoOfflinePreview()
     private var receiver: BooknoMockReceiver
@@ -40,13 +41,17 @@ import PDFnoServices
     private var assetBytes: [String: Data] = [:]
     private var generation = UUID()
     convenience init(repository: BooknoLibraryPreviewRepository) {
-        self.init(catalog: { try await repository.catalog() }, materialize: { selected, notes, covers in
+        self.init(snapshot: { try await repository.catalogSnapshot() }, materialize: { selected, notes, covers in
             try await repository.materialize(selected, includeSavedNotes: notes, includeCovers: covers)
         })
     }
-    init(catalog: @escaping @Sendable () async throws -> [BooknoPreviewChoice],
+    convenience init(catalog: @escaping @Sendable () async throws -> [BooknoPreviewChoice],
          materialize: @escaping @Sendable ([BooknoPreviewChoice], Bool, Bool) async throws -> BooknoPreviewMaterial) {
-        self.catalog = catalog; self.materialize = materialize
+        self.init(snapshot: { BooknoPreviewCatalog(choices: try await catalog()) }, materialize: materialize)
+    }
+    init(snapshot: @escaping @Sendable () async throws -> BooknoPreviewCatalog,
+         materialize: @escaping @Sendable ([BooknoPreviewChoice], Bool, Bool) async throws -> BooknoPreviewMaterial) {
+        self.catalog = snapshot; self.materialize = materialize
         receiver = BooknoMockReceiver(receiverID: ledger.receiverID)
         tracker = BooknoConfirmationTracker(receiverID: ledger.receiverID, epoch: ledger.epoch)
     }
@@ -59,8 +64,11 @@ import PDFnoServices
         do {
             let fresh = try await catalog()
             guard token == generation, !Task.isCancelled else { return }
-            choices = fresh; selectedIDs.formIntersection(Set(fresh.map(\.id)))
-        } catch { if token == generation { self.error = "本地书目无法验证，请检查本地书库后重试。" } }
+            choices = fresh.choices; unsupportedBooks = fresh.unsupported
+            selectedIDs.formIntersection(Set(fresh.choices.map(\.id)))
+        } catch {
+            if token == generation { choices = []; unsupportedBooks = []; selectedIDs = []; self.error = Self.message(error) }
+        }
     }
     func prepare() async {
         guard enabled, !busy else { return }
@@ -110,9 +118,10 @@ import PDFnoServices
             status = "已模拟提交后丢回执 · 尚未确认 · 请重放同一批次 · Bookno 未连接"
         } catch { self.error = Self.message(error); status = "mock 未确认 · Bookno 未连接" }
     }
-    func close() { enabled = false; selectedIDs = []; includeSavedNotes = false; includeCovers = false; invalidate(); choices = [] }
+    func close() { enabled = false; selectedIDs = []; includeSavedNotes = false; includeCovers = false; invalidate(); choices = []; unsupportedBooks = [] }
     private static func message(_ error: Error) -> String {
         switch error {
+        case BooknoPreviewError.unsupportedFormat(let format): "Bookno 预览尚未适配 \(format)；本次不生成此格式内容，原记录保留。"
         case BooknoPreviewError.selectionLimit: "请缩小选择：最多20本书、1000个对象、封面合计20MiB；不截断内容。"
         case BooknoPreviewError.sourceMismatch: "书籍、版本或来源已变化，无法验证。请刷新书目后重新生成预览。"
         case BooknoPreviewError.assetMissing, BooknoPreviewError.assetInvalid: "已保存封面缺失或无法验证。请关闭封面范围或先在本地修复封面。"

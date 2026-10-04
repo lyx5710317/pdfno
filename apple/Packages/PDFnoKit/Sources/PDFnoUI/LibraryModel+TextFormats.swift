@@ -9,7 +9,7 @@ extension LibraryModel {
         await saveProgress()
         do {
             try await textFormats.importFile(url)
-            epub.close(); comic.close(); docx.deactivate(); readingEPUB = false; readingComic = false
+            epub.close(); comic.close(); docx.deactivate(); ebook.deactivate(); readingEPUB = false; readingComic = false
             status = "文本已保存到本地 · 原文件未改写"
         } catch { self.error = error.localizedDescription }
     }
@@ -19,7 +19,7 @@ extension LibraryModel {
         await saveProgress()
         do {
             try await textFormats.open(book)
-            epub.close(); comic.close(); docx.deactivate(); readingEPUB = false; readingComic = false
+            epub.close(); comic.close(); docx.deactivate(); ebook.deactivate(); readingEPUB = false; readingComic = false
         } catch { self.error = error.localizedDescription }
     }
 }

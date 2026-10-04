@@ -85,7 +85,7 @@ private final class TextFormatAssets: NSObject, WKURLSchemeHandler {
             }
             guard token == readerSessionID else { throw TextFormatError.cancelled }
             let message: [String: Any] = ["v": 1, "session": token.uuidString, "bookID": book.id.uuidString,
-                "editionID": book.editionID.uuidString, "fileSHA256": book.fileSHA256, "source": decoded.text, "format": book.format.rawValue]
+                "editionID": book.editionID.uuidString, "fileSHA256": book.fileSHA256, "source": decoded.text, "format": decoded.engineFormat.rawValue]
             let result: String = try await withCheckedThrowingContinuation { continuation in
                 waitingConversion = continuation
                 web.callAsyncJavaScript("return await window.PDFnoTextEngine.convert(message)", arguments: ["message": message], in: nil, in: .page) { [weak self] result in
@@ -104,7 +104,9 @@ private final class TextFormatAssets: NSObject, WKURLSchemeHandler {
                   object["fileSHA256"] as? String == book.fileSHA256, object["engine"] as? String == "kookit-text-marked-15.0.12",
                   object["extractionVersion"] as? String == TextFormatDocument.extractionVersion,
                   let semantic = object["document"] as? [String: Any] else { throw TextFormatError.bridge }
-            let converted = try JSONDecoder().decode(TextFormatDocument.self, from: JSONSerialization.data(withJSONObject: semantic))
+            let extracted = try JSONDecoder().decode(TextFormatDocument.self, from: JSONSerialization.data(withJSONObject: semantic))
+            let converted = TextFormatDocument(blocks: extracted.blocks, warnings: extracted.warnings + decoded.warnings)
+            guard converted.isValid else { throw TextFormatError.bridge }
             // Install only native escaped DTO blocks; raw book markup never enters the live DOM.
             let installed = try await web.callAsyncJavaScript("return window.pdfnoText.install(html, expected)", arguments: ["html": TextFormatHTML.fragment(converted), "expected": converted.text], in: nil, contentWorld: .page)
             guard token == readerSessionID, (installed as? Bool) == true else { throw TextFormatError.bridge }

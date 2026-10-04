@@ -33,7 +33,7 @@ extension LibraryModel {
             if let i = notes.firstIndex(where: { $0.id == note.id && $0.bookID == note.bookID }) { notes[i] = note }
             if !readingEPUB, !readingComic, reader.book?.id == note.bookID, reader.readerSessionID == pdfSession {
                 #if os(macOS)
-                if !docx.isActive, !textFormats.isActive { reader.project(notes) }
+                if !docx.isActive, !textFormats.isActive, !ebook.isActive { reader.project(notes) }
                 #else
                 reader.project(notes)
                 #endif

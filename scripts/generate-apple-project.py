@@ -80,6 +80,7 @@ def file_ref(name, path, kind):
 mac_source = file_ref('MacSource','Apps/Mac/PDFnoMacApp.swift','sourcecode.swift')
 mobile_source = file_ref('MobileSource','Apps/Mobile/PDFnoMobileApp.swift','sourcecode.swift')
 test_source = file_ref('TestSource','Tests/NativeUITests.swift','sourcecode.swift')
+ebook_test_source = file_ref('EbookTestSource','Tests/EbookFormatUITests.swift','sourcecode.swift')
 
 def phase(name, isa, file_ids):
     return add(name, isa, 'buildActionMask = 2147483647; files = ('+','.join(file_ids)+'); runOnlyForDeploymentPostprocessing = 0;')
@@ -105,7 +106,9 @@ for name, (app_target, app_product, platform) in app_targets.items():
     product = add(test_name+'product','PBXFileReference',f'explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = {test_name}.xctest; sourceTree = BUILT_PRODUCTS_DIR;')
     product_refs.append(product)
     build = add(test_name+'build','PBXBuildFile',f'fileRef = {test_source};')
-    phases = [phase(test_name+'sources','PBXSourcesBuildPhase',[build]),phase(test_name+'frameworks','PBXFrameworksBuildPhase',[]),phase(test_name+'resources','PBXResourcesBuildPhase',[])]
+    test_builds = [build]
+    if platform == 'mac': test_builds.append(add(test_name+'ebookBuild','PBXBuildFile',f'fileRef = {ebook_test_source};'))
+    phases = [phase(test_name+'sources','PBXSourcesBuildPhase',test_builds),phase(test_name+'frameworks','PBXFrameworksBuildPhase',[]),phase(test_name+'resources','PBXResourcesBuildPhase',[])]
     proxy = add(test_name+'proxy','PBXContainerItemProxy',f'containerPortal = {ident("project")}; proxyType = 1; remoteGlobalIDString = {app_target}; remoteInfo = {name};')
     dependency = add(test_name+'dependency','PBXTargetDependency',f'target = {app_target}; targetProxy = {proxy};')
     settings = {'PRODUCT_NAME':'$(TARGET_NAME)','PRODUCT_BUNDLE_IDENTIFIER':'org.pdfno.'+test_name,'GENERATE_INFOPLIST_FILE':'YES','CODE_SIGN_STYLE':'Manual','CODE_SIGN_IDENTITY':'-','DEVELOPMENT_TEAM':'','TEST_TARGET_NAME':name, 'SWIFT_VERSION':'6.0'}

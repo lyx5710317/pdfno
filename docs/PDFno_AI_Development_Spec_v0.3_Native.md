@@ -213,23 +213,23 @@ Mac SwiftUI 原生书库、目录、翻页、横竖排和笔记宿主通过受�
 | 扩展名 | 当前阅读状态／平台 | 路线与稳定位置 | 后续验收门槛／缺口 |
 | --- | --- | --- | --- |
 | EPUB | 已实现有限Mac重排阅读；移动待实现 | 独立Kookit EPUB adapter；edition/hash/spine/resource/canonical UTF-16 span＋引文 | EPUB2/3、固定版式、字体／图片保真、搜索、竖排ruby、选择／恢复及三端交互；N3 |
-| MOBI | 待实现，三端均未开放 | 独立经审计的DRM-free parser；资源／块／提取版本＋引文 | PalmDOC／压缩变体、目录／图片／编码、恶意块与实际解压限额、定位恢复；N7 |
-| AZW | 待实现，三端均未开放 | 独立DRM-free adapter；不能只按扩展名当MOBI | 按实测文件头／变体分能力，拒绝DRM／不支持变体，选文／资源／进度；N7 |
-| AZW3 | 待实现，三端均未开放 | 独立DRM-free KF8审计；结构位置＋引文 | KF8资源／CSS／目录／重复引文，安全预算与跨重排恢复；N7 |
-| FB2 | 待实现，三端均未开放 | 受控FictionBook parser；文档hash／块／span | 命名空间、章节／脚注／内嵌图、编码；禁止DTD／外部实体，大小预算；N7 |
+| MOBI | 本地联合候选有限Mac阅读；完整UI待CI，移动未开放 | 固定Kookit独立ebook adapter；真实BOOKMOBI v6／有限纯v8，edition/hash/section/block/UTF-16引文 | 仅原文／PalmDOC压缩；拒绝DRM、HUFF/CDIC、combo、原始NCX等；见ADR-EBOOK-KOOKIT及ALL-FORMATS-INTEGRATION；N7 |
+| AZW | 本地联合候选有限Mac阅读；完整UI待CI，移动未开放 | 按真实PalmDB/MOBI头准入v6／有限纯v8；保留AZW类型及原件hash | 不按扩展名推断兼容；选文／笔记／进度已局部验证，通用Kindle兼容未承诺；见ADR-EBOOK-KOOKIT；N7 |
+| AZW3 | 本地联合候选有限Mac纯KF8阅读；完整UI待CI，移动未开放 | 固定Kookit独立ebook adapter；真实skeleton/fragment索引＋section/block精确引文 | 拒绝MOBI6改名、combo、固定版式、媒体／原始NCX及guide；见ADR-EBOOK-KOOKIT；N7 |
+| FB2 | 本地联合候选有限Mac阅读；完整UI待CI，移动未开放 | 严格UTF-8 FictionBook2命名空间与有界主体；edition/hash/section/block/span | 拒绝ZIP、DTD／实体、binary／附加非线性主体；脚注／图片／复杂布局仍有缺口；见ADR-EBOOK-KOOKIT；N7 |
 | PDF | 已实现Mac PDFKit闭环；移动基础UI已接入但实际设备未验收 | PDFKit；页／原文／几何＋edition/hash；OCR另版本 | 文本／扫描／混合、权限／加密状态、批注／搜索／恢复、三端真机及无文本降级；N2 |
 | TXT | 已实现有限Mac首片；完整UI待独立验收，移动未开放 | 固定Kookit文本适配；严格UTF-8／BOM UTF-16，edition/hash／渲染正文提取版本／块／span | 编码探测与用户修正、换行／大文本／Unicode／搜索／稳定选区；N7 |
 | DOCX | 已合入有限Mac语义阅读；完整应用UI按最终CI；移动待实现 | 独立adapter直接调用Kookit参考中的实际Mammoth1.13.0；原始DocxRender类不执行；edition/hash/提取版本/语义block/精确UTF-16引文 | 正文、标准标题／简单表格／列表／选文笔记；图片／分页／复杂Word语义不保真；源码／许可／安全／原件／锚点及三端；N7 |
 | MD | 已实现有限Mac首片；完整UI待独立验收，移动未开放 | 固定Kookit／Marked15.0.12；规范化显示正文UTF-16偏移＋精确引文，原始Markdown保留 | 明确语法版本、禁主动HTML／远程资源，代码／表格／链接／图片、源文与渲染定位；N7 |
 | CBZ | 已实现有限Mac静态PNG/JPEG阅读；移动待实现 | 固定Kookit makeComicBook＋Swift ZIP／ImageIO＋受限WK；edition/hash/页路径/index | 实际WebKit已测；完整Mac应用UI按最终CI；缩放／连续滚动／移动／区域锚点待实现；N7 |
-| CBR | 待实现，三端均未开放；当前导入明确拒绝 | 独立受控RAR decoder；页路径／图像hash／区域 | RAR版本与decoder源码／许可证／三端构建，实解压限额／路径／链接／CRC，原生交互；N7 |
-| CBT | 待实现，三端均未开放 | 独立受控TAR adapter；复用漫画页／区域模型 | TAR变体、头校验、路径／特殊文件／链接／预算，稳定页序与三端交互；N7 |
-| CB7 | 待实现，三端均未开放 | 独立受控7z decoder；复用漫画页／区域模型 | decoder许可／三端构建，solid／实际解压预算、加密／路径／CRC拒绝及恢复；N7 |
+| CBR | 本地联合候选有限Mac RAR4/RAR5 STORE；压缩RAR与移动拒绝，UI仅编译 | 已批准固定libarchive原生decoder；edition/hash/页路径/index/方向/layout，无区域批注 | 固定源码／许可与三端编译已局部核验；有限头／CRC／预算，完整UI待CI；不承诺通用CBR；N7 |
+| CBT | 独立分支已实现有限Mac未压缩POSIX USTAR；应用UI验收待运行，移动未开放 | 原创有界TAR adapter＋固定Kookit漫画模型；edition/hash/页路径/index/方向/layout，独立CBT manifest | 拒绝PAX/GNU/压缩包装/链接/特殊文件，继承归档与图像限额；更多TAR变体／完整应用UI／三端；N7，见ADR-COMIC-ARCHIVE-FORMATS |
+| CB7 | 本地联合候选有限Mac明文头非solid COPY/LZMA1/LZMA2；UI仅编译 | 已批准固定libarchive＋liblzma原生decoder；复用页位置模型，无区域批注 | 固定源码／许可与三端编译已局部核验；拒绝solid／加密头／其他codec，实际预算／CRC；完整UI待CI；N7 |
 | HTML | 已实现有限Mac首片；完整UI待独立验收，移动未开放 | 固定Kookit HTML适配＋语义净化；edition/hash／规范化正文提取版本＋引文 | 脚本／表单／远程资源禁用，CSS／本地资源／链接策略、选文／重排恢复；N7 |
 | HTM | Mac首片作为HTML别名；完整UI待独立验收，移动未开放 | 与HTML共享限定adapter，大小写扩展名准入与原件hash保留 | 同HTML验收，并测试大小写／文件头／扩展名错配；N7 |
-| XHTML | 待实现，三端均未开放 | 受控XML解析＋离线渲染；结构／span＋引文 | 命名空间／编码、DTD／实体禁用、HTML一致性、资源预算／来源回跳；N7 |
-| MHTML | 待实现，三端均未开放 | 独立MIME归档解析＋HTML净化；part/resource/hash | multipart／编码／Content-Location映射、重复与恶意part、总预算、无网络、选文恢复；N7 |
-| XML | 待实现，三端均未开放；限定可阅读标记文档 | 已定义可读schema的受控parser／视图，或明确安全文本视图 | 不是任意XML的通用业务解释器；schema白名单、DTD／外部实体禁用、结构／编码／来源验收；N7 |
+| XHTML | 有限Mac实现；完整UI待隔离CI，移动未开放 | 严格命名空间XML预检→既有固定Kookit HTML链；edition/hash／规范化正文span | 拒绝DTD／外部实体／未知命名空间；离线正文、笔记／回跳／进度；见WEB-ARCHIVE-FORMATS；N7 |
+| MHTML | 有限Mac实现；完整UI待隔离CI，移动未开放 | 受限Swift MIME输入adapter→既有固定Kookit HTML链；原件hash／正文span | 平面related／单HTML／严格编码／64项／1MiB单项；资源不显示、不联网；见WEB-ARCHIVE-FORMATS；N7 |
+| XML | 有限Mac实现；限定可读文档，完整UI待隔离CI，移动未开放 | 仅真实XHTML或无命名空间document词汇→固定Kookit HTML；edition/hash／正文span | 拒绝未知schema／DTD／外部实体；非任意业务XML；见WEB-ARCHIVE-FORMATS；N7 |
 
 所有输入限定DRM-free／用户有权访问的文档，不实施绕过DRM；普通加密／密码／权限限制另按格式能力明确处理，不把DRM与损坏混为一类。每个adapter先核验官方源码、许可证、实际Mac/iPhone/iPad支持和资源上限，不从根AGPL或上游功能表推断decoder许可，也不把仅iOS库当macOS可用。纯图片序列仍作为独立附加目标保留，不计入上述18个扩展名。
 
@@ -237,13 +237,13 @@ Mac SwiftUI 原生书库、目录、翻页、横竖排和笔记宿主通过受�
 
 各adapter运行时返回显示／选择／搜索／批注／OCR／学习／转换能力及理由。学习不可用时已实现reader仍可阅读；格式尚未实现则拒绝并说明阶段，不能伪造打开成功。DRM、加密、损坏、权限受限、无文本分别有可操作状态。PDFKit不支持EPUB、漫画或任意格式转换；阅读目标不承诺任意互转。
 
-### 5.4 已实施的限定 Mac CBZ adapter
+### 5.4 已实施的限定 Mac CBZ adapter 与独立 CBT 切片
 
-2026-10-03 用户授权漫画切片。固定Kookit commit的额外`src/libs/comic-book.js`由COMICS-SOURCE.json记录Git blob/SHA256并在构建时校验，原文与AGPL许可证保留；独立profile没有npm新依赖、RAR worker、WASM或CLI解包。上游模型返回页section/blob，Swift处理归档与图片，Mac原生工具栏／书库保持不变。CBR的实际解码器／许可／资源界限未核清，明确拒绝，未从根AGPL推断decoder许可。详见ADR-CBZ-KOOKIT与CBZ-VALIDATION。
+2026-10-03 用户授权漫画切片。固定Kookit commit的额外`src/libs/comic-book.js`由COMICS-SOURCE.json记录Git blob/SHA256并在构建时校验，原文与AGPL许可证保留；独立profile没有npm新依赖、RAR worker、WASM或CLI解包。上游模型返回页section/blob，Swift处理归档与图片，Mac原生工具栏／书库保持不变。原CBZ切片不含RAR；2026-10-04另获批准的libarchive3.8.9＋liblzma5.8.4源码增量只准入有限CB7与RAR4/5 STORE，压缩RAR仍拒绝，精确边界见COMIC-CODEC-VALIDATION-2026-10-04。CBZ路线详见ADR-CBZ-KOOKIT与CBZ-VALIDATION。
 
 CBZ限100MiB、2000条目、16MiB单项、512MiB实际总解压、24M单图／512M总像素／16000单维；所有条目大小及CRC核验，路径/重复/重叠/链接/加密/分卷/ZIP64拒绝，不解包到文件系统。仅完整单帧PNG/JPEG，ImageIO先查尺寸再下采样为最大2400维PNG，不保留原始元数据；当前一／二页blob有界且及时释放。自然数字完整路径排序跨locale稳定，封面／横向页单独显示，竖向双页和奇数尾页均可达。自动双页要求viewport宽≥900且宽于高，尺寸变化保留逻辑页；方向只改变视觉次序／箭头，不改页序。
 
-独立comics-v1.json与Originals/hash.cbz保护原件，进度绑定edition/hash/index/精确页路径/方向/layout；实际渲染回执匹配session/request才保存。WK非持久store、精确app资源scheme、CSP无网络、无书籍脚本iframe、桥字段校验与截止／取消阻止旧结果；切漫画取消AI并拒绝隐含PDF/EPUB来源。当前没有漫画OCR/AI/笔记/区域锚点、原图缩放连续滚动、ComicInfo重排、移动阅读或其他容器。其存在不使原格式库存全通过。
+独立comics-v1.json与Originals/hash.cbz保护原件，进度绑定edition/hash/index/精确页路径/方向/layout；实际渲染回执匹配session/request才保存。WK非持久store、精确app资源scheme、CSP无网络、无书籍脚本iframe、桥字段校验与截止／取消阻止旧结果；切漫画取消AI并拒绝隐含PDF/EPUB来源。独立comic-archive-formats分支新增有限CBT（未压缩POSIX USTAR）与comics-cbt-v1.json，复用同一模型／限额／进度，不迁移CBZ；见ADR-COMIC-ARCHIVE-FORMATS。CB7/CBR后续已批准有限原生解码增量，精确边界见COMIC-CODEC-VALIDATION-2026-10-04；尚未完整UI验收。当前没有漫画OCR/AI/笔记/区域锚点、原图缩放连续滚动、ComicInfo重排或移动阅读。其存在不使原格式库存全通过。
 
 ### 5.5 Rangy 最小安全修复
 
@@ -261,7 +261,7 @@ Mac原生入口包含导入／示例／书库、标题目录、选文／高亮�
 
 ### 5.7 TXT／Markdown／HTML Mac 首片边界
 
-2026-10-04 从已验证的11d32265基线建立独立文本分支。固定Kookit原始Txt/Md/Html类只作为blob核验参考，运行原始txtToHtml、makeHtmlBook与MdRender所用的Marked15.0.12；不引入GeneralRender、chardet或mhtml2html。Mac原生书库／导入／正文／标题或启发式章节导航／选文笔记／精确回跳与进度已实现。严格UTF-8或带BOM的UTF-16，4MiB原件／100万UTF-16／10000块／10万节点／64层限额；链接仅文字，图片／CSS／字体／脚本与嵌入内容不加载。XML／XHTML／MHTML、格式内搜索、笔记编辑、封面与本格式AI／移动阅读仍待实现。
+2026-10-04 从已验证的11d32265基线建立独立文本分支。固定Kookit原始Txt/Md/Html类只作为blob核验参考，运行原始txtToHtml、makeHtmlBook与MdRender所用的Marked15.0.12；不引入GeneralRender、chardet或mhtml2html。Mac原生书库／导入／正文／标题或启发式章节导航／选文笔记／精确回跳与进度已实现。严格UTF-8或带BOM的UTF-16，4MiB原件／100万UTF-16／10000块／10万节点／64层限额；链接仅文字，图片／CSS／字体／脚本与嵌入内容不加载。XHTML／MHTML／可阅读XML现有后续有限Mac切片，边界见[网页归档接入](WEB-ARCHIVE-FORMATS.md)；格式内搜索、笔记编辑、封面与本格式AI／移动阅读仍待实现。
 
 独立text-formats-v1.json与原件保持其他格式／learning manifest不变，Markdown原始字节不改。锚点绑定edition／原件hash／kookit-text-marked15-utf16-1／语义block／精确引文与上下文；偏移是规范化显示正文UTF-16，不冒称原始Markdown标记或文件字节位置。重开先核原件，再复现固定引擎与DOM／DTO逐字一致，不模糊重定位。126项组合Swift、源文件／需求守卫与Mac build-for-testing／iPhone+iPad模拟器构建通过；三项新增原生UI仅准备并编译，未运行。全项目安全专项仍UNVERIFIED、平台blocked；不以此局部回归改变结论。范围／许可／预算／未验边界及封面／搜索／章节AI整合点见[文本格式交接](TEXT-FORMATS-SLICE.md)。
 

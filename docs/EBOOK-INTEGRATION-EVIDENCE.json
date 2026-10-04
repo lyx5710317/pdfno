@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-04 09:32:50 UTC",
+  "validation_source_commit": "77628067c7e981c1f110af1b52c1948ccaedf82c",
+  "validation_source_tree": "8827fceb87beb12202dfc05e34410d2ee05c9582",
+  "base_commit": "f3ed484fee815effed2d955f8eb21bcd66d8546e",
+  "original_ebook_candidate": "3db8c981757491d6428250cd87ebb2c674e616f7",
+  "branch": "feature/ebook-integration",
+  "working_directory_reference": "${EBOOK_INTEGRATION_WORKTREE}: independent ebook-integration checkout; local account path omitted",
+  "documentation_only_follow_up": true,
+  "host": {
+    "architecture": "arm64",
+    "macos": "27.0",
+    "xcode": "27.0 (27A266a)",
+    "swift": "6.4",
+    "deployment_macos": "14",
+    "deployment_ios": "17"
+  },
+  "runs": [
+    {
+      "action": "swift_full_normal_functional",
+      "command": "env CFFIXED_USER_HOME=/tmp/pdfno-ebook-integration-build/FunctionalHome CLANG_MODULE_CACHE_PATH=/tmp/pdfno-ebook-integration-build/ModuleCache SWIFTPM_MODULECACHE_OVERRIDE=/tmp/pdfno-ebook-integration-build/ModuleCache swift test --package-path apple/Packages/PDFnoKit --scratch-path /tmp/pdfno-ebook-integration-build/Package --cache-path /tmp/pdfno-ebook-integration-build/Cache --config-path /tmp/pdfno-ebook-integration-build/Config --security-path /tmp/pdfno-ebook-integration-build/Security",
+      "working_directory": "${EBOOK_INTEGRATION_WORKTREE}",
+      "source_commit": "77628067c7e981c1f110af1b52c1948ccaedf82c",
+      "exit_code": 0,
+      "result": "203 definitions in 32 suites passed in 6.051 seconds",
+      "log": "/tmp/pdfno-ebook-integration-swift.log",
+      "log_sha256": "047e303d16d52c0604fffd6922f4553868300c9838808bd8c14e91d5a8dce87f",
+      "log_bytes": 45762
+    },
+    {
+      "action": "node_regression",
+      "command": "node --test engine-build/loader.test.mjs engine-build/rangy-security.test.mjs engine-build/docx.test.mjs engine-build/comics-reader.test.mjs engine-build/ebook.test.mjs engine-build/ebook-bridge.test.mjs",
+      "working_directory": "${EBOOK_INTEGRATION_WORKTREE}",
+      "source_commit": "77628067c7e981c1f110af1b52c1948ccaedf82c",
+      "exit_code": 0,
+      "result": "25 passed, 0 failed, 0 skipped",
+      "log": "/tmp/pdfno-ebook-integration-node.log",
+      "log_sha256": "cf6382f3ef4048849652fb6e60d48cad0a0441d983f1b2ecdd35dc92f61df11f",
+      "log_bytes": 5095
+    },
+    {
+      "action": "mac_build_for_testing",
+      "command": "env CFFIXED_USER_HOME=/tmp/pdfno-ebook-integration-build/Mac/Home CLANG_MODULE_CACHE_PATH=/tmp/pdfno-ebook-integration-build/Mac/ModuleCache SWIFTPM_MODULECACHE_OVERRIDE=/tmp/pdfno-ebook-integration-build/Mac/ManifestModules xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath /tmp/pdfno-ebook-integration-build/Mac/DerivedData -clonedSourcePackagesDirPath /tmp/pdfno-ebook-integration-build/Mac/Packages -packageCachePath /tmp/pdfno-ebook-integration-build/Mac/PackageCache -disableAutomaticPackageResolution -skipPackageUpdates -jobs 2 CODE_SIGNING_ALLOWED=NO MODULE_CACHE_DIR=/tmp/pdfno-ebook-integration-build/Mac/ModuleCache build-for-testing",
+      "working_directory": "${EBOOK_INTEGRATION_WORKTREE}",
+      "source_commit": "77628067c7e981c1f110af1b52c1948ccaedf82c",
+      "exit_code": 0,
+      "result": "TEST BUILD SUCCEEDED; 33 Mac UI methods compiled, NOT-RUN",
+      "log": "/tmp/pdfno-ebook-integration-mac-final.log",
+      "log_sha256": "399909bb6ce9d174a6f85736fcfd1a0ef7cf9012905e6877fda6997a5a964094",
+      "log_bytes": 38065
+    },
+    {
+      "action": "ios_simulator_build",
+      "command": "env CFFIXED_USER_HOME=/tmp/pdfno-ebook-integration-build/Mobile/Home CLANG_MODULE_CACHE_PATH=/tmp/pdfno-ebook-integration-build/Mobile/ModuleCache SWIFTPM_MODULECACHE_OVERRIDE=/tmp/pdfno-ebook-integration-build/Mobile/ManifestModules xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMobile -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/pdfno-ebook-integration-build/Mobile/DerivedData -clonedSourcePackagesDirPath /tmp/pdfno-ebook-integration-build/Mobile/Packages -packageCachePath /tmp/pdfno-ebook-integration-build/Mobile/PackageCache -disableAutomaticPackageResolution -skipPackageUpdates -jobs 2 CODE_SIGNING_ALLOWED=NO MODULE_CACHE_DIR=/tmp/pdfno-ebook-integration-build/Mobile/ModuleCache build",
+      "working_directory": "${EBOOK_INTEGRATION_WORKTREE}",
+      "source_commit": "77628067c7e981c1f110af1b52c1948ccaedf82c",
+      "exit_code": 0,
+      "result": "BUILD SUCCEEDED; arm64/x86_64 simulator compile only",
+      "log": "/tmp/pdfno-ebook-integration-mobile-final.log",
+      "log_sha256": "f9250172df525e5bdeb6ad5a4a29388c5cac7656ffc4ab439c0630fd8f70eb43",
+      "log_bytes": 47900
+    },
+    {
+      "action": "reproduction_and_static_checks",
+      "command": "node engine-build/build.mjs; node engine-build/build-docx.mjs; node engine-build/build-comics.mjs; node engine-build/build-text.mjs; node engine-build/build-ebooks.mjs; python3 -B scripts/generate-ebook-fixtures.py; python3 -B scripts/generate-original-fixture-inventory.py; python3 -B scripts/generate-apple-project.py; python3 -B scripts/check-native-source.py; python3 -B scripts/test-requirement-ledger.py; plutil -lint apple/PDFno.xcodeproj/project.pbxproj; git diff --exit-code -- apple scripts/ORIGINAL-FIXTURES.json engine-build/BUNDLE-INPUTS.json engine-build/TEXT-BUNDLE-INPUTS.json engine-build/DOCX-BUNDLE-INPUTS.json engine-build/DOCX-BUNDLED-DEPENDENCIES.json engine-build/EBOOK-BUNDLE-INPUTS.json",
+      "working_directory": "${EBOOK_INTEGRATION_WORKTREE}",
+      "source_commit": "77628067c7e981c1f110af1b52c1948ccaedf82c",
+      "exit_code": 0,
+      "result": "Five resources/project/36 original copies reproduced with no tracked difference; source guard passed; ledger 8/8; project lint passed",
+      "log": "/tmp/pdfno-ebook-integration-reproduction.log",
+      "log_sha256": "f6aa53a55d5c99e3897775dea9ccab51ac6f06d64ce98257f3edc1d5199180fc",
+      "log_bytes": 900
+    }
+  ],
+  "failure_history": [
+    {
+      "source_commit": "c259b5414aaa0cf869dfce8ca50f39540fbeaf87",
+      "exit_code": 1,
+      "reason": "New test async call inside boolean autoclosure; assertions separated without removal",
+      "log": "/tmp/pdfno-ebook-integration-swift-initial-compile-fail.log",
+      "log_sha256": "619c9a3659615589291224abff47fa8fc8177d947753d035d2ff60c86096700a"
+    },
+    {
+      "source_commit": "fe267cd7e88b4371a90291bec9750fcee0159a78",
+      "exit_code": 1,
+      "reason": "203 definitions ran; original EPUB chapter return lost selection and new test used over-budget EPUB; both corrected without weakening source checks, limits or assertions",
+      "log": "/tmp/pdfno-ebook-integration-swift-functional-fail.log",
+      "log_sha256": "7be590a39376d25e2339982655c0675740a92408a4bd637f0a4e95a3c75dabba"
+    }
+  ],
+  "preserved_files": [
+    {
+      "path": "apple/Tests/NativeUITests.swift",
+      "sha256": "da9c41a6c2316baf79f41a24d85159f158a18ba198d0a7fa3caa5370e2ac2697",
+      "identical_to_base": true
+    },
+    {
+      "path": "apple/Packages/PDFnoKit/Sources/PDFnoUI/NativeNoteBodyInput.swift",
+      "sha256": "99327b65a61e5d7ebcd194ae55d8d98b543e723bdf0dbf2e8e94f3097db9eb44",
+      "identical_to_base": true
+    },
+    {
+      "path": "apple/Packages/PDFnoKit/Sources/PDFnoUI/NoteBodyEditor.swift",
+      "sha256": "f827dca086785b4c0f23e0c2547f1f3497fe9a07cb2ffe27b6667f94cb10edb2",
+      "identical_to_base": true
+    },
+    {
+      "path": "apple/Packages/PDFnoKit/Sources/PDFnoUI/NoteEditingFilesystemUITestFixture.swift",
+      "sha256": "f3b90eac160e0369603992f5c3f62d530982042b7c0d2142cb1e7ffa24805350",
+      "identical_to_base": true
+    },
+    {
+      "path": "apple/Packages/PDFnoKit/Sources/PDFnoUI/LibraryCovers.swift",
+      "sha256": "b1c1ce052c001513c453e86675dc31a6e2f20b60915bdc7939101f85a7378bd8",
+      "identical_to_base": true
+    },
+    {
+      "path": "apple/Packages/PDFnoKit/Sources/PDFnoUI/EPUBWorkspace.swift",
+      "sha256": "525ffd9ca5c64eb2e3e88fc6d2ebf377c63ac6746c83649c4e50007434f2e611",
+      "identical_to_base": true
+    },
+    {
+      "path": "apple/Packages/PDFnoKit/Sources/PDFnoUI/EPUBChapterTranslationWorkspace.swift",
+      "sha256": "7c2f9b63e46db98e7f0bb6c12b883926c7ea105c3891042fe49a2582a6f500fd",
+      "identical_to_base": true
+    }
+  ],
+  "ui": {
+    "existing_class": "NativeUITests",
+    "existing_methods": [
+      "testMacPDFBodyEditingCancelDraftRestartEmptyAndSource",
+      "testMacPDFBodyEditingDiskFailureKeepsDraftAndExplicitRetry",
+      "testMacEPUBBodyEditingBookSwitchRestartAndSource",
+      "testMacLearningBodyEditingPreservesResultRestartAndSource",
+      "testMacCoverSelectionGridListRestartAndRestore",
+      "testMacDOCXDefaultCoverInListGridAndRestart",
+      "testMacLibrarySearchMetadataUnicodeEmptyNoResultsAndRestart",
+      "testMacLibrarySearchUserNoteSavedLocalMockAIAndExactSource",
+      "testMacEditedNoteSearchDraftExclusionCoverLayoutsAndExactSource",
+      "testMacTXTImportSelectionNotesNavigationAndRestart",
+      "testMacMarkdownImportSelectionNotesNavigationAndRestart",
+      "testMacHTMLAliasImportSelectionNotesNavigationAndRestart",
+      "testMacDOCXImportSemanticSelectionNotesAndRestart",
+      "testMacDOCXFailureRecoveryAndPDFEPUBTransitions",
+      "testMacDOCXConversionSavePanelCancelAndOverwriteRefusal",
+      "testMacDOCXConversionFailureRecoveryAndEscapedHTML",
+      "testMacDOCXConversionWorkerCancellationLeavesNoOutput",
+      "testMacCBZImportSpreadsDirectionPageJumpAndRestart",
+      "testMacPDFWholePageOfflineConsentBilingualNotesAndSourceReturn",
+      "testMacEPUBChapterCompleteScopeConsentBilingualManualSaveRestartAndSourceReturn",
+      "testMacEPUBChapterOversizeRefusesWholeDocumentWithoutKeyOrSend",
+      "testMacEPUBChapterCancelStopsRemainderAndReopenCannotRetryOrRestoreKey",
+      "testMacEPUBChapterPartialFailureKeepsFirstSegmentAndStopsAllRemaining",
+      "testMacPDFPageScanAndOversizeRefuseWithoutSend",
+      "testMacPDFPageCancelStopsRemainderAndReopenKeepsAttemptCount",
+      "testMacDeepSeekSelectionOfflineTransportPDFEPUBAndRestart",
+      "testMacAISelectionConsentMockNotesAndRestart",
+      "testMacEPUBSelectionRubyNotesAndRestart",
+      "testLocalPDFReadingAndNoteFlow"
+    ],
+    "existing_count": 29,
+    "ebook_class": "EbookFormatUITests",
+    "ebook_methods": [
+      "testMOBISelectionNoteProgressRestart",
+      "testAZWSelectionNoteProgressRestart",
+      "testAZW3SelectionNoteProgressRestart",
+      "testFB2SelectionNoteProgressRestart"
+    ],
+    "ebook_count": 4,
+    "total_mac_count": 33,
+    "executed_locally": 0,
+    "compiled": true
+  },
+  "scope": {
+    "normal_functional_review_allowed": true,
+    "security_special_retried": false,
+    "security_special_status": "UNVERIFIED / platform blocked",
+    "sandbox_disabled": false,
+    "compiler_bypass": false,
+    "user_app_launched": false,
+    "real_api_or_key_used": false,
+    "bookno_integrated": false,
+    "pushed": false,
+    "merged_main": false
+  },
+  "future_ci": "Require separate authorization to publish this exact final candidate and execute unfiltered Native checks plus CBZ CI on an isolated host; all 33 Mac UI methods must actually pass with zero skips. Four-only manual ebook workflow is insufficient."
+}

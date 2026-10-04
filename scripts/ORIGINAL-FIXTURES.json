@@ -1,5 +1,29 @@
 [
   {
+    "path": "apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources/Ebooks/study-sample.azw",
+    "bytes": 786,
+    "sha256": "ce224994bed5e19f361d871e8abe369660128be3ca7f850b34d0e3b2152d08a8",
+    "generator": "scripts/generate-ebook-fixtures.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources/Ebooks/study-sample.azw3",
+    "bytes": 1592,
+    "sha256": "b92aeb416046f2ed47124455d4b39d6dbeb1ca40e361b962660738469dfee85a",
+    "generator": "scripts/generate-ebook-fixtures.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources/Ebooks/study-sample.fb2",
+    "bytes": 833,
+    "sha256": "e576f1ada583691e74355bfa99a58745d48ad0e7a2d06b75878dda40852fcf26",
+    "generator": "scripts/generate-ebook-fixtures.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources/Ebooks/study-sample.mobi",
+    "bytes": 748,
+    "sha256": "83d07782d52fdaa0da7f6f3efb57bc370dca238a2e08a7103ef2c0cfda1a14a2",
+    "generator": "scripts/generate-ebook-fixtures.py"
+  },
+  {
     "path": "apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources/study-sample.docx",
     "bytes": 1963,
     "sha256": "956a3c508b265f2e86f860cf470236b323fa5ef185a64d1cc6f8a52875a01b10",
@@ -148,6 +172,30 @@
     "bytes": 1160,
     "sha256": "9a71b9d1ad6b332c9faa419a43f50122929f9776fe463143aa7cc3b04aa5f9f3",
     "generator": "scripts/generate-docx-fixture.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/Ebooks/study-sample.azw",
+    "bytes": 786,
+    "sha256": "ce224994bed5e19f361d871e8abe369660128be3ca7f850b34d0e3b2152d08a8",
+    "generator": "scripts/generate-ebook-fixtures.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/Ebooks/study-sample.azw3",
+    "bytes": 1592,
+    "sha256": "b92aeb416046f2ed47124455d4b39d6dbeb1ca40e361b962660738469dfee85a",
+    "generator": "scripts/generate-ebook-fixtures.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/Ebooks/study-sample.fb2",
+    "bytes": 833,
+    "sha256": "e576f1ada583691e74355bfa99a58745d48ad0e7a2d06b75878dda40852fcf26",
+    "generator": "scripts/generate-ebook-fixtures.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/Ebooks/study-sample.mobi",
+    "bytes": 748,
+    "sha256": "83d07782d52fdaa0da7f6f3efb57bc370dca238a2e08a7103ef2c0cfda1a14a2",
+    "generator": "scripts/generate-ebook-fixtures.py"
   },
   {
     "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/security-sample.epub",

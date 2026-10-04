@@ -1,7 +1,15 @@
 // Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
 import Foundation
 
-public enum LocalBookFormat: String, Codable, Sendable, CaseIterable { case pdf = "PDF", epub = "EPUB", docx = "DOCX", comic = "CBZ" }
+public enum LocalBookFormat: String, Codable, Sendable, CaseIterable {
+    case pdf = "PDF", epub = "EPUB", docx = "DOCX", comic = "CBZ", cbt = "CBT", cb7 = "CB7", cbr = "CBR"
+    public init(_ comic: ComicArchiveFormat) {
+        switch comic { case .cbz: self = .comic; case .cbt: self = .cbt; case .cb7: self = .cb7; case .cbr: self = .cbr }
+    }
+    public var coverFormat: CoverFormat {
+        switch self { case .pdf: .pdf; case .epub: .epub; case .docx: .docx; case .comic: .cbz; case .cbt: .cbt; case .cb7: .cb7; case .cbr: .cbr }
+    }
+}
 /// A UUID alone cannot identify a book across the independent format stores.
 public struct LocalBookIdentity: Codable, Sendable, Equatable, Hashable, Identifiable {
     public let format: LocalBookFormat

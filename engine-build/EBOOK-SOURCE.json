@@ -1,0 +1,40 @@
+{
+  "repository": "https://github.com/koodo-reader/kookit",
+  "commit": "95f602ed62d204af0de9278cf53212c309b34bfc",
+  "version": "1.0.4",
+  "foliateReference": "78914aef4466eb960965702401634c2cb348e9b1",
+  "files": [
+    {
+      "path": "src/libs/mobi.js",
+      "bytes": 44766,
+      "gitBlobSHA1": "40c4ecad637fb6a6b68bed084a995db4dde1d36d",
+      "sha256": "b205a4e9202528fa00ad93180aec107384ef1a7085169a5e2be027f0209ffc70"
+    },
+    {
+      "path": "src/libs/fb2.js",
+      "bytes": 10945,
+      "gitBlobSHA1": "d6c7b8ebc89b32400406745f78e39d007053ec8b",
+      "sha256": "c20fae647184c12faae0f4a896ac63cf8c03dac1f69aa4c821b0240117515e51"
+    },
+    {
+      "path": "src/renders/MobiRender.ts",
+      "bytes": 1900,
+      "gitBlobSHA1": "351338c48e98e772658b6c56123f79a7f928fbd4",
+      "sha256": "18e2483662af8201a02759d9ce0e15eafee1867994bc4c6894d1d8e2db4607a1"
+    },
+    {
+      "path": "src/renders/Fb2Render.ts",
+      "bytes": 1587,
+      "gitBlobSHA1": "a49dcde8e14bb43620c00b89798dae9fdb0bb50a",
+      "sha256": "fda5bbc3f080c5443d703ce86447086005e859a782546f667054aeb5f12f61e5"
+    },
+    {
+      "path": "package.json",
+      "bytes": 2025,
+      "gitBlobSHA1": "95b278b6d78a26e30bfca1e516610ad233907411",
+      "sha256": "d1aa3be11d6658dfb3fba9369970b2a06d2b2e3899bdcd974d583fd44249c4ee",
+      "localPath": "ebook-upstream-package.json"
+    }
+  ],
+  "officialTreeVerified": true
+}

@@ -1,0 +1,711 @@
+{
+  "profile": "Apple read-only 7z/RAR; no CLI, disk extraction, external filter or other archive modules",
+  "sources": [
+    {
+      "version": "libarchive-3.8.9",
+      "url": "https://github.com/libarchive/libarchive/releases/download/v3.8.9/libarchive-3.8.9.tar.xz",
+      "sha256": "888c934f9d95648ecb9163dc8e23ab80a476ecb81a8f1154704a227b5b676dde"
+    },
+    {
+      "version": "xz-5.8.4",
+      "url": "https://github.com/tukaani-project/xz/releases/download/v5.8.4/xz-5.8.4.tar.xz",
+      "sha256": "4ce24038fd4221e0d13bc1a2de7a4db56e90b92b3bf75321f6c14be73f65de4b"
+    }
+  ],
+  "files": [
+    {
+      "path": "libarchive/archive.h",
+      "upstreamPath": "libarchive/archive.h",
+      "upstreamSHA256": "5dc85c3288bd0f293b9d99101627f1bfbc775a0d400640881bcbf056acca59f2",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "5dc85c3288bd0f293b9d99101627f1bfbc775a0d400640881bcbf056acca59f2"
+    },
+    {
+      "path": "libarchive/archive_acl.c",
+      "upstreamPath": "libarchive/archive_acl.c",
+      "upstreamSHA256": "9527cf8627062314802129e06c68235b56bf5ba0c1706765c9c025ebaddba5d3",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "9527cf8627062314802129e06c68235b56bf5ba0c1706765c9c025ebaddba5d3"
+    },
+    {
+      "path": "libarchive/archive_acl_private.h",
+      "upstreamPath": "libarchive/archive_acl_private.h",
+      "upstreamSHA256": "dd5613b9e3e88f58d6344ab48dd14bd78bc2aae9620fd15db18dd4e04c8bf500",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "dd5613b9e3e88f58d6344ab48dd14bd78bc2aae9620fd15db18dd4e04c8bf500"
+    },
+    {
+      "path": "libarchive/archive_blake2.h",
+      "upstreamPath": "libarchive/archive_blake2.h",
+      "upstreamSHA256": "23f9d734a79558f0bd8bba5d0b742e65865b6deb003be39cea8ba8806de321bb",
+      "license": "CC0-1.0 (selected from upstream triple license)",
+      "vendoredSHA256": "23f9d734a79558f0bd8bba5d0b742e65865b6deb003be39cea8ba8806de321bb"
+    },
+    {
+      "path": "libarchive/archive_blake2_impl.h",
+      "upstreamPath": "libarchive/archive_blake2_impl.h",
+      "upstreamSHA256": "2e285a36ccb7c41078514d31585a625c646dd233c940f90f698243ac915f425c",
+      "license": "CC0-1.0 (selected from upstream triple license)",
+      "vendoredSHA256": "2e285a36ccb7c41078514d31585a625c646dd233c940f90f698243ac915f425c"
+    },
+    {
+      "path": "libarchive/archive_blake2s_ref.c",
+      "upstreamPath": "libarchive/archive_blake2s_ref.c",
+      "upstreamSHA256": "bd4217c21aa970cea07fb0a1209fa5370daa2935927b7273317bfbe715e003ca",
+      "license": "CC0-1.0 (selected from upstream triple license)",
+      "vendoredSHA256": "bd4217c21aa970cea07fb0a1209fa5370daa2935927b7273317bfbe715e003ca"
+    },
+    {
+      "path": "libarchive/archive_blake2sp_ref.c",
+      "upstreamPath": "libarchive/archive_blake2sp_ref.c",
+      "upstreamSHA256": "c3891562aa2e1bd043a71a0c7f0cca46378644e384cd65f078efd1d3ea363631",
+      "license": "CC0-1.0 (selected from upstream triple license)",
+      "vendoredSHA256": "c3891562aa2e1bd043a71a0c7f0cca46378644e384cd65f078efd1d3ea363631"
+    },
+    {
+      "path": "libarchive/archive_check_magic.c",
+      "upstreamPath": "libarchive/archive_check_magic.c",
+      "upstreamSHA256": "24bf7df9789dfdb3f346d5f851e8bcac72548f8a4bd663c8505e3c5af9a26a55",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "24bf7df9789dfdb3f346d5f851e8bcac72548f8a4bd663c8505e3c5af9a26a55"
+    },
+    {
+      "path": "libarchive/archive_crc32.h",
+      "upstreamPath": "libarchive/archive_crc32.h",
+      "upstreamSHA256": "742848057d7475d35e898e62ebb8dbee31e1772f6f121584e1f57574f41471ac",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "742848057d7475d35e898e62ebb8dbee31e1772f6f121584e1f57574f41471ac"
+    },
+    {
+      "path": "libarchive/archive_cryptor_private.h",
+      "upstreamPath": "libarchive/archive_cryptor_private.h",
+      "upstreamSHA256": "e7011f09d0fa77490d722363c409411507a11e35d773cf7acee261d17fefc0c6",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "e7011f09d0fa77490d722363c409411507a11e35d773cf7acee261d17fefc0c6"
+    },
+    {
+      "path": "libarchive/archive_digest_private.h",
+      "upstreamPath": "libarchive/archive_digest_private.h",
+      "upstreamSHA256": "1cdb0dfe00f17f8d707a12bf1f4df79746c0354588dd327597a968c5c2497878",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "1cdb0dfe00f17f8d707a12bf1f4df79746c0354588dd327597a968c5c2497878"
+    },
+    {
+      "path": "libarchive/archive_endian.h",
+      "upstreamPath": "libarchive/archive_endian.h",
+      "upstreamSHA256": "ed87904c1685c722784fa7a22b3055ad878993baff8ca8a6da3bddacc9cf72a7",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "ed87904c1685c722784fa7a22b3055ad878993baff8ca8a6da3bddacc9cf72a7"
+    },
+    {
+      "path": "libarchive/archive_entry.c",
+      "upstreamPath": "libarchive/archive_entry.c",
+      "upstreamSHA256": "eab5335759db21927c9b2997b96b825d35f9a0962adff7ec709ebf19e932f594",
+      "license": "BSD-2-Clause AND BSD-3-Clause (embedded UC Regents section)",
+      "vendoredSHA256": "eab5335759db21927c9b2997b96b825d35f9a0962adff7ec709ebf19e932f594"
+    },
+    {
+      "path": "libarchive/archive_entry.h",
+      "upstreamPath": "libarchive/archive_entry.h",
+      "upstreamSHA256": "ce6d82c6ed0132022136566195b6b2494a93c0e2db46d968d52624bd296bfcbf",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "ce6d82c6ed0132022136566195b6b2494a93c0e2db46d968d52624bd296bfcbf"
+    },
+    {
+      "path": "libarchive/archive_entry_copy_stat.c",
+      "upstreamPath": "libarchive/archive_entry_copy_stat.c",
+      "upstreamSHA256": "2766d3fc8fd470d0bf1c9d84a325100d5d886ad054bb46f1c91a7c2404b742f6",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "2766d3fc8fd470d0bf1c9d84a325100d5d886ad054bb46f1c91a7c2404b742f6"
+    },
+    {
+      "path": "libarchive/archive_entry_locale.h",
+      "upstreamPath": "libarchive/archive_entry_locale.h",
+      "upstreamSHA256": "f2bff4563c818258c3d069922db618b8e21bdd6131778ddc9c2d62b8c14e768a",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "f2bff4563c818258c3d069922db618b8e21bdd6131778ddc9c2d62b8c14e768a"
+    },
+    {
+      "path": "libarchive/archive_entry_private.h",
+      "upstreamPath": "libarchive/archive_entry_private.h",
+      "upstreamSHA256": "04113c12987bbddfed3b2b647c61774060e21b0a9600357eec89b9acb60ce732",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "04113c12987bbddfed3b2b647c61774060e21b0a9600357eec89b9acb60ce732"
+    },
+    {
+      "path": "libarchive/archive_entry_sparse.c",
+      "upstreamPath": "libarchive/archive_entry_sparse.c",
+      "upstreamSHA256": "82dc763f08cb3cfd2fe7be76b9500e0e96980ffffd63169732cde228bb10d8b1",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "82dc763f08cb3cfd2fe7be76b9500e0e96980ffffd63169732cde228bb10d8b1"
+    },
+    {
+      "path": "libarchive/archive_entry_stat.c",
+      "upstreamPath": "libarchive/archive_entry_stat.c",
+      "upstreamSHA256": "7c9d521a1ccf18fea5696cfc249f9c603c3f30aa0c87c3c30d875b37dc6efb2d",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "7c9d521a1ccf18fea5696cfc249f9c603c3f30aa0c87c3c30d875b37dc6efb2d"
+    },
+    {
+      "path": "libarchive/archive_entry_strmode.c",
+      "upstreamPath": "libarchive/archive_entry_strmode.c",
+      "upstreamSHA256": "fc3764b849346f3b91184233608d99bdc9562f008c2673b5103ee5060b0b06b6",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "fc3764b849346f3b91184233608d99bdc9562f008c2673b5103ee5060b0b06b6"
+    },
+    {
+      "path": "libarchive/archive_entry_xattr.c",
+      "upstreamPath": "libarchive/archive_entry_xattr.c",
+      "upstreamSHA256": "e4692d8ac2c06f0815510078eaa115da5ca1a116482f3ff96eeaa8b47cd4f2f1",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "e4692d8ac2c06f0815510078eaa115da5ca1a116482f3ff96eeaa8b47cd4f2f1"
+    },
+    {
+      "path": "libarchive/archive_integer.h",
+      "upstreamPath": "libarchive/archive_integer.h",
+      "upstreamSHA256": "6159f95fe34a150ce5035f808f2af0650c1fa749638ba045e5c415c791a72103",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "6159f95fe34a150ce5035f808f2af0650c1fa749638ba045e5c415c791a72103"
+    },
+    {
+      "path": "libarchive/archive_openssl_evp_private.h",
+      "upstreamPath": "libarchive/archive_openssl_evp_private.h",
+      "upstreamSHA256": "0aad17e980053db8af05671683889215bfb2d0b7a4e7044cb1c2dea6fd2c8dfb",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "0aad17e980053db8af05671683889215bfb2d0b7a4e7044cb1c2dea6fd2c8dfb"
+    },
+    {
+      "path": "libarchive/archive_options.c",
+      "upstreamPath": "libarchive/archive_options.c",
+      "upstreamSHA256": "c274a1ed73754464b3cb5de6dfa230c495c157e998f3b1fa445536a2fbfd2d4c",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "c274a1ed73754464b3cb5de6dfa230c495c157e998f3b1fa445536a2fbfd2d4c"
+    },
+    {
+      "path": "libarchive/archive_options_private.h",
+      "upstreamPath": "libarchive/archive_options_private.h",
+      "upstreamSHA256": "23330401c3ded3006cef7c988dd4c554e76f15155601525d83397de8ce1e1336",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "23330401c3ded3006cef7c988dd4c554e76f15155601525d83397de8ce1e1336"
+    },
+    {
+      "path": "libarchive/archive_platform.h",
+      "upstreamPath": "libarchive/archive_platform.h",
+      "upstreamSHA256": "0910ae12b1f45675fd6545b802780a0b25d5ef9115c101d332b9d70163352c2e",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "0910ae12b1f45675fd6545b802780a0b25d5ef9115c101d332b9d70163352c2e"
+    },
+    {
+      "path": "libarchive/archive_platform_stat.h",
+      "upstreamPath": "libarchive/archive_platform_stat.h",
+      "upstreamSHA256": "d1415443c6eede4268e472a2dde7edd52c0695ae773351f605a6ef2b0f87e585",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "d1415443c6eede4268e472a2dde7edd52c0695ae773351f605a6ef2b0f87e585"
+    },
+    {
+      "path": "libarchive/archive_ppmd7.c",
+      "upstreamPath": "libarchive/archive_ppmd7.c",
+      "upstreamSHA256": "a589cb82ead903e58fe67099f37efab5863ea2b3dda3d4d8cfe7af9fe4d2ecfe",
+      "license": "Public domain",
+      "vendoredSHA256": "a589cb82ead903e58fe67099f37efab5863ea2b3dda3d4d8cfe7af9fe4d2ecfe"
+    },
+    {
+      "path": "libarchive/archive_ppmd7_private.h",
+      "upstreamPath": "libarchive/archive_ppmd7_private.h",
+      "upstreamSHA256": "c31e6af32c5a975988df4b9bc8c8256811dabca50c9907e7c374920b09c59f63",
+      "license": "Public domain",
+      "vendoredSHA256": "c31e6af32c5a975988df4b9bc8c8256811dabca50c9907e7c374920b09c59f63"
+    },
+    {
+      "path": "libarchive/archive_ppmd_private.h",
+      "upstreamPath": "libarchive/archive_ppmd_private.h",
+      "upstreamSHA256": "8cb50b08e62f94219a7e77a25d19c20773fa1b04b40086127ae0cd457013b715",
+      "license": "Public domain",
+      "vendoredSHA256": "8cb50b08e62f94219a7e77a25d19c20773fa1b04b40086127ae0cd457013b715"
+    },
+    {
+      "path": "libarchive/archive_private.h",
+      "upstreamPath": "libarchive/archive_private.h",
+      "upstreamSHA256": "f3cf5130ac208b38569c2ef68190f48f59095d835884b995a78a79d1f3886a26",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "f3cf5130ac208b38569c2ef68190f48f59095d835884b995a78a79d1f3886a26"
+    },
+    {
+      "path": "libarchive/archive_random.c",
+      "upstreamPath": "libarchive/archive_random.c",
+      "upstreamSHA256": "25b343be05706f22a5461d504b01e0c80e64cc011049268ad4cc347921bc52a1",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "25b343be05706f22a5461d504b01e0c80e64cc011049268ad4cc347921bc52a1"
+    },
+    {
+      "path": "libarchive/archive_random_private.h",
+      "upstreamPath": "libarchive/archive_random_private.h",
+      "upstreamSHA256": "7d0f2c8fb1936151bec6c2beac99bdfc1cca63ca209e4cce2b47913c77fc3c73",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "7d0f2c8fb1936151bec6c2beac99bdfc1cca63ca209e4cce2b47913c77fc3c73"
+    },
+    {
+      "path": "libarchive/archive_rb.c",
+      "upstreamPath": "libarchive/archive_rb.c",
+      "upstreamSHA256": "981e2e6c42bb75e4ef6b9a677d3826a251cae4a2cbd3217397ae3c0dfea9789e",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "981e2e6c42bb75e4ef6b9a677d3826a251cae4a2cbd3217397ae3c0dfea9789e"
+    },
+    {
+      "path": "libarchive/archive_rb.h",
+      "upstreamPath": "libarchive/archive_rb.h",
+      "upstreamSHA256": "ac680415747facdaddd2ee03a1938f45afc4aaab68b6eb2b0ef9444f6ca6439c",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "ac680415747facdaddd2ee03a1938f45afc4aaab68b6eb2b0ef9444f6ca6439c"
+    },
+    {
+      "path": "libarchive/archive_read.c",
+      "upstreamPath": "libarchive/archive_read.c",
+      "upstreamSHA256": "3843e807aa57baca67bb633b11e32a478bea9e7b61b580999d77552573819732",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "3843e807aa57baca67bb633b11e32a478bea9e7b61b580999d77552573819732"
+    },
+    {
+      "path": "libarchive/archive_read_add_passphrase.c",
+      "upstreamPath": "libarchive/archive_read_add_passphrase.c",
+      "upstreamSHA256": "0f087d8605d00151de2dda70831451013a2ae7b4036869af47c3c024528927f7",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "0f087d8605d00151de2dda70831451013a2ae7b4036869af47c3c024528927f7"
+    },
+    {
+      "path": "libarchive/archive_read_open_memory.c",
+      "upstreamPath": "libarchive/archive_read_open_memory.c",
+      "upstreamSHA256": "83c8d3e8d8b3985dfce4f317849c45d44486607216fa0181cb51db174a842d8a",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "83c8d3e8d8b3985dfce4f317849c45d44486607216fa0181cb51db174a842d8a"
+    },
+    {
+      "path": "libarchive/archive_read_private.h",
+      "upstreamPath": "libarchive/archive_read_private.h",
+      "upstreamSHA256": "40c4ff661e665126d471d8a077ac1df9f25f7a40df19506162ce0bf574d0c728",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "40c4ff661e665126d471d8a077ac1df9f25f7a40df19506162ce0bf574d0c728"
+    },
+    {
+      "path": "libarchive/archive_read_set_options.c",
+      "upstreamPath": "libarchive/archive_read_set_options.c",
+      "upstreamSHA256": "5c94ff58e66366c4f08237161f882c70b31b4f883dc1125dc58c5b32d37677ce",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "5c94ff58e66366c4f08237161f882c70b31b4f883dc1125dc58c5b32d37677ce"
+    },
+    {
+      "path": "libarchive/archive_read_support_filter_none.c",
+      "upstreamPath": "libarchive/archive_read_support_filter_none.c",
+      "upstreamSHA256": "98f12fce080fdf2dbb62e5aa1527260c6aa03bc013e83ba76bd17ba65f98191e",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "98f12fce080fdf2dbb62e5aa1527260c6aa03bc013e83ba76bd17ba65f98191e"
+    },
+    {
+      "path": "libarchive/archive_read_support_format_7zip.c",
+      "upstreamPath": "libarchive/archive_read_support_format_7zip.c",
+      "upstreamSHA256": "140450e4ca50e1db98cea1ed1f8cfa57f013f31a74ad9e29c96467eb42eb1d39",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "11eed39d0313fc93669f76c419446574b111d1f30c93a94cb732907b19c1f8ad"
+    },
+    {
+      "path": "libarchive/archive_read_support_format_rar.c",
+      "upstreamPath": "libarchive/archive_read_support_format_rar.c",
+      "upstreamSHA256": "9bab39d97e637d086e19990d23114a6daf95009eba5bc24c211c88ae6afb1661",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "9bab39d97e637d086e19990d23114a6daf95009eba5bc24c211c88ae6afb1661"
+    },
+    {
+      "path": "libarchive/archive_read_support_format_rar5.c",
+      "upstreamPath": "libarchive/archive_read_support_format_rar5.c",
+      "upstreamSHA256": "9fbe40c8c67dca96f56573c6b49fc1495de0f877b12627cdb2ebcd4d215b4b07",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "9fbe40c8c67dca96f56573c6b49fc1495de0f877b12627cdb2ebcd4d215b4b07"
+    },
+    {
+      "path": "libarchive/archive_string.c",
+      "upstreamPath": "libarchive/archive_string.c",
+      "upstreamSHA256": "b58d8a36ebeaec20a669d45e7d7107cc21ec1c2287edb42d878241d2fa5d83c1",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "b58d8a36ebeaec20a669d45e7d7107cc21ec1c2287edb42d878241d2fa5d83c1"
+    },
+    {
+      "path": "libarchive/archive_string.h",
+      "upstreamPath": "libarchive/archive_string.h",
+      "upstreamSHA256": "be56aa2aa579506f40df3a288297abf4b1626e9b0d36b7de3d50b402c5a27743",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "be56aa2aa579506f40df3a288297abf4b1626e9b0d36b7de3d50b402c5a27743"
+    },
+    {
+      "path": "libarchive/archive_string_composition.h",
+      "upstreamPath": "libarchive/archive_string_composition.h",
+      "upstreamSHA256": "cc5a28335f6566b22b5568558027e5bf2be82bf39aa29db46ac403c9fa648026",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "cc5a28335f6566b22b5568558027e5bf2be82bf39aa29db46ac403c9fa648026"
+    },
+    {
+      "path": "libarchive/archive_string_sprintf.c",
+      "upstreamPath": "libarchive/archive_string_sprintf.c",
+      "upstreamSHA256": "16441aa05137ae1567b0fe1d6c22201daf2a31116bd617b8bd24975de645de65",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "16441aa05137ae1567b0fe1d6c22201daf2a31116bd617b8bd24975de645de65"
+    },
+    {
+      "path": "libarchive/archive_time.c",
+      "upstreamPath": "libarchive/archive_time.c",
+      "upstreamSHA256": "c0085dce78f9d2a3a8fb318a20d0f2d1fa971157c25c380fa9e5cd8fa67b5381",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "c0085dce78f9d2a3a8fb318a20d0f2d1fa971157c25c380fa9e5cd8fa67b5381"
+    },
+    {
+      "path": "libarchive/archive_time_private.h",
+      "upstreamPath": "libarchive/archive_time_private.h",
+      "upstreamSHA256": "44474f0e4f892c5a5a18225add8e162dde9457b3c974a0b9f7ae1fa76a2d3894",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "44474f0e4f892c5a5a18225add8e162dde9457b3c974a0b9f7ae1fa76a2d3894"
+    },
+    {
+      "path": "libarchive/archive_util.c",
+      "upstreamPath": "libarchive/archive_util.c",
+      "upstreamSHA256": "3d864cdf28a54bf63f47b88b9f54c52e8a115df6f122e3c930dd4b64baea1028",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "3d864cdf28a54bf63f47b88b9f54c52e8a115df6f122e3c930dd4b64baea1028"
+    },
+    {
+      "path": "libarchive/archive_version_details.c",
+      "upstreamPath": "libarchive/archive_version_details.c",
+      "upstreamSHA256": "f4d066ba5451a8e99a6ab69d865df703ced1aee528a1ea877d413ae9dd72548b",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "f4d066ba5451a8e99a6ab69d865df703ced1aee528a1ea877d413ae9dd72548b"
+    },
+    {
+      "path": "libarchive/archive_virtual.c",
+      "upstreamPath": "libarchive/archive_virtual.c",
+      "upstreamSHA256": "523728aab6b92713a9eda70fec9486fc16086f55f9d035d70223e128e443bda3",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "523728aab6b92713a9eda70fec9486fc16086f55f9d035d70223e128e443bda3"
+    },
+    {
+      "path": "libarchive/archive_windows.h",
+      "upstreamPath": "libarchive/archive_windows.h",
+      "upstreamSHA256": "a1a353546b1af4c75c61dbe8aa925921366984a919e8ef69f87b0032eed8e051",
+      "license": "BSD-2-Clause (file header controls)",
+      "vendoredSHA256": "a1a353546b1af4c75c61dbe8aa925921366984a919e8ef69f87b0032eed8e051"
+    },
+    {
+      "path": "xz/common/mythread.h",
+      "upstreamPath": "src/common/mythread.h",
+      "upstreamSHA256": "9c40d3dba46c7f5f3c4d7fe85fe5d2b410eac47e3af8a7686cb16b3e6b56e1ed",
+      "license": "0BSD",
+      "vendoredSHA256": "9c40d3dba46c7f5f3c4d7fe85fe5d2b410eac47e3af8a7686cb16b3e6b56e1ed"
+    },
+    {
+      "path": "xz/common/sysdefs.h",
+      "upstreamPath": "src/common/sysdefs.h",
+      "upstreamSHA256": "f36dbafb562435b40ad9e97c2f861705d5f98ec5a54909f0d4452552a8cea252",
+      "license": "0BSD",
+      "vendoredSHA256": "f36dbafb562435b40ad9e97c2f861705d5f98ec5a54909f0d4452552a8cea252"
+    },
+    {
+      "path": "xz/common/tuklib_common.h",
+      "upstreamPath": "src/common/tuklib_common.h",
+      "upstreamSHA256": "c73e39d48f11f20b6a976486f55f9fe4aae30b4a23520db62e47fc04d7e12480",
+      "license": "0BSD",
+      "vendoredSHA256": "c73e39d48f11f20b6a976486f55f9fe4aae30b4a23520db62e47fc04d7e12480"
+    },
+    {
+      "path": "xz/common/tuklib_config.h",
+      "upstreamPath": "src/common/tuklib_config.h",
+      "upstreamSHA256": "54b01c30f587ecab69bfdd73e999110e1a503483303bb55c8c41591c2d2c52ac",
+      "license": "0BSD",
+      "vendoredSHA256": "54b01c30f587ecab69bfdd73e999110e1a503483303bb55c8c41591c2d2c52ac"
+    },
+    {
+      "path": "xz/common/tuklib_integer.h",
+      "upstreamPath": "src/common/tuklib_integer.h",
+      "upstreamSHA256": "099b362d3b310b74b54c4ec83f5c04edbf96f0b801db61e574905381c6dc2a59",
+      "license": "0BSD",
+      "vendoredSHA256": "099b362d3b310b74b54c4ec83f5c04edbf96f0b801db61e574905381c6dc2a59"
+    },
+    {
+      "path": "xz/liblzma/api/lzma.h",
+      "upstreamPath": "src/liblzma/api/lzma.h",
+      "upstreamSHA256": "6829350ef1ee35fae25481cc87a4f4b17c4b6c2a3df26f2b34dc1804df75c0d9",
+      "license": "0BSD",
+      "vendoredSHA256": "6829350ef1ee35fae25481cc87a4f4b17c4b6c2a3df26f2b34dc1804df75c0d9"
+    },
+    {
+      "path": "xz/liblzma/api/lzma/base.h",
+      "upstreamPath": "src/liblzma/api/lzma/base.h",
+      "upstreamSHA256": "e6de2ae8c447f98dfb12d7fbdd7510ed2c5c0d9a7a52ba2fabab10b638b3171d",
+      "license": "0BSD",
+      "vendoredSHA256": "e6de2ae8c447f98dfb12d7fbdd7510ed2c5c0d9a7a52ba2fabab10b638b3171d"
+    },
+    {
+      "path": "xz/liblzma/api/lzma/bcj.h",
+      "upstreamPath": "src/liblzma/api/lzma/bcj.h",
+      "upstreamSHA256": "7420ecbd1bd0e7ed726ccb4b771c92c5e99366fd98f725b57055ddd90cd6384b",
+      "license": "0BSD",
+      "vendoredSHA256": "7420ecbd1bd0e7ed726ccb4b771c92c5e99366fd98f725b57055ddd90cd6384b"
+    },
+    {
+      "path": "xz/liblzma/api/lzma/block.h",
+      "upstreamPath": "src/liblzma/api/lzma/block.h",
+      "upstreamSHA256": "c99bf801dc0d771196f318f0eb2db454c8ba007fb516c1e83ece91ac079e3440",
+      "license": "0BSD",
+      "vendoredSHA256": "c99bf801dc0d771196f318f0eb2db454c8ba007fb516c1e83ece91ac079e3440"
+    },
+    {
+      "path": "xz/liblzma/api/lzma/check.h",
+      "upstreamPath": "src/liblzma/api/lzma/check.h",
+      "upstreamSHA256": "a6954d5e59c87c09e000f6df9b61615125a4fb20b5014ce8cb3eea762999acff",
+      "license": "0BSD",
+      "vendoredSHA256": "a6954d5e59c87c09e000f6df9b61615125a4fb20b5014ce8cb3eea762999acff"
+    },
+    {
+      "path": "xz/liblzma/api/lzma/container.h",
+      "upstreamPath": "src/liblzma/api/lzma/container.h",
+      "upstreamSHA256": "1cc1586e26307154822c50c477807cba245e5813a30d828eeb8fe6edfe551ee7",
+      "license": "0BSD",
+      "vendoredSHA256": "1cc1586e26307154822c50c477807cba245e5813a30d828eeb8fe6edfe551ee7"
+    },
+    {
+      "path": "xz/liblzma/api/lzma/delta.h",
+      "upstreamPath": "src/liblzma/api/lzma/delta.h",
+      "upstreamSHA256": "ff69bb02c2beb169284a50f68962006dde746e1859c31d47be0bc8e56db7a7b1",
+      "license": "0BSD",
+      "vendoredSHA256": "ff69bb02c2beb169284a50f68962006dde746e1859c31d47be0bc8e56db7a7b1"
+    },
+    {
+      "path": "xz/liblzma/api/lzma/filter.h",
+      "upstreamPath": "src/liblzma/api/lzma/filter.h",
+      "upstreamSHA256": "bdc89d83271fd6cfc6e345913d6c6882c4c0f9093c71ea576c64ba562233ca6b",
+      "license": "0BSD",
+      "vendoredSHA256": "bdc89d83271fd6cfc6e345913d6c6882c4c0f9093c71ea576c64ba562233ca6b"
+    },
+    {
+      "path": "xz/liblzma/api/lzma/hardware.h",
+      "upstreamPath": "src/liblzma/api/lzma/hardware.h",
+      "upstreamSHA256": "2e74cb51a6ac7e062d291124cef1d101e0df30cccaff1415a31810556fedba1b",
+      "license": "0BSD",
+      "vendoredSHA256": "2e74cb51a6ac7e062d291124cef1d101e0df30cccaff1415a31810556fedba1b"
+    },
+    {
+      "path": "xz/liblzma/api/lzma/index.h",
+      "upstreamPath": "src/liblzma/api/lzma/index.h",
+      "upstreamSHA256": "f87c272b613742f18177186990144fa2c70f0800656c8b1a4142c3d9f0e94c9a",
+      "license": "0BSD",
+      "vendoredSHA256": "f87c272b613742f18177186990144fa2c70f0800656c8b1a4142c3d9f0e94c9a"
+    },
+    {
+      "path": "xz/liblzma/api/lzma/index_hash.h",
+      "upstreamPath": "src/liblzma/api/lzma/index_hash.h",
+      "upstreamSHA256": "b10127b60fedb010dad8d9c07635e73da9e995b287e823ae1838bbd302a8b260",
+      "license": "0BSD",
+      "vendoredSHA256": "b10127b60fedb010dad8d9c07635e73da9e995b287e823ae1838bbd302a8b260"
+    },
+    {
+      "path": "xz/liblzma/api/lzma/lzma12.h",
+      "upstreamPath": "src/liblzma/api/lzma/lzma12.h",
+      "upstreamSHA256": "863e8c4b64472c5bca2246f17e2208af6dac9a07a34386a6e0af707708abdb50",
+      "license": "0BSD",
+      "vendoredSHA256": "863e8c4b64472c5bca2246f17e2208af6dac9a07a34386a6e0af707708abdb50"
+    },
+    {
+      "path": "xz/liblzma/api/lzma/stream_flags.h",
+      "upstreamPath": "src/liblzma/api/lzma/stream_flags.h",
+      "upstreamSHA256": "192f8e6fdedcc26fabf2751128eab1f41fd6fbf976eea0d3d225a1d57b6a459c",
+      "license": "0BSD",
+      "vendoredSHA256": "192f8e6fdedcc26fabf2751128eab1f41fd6fbf976eea0d3d225a1d57b6a459c"
+    },
+    {
+      "path": "xz/liblzma/api/lzma/version.h",
+      "upstreamPath": "src/liblzma/api/lzma/version.h",
+      "upstreamSHA256": "9dec302470df2f505474cad90065a12eed8f65a7944e44ae1844499e72a4bb9f",
+      "license": "0BSD",
+      "vendoredSHA256": "9dec302470df2f505474cad90065a12eed8f65a7944e44ae1844499e72a4bb9f"
+    },
+    {
+      "path": "xz/liblzma/api/lzma/vli.h",
+      "upstreamPath": "src/liblzma/api/lzma/vli.h",
+      "upstreamSHA256": "16a498e75b0f5136de11e205e36ce9641277cfddad538fff5b22b6991f4110f7",
+      "license": "0BSD",
+      "vendoredSHA256": "16a498e75b0f5136de11e205e36ce9641277cfddad538fff5b22b6991f4110f7"
+    },
+    {
+      "path": "xz/liblzma/common/common.c",
+      "upstreamPath": "src/liblzma/common/common.c",
+      "upstreamSHA256": "1721ba62e74ae44246a4d36e874220d71fe3bdd7d8ac6dbd5a9911f261e35924",
+      "license": "0BSD",
+      "vendoredSHA256": "1721ba62e74ae44246a4d36e874220d71fe3bdd7d8ac6dbd5a9911f261e35924"
+    },
+    {
+      "path": "xz/liblzma/common/common.h",
+      "upstreamPath": "src/liblzma/common/common.h",
+      "upstreamSHA256": "27620abafd56714b6543078da08ba1c95f2c6a13661b00c9db508cc019df7e26",
+      "license": "0BSD",
+      "vendoredSHA256": "27620abafd56714b6543078da08ba1c95f2c6a13661b00c9db508cc019df7e26"
+    },
+    {
+      "path": "xz/liblzma/common/filter_common.c",
+      "upstreamPath": "src/liblzma/common/filter_common.c",
+      "upstreamSHA256": "95bf0e1178d6590fcefe08509f7e5b83851f3b391d1f989f0192bbfd8c7e8a27",
+      "license": "0BSD",
+      "vendoredSHA256": "95bf0e1178d6590fcefe08509f7e5b83851f3b391d1f989f0192bbfd8c7e8a27"
+    },
+    {
+      "path": "xz/liblzma/common/filter_common.h",
+      "upstreamPath": "src/liblzma/common/filter_common.h",
+      "upstreamSHA256": "14910c8fd930daddb4b4ae5e811e8a4363d7e472f794a308259df27f24263218",
+      "license": "0BSD",
+      "vendoredSHA256": "14910c8fd930daddb4b4ae5e811e8a4363d7e472f794a308259df27f24263218"
+    },
+    {
+      "path": "xz/liblzma/common/filter_decoder.c",
+      "upstreamPath": "src/liblzma/common/filter_decoder.c",
+      "upstreamSHA256": "976bfc048937ef6479840b80b3913f9c8e9fc8879944a80f41dafe16ab6b0af4",
+      "license": "0BSD",
+      "vendoredSHA256": "976bfc048937ef6479840b80b3913f9c8e9fc8879944a80f41dafe16ab6b0af4"
+    },
+    {
+      "path": "xz/liblzma/common/filter_decoder.h",
+      "upstreamPath": "src/liblzma/common/filter_decoder.h",
+      "upstreamSHA256": "0d80f69fafcdb778e679277810a9504e196f97fd85df3c7bef74c0595f842f15",
+      "license": "0BSD",
+      "vendoredSHA256": "0d80f69fafcdb778e679277810a9504e196f97fd85df3c7bef74c0595f842f15"
+    },
+    {
+      "path": "xz/liblzma/common/vli_decoder.c",
+      "upstreamPath": "src/liblzma/common/vli_decoder.c",
+      "upstreamSHA256": "259c2992449944ab3bab16e7986c0467b17b7647d7fc4cc9b4810de5d1141d0c",
+      "license": "0BSD",
+      "vendoredSHA256": "259c2992449944ab3bab16e7986c0467b17b7647d7fc4cc9b4810de5d1141d0c"
+    },
+    {
+      "path": "xz/liblzma/common/vli_size.c",
+      "upstreamPath": "src/liblzma/common/vli_size.c",
+      "upstreamSHA256": "5b27b4674dc45a77fa3b81a86953d5e7a8388b166ab7d1815bc4c589500d2fc3",
+      "license": "0BSD",
+      "vendoredSHA256": "5b27b4674dc45a77fa3b81a86953d5e7a8388b166ab7d1815bc4c589500d2fc3"
+    },
+    {
+      "path": "xz/liblzma/delta/delta_common.h",
+      "upstreamPath": "src/liblzma/delta/delta_common.h",
+      "upstreamSHA256": "f4255814449a1d03dab72b57cc7df4a657b8f996b532068b86b249d5657506f6",
+      "license": "0BSD",
+      "vendoredSHA256": "f4255814449a1d03dab72b57cc7df4a657b8f996b532068b86b249d5657506f6"
+    },
+    {
+      "path": "xz/liblzma/delta/delta_decoder.h",
+      "upstreamPath": "src/liblzma/delta/delta_decoder.h",
+      "upstreamSHA256": "dc7d74496b0ef6c356f477466aef1878650f7ffb6c0c7d2bcfbe7afc4e2db74a",
+      "license": "0BSD",
+      "vendoredSHA256": "dc7d74496b0ef6c356f477466aef1878650f7ffb6c0c7d2bcfbe7afc4e2db74a"
+    },
+    {
+      "path": "xz/liblzma/lz/lz_decoder.c",
+      "upstreamPath": "src/liblzma/lz/lz_decoder.c",
+      "upstreamSHA256": "50fef787b67012494163e41375d1758341f25a3238846f06e2f9ee692d93d501",
+      "license": "0BSD",
+      "vendoredSHA256": "50fef787b67012494163e41375d1758341f25a3238846f06e2f9ee692d93d501"
+    },
+    {
+      "path": "xz/liblzma/lz/lz_decoder.h",
+      "upstreamPath": "src/liblzma/lz/lz_decoder.h",
+      "upstreamSHA256": "971a37a5f73d6a734c491d456654edf85f29d0336c9bff18f694f34fd6c4e7dd",
+      "license": "0BSD",
+      "vendoredSHA256": "971a37a5f73d6a734c491d456654edf85f29d0336c9bff18f694f34fd6c4e7dd"
+    },
+    {
+      "path": "xz/liblzma/lzma/lzma2_decoder.c",
+      "upstreamPath": "src/liblzma/lzma/lzma2_decoder.c",
+      "upstreamSHA256": "f0fe48901e27482003a346344ac592ba0c886ddb52269c47d57b76529121bb04",
+      "license": "0BSD",
+      "vendoredSHA256": "f0fe48901e27482003a346344ac592ba0c886ddb52269c47d57b76529121bb04"
+    },
+    {
+      "path": "xz/liblzma/lzma/lzma2_decoder.h",
+      "upstreamPath": "src/liblzma/lzma/lzma2_decoder.h",
+      "upstreamSHA256": "bcad963819c0f7a072cd32befc393f6464d9c49d56fdb6d4ba094821ca1ad5bc",
+      "license": "0BSD",
+      "vendoredSHA256": "bcad963819c0f7a072cd32befc393f6464d9c49d56fdb6d4ba094821ca1ad5bc"
+    },
+    {
+      "path": "xz/liblzma/lzma/lzma_common.h",
+      "upstreamPath": "src/liblzma/lzma/lzma_common.h",
+      "upstreamSHA256": "60a804ecd4bcc827bdfabc480b24b9f2667545d55e8e2b2d205078a573e38498",
+      "license": "0BSD",
+      "vendoredSHA256": "60a804ecd4bcc827bdfabc480b24b9f2667545d55e8e2b2d205078a573e38498"
+    },
+    {
+      "path": "xz/liblzma/lzma/lzma_decoder.c",
+      "upstreamPath": "src/liblzma/lzma/lzma_decoder.c",
+      "upstreamSHA256": "de6d0ce8cef7862b6e774056bd3bd5ad94186ae269a3397e4f95d8873befd4d7",
+      "license": "0BSD",
+      "vendoredSHA256": "de6d0ce8cef7862b6e774056bd3bd5ad94186ae269a3397e4f95d8873befd4d7"
+    },
+    {
+      "path": "xz/liblzma/lzma/lzma_decoder.h",
+      "upstreamPath": "src/liblzma/lzma/lzma_decoder.h",
+      "upstreamSHA256": "1d24433e7ab756c1303f2bb9c0c7c800d2483d6645666e3df357c0355a8c066a",
+      "license": "0BSD",
+      "vendoredSHA256": "1d24433e7ab756c1303f2bb9c0c7c800d2483d6645666e3df357c0355a8c066a"
+    },
+    {
+      "path": "xz/liblzma/lzma/lzma_encoder_presets.c",
+      "upstreamPath": "src/liblzma/lzma/lzma_encoder_presets.c",
+      "upstreamSHA256": "374475bb29bc2b9d185050465688321ae76eb1447cbb889d73412ff81ae535b1",
+      "license": "0BSD",
+      "vendoredSHA256": "374475bb29bc2b9d185050465688321ae76eb1447cbb889d73412ff81ae535b1"
+    },
+    {
+      "path": "xz/liblzma/rangecoder/range_common.h",
+      "upstreamPath": "src/liblzma/rangecoder/range_common.h",
+      "upstreamSHA256": "6a1d3dafa9379bb5f3f4a6240f4e549ef52a70171b211ee1d75807345afa5b3f",
+      "license": "0BSD",
+      "vendoredSHA256": "6a1d3dafa9379bb5f3f4a6240f4e549ef52a70171b211ee1d75807345afa5b3f"
+    },
+    {
+      "path": "xz/liblzma/rangecoder/range_decoder.h",
+      "upstreamPath": "src/liblzma/rangecoder/range_decoder.h",
+      "upstreamSHA256": "3dd500dac216195a08d3cdf26d3d4f521d762b11097141f4d3f76005a976ceaf",
+      "license": "0BSD",
+      "vendoredSHA256": "3dd500dac216195a08d3cdf26d3d4f521d762b11097141f4d3f76005a976ceaf"
+    },
+    {
+      "path": "xz/liblzma/simple/simple_coder.h",
+      "upstreamPath": "src/liblzma/simple/simple_coder.h",
+      "upstreamSHA256": "89289cfaf117baaa8de8a16a5a9d28db9a0d71f06a94d29689a476d28cfb4a63",
+      "license": "0BSD",
+      "vendoredSHA256": "89289cfaf117baaa8de8a16a5a9d28db9a0d71f06a94d29689a476d28cfb4a63"
+    },
+    {
+      "path": "xz/liblzma/simple/simple_decoder.h",
+      "upstreamPath": "src/liblzma/simple/simple_decoder.h",
+      "upstreamSHA256": "98c6f9036107a8707951a8a259b51ff43f33077a9940833eb538441a9d876e9a",
+      "license": "0BSD",
+      "vendoredSHA256": "98c6f9036107a8707951a8a259b51ff43f33077a9940833eb538441a9d876e9a"
+    }
+  ],
+  "licenses": [
+    {
+      "path": "Licenses/CC0-1.0.txt",
+      "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+      "source": "https://creativecommons.org/publicdomain/zero/1.0/legalcode.txt"
+    },
+    {
+      "path": "Licenses/libarchive/COPYING",
+      "sha256": "30e556b3959e3985d66efefec5eaac51d4995053caa1d3cffe6eb916f146f229",
+      "source": "Verified fixed release tarball; see sources"
+    },
+    {
+      "path": "Licenses/xz/COPYING",
+      "sha256": "616a3ad264ce29b8f1cb97e53037b139d406899ca8d1f799651e17bfa09830b8",
+      "source": "Verified fixed release tarball; see sources"
+    },
+    {
+      "path": "Licenses/xz/COPYING.0BSD",
+      "sha256": "0b01625d853911cd0e2e088dcfb743261034a091bb379246cb25a14cc4c74bf1",
+      "source": "Verified fixed release tarball; see sources"
+    }
+  ]
+}

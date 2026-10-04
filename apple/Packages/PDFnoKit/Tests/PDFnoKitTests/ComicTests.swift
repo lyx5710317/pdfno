@@ -14,7 +14,7 @@ import PDFnoReaders
 #endif
 
 /// All images and ZIP records are generated here. No user documents, external archiver or binary fixture.
-private enum ComicFixture {
+enum ComicFixture {
     struct Entry {
         let name: String
         let data: Data
@@ -91,7 +91,7 @@ private enum ComicFixture {
 }
 
 #if os(macOS)
-@Suite(.serialized)
+@Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["PDFNO_COMIC_OFFLINE_ONLY"] != "1", "Explicit offline-only mode excludes window/WebKit execution"))
 struct ComicWebKitTests {
     @MainActor private func ready(_ session: ComicReaderSession) async throws {
         let limit = Date().addingTimeInterval(25)
@@ -99,7 +99,7 @@ struct ComicWebKitTests {
         #expect(session.error == nil)
         _ = try #require(session.progress)
     }
-    @MainActor private func opened(_ archive: CBZArchive, _ book: ComicBook, repository: ComicRepository) async throws -> (ComicReaderSession, NSWindow) {
+    @MainActor private func opened(_ archive: ComicArchive, _ book: ComicBook, repository: ComicRepository) async throws -> (ComicReaderSession, NSWindow) {
         _ = NSApplication.shared
         let session = ComicReaderSession()
         session.persist = { id, progress in try await repository.saveProgress(progress, bookID: id) }

@@ -37,6 +37,9 @@ public actor CoverRepository {
         case .userImage: guard r.resourcePath == nil else { return false }
         case .pdfFirstPage: guard r.identity.format == .pdf, r.resourcePath == nil else { return false }
         case .epubEmbedded: guard r.identity.format == .epub, r.resourcePath.map(EPUBArchive.isSafePath) == true else { return false }
+        case .cb7FirstImage: guard r.identity.format == .cb7, r.resourcePath.map(EPUBArchive.isSafePath) == true else { return false }
+        case .cbrFirstImage: guard r.identity.format == .cbr, r.resourcePath.map(EPUBArchive.isSafePath) == true else { return false }
+        case .cbtFirstImage: guard r.identity.format == .cbt, r.resourcePath.map(EPUBArchive.isSafePath) == true else { return false }
         case .cbzFirstImage: guard r.identity.format == .cbz, r.resourcePath.map(EPUBArchive.isSafePath) == true else { return false }
         }
         if r.origin != .placeholder {
@@ -108,7 +111,7 @@ public actor CoverRepository {
     private func original(_ identity: CoverIdentity) throws -> Data {
         guard LibraryRepository.isDigest(identity.fileSHA256) else { throw CoverError.sourceMismatch }
         let limit: Int
-        switch identity.format { case .pdf: limit = 200 * 1024 * 1024; case .cbz: limit = ComicLimits.archiveBytes; case .epub, .docx: limit = 20 * 1024 * 1024 }
+        switch identity.format { case .pdf: limit = 200 * 1024 * 1024; case .cbz, .cbt, .cb7, .cbr: limit = ComicLimits.archiveBytes; case .epub, .docx: limit = 20 * 1024 * 1024 }
         let url = root.appendingPathComponent("Originals").appendingPathComponent(identity.fileSHA256 + "." + identity.format.rawValue)
         let data = try BoundedFileReader.read(url, limit: limit)
         guard LibraryRepository.digest(data) == identity.fileSHA256 else { throw CoverError.sourceMismatch }; return data
@@ -128,6 +131,17 @@ public actor CoverRepository {
             guard let first = archive.pages.first, let entry = archive.entries.first(where: { $0.path == first.path }) else { throw CoverError.sourceMismatch }
             origin = .cbzFirstImage; path = first.path
             raster = try CoverRaster.image(CBZArchive.expand(entry, from: data), maximum: CoverLimits.thumbnailDimension, byteLimit: ComicLimits.entryBytes)
+        case .cbt:
+            let archive = try CBTArchive(data: data)
+            guard let first = archive.pages.first, let entry = archive.entries.first(where: { $0.path == first.path }) else { throw CoverError.sourceMismatch }
+            origin = .cbtFirstImage; path = first.path
+            raster = try CoverRaster.image(data.subdata(in: entry.payload), maximum: CoverLimits.thumbnailDimension, byteLimit: ComicLimits.entryBytes)
+        case .cb7, .cbr:
+            guard let format = ComicArchiveFormat(rawValue: identity.format.rawValue) else { throw CoverError.invalidImage }
+            let archive = try NativeComicArchive(data: data, format: format)
+            guard let first = archive.pages.first else { throw CoverError.sourceMismatch }
+            origin = format == .cb7 ? .cb7FirstImage : .cbrFirstImage; path = first.path
+            raster = try CoverRaster.image(archive.pagePNG(at: 0), maximum: CoverLimits.thumbnailDimension, byteLimit: ComicLimits.entryBytes)
         case .docx: origin = .placeholder; path = nil; raster = nil
         }
         try Task.checkCancellation()

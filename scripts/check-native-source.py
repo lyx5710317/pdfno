@@ -27,7 +27,8 @@ docx_paths={Path('apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX')/(n
 docx_paths.add(Path('apple/Packages/PDFnoKit/Sources/PDFnoUI/Resources/study-sample.docx'))
 extraction_path=Path('apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/mammoth-extraction.json')
 inventory=json.loads((ROOT/'scripts/ORIGINAL-FIXTURES.json').read_text())
-expected_paths=pdf_paths | set(epub_hashes) | docx_paths | {extraction_path}
+ebook_paths={Path('apple/Packages/PDFnoKit')/folder/('study-sample.'+ext) for folder in ['Sources/PDFnoUI/Resources/Ebooks','Tests/PDFnoKitTests/Fixtures/Ebooks'] for ext in ['mobi','azw','azw3','fb2']}
+expected_paths=ebook_paths | pdf_paths | set(epub_hashes) | docx_paths | {extraction_path}
 if len(inventory)!=len(expected_paths) or {Path(x['path']) for x in inventory}!=expected_paths:
     failures.append('Original fixture inventory differs from the explicitly approved corpus')
 for record in inventory:
@@ -46,6 +47,9 @@ for relative in sorted(files):
     if any(part in {'.build','node_modules','xcuserdata','.private'} for part in relative.parts) or path.suffix in {'.key','.pem','.p12','.mobileprovision','.xcuserstate'}:
         failures.append(f'Private/build artifact: {relative}'); continue
     data=path.read_bytes()
+    if relative in ebook_paths:
+        if path.suffix != '.fb2' and data[60:68] != b'BOOKMOBI': failures.append(f'Invalid original ebook signature: {relative}')
+        continue
     if relative in docx_paths:
         if not data.startswith(b'PK\x03\x04'): failures.append(f'Invalid original DOCX signature: {relative}')
         continue

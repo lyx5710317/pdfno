@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-04 08:22:11 UTC",
+  "tested_source_commit": "d28afe72d4e56fe9ff9c4d838d167b2a62754e52",
+  "base_commit": "8cf6ab8e93e057aa73a6607a17e6e2fe42269315",
+  "branch": "feature/ebook-formats",
+  "source_changes_after_tests": false,
+  "follow_up_scope": "Documentation/evidence only",
+  "host": {
+    "architecture": "arm64",
+    "macos": "27.0",
+    "xcode": "27.0",
+    "xcode_build": "27A266a",
+    "swift": "6.4",
+    "sdk_macos": "27.0",
+    "sdk_simulator": "27.0"
+  },
+  "approval_context": {
+    "normal_functionality_new_authorization": true,
+    "same_previously_denied_functional_action_retried_once": true,
+    "review_allowed": true,
+    "security_special_authorized": false,
+    "security_special_retried": false,
+    "sandbox_disabled": false,
+    "alternate_compiler_bypass": false
+  },
+  "runs": [
+    {
+      "action": "swift_ebook_units",
+      "command": "env CLANG_MODULE_CACHE_PATH=/tmp/pdfno-ebook-build/ModuleCache SWIFTPM_MODULECACHE_OVERRIDE=/tmp/pdfno-ebook-build/ModuleCache swift test --package-path apple/Packages/PDFnoKit --scratch-path /tmp/pdfno-ebook-build/Package --cache-path /tmp/pdfno-ebook-build/Cache --config-path /tmp/pdfno-ebook-build/Config --security-path /tmp/pdfno-ebook-build/Security --filter EbookTests",
+      "log": "/tmp/pdfno-ebook-unit-functional.log",
+      "result": "5 definitions passed; 4 format cases in the parameterized test",
+      "log_capture": "Final compilation warnings/test output from tool chunk 27b080; initial compiler progress omitted",
+      "once_approved_retry": true,
+      "exit_code": 0,
+      "working_directory": "${EBOOK_WORKTREE}",
+      "log_sha256": "47ea8a9f2ccf36904d70ab35537845b5cc84c82f43b4e037fe5de7249747c491",
+      "log_bytes": 3166
+    },
+    {
+      "action": "swift_offscreen_webkit_functionality",
+      "command": "env CFFIXED_USER_HOME=/tmp/pdfno-ebook-build/FunctionalHome CLANG_MODULE_CACHE_PATH=/tmp/pdfno-ebook-build/ModuleCache SWIFTPM_MODULECACHE_OVERRIDE=/tmp/pdfno-ebook-build/ModuleCache swift test --skip-build --package-path apple/Packages/PDFnoKit --scratch-path /tmp/pdfno-ebook-build/Package --cache-path /tmp/pdfno-ebook-build/Cache --config-path /tmp/pdfno-ebook-build/Config --security-path /tmp/pdfno-ebook-build/Security --filter EbookReaderTests",
+      "log": "/tmp/pdfno-ebook-webkit-functional.log",
+      "result": "2 definitions passed; 4 actual WebKit format cases in the parameterized test",
+      "log_capture": "Complete redirected stdout/stderr",
+      "exit_code": 0,
+      "working_directory": "${EBOOK_WORKTREE}",
+      "log_sha256": "ce9d49483474d5b2e2585a3bb5f4c748234196d49a47777a508b70941d41a09f",
+      "log_bytes": 1032
+    },
+    {
+      "action": "mac_build_for_testing",
+      "command": "env CFFIXED_USER_HOME=/tmp/pdfno-ebook-build/Mac/Home CLANG_MODULE_CACHE_PATH=/tmp/pdfno-ebook-build/Mac/ModuleCache SWIFTPM_MODULECACHE_OVERRIDE=/tmp/pdfno-ebook-build/Mac/ManifestModules xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath /tmp/pdfno-ebook-build/Mac/DerivedData -clonedSourcePackagesDirPath /tmp/pdfno-ebook-build/Mac/Packages -packageCachePath /tmp/pdfno-ebook-build/Mac/PackageCache -disableAutomaticPackageResolution -skipPackageUpdates -jobs 2 CODE_SIGNING_ALLOWED=NO MODULE_CACHE_DIR=/tmp/pdfno-ebook-build/Mac/ModuleCache build-for-testing",
+      "log": "/tmp/pdfno-ebook-mac-build.log",
+      "result": "TEST BUILD SUCCEEDED",
+      "log_capture": "Complete redirected stdout/stderr",
+      "exit_code": 0,
+      "working_directory": "${EBOOK_WORKTREE}",
+      "log_sha256": "67723c87cb6f790d7e8a5742364eb05dd23e18ef92c51c1eccf4facdc7164715",
+      "log_bytes": 287615
+    },
+    {
+      "action": "ios_simulator_build",
+      "command": "env CFFIXED_USER_HOME=/tmp/pdfno-ebook-build/Mobile/Home CLANG_MODULE_CACHE_PATH=/tmp/pdfno-ebook-build/Mobile/ModuleCache SWIFTPM_MODULECACHE_OVERRIDE=/tmp/pdfno-ebook-build/Mobile/ManifestModules xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMobile -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/pdfno-ebook-build/Mobile/DerivedData -clonedSourcePackagesDirPath /tmp/pdfno-ebook-build/Mobile/Packages -packageCachePath /tmp/pdfno-ebook-build/Mobile/PackageCache -disableAutomaticPackageResolution -skipPackageUpdates -jobs 2 CODE_SIGNING_ALLOWED=NO MODULE_CACHE_DIR=/tmp/pdfno-ebook-build/Mobile/ModuleCache build",
+      "log": "/tmp/pdfno-ebook-mobile-build.log",
+      "result": "BUILD SUCCEEDED",
+      "log_capture": "Complete redirected stdout/stderr",
+      "exit_code": 0,
+      "working_directory": "${EBOOK_WORKTREE}",
+      "log_sha256": "64b29479d435829c64fe70d4e779bfd97f256f16d0e20018dbe0f0601474d808",
+      "log_bytes": 475399
+    }
+  ],
+  "limitations": [
+    "Prior security-special remains UNVERIFIED and was not retried",
+    "Four new Mac UI flows and prior 22 UI cases compiled but NOT-RUN",
+    "No app/simulator launch or user app automation",
+    "No physical device, oldest supported OS or Intel Mac runtime acceptance",
+    "Mobile ebook reading remains unavailable",
+    "Restricted admission profile unchanged; no general Kindle compatibility claim",
+    "No push, CI dispatch, merge, main/release or shared Library write action"
+  ],
+  "working_directory_reference": "${EBOOK_WORKTREE}: the user-authorized feature/ebook-formats checkout; local account path omitted"
+}

@@ -1,0 +1,56 @@
+[
+  {
+    "name": "original-copy.cb7",
+    "bytes": 445,
+    "sha256": "03669821b8852906a2aaaed05e4dffd1de6b9cd6a2cca81f4be30084b2e2628e",
+    "hexSHA256": "a66cef5c02490314aa31c782088b4d900df164416e215003a7a8c67ab9a19a11",
+    "generator": "scripts/generate-native-comic-fixtures.py",
+    "license": "AGPL-3.0-or-later",
+    "source": "Original PDFno colors/PNG/XML and container records; Python stdlib raw LZMA compression"
+  },
+  {
+    "name": "original-lzma.cb7",
+    "bytes": 508,
+    "sha256": "cd36c54000db15b6fb90e34aabbcf110219545d83ac7e9dd6822530627726cce",
+    "hexSHA256": "032072bc9d73ff73c66c6d148ef67fd3cd3b75768dd0bd7f5642d314f7a3215f",
+    "generator": "scripts/generate-native-comic-fixtures.py",
+    "license": "AGPL-3.0-or-later",
+    "source": "Original PDFno colors/PNG/XML and container records; Python stdlib raw LZMA compression"
+  },
+  {
+    "name": "original-lzma2.cb7",
+    "bytes": 469,
+    "sha256": "094cd85654a04d4a7c11cc3ddd44a83ac9cb2628e60d367f07444832212959d9",
+    "hexSHA256": "b484e20ba5f81c35404bc277aa25ef63f9d26d29fdb84fad3a636aba1e0463db",
+    "generator": "scripts/generate-native-comic-fixtures.py",
+    "license": "AGPL-3.0-or-later",
+    "source": "Original PDFno colors/PNG/XML and container records; Python stdlib raw LZMA compression"
+  },
+  {
+    "name": "original-rar4.cbr",
+    "bytes": 452,
+    "sha256": "d683d87e59d4ab00b65be22bd6d5b816257ec4e1331a8cf7e1a2db1485d97be9",
+    "hexSHA256": "5b5ab04efce1479d1839cca3e00053a23140b7129dba9a805834518a987a81a7",
+    "generator": "scripts/generate-native-comic-fixtures.py",
+    "license": "AGPL-3.0-or-later",
+    "source": "Original PDFno colors/PNG/XML and container records; Python stdlib raw LZMA compression"
+  },
+  {
+    "name": "original-rar5.cbr",
+    "bytes": 401,
+    "sha256": "1236c549231a8c687a20d3bf13c82263f6a496c4b61d0bca3d437f5079a40ab1",
+    "hexSHA256": "58f57fac202c14fae40f0c7cf3ebc7f0e2e4f4eb18a8c2d3cd6d446265c5aae2",
+    "generator": "scripts/generate-native-comic-fixtures.py",
+    "license": "AGPL-3.0-or-later",
+    "source": "Original PDFno colors/PNG/XML and container records; Python stdlib raw LZMA compression"
+  },
+  {
+    "name": "refused-solid.cb7",
+    "bytes": 352,
+    "sha256": "fa3e6f3259de729528a3df85a7f3315911bcfb5d9203254f441a2b7d647308b2",
+    "hexSHA256": "f7b882140571fec2904cdae0653ce0ba80dc1c0d52c3c356980268214e5f9e31",
+    "generator": "scripts/generate-native-comic-fixtures.py",
+    "license": "AGPL-3.0-or-later",
+    "source": "Original PDFno colors/PNG/XML and container records; Python stdlib raw LZMA compression"
+  }
+]

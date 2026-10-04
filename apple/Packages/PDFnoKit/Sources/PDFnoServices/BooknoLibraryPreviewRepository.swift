@@ -11,6 +11,14 @@ public actor BooknoLibraryPreviewRepository {
     private let root: URL
     public init(root: URL) { self.root = root }
     public func catalog() async throws -> [BooknoPreviewChoice] {
+        let snapshot = try await catalogSnapshot()
+        guard snapshot.unsupported.isEmpty else {
+            throw BooknoPreviewError.unsupportedFormat(Set(snapshot.unsupported.map(\.format)).sorted().joined(separator: "／"))
+        }
+        return snapshot.choices
+    }
+    /// UI keeps unsupported books visible; the legacy choices-only API refuses rather than dropping them.
+    public func catalogSnapshot() async throws -> BooknoPreviewCatalog {
         let pdf = try await LibraryRepository(root: root).load().books
         let epub = try await EPUBRepository(root: root).load().books
         let docx = try await DOCXRepository(root: root).load().books
@@ -27,17 +35,33 @@ public actor BooknoLibraryPreviewRepository {
         for b in pdf { add(.pdf, b.id, b.editionID, b.fileSHA256, b.title) }
         for b in epub { add(.epub, b.id, b.editionID, b.fileSHA256, b.title) }
         for b in docx { add(.docx, b.id, b.editionID, b.fileSHA256, b.title) }
-        for b in comics { add(.comic, b.id, b.editionID, b.fileSHA256, b.title) }
+        for b in comics { add(LocalBookFormat(b.archiveFormat ?? .cbz), b.id, b.editionID, b.fileSHA256, b.title) }
         let texts = try await TextFormatRepository(root: root).load().books
-        var choices = try native.map { BooknoPreviewChoice(book: try BooknoExportAdapter.book($0).0) }
-        choices += try texts.map { BooknoPreviewChoice(book: try BooknoExportAdapter.book($0)) }
+        let ebooks = try await EbookRepository(root: root).load().books
+        var choices: [BooknoPreviewChoice] = [], unsupported: [BooknoUnsupportedBook] = []
+        func refuse(_ id: UUID, _ edition: UUID, _ hash: String, _ format: String, _ title: String) {
+            unsupported.append(BooknoUnsupportedBook(bookID: id, editionID: edition, fileSHA256: hash, format: format, title: title))
+        }
+        for b in native {
+            if BooknoFormat(b.identity.format.coverFormat) != nil {
+                choices.append(BooknoPreviewChoice(book: try BooknoExportAdapter.book(b).0))
+            } else { refuse(b.identity.bookID, b.identity.editionID, b.identity.fileSHA256, b.identity.format.rawValue, b.title) }
+        }
+        for b in texts {
+            if BooknoFormat(b.format) != nil { choices.append(BooknoPreviewChoice(book: try BooknoExportAdapter.book(b))) }
+            else { refuse(b.id, b.editionID, b.fileSHA256, b.format.rawValue.uppercased(), b.title) }
+        }
+        for b in ebooks { refuse(b.id, b.editionID, b.fileSHA256, b.format.rawValue.uppercased(), b.title) }
         guard Set(choices.map(\.id)).count == choices.count else { throw BooknoPreviewError.invalidContract }
-        return choices.sorted { $0.book.title == $1.book.title ? $0.id < $1.id : $0.book.title.utf8.lexicographicallyPrecedes($1.book.title.utf8) }
+        guard Set(unsupported.map(\.id)).count == unsupported.count else { throw BooknoPreviewError.invalidContract }
+        return BooknoPreviewCatalog(
+            choices: choices.sorted { $0.book.title == $1.book.title ? $0.id < $1.id : $0.book.title.utf8.lexicographicallyPrecedes($1.book.title.utf8) },
+            unsupported: unsupported.sorted { $0.title == $1.title ? $0.id < $1.id : $0.title.utf8.lexicographicallyPrecedes($1.title.utf8) })
     }
     public func materialize(_ selected: [BooknoPreviewChoice], includeSavedNotes: Bool, includeCovers: Bool) async throws -> BooknoPreviewMaterial {
         guard !selected.isEmpty, selected.count <= Self.maximumSelectedBooks,
               Set(selected.map(\.id)).count == selected.count else { throw BooknoPreviewError.selectionLimit }
-        let current = Dictionary(uniqueKeysWithValues: try await catalog().map { ($0.id, $0) })
+        let current = Dictionary(uniqueKeysWithValues: try await catalogSnapshot().choices.map { ($0.id, $0) })
         let formats = Set(selected.map { $0.book.edition.format })
         let pdfNotes = includeSavedNotes && formats.contains(.pdf) ? try await LibraryRepository(root: root).load().notes : []
         let epubNotes = includeSavedNotes && formats.contains(.epub) ? try await EPUBRepository(root: root).load().notes : []

@@ -11,7 +11,10 @@ struct TextFormatTests {
         #expect(TextFileFormat.from(filename: "Original.Markdown") == .markdown)
         #expect(TextFileFormat.from(filename: "Original.HTM") == .html)
         #expect(TextFileFormat.from(filename: "Original.HTML") == .html)
-        for name in ["x.xml","x.mhtml","x.doc","x.rtf"] { #expect(TextFileFormat.from(filename: name) == nil) }
+        for name in ["x.doc","x.rtf","x.mht"] { #expect(TextFileFormat.from(filename: name) == nil) }
+        #expect(TextFileFormat.from(filename: "Original.XHTML") == .xhtml)
+        #expect(TextFileFormat.from(filename: "Original.MHTML") == .mhtml)
+        #expect(TextFileFormat.from(filename: "Original.XML") == .xml)
         let source = "Original 🌸 café\r\n日本語"
         #expect(try TextFileDecoder.decode(Data(source.utf8), format: .txt).text.utf16.elementsEqual(source.utf16))
         for little in [true,false] {
