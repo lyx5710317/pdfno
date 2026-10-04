@@ -10,13 +10,16 @@ struct NoteBodyEditor: View {
     let identifier: String
     let save: @MainActor () async -> Void
     let reload: @MainActor () async -> Void
+    @FocusState private var bodyFocused: Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let draft = editor.drafts[note.key] {
                 TextField("编辑用户正文", text: Binding(get: { editor.drafts[note.key]?.text ?? draft.text },
                     set: { editor.setText($0, for: note) }), axis: .vertical)
-                    .lineLimit(3...8).disabled(editor.saving.contains(note.key))
+                    .lineLimit(3...8).textFieldStyle(.roundedBorder)
+                    .focused($bodyFocused).disabled(editor.saving.contains(note.key))
                     .accessibilityIdentifier(identifier + "-edit-input")
+                    .onAppear { bodyFocused = true }
                 Text("留空会清空用户正文；引文、来源与 AI 结果保留。")
                     .font(.caption).foregroundStyle(.secondary)
                 HStack {

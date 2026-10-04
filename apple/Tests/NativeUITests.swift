@@ -42,8 +42,31 @@ final class NativeUITests: XCTestCase {
     @MainActor private func pressEditingElement(_ element: XCUIElement, app: XCUIApplication) {
         XCTAssertTrue(element.waitForExistence(timeout: 5)); scrollEditingElement(element, app: app); press(element)
     }
-    private func originalSavedNote(_ token: String, manifest: String) throws -> [String: Any] {
-        let url = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent(manifest)
+    @MainActor private func enterEditingText(_ text: String, prefix: String, app: XCUIApplication) {
+        let input = editingInput(prefix, app: app)
+        // In a macOS List, the blank centre of a multiline field can select the
+        // row. Place the caret in its first line before sending fixture keys.
+        input.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.15)).click()
+        input.typeKey("a", modifierFlags: .command)
+        let board = NSPasteboard.general
+        let previous = (board.pasteboardItems ?? []).map { item in
+            let copy = NSPasteboardItem()
+            for type in item.types { if let data = item.data(forType: type) { copy.setData(data, forType: type) } }
+            return copy
+        }
+        board.clearContents(); board.setString(text, forType: .string)
+        let change = board.changeCount
+        input.typeKey("v", modifierFlags: .command)
+        // Verify both the actual control and its model before dismiss/save;
+        // a missed keyboard event must fail here, not masquerade as data loss.
+        waitForText([text], in: input, timeout: 5)
+        XCTAssertEqual(textValue(input), text)
+        waitForText(["正文未保存"], in: app.staticTexts[prefix + "-edit-status"].firstMatch, timeout: 5)
+        if board.changeCount == change { board.clearContents(); board.writeObjects(previous) }
+    }
+    private func originalSavedNote(_ token: String, manifest: String, root: URL? = nil) throws -> [String: Any] {
+        let store = root ?? URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token)
+        let url = store.appendingPathComponent(manifest)
         let state = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
         XCTAssertEqual(state["schemaVersion"] as? Int, 1)
         return try XCTUnwrap((state["notes"] as? [[String: Any]])?.first)
@@ -60,10 +83,10 @@ final class NativeUITests: XCTestCase {
         let edit = app.buttons["pdf-note-edit"].firstMatch
         XCTAssertTrue(edit.waitForExistence(timeout: 8))
         let before = try originalSavedNote(token, manifest: "library-v1.json")
-        pressEditingElement(edit, app: app); enterSearch("Original cancelled edit", into: editingInput("pdf-note", app: app), replacing: true)
+        pressEditingElement(edit, app: app); enterEditingText("Original cancelled edit", prefix: "pdf-note", app: app)
         pressEditingElement(app.buttons["pdf-note-edit-cancel"].firstMatch, app: app)
         XCTAssertEqual(try originalSavedNote(token, manifest: "library-v1.json")["userText"] as? String, "Original saved body")
-        pressEditingElement(edit, app: app); enterSearch("Original recovered 日本語🌸 café", into: editingInput("pdf-note", app: app), replacing: true)
+        pressEditingElement(edit, app: app); enterEditingText("Original recovered 日本語🌸 café", prefix: "pdf-note", app: app)
         press(app.buttons["close-notes"].firstMatch); press(app.buttons["reader-notes"].firstMatch)
         XCTAssertEqual(textValue(editingInput("pdf-note", app: app)), "Original recovered 日本語🌸 café")
         app.terminate(); app.launch(); app.activate()
@@ -79,7 +102,9 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(after["id"] as? String, before["id"] as? String)
         pressEditingElement(edit, app: app)
         let body = editingInput("pdf-note", app: app)
-        press(body); body.typeKey("a", modifierFlags: .command); body.typeKey(.delete, modifierFlags: [])
+        body.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.15)).click()
+        body.typeKey("a", modifierFlags: .command); body.typeKey(.delete, modifierFlags: [])
+        waitForText(["正文未保存"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 5)
         pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
         waitForText(["已保存到本地"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
         XCTAssertEqual(try originalSavedNote(token, manifest: "library-v1.json")["userText"] as? String, "")
@@ -89,15 +114,18 @@ final class NativeUITests: XCTestCase {
     }
     @MainActor func testMacPDFBodyEditingDiskFailureKeepsDraftAndExplicitRetry() throws {
         let app = XCUIApplication(), token = UUID().uuidString
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-UITests-" + token)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
-        app.launch(); app.activate(); defer { app.terminate() }
+        app.launchEnvironment["TMPDIR"] = root.deletingLastPathComponent().path
+        app.launchEnvironment["PDFNO_UI_TEST_RUNNER_TMP"] = "1"
+        app.launch(); app.activate(); defer { app.terminate(); try? FileManager.default.removeItem(at: root) }
         try prepareOriginalPDFNoteEditing(app)
         press(app.buttons["reader-notes"].firstMatch); press(app.buttons["save-note"].firstMatch)
         let edit = app.buttons["pdf-note-edit"].firstMatch
         XCTAssertTrue(edit.waitForExistence(timeout: 8)); pressEditingElement(edit, app: app)
+        enterEditingText("Original failure recovery body", prefix: "pdf-note", app: app)
         let body = editingInput("pdf-note", app: app)
-        enterSearch("Original failure recovery body", into: body, replacing: true)
-        let root = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token)
         let manifest = root.appendingPathComponent("library-v1.json"), backup = root.appendingPathComponent("library-v1.json.backup")
         let before = try Data(contentsOf: manifest)
         try FileManager.default.removeItem(at: backup)
@@ -109,7 +137,7 @@ final class NativeUITests: XCTestCase {
         try FileManager.default.removeItem(at: backup)
         pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
         waitForText(["已保存到本地"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
-        XCTAssertEqual(try originalSavedNote(token, manifest: "library-v1.json")["userText"] as? String, "Original failure recovery body")
+        XCTAssertEqual(try originalSavedNote(token, manifest: "library-v1.json", root: root)["userText"] as? String, "Original failure recovery body")
         XCTAssertEqual(textValue(app.staticTexts["saved-note-quote"].firstMatch), "window")
     }
     @MainActor func testMacEPUBBodyEditingBookSwitchRestartAndSource() throws {
@@ -125,7 +153,7 @@ final class NativeUITests: XCTestCase {
         let edit = app.buttons["epub-note-edit"].firstMatch
         XCTAssertTrue(edit.waitForExistence(timeout: 8))
         let before = try originalSavedNote(token, manifest: "epub-v1.json")
-        pressEditingElement(edit, app: app); enterSearch("Original EPUB edited body 日本語🌸", into: editingInput("epub-note", app: app), replacing: true)
+        pressEditingElement(edit, app: app); enterEditingText("Original EPUB edited body 日本語🌸", prefix: "epub-note", app: app)
         press(app.buttons["epub-close-notes"].firstMatch); press(app.buttons["open-sample"].firstMatch)
         XCTAssertTrue(app.buttons["reader-notes"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["reader-notes"].firstMatch)
         XCTAssertFalse(app.buttons["epub-note-edit-save"].firstMatch.exists)
@@ -164,7 +192,7 @@ final class NativeUITests: XCTestCase {
         let edit = app.buttons["ai-note-edit"].firstMatch
         XCTAssertTrue(edit.waitForExistence(timeout: 8))
         let before = try originalSavedNote(token, manifest: "learning-v1.json")
-        pressEditingElement(edit, app: app); enterSearch("Original independent edited AI body", into: editingInput("ai-note", app: app), replacing: true)
+        pressEditingElement(edit, app: app); enterEditingText("Original independent edited AI body", prefix: "ai-note", app: app)
         pressEditingElement(app.buttons["ai-note-edit-save"].firstMatch, app: app)
         waitForText(["已保存到本地"], in: app.staticTexts["ai-note-edit-status"].firstMatch, timeout: 8)
         let after = try originalSavedNote(token, manifest: "learning-v1.json")
@@ -279,7 +307,9 @@ final class NativeUITests: XCTestCase {
         press(app.buttons["library-metadata-close"].firstMatch)
         enterSearch("cafe\u{301}", into: input, replacing: true)
         waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
-        XCTAssertTrue(app.staticTexts["library-search-group"].firstMatch.label.contains("Original 中文 Café 日本語🌸"))
+        let group = app.descendants(matching: .any).matching(identifier: "library-search-group").firstMatch
+        XCTAssertTrue(group.waitForExistence(timeout: 5))
+        XCTAssertTrue(textValue(group).contains("Original 中文 Café 日本語🌸"))
         enterSearch("山川", into: input, replacing: true)
         waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
         enterSearch("原创无结果词", into: input, replacing: true)
@@ -363,7 +393,7 @@ final class NativeUITests: XCTestCase {
         let anchor = try XCTUnwrap(before["anchor"] as? [String: Any]), hash = try XCTUnwrap(anchor["fileSHA256"] as? String)
         let original = store.appendingPathComponent("Originals/" + hash + ".pdf"), originalBytes = try Data(contentsOf: original)
         pressEditingElement(edit, app: app)
-        enterSearch("integrationdraftbody", into: editingInput("pdf-note", app: app), replacing: true)
+        enterEditingText("integrationdraftbody", prefix: "pdf-note", app: app)
         press(app.buttons["close-notes"].firstMatch); press(app.buttons["library-search"].firstMatch)
         let search = app.textFields["library-search-input"].firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 8)); enterSearch("integrationdraftbody", into: search)
@@ -372,7 +402,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(textValue(editingInput("pdf-note", app: app)), "integrationdraftbody")
         pressEditingElement(app.buttons["pdf-note-edit-cancel"].firstMatch, app: app)
         pressEditingElement(edit, app: app)
-        enterSearch("integrationsavedbody 日本語", into: editingInput("pdf-note", app: app), replacing: true)
+        enterEditingText("integrationsavedbody 日本語", prefix: "pdf-note", app: app)
         pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
         waitForText(["已保存到本地"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
         press(app.buttons["close-notes"].firstMatch)

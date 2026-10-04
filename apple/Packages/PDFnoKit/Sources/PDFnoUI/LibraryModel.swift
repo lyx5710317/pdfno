@@ -87,7 +87,15 @@ public final class LibraryModel: ObservableObject {
         #if os(macOS)
         // XCTest's runner and the launched app can have different TMPDIR values.
         // A fresh, private UUID directory is shared only by this isolated test.
-        let root = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + value.uuidString)
+        #if DEBUG
+        // A filesystem-failure UI fixture needs a directory owned by its runner.
+        // The normal shared UUID location and all release behavior stay unchanged.
+        let parent = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_RUNNER_TMP"] == "1"
+            ? FileManager.default.temporaryDirectory : URL(fileURLWithPath: "/tmp", isDirectory: true)
+        #else
+        let parent = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        #endif
+        let root = parent.appendingPathComponent("PDFno-UITests-" + value.uuidString)
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         return root
         #else

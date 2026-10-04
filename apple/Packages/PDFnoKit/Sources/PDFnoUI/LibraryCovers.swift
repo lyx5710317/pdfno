@@ -109,7 +109,8 @@ struct LibraryCoverRow: View {
                     }
                 }.padding(.vertical, 6).frame(maxWidth: .infinity, alignment: .leading)
             }
-        }.accessibilityIdentifier(item.accessibilityID)
+        }.accessibilityElement(children: .contain)
+            .accessibilityIdentifier(item.accessibilityID)
             .contextMenu { Button("编辑封面", action: edit) }
     }
 }
