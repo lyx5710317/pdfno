@@ -11,6 +11,7 @@ public struct LibraryWorkspace: View {
     @State private var about = false
     @State private var aiSettings = false
     @State private var conversion = false
+    @State private var librarySearch = false
     @State private var compactColumn: NavigationSplitViewColumn = .sidebar
     @State private var selectedBookID: UUID?
     @State private var grid = false
@@ -107,6 +108,7 @@ public struct LibraryWorkspace: View {
                 Button { coverEditor = coverItems.first { $0.id == selectedBookID } } label: { Label("编辑封面", systemImage: "photo") }
                     .disabled(selectedBookID == nil).accessibilityIdentifier("library-edit-cover")
             }
+            ToolbarItem { Button { librarySearch = true } label: { Label("书库与笔记搜索", systemImage: "magnifyingglass") }.accessibilityIdentifier("library-search") }
             ToolbarItem { Button { conversion = true } label: { Label("格式转换", systemImage: "arrow.triangle.2.circlepath") }.accessibilityIdentifier("document-conversion") }
             ToolbarItem { Button { aiSettings = true } label: { Label("模型与 BYOK 设置", systemImage: "slider.horizontal.3") }.accessibilityIdentifier("ai-settings") }
             #endif
@@ -114,6 +116,7 @@ public struct LibraryWorkspace: View {
         .sheet(isPresented: $about) { FeatureStatusView() }
         #if os(macOS)
         .sheet(item: $coverEditor) { item in LibraryCoverEditor(covers: model.covers, item: item) }
+        .sheet(isPresented: $librarySearch) { LibrarySearchWorkspace(library: model) }
         .sheet(isPresented: $conversion) { ConversionWorkspace() }
         .sheet(isPresented: $aiSettings) { AISettingsView(learning: model.learning) }
         #endif

@@ -261,6 +261,101 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(placeholder.waitForExistence(timeout: 15))
         XCTAssertEqual(try Data(contentsOf: store.appendingPathComponent("covers-v1.json")), before)
     }
+import AppKit
+#endif
+
+final class NativeUITests: XCTestCase {
+    #if os(macOS)
+    // Execute only in isolated CI/VM/OS user: the runner can terminate the same bundle ID.
+    @MainActor func testMacLibrarySearchMetadataUnicodeEmptyNoResultsAndRestart() throws {
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launch(); app.activate(); defer { app.terminate() }
+        let sample = app.buttons["open-sample"].firstMatch
+        XCTAssertTrue(sample.waitForExistence(timeout: 15)); waitUntilEnabled(sample); press(sample)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 15)
+        press(app.buttons["library-search"].firstMatch)
+        let input = app.textFields["library-search-input"].firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["library-search-empty"].firstMatch.exists)
+        enterSearch("study-sample", into: input)
+        waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
+        press(app.buttons["library-search-metadata"].firstMatch)
+        let title = app.textFields["library-metadata-title"].firstMatch, author = app.textFields["library-metadata-author"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        enterSearch("Original 中文 Café 日本語🌸", into: title, replacing: true)
+        enterSearch("Original Author 山川", into: author, replacing: true)
+        press(app.buttons["library-metadata-save"].firstMatch)
+        XCTAssertTrue(app.staticTexts["library-metadata-saved"].firstMatch.waitForExistence(timeout: 8))
+        press(app.buttons["library-metadata-close"].firstMatch)
+        enterSearch("cafe\u{301}", into: input, replacing: true)
+        waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
+        XCTAssertTrue(app.staticTexts["library-search-group"].firstMatch.label.contains("Original 中文 Café 日本語🌸"))
+        enterSearch("山川", into: input, replacing: true)
+        waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
+        enterSearch("原创无结果词", into: input, replacing: true)
+        XCTAssertTrue(app.staticTexts["library-search-no-results"].firstMatch.waitForExistence(timeout: 8))
+        press(app.buttons["library-search-clear"].firstMatch)
+        XCTAssertTrue(app.staticTexts["library-search-empty"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["library-search-open-book"].firstMatch.exists)
+        press(app.buttons["library-search-close"].firstMatch)
+        app.terminate(); app.launch(); app.activate()
+        let search = app.buttons["library-search"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 15)); press(search)
+        XCTAssertTrue(input.waitForExistence(timeout: 8)); enterSearch("AUTHOR", into: input)
+        waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
+        press(app.buttons["library-search-open-book"].firstMatch)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 15)
+    }
+    @MainActor func testMacLibrarySearchUserNoteSavedLocalMockAIAndExactSource() throws {
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launch(); app.activate(); defer { app.terminate() }
+        let sample = app.buttons["open-sample"].firstMatch
+        XCTAssertTrue(sample.waitForExistence(timeout: 15)); waitUntilEnabled(sample); press(sample)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 15)
+        press(app.buttons["reader-navigation"].firstMatch)
+        let navigationInput = app.textFields["search-input"].firstMatch
+        XCTAssertTrue(navigationInput.waitForExistence(timeout: 5)); enterSearch("window", into: navigationInput)
+        press(app.buttons["search-submit"].firstMatch)
+        let match = app.buttons["search-result"].firstMatch
+        XCTAssertTrue(match.waitForExistence(timeout: 5)); press(match)
+        press(app.buttons["reader-notes"].firstMatch)
+        let draft = app.descendants(matching: .any).matching(identifier: "note-input").firstMatch
+        XCTAssertTrue(draft.waitForExistence(timeout: 5)); enterSearch("Original 日記 cafe\u{301}🌸", into: draft)
+        press(app.buttons["save-note"].firstMatch)
+        XCTAssertTrue(app.staticTexts["saved-note-quote"].firstMatch.waitForExistence(timeout: 8))
+        press(app.buttons["close-notes"].firstMatch); press(app.buttons["next-page"].firstMatch)
+        waitForText(["2 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 5)
+        press(app.buttons["library-search"].firstMatch)
+        let input = app.textFields["library-search-input"].firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 8)); enterSearch("日記", into: input)
+        waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
+        press(app.buttons["library-search-source"].firstMatch)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
+        press(app.buttons["ai-settings"].firstMatch)
+        XCTAssertTrue(app.buttons["ai-use-mock"].firstMatch.waitForExistence(timeout: 5))
+        press(app.buttons["ai-use-mock"].firstMatch); press(app.buttons["ai-settings-save"].firstMatch)
+        press(app.buttons["reader-ai"].firstMatch)
+        XCTAssertTrue(app.staticTexts["ai-source-quote"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(textValue(app.staticTexts["ai-source-quote"].firstMatch), "window")
+        waitForText(["本地 mock"], in: app.staticTexts["ai-provider-status"].firstMatch, timeout: 5)
+        press(app.descendants(matching: .any).matching(identifier: "ai-scope-consent").firstMatch)
+        press(app.buttons["ai-start"].firstMatch)
+        XCTAssertTrue(app.staticTexts["ai-result"].firstMatch.waitForExistence(timeout: 8))
+        let aiDraft = app.descendants(matching: .any).matching(identifier: "ai-user-note").firstMatch
+        enterSearch("Original saved AI memory 学習", into: aiDraft); press(app.buttons["ai-save-note"].firstMatch)
+        XCTAssertTrue(app.staticTexts["ai-saved-user-note"].firstMatch.waitForExistence(timeout: 8))
+        press(app.buttons["ai-close"].firstMatch); press(app.buttons["next-page"].firstMatch)
+        press(app.buttons["library-search"].firstMatch)
+        XCTAssertTrue(input.waitForExistence(timeout: 8)); enterSearch("学習", into: input)
+        waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
+        press(app.buttons["library-search-source"].firstMatch)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
+        app.terminate(); app.launch(); app.activate()
+        let search = app.buttons["library-search"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 15)); press(search)
+        XCTAssertTrue(input.waitForExistence(timeout: 8)); enterSearch("学習", into: input)
+        waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
+    }
     @MainActor func testMacDOCXImportSemanticSelectionNotesAndRestart() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Word-UI-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
