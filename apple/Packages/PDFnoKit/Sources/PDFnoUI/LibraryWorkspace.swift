@@ -258,7 +258,7 @@ public struct FeatureStatusView: View {
                 }
                 Section("后续接入") {
                     Text("EPUB：Mac 本地重排阅读；移动适配与固定版式待验收")
-                    Text("Mac AI：选文翻译／解释、受限 PDF 当前页与 EPUB 当前完整文档双语对照；范围预览、手动确认发送和学习笔记。当前 EPUB 文档不等于目录逻辑章节；真实质量与完整日英学习待验收")
+                    Text("Mac AI：选文翻译／解释、受限 PDF 当前页与 EPUB 当前完整文档双语对照；范围预览、手动确认发送和学习笔记。当前 EPUB 文档不等于目录逻辑章节；日语选文读音与中文语法建议可审阅并手动保存；真实质量与完整日英学习待验收")
                     Text("Bookno API：尚未接入")
                     Text("iCloud：未配置容器，数据仅保存在本地")
                     Text("CBZ / CBT：移动阅读适配待验收；当前 Mac 支持静态 PNG / JPEG，CBT 限未压缩 POSIX USTAR；CB7 限非 solid COPY/LZMA/LZMA2 和明文头；CBR 限 RAR4/RAR5 STORE")
@@ -281,10 +281,16 @@ struct ReaderWorkspace: View {
     @State private var draft = ""
     @State private var ai = false
     @State private var pageTranslation = false
+    @State private var japaneseLearning = false
     var body: some View {
         Group {
             if let book = session.book {
                 VStack(spacing: 0) {
+                    #if os(macOS)
+                    JapaneseLearningEntry(identifier: "reader-japanese-learning") {
+                        model.prepareJapaneseLearning(); japaneseLearning = true
+                    }
+                    #endif
                     PDFCanvas(session: session).background(.secondary.opacity(0.1))
                     HStack {
                         Text("第 \(session.pageIndex + 1) / \(book.pageCount) 页").monospacedDigit()
@@ -323,6 +329,7 @@ struct ReaderWorkspace: View {
         .sheet(isPresented: $navigation) { navigationSheet }
         .sheet(isPresented: $notesPanel) { notesSheet }
         #if os(macOS)
+        .sheet(isPresented: $japaneseLearning) { JapaneseLearningSheet(library: model) }
         .sheet(isPresented: $ai) { AILearningWorkspace(library: model, learning: model.learning) }
         .sheet(isPresented: $pageTranslation) { PDFPageTranslationWorkspace(library: model, translation: model.pageTranslation, learning: model.learning) }
         #endif
@@ -388,6 +395,9 @@ struct ReaderWorkspace: View {
                         }.padding(.vertical, 4)
                     }
                 }
+                #if os(macOS)
+                JapaneseSavedNotesSection(library: model, bookID: session.book?.id) { notesPanel = false }
+                #endif
             }.accessibilityIdentifier("pdf-notes-list").navigationTitle("高亮与笔记").toolbar { ToolbarItem { Button("完成") { notesPanel = false }.accessibilityIdentifier("close-notes") } }
         }.frame(minWidth: 300, minHeight: 420)
     }

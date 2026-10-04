@@ -29,9 +29,9 @@ struct BooknoPreviewWorkspace: View {
                                 .foregroundStyle(.secondary).accessibilityIdentifier("bookno-unsupported-" + book.id)
                         }
                     }
-                    Toggle("包含所选书籍的已保存高亮与学习笔记", isOn: $model.includeSavedNotes)
+                    Toggle("包含所选书籍已适配的高亮与学习笔记", isOn: $model.includeSavedNotes)
                         .accessibilityIdentifier("bookno-include-notes")
-                    Text("不含编辑草稿。PDF／EPUB 包含已保存AI结果与独立用户正文；TXT／Markdown／HTML 包含普通高亮。漫画／Word 当前仅书目与封面，笔记尚未适配。")
+                    Text("不含编辑草稿。PDF／EPUB 包含已保存AI结果与独立用户正文；TXT／Markdown／HTML 包含普通高亮。日语学习记录尚未适配，本次不包含。漫画／Word 当前仅书目与封面，笔记尚未适配。")
                         .font(.caption).foregroundStyle(.secondary)
                     Toggle("包含所选书籍的既存封面", isOn: $model.includeCovers).accessibilityIdentifier("bookno-include-covers")
                     Text("只读取已保存图片，不生成或改写封面。文本格式封面未开放；缺失会明确说明。")

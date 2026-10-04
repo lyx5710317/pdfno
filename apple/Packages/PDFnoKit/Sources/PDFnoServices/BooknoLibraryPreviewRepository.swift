@@ -91,6 +91,9 @@ public actor BooknoLibraryPreviewRepository {
             }
             payloads.append(.book(book))
             if includeSavedNotes {
+                if book.edition.format == .pdf || book.edition.format == .epub {
+                    notices.append(book.title + "：日语学习记录尚未适配 Bookno，本次不包含。")
+                }
                 switch book.edition.format {
                 case .pdf:
                     payloads += try pdfNotes.filter { $0.bookID == book.bookUUID }.map { .note(try BooknoExportAdapter.note(.pdf($0), book: book)) }

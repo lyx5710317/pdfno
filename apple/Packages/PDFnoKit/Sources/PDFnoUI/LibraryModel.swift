@@ -34,6 +34,13 @@ public final class LibraryModel: ObservableObject {
     public let comic = ComicReaderSession()
     public let docx: DOCXLibraryModel
     public let textFormats: TextFormatLibraryModel
+    let japaneseRepository: JapaneseLearningRepository
+    @Published var japaneseNotes: [JapaneseLearningNote] = []
+    @Published var japaneseStoreError: String?
+    lazy var japaneseLearning = makeJapaneseLearningModel()
+    private var japanesePDFSelectionChanges: AnyCancellable?
+    private var japanesePDFSessionChanges: AnyCancellable?
+    private var japaneseEPUBSelectionChanges: AnyCancellable?
     let booknoPreview: BooknoPreviewModel
     private var textChanges: AnyCancellable?
     public let ebook: EbookLibraryModel
@@ -59,26 +66,30 @@ public final class LibraryModel: ObservableObject {
     }
     // Internal injection keeps native source/storage regressions in fresh test
     // directories without configuring or accessing the user's real library.
-    init(root: URL, aiSession: AppAISession = .shared) {
+    init(root: URL, aiSession: AppAISession = .shared, learningTransport: (any AIHTTPTransport)? = nil) {
         covers = CoverLibraryModel.shared(root: root)
         repository = LibraryRepository(root: root)
         epubRepository = EPUBRepository(root: root)
         comicRepository = ComicRepository(root: root)
         #if os(macOS)
+        japaneseRepository = JapaneseLearningRepository(root: root)
         docx = DOCXLibraryModel(root: root)
         textFormats = TextFormatLibraryModel(root: root)
         booknoPreview = BooknoPreviewModel(repository: BooknoLibraryPreviewRepository(root: root))
         ebook = EbookLibraryModel(root: root)
         #endif
         #if DEBUG
-        if let token = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"], UUID(uuidString: token) != nil,
+        if let learningTransport {
+            learning = AILearningModel(root: root, transport: learningTransport, offlineTransport: true, aiSession: aiSession)
+            pageTranslation = PDFPageTranslationModel(aiSession: aiSession); chapterTranslation = EPUBChapterTranslationModel(aiSession: aiSession)
+        } else if let token = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"], UUID(uuidString: token) != nil,
            ProcessInfo.processInfo.environment["PDFNO_UI_TEST_DEEPSEEK"] == "offline" {
             learning = AILearningModel(root: root, transport: OfflineSelectionUITestTransport(), offlineTransport: true, aiSession: aiSession)
             chapterTranslation = EPUBChapterTranslationModel(transport: OfflineSelectionUITestTransport(pageScenario: ProcessInfo.processInfo.environment["PDFNO_UI_TEST_CHAPTER_RESPONSE"]), offlineTransport: true, aiSession: aiSession)
             pageTranslation = PDFPageTranslationModel(transport: OfflineSelectionUITestTransport(pageScenario: ProcessInfo.processInfo.environment["PDFNO_UI_TEST_PAGE_RESPONSE"]), offlineTransport: true, aiSession: aiSession)
         } else { learning = AILearningModel(root: root, aiSession: aiSession); pageTranslation = PDFPageTranslationModel(aiSession: aiSession); chapterTranslation = EPUBChapterTranslationModel(aiSession: aiSession) }
         #else
-        learning = AILearningModel(root: root, aiSession: aiSession); pageTranslation = PDFPageTranslationModel(aiSession: aiSession); chapterTranslation = EPUBChapterTranslationModel(aiSession: aiSession)
+        learning = AILearningModel(root: root, transport: learningTransport ?? URLSessionAITransport(), offlineTransport: learningTransport != nil, aiSession: aiSession); pageTranslation = PDFPageTranslationModel(aiSession: aiSession); chapterTranslation = EPUBChapterTranslationModel(aiSession: aiSession)
         #endif
         #if DEBUG && os(macOS)
         let failureFixture = NoteEditingFilesystemUITestFixture(root: root)
@@ -98,8 +109,12 @@ public final class LibraryModel: ObservableObject {
         #if os(macOS)
         // The sidebar reads this nested model even while its reader is inactive.
         // Forward asynchronous load/restart changes as well as routed imports.
-        epub.translationScopeDidChange = { [weak self] in self?.chapterTranslation.cancel() }
         ebookChanges = ebook.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
+        learning.japaneseScopeDidInvalidate = { [weak self] in self?.invalidateJapaneseLearning() }
+        epub.translationScopeDidChange = { [weak self] in self?.chapterTranslation.cancel(); self?.invalidateJapaneseLearning() }
+        japanesePDFSessionChanges = reader.$readerSessionID.dropFirst().sink { [weak self] _ in self?.invalidateJapaneseLearning() }
+        japanesePDFSelectionChanges = reader.$capturedSelection.dropFirst().sink { [weak self] anchor in self?.japaneseSelectionDidChange(anchor.map(AISelectionAnchor.pdf)) }
+        japaneseEPUBSelectionChanges = epub.$selection.dropFirst().sink { [weak self] anchor in self?.japaneseSelectionDidChange(anchor.map(AISelectionAnchor.epub)) }
         docxChanges = docx.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         textChanges = textFormats.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         #endif
@@ -131,6 +146,9 @@ public final class LibraryModel: ObservableObject {
             try await ebook.load()
             #endif
             await learning.load()
+            #if os(macOS)
+            await loadJapaneseLearningNotes()
+            #endif
         } catch { self.error = error.localizedDescription; canImport = false }
     }
     func importFile(_ url: URL) async {

@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "baseSHA": "71d54540c417915702506f67fef7d337605aa9e2",
+  "inputs": [
+    "7a82581e0fd5891b504935df5036f302d68e80ae",
+    "84d23e6245cf6fb4aa9dbdccbe79771ee8a1b2ae"
+  ],
+  "methodsByFile": {
+    "apple/Tests/NativeUITests.swift": [
+      "testMacJapaneseOfflineConsentComponentSwitchManualSaveRestartExactPDFReturn",
+      "testMacJapaneseNativeEPUBSelectionManualSaveAndSourceReturnPreservesRuby",
+      "testMacJapaneseInvalidOutputAndCancelCannotCreateNotesOrLateReview",
+      "testMacBooknoExplicitOfflinePreviewSavedBodyMockReplayAndClose",
+      "testMacPDFBodyEditingCancelDraftRestartEmptyAndSource",
+      "testMacPDFBodyEditingDiskFailureKeepsDraftAndExplicitRetry",
+      "testMacEPUBBodyEditingBookSwitchRestartAndSource",
+      "testMacLearningBodyEditingPreservesResultRestartAndSource",
+      "testMacCoverSelectionGridListRestartAndRestore",
+      "testMacDOCXDefaultCoverInListGridAndRestart",
+      "testMacLibrarySearchMetadataUnicodeEmptyNoResultsAndRestart",
+      "testMacLibrarySearchUserNoteSavedLocalMockAIAndExactSource",
+      "testMacEditedNoteSearchDraftExclusionCoverLayoutsAndExactSource",
+      "testMacTXTImportSelectionNotesNavigationAndRestart",
+      "testMacMarkdownImportSelectionNotesNavigationAndRestart",
+      "testMacHTMLAliasImportSelectionNotesNavigationAndRestart",
+      "testMacXHTMLImportSelectionNotesNavigationAndRestart",
+      "testMacReadableXMLImportSelectionNotesNavigationAndRestart",
+      "testMacMHTMLImportSelectionNotesNavigationAndRestart",
+      "testMacDOCXImportSemanticSelectionNotesAndRestart",
+      "testMacDOCXFailureRecoveryAndPDFEPUBTransitions",
+      "testMacDOCXConversionSavePanelCancelAndOverwriteRefusal",
+      "testMacDOCXConversionFailureRecoveryAndEscapedHTML",
+      "testMacDOCXConversionWorkerCancellationLeavesNoOutput",
+      "testMacCBZImportSpreadsDirectionPageJumpAndRestart",
+      "testMacCBTImportSpreadsDirectionPageJumpAndRestart",
+      "testMacCB7ImportSpreadsDirectionPageJumpAndRestart",
+      "testMacCBRImportSpreadsDirectionPageJumpAndRestart",
+      "testMacPDFWholePageOfflineConsentBilingualNotesAndSourceReturn",
+      "testMacEPUBChapterCompleteScopeConsentBilingualManualSaveRestartAndSourceReturn",
+      "testMacEPUBChapterOversizeRefusesWholeDocumentWithoutKeyOrSend",
+      "testMacEPUBChapterCancelStopsRemainderAndReopenCannotRetryOrRestoreKey",
+      "testMacEPUBChapterPartialFailureKeepsFirstSegmentAndStopsAllRemaining",
+      "testMacPDFPageScanAndOversizeRefuseWithoutSend",
+      "testMacPDFPageCancelStopsRemainderAndReopenKeepsAttemptCount",
+      "testMacDeepSeekSelectionOfflineTransportPDFEPUBAndRestart",
+      "testMacAISelectionConsentMockNotesAndRestart",
+      "testMacEPUBSelectionRubyNotesAndRestart",
+      "testLocalPDFReadingAndNoteFlow"
+    ],
+    "apple/Tests/EbookFormatUITests.swift": [
+      "testMOBISelectionNoteProgressRestart",
+      "testAZWSelectionNoteProgressRestart",
+      "testAZW3SelectionNoteProgressRestart",
+      "testFB2SelectionNoteProgressRestart"
+    ]
+  },
+  "totalMacMethods": 43,
+  "breakdown": {
+    "mainBaseline": 30,
+    "ebooks": 4,
+    "web": 3,
+    "CBT": 1,
+    "CB7CBR": 2,
+    "Japanese": 3
+  },
+  "actualLocalUIExecuted": 0,
+  "gate": "Each exact joint and main SHA requires complete Native and bounded comic CI; all 43 actual UI, no Native filters/skips."
+}

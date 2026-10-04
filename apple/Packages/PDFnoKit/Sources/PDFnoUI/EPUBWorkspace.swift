@@ -12,15 +12,19 @@ struct EPUBWorkspace: View {
     @State private var draft = ""
     @State private var ai = false
     @State private var chapterTranslation = false
+    @State private var japaneseLearning = false
     var body: some View {
         VStack(spacing: 0) {
+            JapaneseLearningEntry(identifier: "epub-japanese-learning", disabled: session.busy) {
+                model.prepareJapaneseLearning(); japaneseLearning = true
+            }
             EPUBCanvas(session: session)
             HStack {
                 Text(session.position).accessibilityIdentifier("epub-position")
                 Spacer()
                 Button("翻译当前文档") { Task { await model.prepareChapterTranslation(); chapterTranslation = true } }
                     .font(.body).accessibilityIdentifier("epub-chapter-translation").disabled(session.busy)
-                Text("EPUB · 本地 · 原书未改写")
+                Text("EPUB · 本地 · 原书未改写").lineLimit(1)
             }.font(.caption).padding(10)
             if let error = session.error { Text(error).foregroundStyle(.red).padding().accessibilityIdentifier("epub-error") }
         }.navigationTitle(session.book?.title ?? "EPUB")
@@ -73,10 +77,12 @@ struct EPUBWorkspace: View {
                             }
                         }
                     }
+                    JapaneseSavedNotesSection(library: model, bookID: session.book?.id) { notes = false }
                 }.accessibilityIdentifier("epub-notes-list").navigationTitle("高亮与笔记").toolbar { ToolbarItem { Button("完成") { notes = false }.accessibilityIdentifier("epub-close-notes") } }
             }.frame(minWidth: 360, minHeight: 420)
         }
         .sheet(isPresented: $chapterTranslation) { EPUBChapterTranslationWorkspace(library: model, translation: model.chapterTranslation, learning: model.learning) }
+        .sheet(isPresented: $japaneseLearning) { JapaneseLearningSheet(library: model) }
         .sheet(isPresented: $ai) { AILearningWorkspace(library: model, learning: model.learning) }
     }
 }
