@@ -17,7 +17,10 @@ struct EPUBWorkspace: View {
             EPUBCanvas(session: session)
             HStack {
                 Text(session.position).accessibilityIdentifier("epub-position")
-                Spacer(); Text("EPUB · 本地 · 原书未改写")
+                Spacer()
+                Button("翻译当前文档") { Task { await model.prepareChapterTranslation(); chapterTranslation = true } }
+                    .font(.body).accessibilityIdentifier("epub-chapter-translation").disabled(session.busy)
+                Text("EPUB · 本地 · 原书未改写")
             }.font(.caption).padding(10)
             if let error = session.error { Text(error).foregroundStyle(.red).padding().accessibilityIdentifier("epub-error") }
         }.navigationTitle(session.book?.title ?? "EPUB")
@@ -32,8 +35,6 @@ struct EPUBWorkspace: View {
                 Button(session.vertical ? "横排" : "竖排") { Task { _ = await session.command("vertical") } }
                     .accessibilityIdentifier("epub-orientation")
                 Button("高亮与笔记") { notes = true }.accessibilityIdentifier("epub-notes")
-                Button("翻译当前文档") { Task { await model.prepareChapterTranslation(); chapterTranslation = true } }.accessibilityIdentifier("epub-chapter-translation")
-                    .disabled(session.busy)
                 Button("选文 AI") { model.learning.prepare(model.captureAISource()); ai = true }.accessibilityIdentifier("epub-ai")
                 Button("取消并关闭") { session.close() }.accessibilityIdentifier("epub-close")
             }

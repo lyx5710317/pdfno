@@ -30,7 +30,7 @@ struct EPUBChapterTranslationWorkspace: View {
                         }
                         if let plan = translation.plan {
                             Text("接收方：api.deepseek.com · deepseek-flash · 简体中文。只发送下列全部原文分段的 sourceText/task；不发送 EPUB、文件名、书籍身份、目录、上下文、笔记或历史结果。")
-                            Text("完整计划 \(plan.sources.count) 段 / 最多 6 次请求；每段 ≤500 UTF-16、1024 输出 tokens、30 秒。合计 ≤\(plan.maxOutputTokens) 输出 tokens、\(plan.maxDurationSeconds) 秒请求超时预算。章节会话额度已用 \(translation.attemptsUsed) / 6。失败和取消也计入，费用未知，已发请求可能收费；无自动重试。")
+                            Text(verbatim: "完整计划 \(plan.sources.count) 段 / 最多 6 次请求；每段 ≤500 UTF-16、1024 输出 tokens、30 秒。合计 ≤\(plan.maxOutputTokens) 输出 tokens、\(plan.maxDurationSeconds) 秒请求超时预算。章节会话额度已用 \(translation.attemptsUsed) / 6。失败和取消也计入，费用未知，已发请求可能收费；无自动重试。")
                                 .font(.callout).accessibilityIdentifier("chapter-limits")
                             DisclosureGroup("完整原文预览（全部分段也在下方）") {
                                 Text(plan.snapshot.text ?? "").textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
