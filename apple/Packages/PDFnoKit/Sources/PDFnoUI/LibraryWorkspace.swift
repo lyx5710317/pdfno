@@ -13,38 +13,41 @@ public struct LibraryWorkspace: View {
     @State private var conversion = false
     @State private var compactColumn: NavigationSplitViewColumn = .sidebar
     @State private var selectedBookID: UUID?
+    @State private var grid = false
+    @State private var coverEditor: LibraryCoverItem?
     public init() {}
     public var body: some View {
         NavigationSplitView(preferredCompactColumn: $compactColumn) {
             VStack(spacing: 0) {
-                List(selection: $selectedBookID) {
-                    Section("我的书库") {
-                        if model.books.isEmpty {
-                            Text("导入 PDF，开始阅读").foregroundStyle(.secondary)
+                #if os(macOS)
+                HStack {
+                    Button { grid = false } label: { Label("列表", systemImage: "list.bullet") }
+                        .accessibilityIdentifier("library-list-layout")
+                    Button { grid = true } label: { Label("网格", systemImage: "square.grid.2x2") }
+                        .accessibilityIdentifier("library-grid-layout")
+                }.buttonStyle(.borderless).padding(8)
+                #endif
+                Group {
+                    if grid {
+                        ScrollView {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), alignment: .top)], spacing: 16) {
+                                ForEach(coverItems) { item in
+                                    Button { selectedBookID = item.id } label: {
+                                        LibraryCoverRow(covers: model.covers, item: item, grid: true) { coverEditor = item }
+                                    }.buttonStyle(.plain).padding(4)
+                                        .background(selectedBookID == item.id ? Color.accentColor.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+                                }
+                            }.padding(12)
                         }
-                        ForEach(model.books) { book in
-                                HStack(spacing: 12) {
-                                    Image(systemName: "book.closed.fill").font(.title2).foregroundStyle(.tint)
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(book.title).font(.headline).lineLimit(2)
-                                        Text("PDF · \(book.pageCount) 页 · 本地").font(.caption).foregroundStyle(.secondary)
-                                    }
-                                }.padding(.vertical, 6).frame(maxWidth: .infinity, alignment: .leading)
-                                    .tag(book.id).accessibilityIdentifier("library-book")
+                    } else {
+                        List(selection: $selectedBookID) {
+                            Section("我的书库") {
+                                if coverItems.isEmpty { Text("导入 PDF，开始阅读").foregroundStyle(.secondary) }
+                                ForEach(coverItems) { item in
+                                    LibraryCoverRow(covers: model.covers, item: item, grid: false) { coverEditor = item }.tag(item.id)
+                                }
+                            }
                         }
-                        #if os(macOS)
-                        ForEach(model.docx.books) { book in
-                            Label(book.title + " · DOCX", systemImage: "doc.text").tag(book.id).accessibilityIdentifier("library-docx")
-                        }
-                        ForEach(model.comicBooks) { book in
-                            Label(book.title + " · CBZ · \(book.pages.count) 页", systemImage: "photo.on.rectangle")
-                                .tag(book.id).accessibilityIdentifier("library-comic")
-                        }
-                        ForEach(model.epubBooks) { book in
-                            Label(book.title + " · EPUB", systemImage: "book.closed")
-                                .tag(book.id).accessibilityIdentifier("library-epub")
-                        }
-                        #endif
                     }
                 }
                 .onChange(of: selectedBookID) { _, id in
@@ -100,12 +103,17 @@ public struct LibraryWorkspace: View {
         .toolbar {
             ToolbarItem { Button { about = true } label: { Label("功能状态", systemImage: "info.circle") } }
             #if os(macOS)
+            ToolbarItem {
+                Button { coverEditor = coverItems.first { $0.id == selectedBookID } } label: { Label("编辑封面", systemImage: "photo") }
+                    .disabled(selectedBookID == nil).accessibilityIdentifier("library-edit-cover")
+            }
             ToolbarItem { Button { conversion = true } label: { Label("格式转换", systemImage: "arrow.triangle.2.circlepath") }.accessibilityIdentifier("document-conversion") }
             ToolbarItem { Button { aiSettings = true } label: { Label("模型与 BYOK 设置", systemImage: "slider.horizontal.3") }.accessibilityIdentifier("ai-settings") }
             #endif
         }
         .sheet(isPresented: $about) { FeatureStatusView() }
         #if os(macOS)
+        .sheet(item: $coverEditor) { item in LibraryCoverEditor(covers: model.covers, item: item) }
         .sheet(isPresented: $conversion) { ConversionWorkspace() }
         .sheet(isPresented: $aiSettings) { AISettingsView(learning: model.learning) }
         #endif
@@ -113,6 +121,15 @@ public struct LibraryWorkspace: View {
             Button("知道了") { model.error = nil }
         } message: { Text(model.error ?? "") }
         .overlay { if model.isBusy { ProgressView("正在打开…").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14)) } }
+    }
+    private var coverItems: [LibraryCoverItem] {
+        var items = model.books.map { LibraryCoverItem(identity: CoverIdentity($0), title: $0.title, subtitle: "PDF · \($0.pageCount) 页 · 本地", accessibilityID: "library-book") }
+        #if os(macOS)
+        items += model.docx.books.map { LibraryCoverItem(identity: CoverIdentity($0), title: $0.title, subtitle: "DOCX · 本地", accessibilityID: "library-docx") }
+        items += model.comicBooks.map { LibraryCoverItem(identity: CoverIdentity($0), title: $0.title, subtitle: "CBZ · \($0.pages.count) 页 · 本地", accessibilityID: "library-comic") }
+        items += model.epubBooks.map { LibraryCoverItem(identity: CoverIdentity($0), title: $0.title, subtitle: "EPUB · 本地", accessibilityID: "library-epub") }
+        #endif
+        return items
     }
     private var importTitle: String {
         #if os(macOS)

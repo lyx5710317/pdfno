@@ -16,6 +16,7 @@ public final class LibraryModel: ObservableObject {
     @Published var status = "本地书库 · 云同步未启用"
     @Published var canImport = false
     public let reader = PDFReaderSession()
+    let covers: CoverLibraryModel
     let repository: LibraryRepository
     let epubRepository: EPUBRepository
     let comicRepository: ComicRepository
@@ -53,6 +54,7 @@ public final class LibraryModel: ObservableObject {
     // Internal injection keeps native source/storage regressions in fresh test
     // directories without configuring or accessing the user's real library.
     init(root: URL, aiSession: AppAISession = .shared) {
+        covers = CoverLibraryModel.shared(root: root)
         repository = LibraryRepository(root: root)
         epubRepository = EPUBRepository(root: root)
         comicRepository = ComicRepository(root: root)

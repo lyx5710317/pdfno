@@ -182,6 +182,85 @@ final class NativeUITests: XCTestCase {
         press(app.buttons["ai-saved-source"].firstMatch)
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
     }
+import AppKit
+#endif
+
+final class NativeUITests: XCTestCase {
+    #if os(macOS)
+    // Run only in isolated CI/VM/OS user: XCTest launches the existing app bundle identity.
+    @MainActor func testMacCoverSelectionGridListRestartAndRestore() throws {
+        let app = XCUIApplication(), token = UUID().uuidString
+        let store = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token)
+        let inputs = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Original-Cover-UI-" + token)
+        try FileManager.default.createDirectory(at: inputs, withIntermediateDirectories: true)
+        let image = inputs.appendingPathComponent("Original Cover.png"), imageBytes = try originalPNG(width: 1600, height: 1000)
+        try imageBytes.write(to: image)
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launch(); app.activate()
+        defer { app.terminate(); try? FileManager.default.removeItem(at: inputs); try? FileManager.default.removeItem(at: store) }
+        XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15))
+        press(app.buttons["open-sample"].firstMatch)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 15)
+        func cover(_ label: String) -> XCUIElement {
+            app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'cover-image-' AND label == %@", label)).firstMatch
+        }
+        XCTAssertTrue(cover("自动封面").waitForExistence(timeout: 10))
+        func record() throws -> [String: Any] {
+            let data = try Data(contentsOf: store.appendingPathComponent("covers-v1.json"))
+            let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            return try XCTUnwrap((object["records"] as? [[String: Any]])?.first)
+        }
+        let automatic = try record(), identity = try XCTUnwrap(automatic["identity"] as? [String: Any])
+        let hash = try XCTUnwrap(identity["fileSHA256"] as? String), original = store.appendingPathComponent("Originals/" + hash + ".pdf")
+        let originalBytes = try Data(contentsOf: original), libraryBytes = try Data(contentsOf: store.appendingPathComponent("library-v1.json"))
+        press(app.buttons["library-edit-cover"].firstMatch)
+        try chooseInput(image, trigger: app.buttons["cover-select-image"].firstMatch, app: app)
+        XCTAssertTrue(cover("自选封面").waitForExistence(timeout: 10))
+        let manual = try record()
+        XCTAssertEqual(manual["origin"] as? String, "userImage")
+        XCTAssertEqual(manual["width"] as? Int, 1200)
+        XCTAssertEqual(manual["revision"] as? Int, (automatic["revision"] as? Int ?? 0) + 1)
+        press(app.buttons["cover-editor-done"].firstMatch)
+        press(app.buttons["library-grid-layout"].firstMatch)
+        XCTAssertTrue(cover("自选封面").waitForExistence(timeout: 5)); XCTAssertTrue(cover("自选封面").isHittable)
+        press(app.buttons["library-list-layout"].firstMatch)
+        XCTAssertTrue(cover("自选封面").waitForExistence(timeout: 5)); XCTAssertTrue(cover("自选封面").isHittable)
+        app.terminate(); app.launch(); app.activate()
+        let book = app.descendants(matching: .any).matching(identifier: "library-book").firstMatch
+        XCTAssertTrue(book.waitForExistence(timeout: 15)); press(book)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 15)
+        XCTAssertTrue(cover("自选封面").waitForExistence(timeout: 8))
+        XCTAssertEqual(try record()["imageSHA256"] as? String, manual["imageSHA256"] as? String)
+        press(app.buttons["library-edit-cover"].firstMatch)
+        press(app.buttons["cover-restore-automatic"].firstMatch)
+        XCTAssertTrue(cover("自动封面").waitForExistence(timeout: 8))
+        let restored = try record()
+        XCTAssertEqual(restored["origin"] as? String, "pdfFirstPage")
+        XCTAssertEqual(restored["imageSHA256"] as? String, automatic["imageSHA256"] as? String)
+        XCTAssertEqual(restored["identity"] as? NSDictionary, automatic["identity"] as? NSDictionary)
+        XCTAssertEqual(try Data(contentsOf: original), originalBytes)
+        XCTAssertEqual(try Data(contentsOf: image), imageBytes)
+        // Cover writes never alter book IDs, progress or note data.
+        XCTAssertEqual(try Data(contentsOf: store.appendingPathComponent("library-v1.json")), libraryBytes)
+    }
+    @MainActor func testMacDOCXDefaultCoverInListGridAndRestart() throws {
+        let app = XCUIApplication(), token = UUID().uuidString
+        let store = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token)
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launch(); app.activate(); defer { app.terminate(); try? FileManager.default.removeItem(at: store) }
+        XCTAssertTrue(app.buttons["open-docx-sample"].firstMatch.waitForExistence(timeout: 15))
+        press(app.buttons["open-docx-sample"].firstMatch)
+        XCTAssertTrue(app.buttons["docx-navigation"].firstMatch.waitForExistence(timeout: 25))
+        let placeholder = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'cover-image-' AND label == '默认封面'")).firstMatch
+        XCTAssertTrue(placeholder.waitForExistence(timeout: 10))
+        let before = try Data(contentsOf: store.appendingPathComponent("covers-v1.json"))
+        press(app.buttons["library-grid-layout"].firstMatch)
+        XCTAssertTrue(placeholder.waitForExistence(timeout: 5)); XCTAssertTrue(placeholder.isHittable)
+        press(app.buttons["library-list-layout"].firstMatch)
+        app.terminate(); app.launch(); app.activate()
+        XCTAssertTrue(placeholder.waitForExistence(timeout: 15))
+        XCTAssertEqual(try Data(contentsOf: store.appendingPathComponent("covers-v1.json")), before)
+    }
     @MainActor func testMacDOCXImportSemanticSelectionNotesAndRestart() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Word-UI-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
