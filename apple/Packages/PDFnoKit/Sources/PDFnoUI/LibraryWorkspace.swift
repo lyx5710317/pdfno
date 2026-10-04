@@ -247,14 +247,15 @@ struct ReaderWorkspace: View {
         Group {
             if let book = session.book {
                 VStack(spacing: 0) {
+                    #if os(macOS)
+                    JapaneseLearningEntry(identifier: "reader-japanese-learning") {
+                        model.prepareJapaneseLearning(); japaneseLearning = true
+                    }
+                    #endif
                     PDFCanvas(session: session).background(.secondary.opacity(0.1))
                     HStack {
                         Text("第 \(session.pageIndex + 1) / \(book.pageCount) 页").monospacedDigit()
                             .accessibilityIdentifier("page-position")
-                        #if os(macOS)
-                        Button("日语选文学习") { model.prepareJapaneseLearning(); japaneseLearning = true }
-                            .accessibilityIdentifier("reader-japanese-learning")
-                        #endif
                         Spacer()
                         Text(model.status).lineLimit(1)
                     }.font(.caption).foregroundStyle(.secondary).padding(10)

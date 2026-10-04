@@ -87,3 +87,8 @@ git diff --check
 补充核验只涉及日语组件/Debug fixture 和新增3条 UI 用例：PDF 审阅采用浅色、EPUB 审阅采用深色；fixture 在有效 UUID 且 offline transport 下设置本次 sheet 的 preferredColorScheme，显示真实 SwiftUI 环境值。生产环境不覆盖用户外观。七类颜色/角色图例提供独立 AX 标识，实际用例核对文字 label、原文 label、点击解释和原始 fixture 窗口截图。垂直滚动 helper 明确查找审阅 Form 的纵向 viewport，避免把成分图例的水平 ScrollView 用作纵向滚动；仍要求控件完整在 viewport 内且可点击，没有删弱断言。原30条用例正文保持 byte-for-byte，不 skip、缩短完整流程或修改 CI 180/240秒测试预算。
 
 这些实际 AX 与外观断言不等于完整 VoiceOver 朗读/导航的人工验收，也不证明真实模型语言质量。无需真实 API、用户密钥或本机 App；独立安全专项仍 UNVERIFIED，未重试。最终 SHA、全部运行链接、实际清单及失败修复记录由交付报告给出。
+
+
+后续 `8962f1b` 的 [Native run 37205587117](https://github.com/lyx5710317/pdfno/actions/runs/37205587117) 仍为失败：279项 Swift、资源重建、两端构建与原30项 UI 全过；全部33项 UI 已执行、零跳过，新增3项累计14条失败断言。对应 [CBZ run 37205587109](https://github.com/lyx5710317/pdfno/actions/runs/37205587109) 通过（14项 Swift、4项 Node）。纵向滚动修复已奏效，后续流程暴露两个底部入口不可点击，以及图例复合元素/可选择原文的 AX label 为空。浅色模式环境值已出现，但该轮角色/原文断言失败，不能将日志中的“verified”字样当作通过证据。
+
+本轮仅针对上述问题：新增独立 `JapaneseLearningEntry` 将日语入口放在阅读画布上方的控件行；原工具栏保持原有动作，不模拟不可点击按钮的坐标。图例以单个 AX 元素明确提供颜色/角色 label；可选择原文按 macOS AX value/label 读取并与固定来源逐字相等核对，保留七类 label 的严格相等断言。入口必须存在、启用、可点击且完整在其 native window 内；关闭 sheet 后重新打开同样等待这些真实条件。只有外观、原文和全部七类 label 验证成功才输出外观已验证记录。原30项测试仍逐字保留，33项、全部既有测试预算和完整 CI 工作流不变。实际通过以本轮修复提交对应的新完整运行结果为准。

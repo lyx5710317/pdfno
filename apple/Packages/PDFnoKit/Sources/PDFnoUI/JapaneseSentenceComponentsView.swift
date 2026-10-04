@@ -59,6 +59,7 @@ public struct JapaneseSentenceComponentsView: View {
                 HStack(spacing: 14) {
                     ForEach(JapaneseSentenceRole.allCases, id: \.self) { role in
                         Label(role.labelZh, systemImage: "square.fill").foregroundStyle(color(role))
+                            .accessibilityElement(children: .ignore)
                             .accessibilityLabel(role.colorLabelZh + "：" + role.labelZh)
                             .accessibilityIdentifier("japanese-component-legend-" + role.rawValue)
                     }

@@ -15,14 +15,15 @@ struct EPUBWorkspace: View {
     @State private var japaneseLearning = false
     var body: some View {
         VStack(spacing: 0) {
+            JapaneseLearningEntry(identifier: "epub-japanese-learning", disabled: session.busy) {
+                model.prepareJapaneseLearning(); japaneseLearning = true
+            }
             EPUBCanvas(session: session)
             HStack {
                 Text(session.position).accessibilityIdentifier("epub-position")
                 Spacer()
                 Button("翻译当前文档") { Task { await model.prepareChapterTranslation(); chapterTranslation = true } }
                     .font(.body).accessibilityIdentifier("epub-chapter-translation").disabled(session.busy)
-                Button("日语选文学习") { model.prepareJapaneseLearning(); japaneseLearning = true }
-                    .font(.body).accessibilityIdentifier("epub-japanese-learning").disabled(session.busy)
                 Text("EPUB · 本地 · 原书未改写").lineLimit(1)
             }.font(.caption).padding(10)
             if let error = session.error { Text(error).foregroundStyle(.red).padding().accessibilityIdentifier("epub-error") }

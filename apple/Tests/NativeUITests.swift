@@ -41,9 +41,24 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(scroll.frame.insetBy(dx: 4, dy: 8).contains(element.frame))
         XCTAssertTrue(element.isHittable)
     }
+    @MainActor private func pressJapaneseEntry(_ entry: XCUIElement, in app: XCUIApplication) {
+        XCTAssertTrue(entry.waitForExistence(timeout: 8))
+        let ready = expectation(for: NSPredicate { _, _ in
+            entry.exists && entry.isEnabled && entry.isHittable
+        }, evaluatedWith: entry)
+        wait(for: [ready], timeout: 10)
+        let visible = entry.exists && entry.isEnabled && entry.isHittable
+            && app.windows.firstMatch.frame.contains(entry.frame)
+        XCTAssertTrue(visible, "Japanese entry must be enabled and physically inside its native window")
+        guard visible else {
+            print("Original Japanese entry: window=\(app.windows.firstMatch.frame), entry=\(entry.frame), enabled=\(entry.isEnabled), hittable=\(entry.isHittable)")
+            return
+        }
+        press(entry)
+    }
     @MainActor private func prepareJapaneseOfflinePDF(_ app: XCUIApplication) throws {
         try prepareOriginalPDFNoteEditing(app)
-        press(app.buttons["reader-japanese-learning"].firstMatch)
+        pressJapaneseEntry(app.buttons["reader-japanese-learning"].firstMatch, in: app)
         guard japaneseElement("japanese-offline-fixture", in: app).waitForExistence(timeout: 5) else {
             throw NSError(domain: "PDFno-Offline-UI", code: 1, userInfo: [NSLocalizedDescriptionKey: "Fully intercepted Japanese transport required before synthetic key entry"])
         }
@@ -55,7 +70,7 @@ final class NativeUITests: XCTestCase {
         let key = japaneseElement("ai-session-key", in: app)
         XCTAssertTrue(key.waitForExistence(timeout: 5)); press(key); key.typeText("synthetic-reading-ui-credential")
         press(app.buttons["ai-settings-save"].firstMatch)
-        press(app.buttons["reader-japanese-learning"].firstMatch)
+        pressJapaneseEntry(app.buttons["reader-japanese-learning"].firstMatch, in: app)
         XCTAssertTrue(japaneseElement("japanese-learning-source", in: app).waitForExistence(timeout: 5))
         XCTAssertEqual(textValue(japaneseElement("japanese-learning-source", in: app)), "window")
     }
@@ -69,19 +84,27 @@ final class NativeUITests: XCTestCase {
     @MainActor private func verifyJapaneseAppearanceAndAccessibleLegend(_ app: XCUIApplication, appearance: String) {
         waitForText(["隔离 UI 外观：" + appearance], in: japaneseElement("japanese-fixture-appearance", in: app), timeout: 5)
         let source = japaneseElement("japanese-components-source", in: app)
-        XCTAssertTrue(source.waitForExistence(timeout: 5)); XCTAssertFalse(source.label.isEmpty)
+        XCTAssertTrue(source.waitForExistence(timeout: 5))
+        // Selectable macOS Text exposes its readable content as AX value, rather than label.
+        let sourceText = textValue(source)
+        let expectedSource = textValue(japaneseElement("japanese-learning-source", in: app))
+        XCTAssertFalse(expectedSource.isEmpty); XCTAssertEqual(sourceText, expectedSource)
+        var verified = !expectedSource.isEmpty && sourceText == expectedSource
+            && textValue(japaneseElement("japanese-fixture-appearance", in: app)).contains("隔离 UI 外观：" + appearance)
         let legend = japaneseElement("japanese-components-legend", in: app)
         scrollJapaneseElement(legend, in: app)
         for (role, label) in [("subject", "蓝色：主语"), ("predicate", "红色：谓语"), ("object", "绿色：宾语"),
                               ("attributive", "紫色：定语／修饰语"), ("adverbial", "橙色：状语"), ("topic", "青色：主题"), ("other", "正文色：其他结构")] {
             let item = japaneseElement("japanese-component-legend-" + role, in: app)
             XCTAssertTrue(item.waitForExistence(timeout: 5)); XCTAssertEqual(item.label, label)
+            verified = verified && item.exists && item.label == label
         }
+        guard verified else { return }
         // App-owned original-fixture window only; never captures the CI desktop or other apps.
         let snapshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
         snapshot.name = "Original Japanese review " + appearance + " with accessible color legend"
         snapshot.lifetime = .keepAlways; add(snapshot)
-        print("Japanese actual UI verified appearance=" + appearance + "; seven AX role/color labels present; exact source label=" + source.label)
+        print("Japanese actual UI verified appearance=" + appearance + "; seven AX role/color labels present; exact source AX text=" + sourceText)
     }
     @MainActor func testMacJapaneseOfflineConsentComponentSwitchManualSaveRestartExactPDFReturn() throws {
         let app = XCUIApplication(), token = UUID().uuidString
@@ -135,7 +158,7 @@ final class NativeUITests: XCTestCase {
         let returned = app.buttons["japanese-saved-return"].firstMatch
         scrollEditingElement(returned, app: app); press(returned)
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
-        press(app.buttons["reader-japanese-learning"].firstMatch)
+        pressJapaneseEntry(app.buttons["reader-japanese-learning"].firstMatch, in: app)
         XCTAssertFalse(app.buttons["japanese-learning-start"].firstMatch.isEnabled, "Session key must not survive restart")
     }
     @MainActor func testMacJapaneseNativeEPUBSelectionManualSaveAndSourceReturnPreservesRuby() throws {
@@ -166,7 +189,7 @@ final class NativeUITests: XCTestCase {
         }, evaluatedWith: japaneseEntry)
         wait(for: [selectionReady], timeout: 10)
         XCTAssertTrue(japaneseEntry.isEnabled && japaneseEntry.isHittable)
-        press(japaneseEntry)
+        pressJapaneseEntry(japaneseEntry, in: app)
         let source = japaneseElement("japanese-learning-source", in: app)
         XCTAssertTrue(source.waitForExistence(timeout: 8))
         let quote = textValue(source); XCTAssertFalse(quote.isEmpty); XCTAssertFalse(quote.contains("にほんご"))
@@ -212,7 +235,7 @@ final class NativeUITests: XCTestCase {
                 waitForText(["请求已取消", "迟到结果不会显示或保存"], in: japaneseElement("japanese-learning-status", in: app), timeout: 5)
                 XCTAssertFalse(japaneseElement("japanese-components-source", in: app).exists)
                 press(app.buttons["japanese-learning-close"].firstMatch)
-                press(app.buttons["reader-japanese-learning"].firstMatch)
+                pressJapaneseEntry(app.buttons["reader-japanese-learning"].firstMatch, in: app)
                 XCTAssertFalse(japaneseElement("japanese-components-source", in: app).exists)
             }
             let budget = japaneseElement("japanese-learning-budget", in: app)
