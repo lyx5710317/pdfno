@@ -6,6 +6,19 @@ import PDFnoDomain
 struct JapaneseLearningSheet: View {
     @ObservedObject var library: LibraryModel
     @Environment(\.dismiss) private var dismiss
+    private var fixtureColorScheme: ColorScheme? {
+        #if DEBUG
+        guard library.learning.offlineTransport,
+              let token = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"], UUID(uuidString: token) != nil else { return nil }
+        switch ProcessInfo.processInfo.environment["PDFNO_UI_TEST_JAPANESE_APPEARANCE"] {
+        case "light": return .light
+        case "dark": return .dark
+        default: return nil
+        }
+        #else
+        return nil
+        #endif
+    }
     var body: some View {
         NavigationStack {
             JapaneseLearningWorkspace(learning: library.japaneseLearning, returnToSource: { source in
@@ -17,13 +30,28 @@ struct JapaneseLearningSheet: View {
             }
             .overlay(alignment: .top) {
                 if library.learning.offlineTransport {
-                    Text("离线 transport 替身 · 不发送真实 API").font(.caption).accessibilityIdentifier("japanese-offline-fixture")
+                    VStack(spacing: 2) {
+                        Text("离线 transport 替身 · 不发送真实 API").font(.caption).accessibilityIdentifier("japanese-offline-fixture")
+                        #if DEBUG
+                        JapaneseLearningUIAppearanceMarker()
+                        #endif
+                    }
                 }
             }
-        }.frame(minWidth: 440, minHeight: 600)
+        }.frame(minWidth: 440, minHeight: 600).preferredColorScheme(fixtureColorScheme)
         .onDisappear { library.japaneseLearning.cancel() }
     }
 }
+#if DEBUG
+/// Shows the real SwiftUI environment used by the isolated fixture; no production override.
+private struct JapaneseLearningUIAppearanceMarker: View {
+    @Environment(\.colorScheme) private var colorScheme
+    var body: some View {
+        Text(colorScheme == .dark ? "隔离 UI 外观：深色" : "隔离 UI 外观：浅色")
+            .font(.caption).accessibilityIdentifier("japanese-fixture-appearance")
+    }
+}
+#endif
 struct JapaneseSavedNotesSection: View {
     @ObservedObject var library: LibraryModel
     let bookID: UUID?

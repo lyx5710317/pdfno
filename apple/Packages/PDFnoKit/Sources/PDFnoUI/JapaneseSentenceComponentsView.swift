@@ -60,6 +60,7 @@ public struct JapaneseSentenceComponentsView: View {
                     ForEach(JapaneseSentenceRole.allCases, id: \.self) { role in
                         Label(role.labelZh, systemImage: "square.fill").foregroundStyle(color(role))
                             .accessibilityLabel(role.colorLabelZh + "：" + role.labelZh)
+                            .accessibilityIdentifier("japanese-component-legend-" + role.rawValue)
                     }
                 }
             }.accessibilityIdentifier("japanese-components-legend")

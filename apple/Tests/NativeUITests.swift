@@ -15,8 +15,20 @@ final class NativeUITests: XCTestCase {
     @MainActor private func scrollJapaneseElement(_ element: XCUIElement, in app: XCUIApplication) {
         XCTAssertTrue(element.waitForExistence(timeout: 8))
         let form = japaneseElement("japanese-learning-form", in: app)
-        let nested = form.descendants(matching: .scrollView).firstMatch
-        let scroll = nested.exists ? nested : app.scrollViews.firstMatch
+        XCTAssertTrue(form.waitForExistence(timeout: 5))
+        // Form may itself be the vertical ScrollView. Its first descendant can be the
+        // horizontal color legend, which cannot bring a lower review control into view.
+        let identified = app.scrollViews["japanese-learning-form"].firstMatch
+        let nested = form.descendants(matching: .scrollView).allElementsBoundByIndex.first { $0.frame.height > 250 }
+        let nearby = app.scrollViews.allElementsBoundByIndex.filter {
+            $0.frame.height > 250 && $0.frame.width >= form.frame.width - 8 && $0.frame.intersects(form.frame)
+        }.min { a, b in
+            abs(a.frame.width - form.frame.width) + abs(a.frame.height - form.frame.height)
+                < abs(b.frame.width - form.frame.width) + abs(b.frame.height - form.frame.height)
+        }
+        guard let scroll = identified.exists ? identified : (nested ?? nearby) else {
+            XCTFail("Japanese review must expose its own vertical viewport"); return
+        }
         XCTAssertTrue(scroll.waitForExistence(timeout: 5))
         for _ in 0..<16 {
             let viewport = scroll.frame.insetBy(dx: 4, dy: 8), target = element.frame
@@ -54,17 +66,36 @@ final class NativeUITests: XCTestCase {
         scrollJapaneseElement(consent, in: app); press(consent)
         scrollJapaneseElement(start, in: app); XCTAssertTrue(start.isEnabled); press(start)
     }
+    @MainActor private func verifyJapaneseAppearanceAndAccessibleLegend(_ app: XCUIApplication, appearance: String) {
+        waitForText(["隔离 UI 外观：" + appearance], in: japaneseElement("japanese-fixture-appearance", in: app), timeout: 5)
+        let source = japaneseElement("japanese-components-source", in: app)
+        XCTAssertTrue(source.waitForExistence(timeout: 5)); XCTAssertFalse(source.label.isEmpty)
+        let legend = japaneseElement("japanese-components-legend", in: app)
+        scrollJapaneseElement(legend, in: app)
+        for (role, label) in [("subject", "蓝色：主语"), ("predicate", "红色：谓语"), ("object", "绿色：宾语"),
+                              ("attributive", "紫色：定语／修饰语"), ("adverbial", "橙色：状语"), ("topic", "青色：主题"), ("other", "正文色：其他结构")] {
+            let item = japaneseElement("japanese-component-legend-" + role, in: app)
+            XCTAssertTrue(item.waitForExistence(timeout: 5)); XCTAssertEqual(item.label, label)
+        }
+        // App-owned original-fixture window only; never captures the CI desktop or other apps.
+        let snapshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        snapshot.name = "Original Japanese review " + appearance + " with accessible color legend"
+        snapshot.lifetime = .keepAlways; add(snapshot)
+        print("Japanese actual UI verified appearance=" + appearance + "; seven AX role/color labels present; exact source label=" + source.label)
+    }
     @MainActor func testMacJapaneseOfflineConsentComponentSwitchManualSaveRestartExactPDFReturn() throws {
         let app = XCUIApplication(), token = UUID().uuidString
         let root = URL(fileURLWithPath: "/tmp").appendingPathComponent("PDFno-UITests-" + token)
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
         app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_RESPONSE"] = "components"
+        app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_APPEARANCE"] = "light"
         app.launch(); app.activate(); defer { app.terminate() }
         try prepareJapaneseOfflinePDF(app)
         let legacy = root.appendingPathComponent("library-v1.json"), oldBytes = try Data(contentsOf: legacy)
         startJapaneseReview(app)
         waitForText(["收到可审阅建议", "未自动保存"], in: japaneseElement("japanese-learning-status", in: app), timeout: 8)
+        verifyJapaneseAppearanceAndAccessibleLegend(app, appearance: "浅色")
         let manifest = root.appendingPathComponent("japanese-learning-v1.json")
         XCTAssertFalse(FileManager.default.fileExists(atPath: manifest.path))
         XCTAssertEqual(textValue(japaneseElement("japanese-components-source", in: app)), "window")
@@ -111,21 +142,41 @@ final class NativeUITests: XCTestCase {
         let app = XCUIApplication(), token = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_APPEARANCE"] = "dark"
         app.launch(); app.activate(); defer { app.terminate() }
         try prepareJapaneseOfflinePDF(app); press(app.buttons["japanese-learning-close"].firstMatch)
         press(app.buttons["open-epub-sample"].firstMatch)
         waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
         press(app.buttons["epub-contents"].firstMatch); press(app.buttons["epub-chapter-1"].firstMatch)
         waitForText(["第 2 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 15)
+        // A new chapter's position event can precede the command reply and sheet dismissal.
+        // Wait for the real native controls to settle before selecting body text.
+        let tocClosed = expectation(for: NSPredicate { _, _ in !app.buttons["epub-chapter-1"].firstMatch.exists }, evaluatedWith: app)
+        wait(for: [tocClosed], timeout: 10)
+        let japaneseEntry = app.buttons["epub-japanese-learning"].firstMatch
+        let entryReady = expectation(for: NSPredicate { _, _ in
+            japaneseEntry.exists && japaneseEntry.isEnabled && japaneseEntry.isHittable
+        }, evaluatedWith: japaneseEntry)
+        wait(for: [entryReady], timeout: 10)
+        XCTAssertTrue(japaneseEntry.isEnabled && japaneseEntry.isHittable)
         let original = try webText(in: app, matching: "日本語", prefix: true, timeout: 10)
         original.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)).doubleClick()
-        press(app.buttons["epub-japanese-learning"].firstMatch)
+        let selectionReady = expectation(for: NSPredicate { _, _ in
+            japaneseEntry.exists && japaneseEntry.isEnabled && japaneseEntry.isHittable
+        }, evaluatedWith: japaneseEntry)
+        wait(for: [selectionReady], timeout: 10)
+        XCTAssertTrue(japaneseEntry.isEnabled && japaneseEntry.isHittable)
+        press(japaneseEntry)
         let source = japaneseElement("japanese-learning-source", in: app)
         XCTAssertTrue(source.waitForExistence(timeout: 8))
         let quote = textValue(source); XCTAssertFalse(quote.isEmpty); XCTAssertFalse(quote.contains("にほんご"))
         startJapaneseReview(app)
         waitForText(["收到可审阅建议"], in: japaneseElement("japanese-learning-status", in: app), timeout: 8)
         XCTAssertEqual(textValue(japaneseElement("japanese-components-source", in: app)), quote)
+        verifyJapaneseAppearanceAndAccessibleLegend(app, appearance: "深色")
+        let subject = app.buttons["japanese-component-subject"].firstMatch
+        scrollJapaneseElement(subject, in: app); press(subject)
+        waitForText(["合成主语候选", "仅验证"], in: japaneseElement("japanese-component-explanation", in: app), timeout: 5)
         let save = app.buttons["japanese-learning-save"].firstMatch
         scrollJapaneseElement(save, in: app); press(save)
         waitForText(["已保存独立学习记录"], in: japaneseElement("japanese-learning-status", in: app), timeout: 8)

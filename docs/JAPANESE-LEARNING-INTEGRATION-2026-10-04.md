@@ -79,3 +79,11 @@ git diff --check
 仍未验收/接入：完整日语语言质量与语料、真实服务/TLS/账单、英语语法、全文注音、作者 ruby 的选文内 metadata 导入、词级原生强调、浮动选文菜单、移动端入口、日语记录的普通编辑/搜索/删除/导出/Bookno。作者 ruby 保持原生渲染并排除于 canonical 发出原文；当前宿主未读取 rt 自动填入 authorReadings，不能将生成读音当作作者内容。actual UI33、浅/深色显示、点击片段 link tint、VoiceOver/窄窗口仍须隔离 CI/人工验收。本机 build-for-testing 只证明编译，未运行 UI。
 
 本候选的 R06/S03/J03/UAT02 仍为部分覆盖；未改83项需求定义或冻结 auditBaselineAssessment，未将编译/离线测试写成“完整日英学习已验收”。独立安全专项仍 **UNVERIFIED / platform blocked**，未重试或绕过。没有新增权限流程或真实网络检查。
+
+## 后续已授权隔离 CI 验证
+
+用户已授权普通推送本独立分支、完整工作流和33条 actual UI，并要求不合 main。最初 `55405ad` 的 [Native run 37202704961](https://github.com/lyx5710317/pdfno/actions/runs/37202704961) 与 [CBZ run 37202704907](https://github.com/lyx5710317/pdfno/actions/runs/37202704907) 已启动；首轮 Native 279项 Swift、资源重建、两端构建及旧30条 actual UI 全部通过，新增3条失败：两条选择了水平图例进行纵向滚动，一条 EPUB 入口尚不可点击。CBZ 工作流通过（14项 Swift、4项 Node）。修正日语 viewport 选择、增加目录关闭/入口可用等待，并补齐浅深色/AX核验后全量重跑。最终验收以交付 SHA 对应的完整 CI 日志与逐条33项结果为准，不能用旧 SHA 的成功替代。
+
+补充核验只涉及日语组件/Debug fixture 和新增3条 UI 用例：PDF 审阅采用浅色、EPUB 审阅采用深色；fixture 在有效 UUID 且 offline transport 下设置本次 sheet 的 preferredColorScheme，显示真实 SwiftUI 环境值。生产环境不覆盖用户外观。七类颜色/角色图例提供独立 AX 标识，实际用例核对文字 label、原文 label、点击解释和原始 fixture 窗口截图。垂直滚动 helper 明确查找审阅 Form 的纵向 viewport，避免把成分图例的水平 ScrollView 用作纵向滚动；仍要求控件完整在 viewport 内且可点击，没有删弱断言。原30条用例正文保持 byte-for-byte，不 skip、缩短完整流程或修改 CI 180/240秒测试预算。
+
+这些实际 AX 与外观断言不等于完整 VoiceOver 朗读/导航的人工验收，也不证明真实模型语言质量。无需真实 API、用户密钥或本机 App；独立安全专项仍 UNVERIFIED，未重试。最终 SHA、全部运行链接、实际清单及失败修复记录由交付报告给出。
