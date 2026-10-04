@@ -1,15 +1,23 @@
 // Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
 #if os(macOS)
 import SwiftUI
+import Foundation
 import PDFnoDomain
 
 /// Shared body editor; the immutable quote/result/source remain in their rows.
-struct NoteBodyEditor: View {
-    @ObservedObject var editor: NoteEditingModel
-    let note: NoteBodySnapshot
+typealias NoteBodyEditor = SavedBodyEditor<NoteBodySnapshot>
+typealias RecordBodyEditor = SavedBodyEditor<RecordBodySnapshot>
+
+struct SavedBodyEditor<Snapshot: SavedBodySnapshot>: View {
+    @ObservedObject var editor: SavedBodyEditingModel<Snapshot>
+    let note: Snapshot
     let identifier: String
     let save: @MainActor () async -> Void
     let reload: @MainActor () async -> Void
+    private var persistedNote: Data? {
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        return try? encoder.encode(note)
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let draft = editor.drafts[note.key] {
@@ -40,7 +48,7 @@ struct NoteBodyEditor: View {
             }
         }.buttonStyle(.borderless)
         .onAppear { editor.reconcile(note) }
-        .onChange(of: note) { _, current in editor.reconcile(current) }
+        .onChange(of: persistedNote) { _, _ in editor.reconcile(note) }
     }
 }
 #endif

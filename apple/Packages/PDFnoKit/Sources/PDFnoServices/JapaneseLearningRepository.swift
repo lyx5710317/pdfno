@@ -15,6 +15,9 @@ public actor JapaneseLearningRepository {
     public init(root: URL) { self.root = root.standardizedFileURL.resolvingSymlinksInPath() }
     public func load() async throws -> JapaneseLearningState { try await JapaneseLearningFileGate.shared.load(root: root) }
     public func saveNote(_ note: JapaneseLearningNote) async throws { try await JapaneseLearningFileGate.shared.save(note, root: root) }
+    public func updateNoteBody(expected: JapaneseLearningNote, text: String) async throws -> JapaneseLearningNote {
+        try await JapaneseLearningFileGate.shared.updateBody(expected: expected, text: text, root: root)
+    }
     public static func decode(_ data: Data) throws -> JapaneseLearningState {
         func object(_ value: Any?, _ required: Set<String>, optional: Set<String> = []) -> [String: Any]? {
             guard let value = value as? [String: Any], required.isSubset(of: Set(value.keys)),
@@ -73,18 +76,22 @@ private actor JapaneseLearningFileGate {
         guard FileManager.default.fileExists(atPath: path.path) else { return JapaneseLearningState() }
         return try JapaneseLearningRepository.decode(BoundedFileReader.read(path, limit: JapaneseLearningRepository.maxBytes))
     }
-    func save(_ note: JapaneseLearningNote, root: URL) throws {
+    func updateBody(expected: JapaneseLearningNote, text: String, root: URL) throws -> JapaneseLearningNote {
         try Task.checkCancellation()
-        guard note.isPersistable else { throw AIFailure.output }
-        let path = root.appendingPathComponent(JapaneseLearningRepository.filename)
+        guard text.utf16.count <= 16000 else { throw NoteBodyEditError.tooLong }
         var state = try load(root: root)
+        guard let index = state.notes.firstIndex(where: { $0.id == expected.id }) else { throw NoteBodyEditError.conflict }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        if let old = state.notes.first(where: { $0.id == note.id }) {
-            guard try encoder.encode(old) == encoder.encode(note) else { throw AIFailure.stale }
-            return // Same stable new-note ID and exact bytes: acknowledged without rewriting.
-        }
-        guard state.notes.count < 1000, !state.notes.contains(where: { $0.review.requestID == note.review.requestID }) else { throw AIFailure.stale }
-        state.notes.append(note)
+        let current = state.notes[index]
+        guard try encoder.encode(current) == encoder.encode(expected) else { throw NoteBodyEditError.conflict }
+        guard !current.userText.utf8.elementsEqual(text.utf8) else { return current }
+        let next = try JapaneseLearningNote(id: current.id, review: current.review, userText: text, corrections: current.corrections)
+        state.notes[index] = next
+        try commit(state, root: root); return next
+    }
+    private func commit(_ state: JapaneseLearningState, root: URL) throws {
+        let path = root.appendingPathComponent(JapaneseLearningRepository.filename)
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(state); _ = try JapaneseLearningRepository.decode(data)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         if FileManager.default.fileExists(atPath: path.path) {
@@ -94,5 +101,18 @@ private actor JapaneseLearningFileGate {
         }
         try Task.checkCancellation()
         try data.write(to: path, options: .atomic)
+    }
+    func save(_ note: JapaneseLearningNote, root: URL) throws {
+        try Task.checkCancellation()
+        guard note.isPersistable else { throw AIFailure.output }
+        var state = try load(root: root)
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        if let old = state.notes.first(where: { $0.id == note.id }) {
+            guard try encoder.encode(old) == encoder.encode(note) else { throw AIFailure.stale }
+            return // Same stable new-note ID and exact bytes: acknowledged without rewriting.
+        }
+        guard state.notes.count < 1000, !state.notes.contains(where: { $0.review.requestID == note.review.requestID }) else { throw AIFailure.stale }
+        state.notes.append(note)
+        try commit(state, root: root)
     }
 }

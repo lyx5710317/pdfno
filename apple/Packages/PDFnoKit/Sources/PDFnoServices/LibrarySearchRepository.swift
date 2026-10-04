@@ -8,10 +8,18 @@ public enum LibrarySearchIndex {
     public static func folded(_ value: String) -> String {
         value.precomposedStringWithCanonicalMapping.folding(options: [.caseInsensitive], locale: Locale(identifier: "en_US_POSIX")).precomposedStringWithCanonicalMapping
     }
+    public static func tokens(_ query: String) throws -> [String] {
+        guard query.utf16.count <= 1024 else { throw LibrarySearchFailure.queryLimit }
+        return folded(query).split(whereSeparator: { $0.isWhitespace }).map(String.init)
+    }
+    public static func matches(_ tokens: [String], fields: [String]) -> Bool {
+        let normalized = fields.map(folded)
+        return tokens.allSatisfy { token in normalized.contains { $0.range(of: token, options: .literal) != nil } }
+    }
     public static func search(_ query: String, books: [LibrarySearchBook], entries: [LibrarySearchEntry], limit: Int = resultLimit) throws -> LibrarySearchResponse {
         try Task.checkCancellation()
         guard query.utf16.count <= 1024 else { throw LibrarySearchFailure.queryLimit }
-        let tokens = folded(query).split(whereSeparator: { $0.isWhitespace }).map(String.init)
+        let tokens = try tokens(query)
         let sortedBooks = books.sorted { a, b in
             let x = folded(a.title), y = folded(b.title)
             return x == y ? a.id < b.id : x.utf8.lexicographicallyPrecedes(y.utf8)
@@ -23,8 +31,7 @@ public enum LibrarySearchIndex {
         for entry in sorted {
             try Task.checkCancellation()
             let fields = entry.target.kind == .book ? [entry.book.title, entry.book.author] : [entry.userText, entry.quote, entry.generatedText]
-            let normalized = fields.map(folded)
-            guard tokens.allSatisfy({ token in normalized.contains { $0.range(of: token, options: .literal) != nil } }) else { continue }
+            guard matches(tokens, fields: fields) else { continue }
             count += 1
             guard count <= max(0, limit) else { continue }
             let preview = fields.first(where: { field in tokens.contains { folded(field).range(of: $0, options: .literal) != nil } }) ?? fields.first ?? ""
@@ -40,7 +47,7 @@ public enum LibrarySearchIndex {
         }
         return LibrarySearchResponse(books: sortedBooks, groups: result, totalCount: count)
     }
-    private static func excerpt(_ text: String, tokens: [String]) -> String {
+    public static func excerpt(_ text: String, tokens: [String]) -> String {
         let range = tokens.compactMap { text.range(of: $0, options: [.caseInsensitive], locale: Locale(identifier: "en_US_POSIX")) }.first
         // Foundation can find a scalar inside an emoji sequence. Align previews to Character boundaries.
         let matchStart = range.map { value in text.indices.last(where: { $0 <= value.lowerBound }) ?? text.startIndex }
