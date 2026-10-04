@@ -52,6 +52,10 @@ import PDFnoReaders
             try await load(); reader.project(notes); return true
         } catch { self.error = error.localizedDescription; return false }
     }
+    func publishEditedNote(_ note: TextFormatNote, session: UUID?) {
+        if let index = notes.firstIndex(where: { $0.id == note.id && $0.bookID == note.bookID }) { notes[index] = note }
+        if isActive, let session, reader.readerSessionID == session, reader.book?.id == note.bookID { reader.project(notes) }
+    }
     public func saveProgress(_ anchor: TextFormatAnchor) async {
         guard !busy, let book = reader.book, book.accepts(anchor), reader.document?.resolves(anchor) == true else { return }
         do { try await repository.saveProgress(anchor, bookID: book.id) }

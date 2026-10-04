@@ -3,8 +3,17 @@ import Foundation
 
 /// The edit baseline is a saved note, never the reader's transient selection.
 /// Existing manifests and note schemas remain unchanged.
-public enum NoteBodySnapshot: Codable, Equatable, Sendable {
+public protocol SavedBodySnapshot: Codable, Equatable, Sendable {
+    static var draftFilename: String { get }
+    var key: String { get }
+    var userText: String { get }
+    var limitDescription: String { get }
+    func accepts(_ text: String) -> Bool
+}
+
+public enum NoteBodySnapshot: SavedBodySnapshot {
     case pdf(ReadingNote), epub(EPUBNote), learning(AILearningNote)
+    public static let draftFilename = "note-edit-drafts-v1.json"
     public var bookID: UUID {
         switch self { case .pdf(let n): n.bookID; case .epub(let n): n.bookID; case .learning(let n): n.result.source.bookID }
     }

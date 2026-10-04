@@ -114,6 +114,21 @@ public actor TextFormatRepository {
               let book = state.books.first(where: { $0.id == note.bookID }) else { throw TextFormatError.sourceMismatch }
         try verify(note.anchor, book: book); state.notes.append(note); try commit(state)
     }
+    /// Body-only compare-and-set against the saved snapshot. Reopening a reader is unnecessary.
+    /// Never recreate or normalize a source anchor while editing a saved body.
+    public func updateNoteBody(expected: TextFormatNote, text: String) throws -> TextFormatNote {
+        try Task.checkCancellation()
+        guard text.utf8.count <= 16000 else { throw NoteBodyEditError.tooLong }
+        var state = try load()
+        guard let index = state.notes.firstIndex(where: { $0.id == expected.id && $0.bookID == expected.bookID }) else { throw NoteBodyEditError.conflict }
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        let current = state.notes[index]
+        guard try encoder.encode(current) == encoder.encode(expected) else { throw NoteBodyEditError.conflict }
+        guard !current.userText.utf8.elementsEqual(text.utf8) else { return current }
+        let next = TextFormatNote(id: current.id, bookID: current.bookID, anchor: current.anchor, userText: text)
+        state.notes[index] = next
+        try Task.checkCancellation(); try commit(state); return next
+    }
     public func saveProgress(_ anchor: TextFormatAnchor, bookID: UUID) throws {
         var state = try load()
         guard let index = state.books.firstIndex(where: { $0.id == bookID }) else { throw TextFormatError.sourceMismatch }
