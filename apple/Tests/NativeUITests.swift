@@ -96,14 +96,14 @@ final class NativeUITests: XCTestCase {
         let open = app.buttons["bookno-preview-open"].firstMatch
         XCTAssertTrue(open.waitForExistence(timeout: 5)); press(open)
         let enable = app.checkBoxes["bookno-preview-enabled"].firstMatch
-        XCTAssertTrue(enable.waitForExistence(timeout: 5)); XCTAssertEqual(enable.value as? String, "0")
+        XCTAssertTrue(enable.waitForExistence(timeout: 5)); XCTAssertEqual(booknoCheckboxState(enable), false)
         let prepare = app.buttons["bookno-prepare"].firstMatch
         XCTAssertTrue(prepare.waitForExistence(timeout: 5)); XCTAssertFalse(prepare.isEnabled)
         press(enable)
         let book = app.checkBoxes.matching(NSPredicate(format: "identifier BEGINSWITH %@", "bookno-book-pdfno:book:pdf:")).firstMatch
         XCTAssertTrue(book.waitForExistence(timeout: 5)); scrollBooknoElement(book, in: app); press(book)
         let notes = app.checkBoxes["bookno-include-notes"].firstMatch
-        scrollBooknoElement(notes, in: app); XCTAssertEqual(notes.value as? String, "0"); press(notes)
+        scrollBooknoElement(notes, in: app); XCTAssertEqual(booknoCheckboxState(notes), false); press(notes)
         scrollBooknoElement(prepare, in: app); XCTAssertTrue(prepare.isEnabled); press(prepare)
         waitForText(["2 个对象", "1 本书", "1 条已保存笔记", "0 个封面资产"], in: app.staticTexts["bookno-preview-summary"].firstMatch, timeout: 8)
         let body = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH %@", "bookno-note-body-")).firstMatch
@@ -121,11 +121,20 @@ final class NativeUITests: XCTestCase {
         waitForText(["不是实际同步", "Bookno 未连接"], in: app.staticTexts["bookno-preview-status"].firstMatch, timeout: 5)
         XCTAssertEqual(NSDictionary(dictionary: try originalSavedNote(token, manifest: "library-v1.json")), NSDictionary(dictionary: saved))
         press(app.buttons["bookno-preview-close"].firstMatch); press(open)
-        XCTAssertTrue(enable.waitForExistence(timeout: 5)); XCTAssertEqual(enable.value as? String, "0")
+        XCTAssertTrue(enable.waitForExistence(timeout: 5)); XCTAssertEqual(booknoCheckboxState(enable), false)
         XCTAssertFalse(prepare.isEnabled); XCTAssertFalse(app.staticTexts["bookno-preview-summary"].firstMatch.exists)
         XCTAssertFalse(counts.exists)
         let store = URL(fileURLWithPath: "/tmp").appendingPathComponent("PDFno-UITests-" + token)
         XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: store.path).contains { $0.lowercased().contains("bookno") })
+    }
+    @MainActor private func booknoCheckboxState(_ element: XCUIElement) -> Bool? {
+        // XCUIElementAttributes.value is Any?. macOS controls may expose an
+        // NSNumber rather than a String; unknown/nil values must still fail.
+        let value = element.value
+        if let number = value as? NSNumber, number == 0 || number == 1 { return number.boolValue }
+        if let text = value as? String, text == "0" || text == "1" { return text == "1" }
+        XCTFail("Unsupported native checkbox state: \(String(describing: value))")
+        return nil
     }
     @MainActor private func scrollBooknoElement(_ element: XCUIElement, in app: XCUIApplication) {
         let scroll = app.scrollViews["bookno-preview-scroll"].firstMatch

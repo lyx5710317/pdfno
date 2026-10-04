@@ -1,5 +1,7 @@
 # Bookno 默认关闭离线预览：本地整合候选
 
+本文保留最初本地候选的验证与未推送状态。用户后续允许开发分支完整CI、成功后合入main；实际首轮结果、必要修复和精确SHA验收边界见 [BOOKNO-CI-2026-10-04.md](BOOKNO-CI-2026-10-04.md)。
+
 日期：2026-10-04。worktree：`/tmp/pdfno-integration-bookno-f3ed484-20261004`；分支：`feature/integration-bookno-offline-20261004`。绿色基线 `f3ed484fee815effed2d955f8eb21bcd66d8546e`，cherry-pick 来源 `89aca0ba68201e2e38acd72f25b982977e033832`，本地落点 `140435374328fab204612d17d20f2723e4672c58`。其后仅做本次来源适配、预览 UI、测试与文档修订；最终 SHA/tree 在本地交付 receipt 中绑定。不 push、合 main、改共享 Library、release，不改 Bookno 源码/真实库、用户 app、账号、真实凭据或运行时权限。不混入独立 `feature/ebook-formats` 候选；其验证许可单独处理。
 
 基线实际 [Native 37186538104](https://github.com/lyx5710317/pdfno/actions/runs/37186538104) 与 [CBZ 37186538095](https://github.com/lyx5710317/pdfno/actions/runs/37186538095) 均成功，29/29 Mac UI 全执行、0失败/跳过。那是 `f3ed484` 的证据，本文件下面的 30 用例编译不能替代新 SHA 的实际 UI/CI。
