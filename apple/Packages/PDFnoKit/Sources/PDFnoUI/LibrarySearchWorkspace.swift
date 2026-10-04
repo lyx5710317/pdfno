@@ -5,7 +5,7 @@ import PDFnoDomain
 
 struct LibrarySearchWorkspace: View {
     let library: LibraryModel
-    @State private var search: LibrarySearchModel?
+    @State private var search: SavedRecordSearchModel?
     var body: some View {
         Group {
             if let search { LibrarySearchContent(library: library, model: search) }
@@ -13,7 +13,7 @@ struct LibrarySearchWorkspace: View {
         }.task {
             guard search == nil else { return }
             let root = await library.repository.root
-            search = LibrarySearchModel(root: root)
+            search = SavedRecordSearchModel(root: root)
         }
     }
 }
@@ -21,7 +21,7 @@ struct LibrarySearchWorkspace: View {
 private struct LibrarySearchContent: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var library: LibraryModel
-    @ObservedObject var model: LibrarySearchModel
+    @ObservedObject var model: SavedRecordSearchModel
     @State private var query = ""
     @State private var metadata = false
     @State private var opening = false
@@ -32,7 +32,7 @@ private struct LibrarySearchContent: View {
                 TextField("书名、作者、笔记或引文", text: $query)
                     .textFieldStyle(.roundedBorder).accessibilityIdentifier("library-search-input")
                     .onChange(of: query) { _, value in sourceError = nil; model.updateQuery(value) }
-                Text("当前搜索 PDF／EPUB／DOCX／CBZ 书目、已保存的笔记与 AI 学习笔记；不搜索全书正文、扫描图片或文本格式笔记。")
+                Text("搜索PDF／EPUB／DOCX／四种漫画书目，以及已保存的PDF／EPUB／文本／电子书／AI与日语笔记；文本和电子书仅书名。共享300项显示上限；不搜索全书正文、扫描图片或未保存草稿。")
                     .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
                 HStack {
                     Text(status).font(.caption).accessibilityIdentifier("library-search-status")
@@ -48,7 +48,7 @@ private struct LibrarySearchContent: View {
                     Text(error).foregroundStyle(.red).textSelection(.enabled).accessibilityIdentifier("library-search-error")
                 }
                 List {
-                    ForEach(model.response.groups) { group in
+                    ForEach(model.response.legacy.groups) { group in
                         Section {
                             ForEach(group.hits) { hit in
                                 VStack(alignment: .leading, spacing: 6) {
@@ -73,13 +73,21 @@ private struct LibrarySearchContent: View {
                                 .accessibilityIdentifier("library-search-group")
                         }
                     }
+                    RecordSearchResults(response: model.response.records, error: nil) { target in
+                        guard !opening, !library.isBusy else { return false }
+                        opening = true
+                        let opened = await library.openRecordSearchTarget(target)
+                        opening = false
+                        if opened { dismiss() }
+                        return opened
+                    }
                 }.overlay {
                     if model.phase == .idle { Text("输入关键词搜索书库与笔记").foregroundStyle(.secondary).accessibilityIdentifier("library-search-empty") }
                     else if model.phase == .results && model.response.totalCount == 0 { Text("没有匹配结果").foregroundStyle(.secondary).accessibilityIdentifier("library-search-no-results") }
                 }
             }.padding().navigationTitle("书库与笔记搜索")
                 .toolbar {
-                    ToolbarItem { Button("书目信息") { metadata = true }.disabled(opening || model.response.books.isEmpty).accessibilityIdentifier("library-search-metadata") }
+                    ToolbarItem { Button("书目信息") { metadata = true }.disabled(opening || model.response.legacy.books.isEmpty).accessibilityIdentifier("library-search-metadata") }
                     ToolbarItem { Button("完成") { dismiss() }.disabled(opening).accessibilityIdentifier("library-search-close") }
                 }
         }.frame(minWidth: 520, idealWidth: 640, minHeight: 480)
@@ -103,7 +111,7 @@ private struct LibrarySearchContent: View {
 
 private struct LocalBookMetadataWorkspace: View {
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject var model: LibrarySearchModel
+    @ObservedObject var model: SavedRecordSearchModel
     @State private var selectedID: String?
     @State private var draftBook: LibrarySearchBook?
     @State private var title = ""
@@ -115,7 +123,7 @@ private struct LocalBookMetadataWorkspace: View {
             Form {
                 Picker("书籍", selection: $selectedID) {
                     Text("选择一本书").tag(String?.none)
-                    ForEach(model.response.books) { book in Text(book.title + " · " + book.identity.format.rawValue).tag(Optional(book.id)) }
+                    ForEach(model.response.legacy.books) { book in Text(book.title + " · " + book.identity.format.rawValue).tag(Optional(book.id)) }
                 }.accessibilityIdentifier("library-metadata-book")
                     .onChange(of: selectedID) { _, id in select(id) }
                 TextField("书名", text: $title).accessibilityIdentifier("library-metadata-title")
@@ -132,10 +140,10 @@ private struct LocalBookMetadataWorkspace: View {
             }.padding().disabled(saving).navigationTitle("本地书目信息")
                 .toolbar { ToolbarItem { Button("完成") { dismiss() }.disabled(saving).accessibilityIdentifier("library-metadata-close") } }
         }.frame(minWidth: 480, minHeight: 300)
-            .task { if selectedID == nil { selectedID = model.response.books.first?.id; select(selectedID) } }
+            .task { if selectedID == nil { selectedID = model.response.legacy.books.first?.id; select(selectedID) } }
     }
     private func select(_ id: String?) {
-        draftBook = model.response.books.first { $0.id == id }
+        draftBook = model.response.legacy.books.first { $0.id == id }
         title = draftBook?.title ?? ""; author = draftBook?.author ?? ""
     }
 }

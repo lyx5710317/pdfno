@@ -10,11 +10,17 @@ struct AISettingsView: View {
     @State private var draft: AIProviderConfig
     @State private var secret = ""
     @State private var showDeepSeekTest = false
-    init(learning: AILearningModel) { self.learning = learning; _draft = State(initialValue: learning.config) }
+    private let byok: BYOKSettingsModel?
+    @State private var showBYOKSettings = false
+    init(learning: AILearningModel, byok: BYOKSettingsModel? = nil) { self.learning = learning; self.byok = byok; _draft = State(initialValue: learning.config) }
     var body: some View {
         NavigationStack {
             Form {
                 Text("选文翻译／解释支持本地 mock 或官方 DeepSeek；配置和输入密钥不会发送请求，选文窗口确认后由你点击开始。").accessibilityIdentifier("ai-network-status")
+                if byok != nil {
+                    Button("其他 HTTPS BYOK选文设置") { showBYOKSettings = true }.accessibilityIdentifier("byok-settings-open")
+                    Text("独立会话配置只用于BYOK选文入口；不会替换下方DeepSeek、日语、页或章节配置。").font(.caption).foregroundStyle(.secondary)
+                }
                 Button("DeepSeek 短句自助测试") { showDeepSeekTest = true }.accessibilityIdentifier("ai-deepseek-self-test")
                 Picker("服务类型", selection: $draft.mode) {
                     Text("未配置").tag(AIProviderMode.unconfigured)
@@ -46,6 +52,7 @@ struct AISettingsView: View {
             }
         }.frame(minWidth: 520, minHeight: 560)
         .sheet(isPresented: $showDeepSeekTest) { DeepSeekSelfTestView(model: learning.deepSeekTest) }
+        .sheet(isPresented: $showBYOKSettings) { if let byok { BYOKSettingsSheet(model: byok) } }
         .onChange(of: DeepSeekSelectionPolicy.supports(draft)) { _, supported in if !supported { secret = "" } }
         .onDisappear { secret = "" }
     }

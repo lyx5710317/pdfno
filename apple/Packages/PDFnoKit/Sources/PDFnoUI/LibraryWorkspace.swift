@@ -135,8 +135,8 @@ public struct LibraryWorkspace: View {
             .navigationSplitViewColumnWidth(min: PDFnoDesign.Metric.sidebarMinimum, ideal: PDFnoDesign.Metric.sidebarIdeal, max: PDFnoDesign.Metric.sidebarMaximum)
         } detail: {
             #if os(macOS)
-            if model.ebook.isActive { EbookWorkspace(model: model.ebook) }
-            else if model.textFormats.isActive { TextFormatWorkspace(model: model.textFormats) }
+            if model.ebook.isActive { EbookWorkspace(model: model.ebook, editing: model.recordEditing) }
+            else if model.textFormats.isActive { TextFormatWorkspace(model: model.textFormats, editing: model.recordEditing) }
             else if model.docx.isActive { DOCXWorkspace(model: model.docx) }
             else if model.readingComic { ComicWorkspace(session: model.comic, close: { model.closeComic() }) }
             else if model.readingEPUB { EPUBWorkspace(model: model, session: model.epub) }
@@ -172,7 +172,7 @@ public struct LibraryWorkspace: View {
         .sheet(isPresented: $librarySearch) { LibrarySearchWorkspace(library: model) }
         .sheet(isPresented: $booknoPreview) { BooknoPreviewWorkspace(model: model.booknoPreview) }
         .sheet(isPresented: $conversion) { ConversionWorkspace() }
-        .sheet(isPresented: $aiSettings) { AISettingsView(learning: model.learning) }
+        .sheet(isPresented: $aiSettings) { AISettingsView(learning: model.learning, byok: model.byok) }
         #endif
         .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("知道了") { model.error = nil }
@@ -277,6 +277,8 @@ public struct FeatureStatusView: View {
                     Text("DOCX：Mac 语义重排阅读、标题目录与选文笔记；与 Word 原版式不同；DOC 未支持")
                     Label("CBZ / CBT / 有限 CB7 / CBR 漫画：导入、页序、左右方向、单双页与进度恢复", systemImage: "checkmark.circle")
                     Label("DOCX 正文转 TXT / 简化 HTML（有损副本）", systemImage: "checkmark.circle")
+                    Text("DOCX 阅读版PDF：本机语义正文重新分页，不能还原Word原版式；独立导出入口已接，实际UI待验收")
+                    Text("有限HTTPS BYOK选文：PDF/EPUB最多500 UTF-16，逐次确认域名/模型/完整原文；仅会话密钥，实际服务质量待验收")
                     #endif
                 }
                 Section("后续接入") {
@@ -307,6 +309,7 @@ struct ReaderWorkspace: View {
     @State private var ai = false
     @State private var pageTranslation = false
     @State private var japaneseLearning = false
+    @State private var byokLearning = false
     var body: some View {
         Group {
             if let book = session.book {
@@ -315,6 +318,7 @@ struct ReaderWorkspace: View {
                     JapaneseLearningEntry(identifier: "reader-japanese-learning") {
                         model.prepareJapaneseLearning(); japaneseLearning = true
                     }
+                    BYOKSelectionEntry(library: model, identifier: "reader-byok") { byokLearning = true }
                     #endif
                     #if os(macOS)
                     PDFnoReaderShell(panels: panels) {
@@ -376,6 +380,7 @@ struct ReaderWorkspace: View {
         .sheet(isPresented: $japaneseLearning) { JapaneseLearningSheet(library: model) }
         .sheet(isPresented: $ai) { AILearningWorkspace(library: model, learning: model.learning) }
         .sheet(isPresented: $pageTranslation) { PDFPageTranslationWorkspace(library: model, translation: model.pageTranslation, learning: model.learning) }
+        .sheet(isPresented: $byokLearning) { BYOKLearningWorkspace(library: model, model: model.byok) }
         #endif
     }
     private var navigationVisible: Bool {

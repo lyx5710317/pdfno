@@ -2,10 +2,231 @@
 import XCTest
 #if os(macOS)
 import AppKit
+import PDFKit
 #endif
 
 final class NativeUITests: XCTestCase {
     #if os(macOS)
+    // New four-slice acceptance: compile locally, run only on the authorized
+    // isolated CI/OS user. Original fixtures, UUID stores and intercepted AI only.
+    @MainActor func testMacSavedTextBodyDraftRestartUnifiedSearchAndExactSource() throws {
+        try runSavedRecordParityUI(ebook: false)
+    }
+    @MainActor func testMacSavedMOBIBodyDraftRestartUnifiedSearchAndExactSource() throws {
+        try runSavedRecordParityUI(ebook: true)
+    }
+    @MainActor private func scrollRecordElement(_ element: XCUIElement, listID: String, app: XCUIApplication) {
+        let list = japaneseElement(listID, in: app)
+        XCTAssertTrue(list.waitForExistence(timeout: 5)); XCTAssertTrue(element.waitForExistence(timeout: 5))
+        for _ in 0..<12 {
+            let viewport = list.frame.insetBy(dx: 4, dy: 8), target = element.frame
+            if !target.isEmpty, viewport.contains(target), element.isHittable { return }
+            let delta: CGFloat = target.minY < viewport.minY
+                ? min(300, max(48, viewport.minY - target.minY + 16))
+                : -min(300, max(48, target.maxY - viewport.maxY + 16))
+            list.scroll(byDeltaX: 0, deltaY: delta)
+        }
+        XCTAssertTrue(list.frame.insetBy(dx: 4, dy: 8).contains(element.frame))
+        XCTAssertTrue(element.isHittable)
+    }
+    @MainActor private func enterRecordBody(_ text: String, prefix: String, listID: String, app: XCUIApplication) {
+        let input = japaneseElement(prefix + "-edit-input", in: app)
+        scrollRecordElement(input, listID: listID, app: app)
+        input.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.15)).click()
+        input.typeKey("a", modifierFlags: .command)
+        let board = NSPasteboard.general
+        let previous = (board.pasteboardItems ?? []).map { item in
+            let copy = NSPasteboardItem()
+            for type in item.types { if let data = item.data(forType: type) { copy.setData(data, forType: type) } }
+            return copy
+        }
+        board.clearContents(); board.setString(text, forType: .string); let change = board.changeCount
+        input.typeKey("v", modifierFlags: .command)
+        waitForEditingValue(text, in: input)
+        waitForText(["正文未保存"], in: japaneseElement(prefix + "-edit-status", in: app), timeout: 5)
+        if board.changeCount == change { board.clearContents(); board.writeObjects(previous) }
+    }
+    @MainActor private func runSavedRecordParityUI(ebook: Bool) throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Record-UI-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let app = XCUIApplication(), token = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launch(); app.activate(); defer { app.terminate() }
+        let prefix = ebook ? "ebook" : "textformat", manifest = ebook ? "ebook-kookit-v1.json" : "text-formats-v1.json"
+        let input = root.appendingPathComponent("Original parity.txt")
+        let original = Data("Chapter 1\nwindow original 日本語 cafe\u{301}\nChapter 2\nOriginal end".utf8)
+        if ebook {
+            let menu = japaneseElement("open-ebook-sample", in: app)
+            XCTAssertTrue(menu.waitForExistence(timeout: 15)); press(menu)
+            let item = japaneseElement("open-ebook-sample-mobi", in: app)
+            XCTAssertTrue(item.waitForExistence(timeout: 5)); press(item)
+        } else {
+            try original.write(to: input)
+            XCTAssertTrue(app.buttons["import-pdf"].firstMatch.waitForExistence(timeout: 15))
+            try chooseInput(input, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        }
+        let navigation = app.buttons[prefix + "-navigation"].firstMatch
+        XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
+        let paragraph = try webText(in: app, matching: ebook ? "Original source" : "window", prefix: true, timeout: 10)
+        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
+        press(app.buttons[prefix + "-notes"].firstMatch)
+        let selection = japaneseElement(prefix + "-selection", in: app)
+        XCTAssertTrue(selection.waitForExistence(timeout: 8)); let quote = textValue(selection)
+        XCTAssertFalse(quote.isEmpty)
+        enterSearch("Original committed parity body", into: japaneseElement(prefix + "-user-note", in: app))
+        press(app.buttons[prefix + "-save-note"].firstMatch)
+        let before = try originalSavedNote(token, manifest: manifest)
+        let editor = app.buttons[prefix + "-note-edit"].firstMatch, listID = prefix + "-notes-list"
+        scrollRecordElement(editor, listID: listID, app: app); press(editor)
+        enterRecordBody("Original uncommitted draft 日本語", prefix: prefix + "-note", listID: listID, app: app)
+        XCTAssertEqual(try originalSavedNote(token, manifest: manifest)["userText"] as? String, "Original committed parity body")
+        app.terminate(); app.launch(); app.activate()
+        let row = japaneseElement(ebook ? "library-ebook-mobi" : "library-textformat", in: app)
+        XCTAssertTrue(row.waitForExistence(timeout: 15)); press(row)
+        XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
+        press(app.buttons[prefix + "-notes"].firstMatch)
+        let recovered = japaneseElement(prefix + "-note-edit-input", in: app)
+        scrollRecordElement(recovered, listID: listID, app: app)
+        XCTAssertEqual(textValue(recovered), "Original uncommitted draft 日本語")
+        let cancel = app.buttons[prefix + "-note-edit-cancel"].firstMatch
+        scrollRecordElement(cancel, listID: listID, app: app); press(cancel)
+        scrollRecordElement(editor, listID: listID, app: app); press(editor)
+        let body = "Saved parity body cafe\u{301} 日本語"
+        enterRecordBody(body, prefix: prefix + "-note", listID: listID, app: app)
+        let save = app.buttons[prefix + "-note-edit-save"].firstMatch
+        scrollRecordElement(save, listID: listID, app: app); press(save)
+        waitForText(["已保存"], in: japaneseElement(prefix + "-note-edit-status", in: app), timeout: 8)
+        let after = try originalSavedNote(token, manifest: manifest)
+        XCTAssertEqual(after["userText"] as? String, body); XCTAssertEqual(after["anchor"] as? NSDictionary, before["anchor"] as? NSDictionary)
+        press(app.buttons[prefix + "-close-notes"].firstMatch); press(app.buttons["library-search"].firstMatch)
+        let search = app.textFields["library-search-input"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 8)); enterSearch("saved parity body CAFÉ", into: search)
+        waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
+        let preview = japaneseElement("record-search-preview", in: app)
+        XCTAssertTrue(preview.waitForExistence(timeout: 5)); XCTAssertTrue(textValue(preview).contains("Saved parity"))
+        press(app.buttons["record-search-source"].firstMatch)
+        XCTAssertTrue(navigation.waitForExistence(timeout: 25))
+        press(app.buttons[prefix + "-notes"].firstMatch)
+        XCTAssertEqual(textValue(japaneseElement(prefix + "-saved-quote", in: app)), quote)
+        XCTAssertEqual(try originalSavedNote(token, manifest: manifest)["anchor"] as? NSDictionary, before["anchor"] as? NSDictionary)
+        if !ebook { XCTAssertEqual(try Data(contentsOf: input), original) }
+    }
+    @MainActor func testMacJapaneseSavedBodyEditingSearchKeepsReviewAndCorrections() throws {
+        let app = XCUIApplication(), token = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_RESPONSE"] = "components"
+        app.launch(); app.activate(); defer { app.terminate() }
+        try prepareJapaneseOfflinePDF(app); startJapaneseReview(app)
+        waitForText(["收到可审阅建议"], in: japaneseElement("japanese-learning-status", in: app), timeout: 8)
+        let saveReview = app.buttons["japanese-learning-save"].firstMatch
+        scrollJapaneseElement(saveReview, in: app); press(saveReview)
+        waitForText(["已保存独立学习记录"], in: japaneseElement("japanese-learning-status", in: app), timeout: 8)
+        let before = try originalSavedNote(token, manifest: "japanese-learning-v1.json")
+        press(app.buttons["japanese-learning-close"].firstMatch); press(app.buttons["reader-notes"].firstMatch)
+        pressEditingElement(app.buttons["japanese-note-edit"].firstMatch, app: app)
+        enterEditingText("Saved Japanese parity body cafe\u{301}", prefix: "japanese-note", app: app)
+        pressEditingElement(app.buttons["japanese-note-edit-save"].firstMatch, app: app)
+        waitForText(["已保存"], in: japaneseElement("japanese-note-edit-status", in: app), timeout: 8)
+        let after = try originalSavedNote(token, manifest: "japanese-learning-v1.json")
+        XCTAssertEqual(after["review"] as? NSDictionary, before["review"] as? NSDictionary)
+        XCTAssertEqual(after["corrections"] as? NSArray, before["corrections"] as? NSArray)
+        XCTAssertEqual(after["userText"] as? String, "Saved Japanese parity body cafe\u{301}")
+        press(app.buttons["close-notes"].firstMatch); press(app.buttons["library-search"].firstMatch)
+        enterSearch("saved Japanese parity CAFÉ", into: app.textFields["library-search-input"].firstMatch)
+        waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
+        press(app.buttons["record-search-source"].firstMatch)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 10)
+        XCTAssertEqual(try originalSavedNote(token, manifest: "japanese-learning-v1.json")["review"] as? NSDictionary, before["review"] as? NSDictionary)
+    }
+    @MainActor private func scrollBYOKElement(_ element: XCUIElement, in app: XCUIApplication) {
+        let scroll = app.scrollViews["byok-selection-workspace"].firstMatch
+        XCTAssertTrue(scroll.waitForExistence(timeout: 5)); XCTAssertTrue(element.waitForExistence(timeout: 5))
+        for _ in 0..<12 {
+            let viewport = scroll.frame.insetBy(dx: 4, dy: 8), target = element.frame
+            if !target.isEmpty, viewport.contains(target), element.isHittable { return }
+            let delta: CGFloat = target.minY < viewport.minY ? 250 : -250
+            scroll.scroll(byDeltaX: 0, deltaY: delta)
+        }
+        XCTAssertTrue(element.isHittable)
+    }
+    @MainActor func testMacBYOKExplicitRecipientManualSaveAndDefaultChainsStaySeparate() throws {
+        let app = XCUIApplication(), token = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        app.launch(); app.activate(); defer { app.terminate() }
+        try prepareOriginalPDFNoteEditing(app)
+        press(app.buttons["reader-byok"].firstMatch)
+        guard japaneseElement("byok-offline-fixture", in: app).waitForExistence(timeout: 5) else {
+            throw NSError(domain: "PDFno-Offline-BYOK-UI", code: 1, userInfo: [NSLocalizedDescriptionKey: "Intercepted BYOK transport required before synthetic credential"])
+        }
+        press(app.buttons["byok-selection-settings"].firstMatch)
+        let endpoint = app.textFields["byok-endpoint"].firstMatch
+        XCTAssertTrue(endpoint.waitForExistence(timeout: 5)); enterSearch("https://joint-ui.example/v1", into: endpoint, replacing: true)
+        enterSearch("original-ui-model", into: app.textFields["byok-model"].firstMatch, replacing: true)
+        let key = japaneseElement("byok-session-key", in: app)
+        XCTAssertTrue(key.waitForExistence(timeout: 5)); press(key); key.typeText("synthetic-reading-ui-credential")
+        press(app.buttons["byok-apply"].firstMatch)
+        waitForText(["仅在本次会话生效"], in: japaneseElement("byok-settings-status", in: app), timeout: 5)
+        press(app.buttons["byok-settings-close"].firstMatch); press(app.buttons["byok-recapture"].firstMatch)
+        let domain = japaneseElement("byok-consent-domain", in: app)
+        XCTAssertTrue(domain.waitForExistence(timeout: 5)); XCTAssertTrue(textValue(domain).contains("joint-ui.example"))
+        XCTAssertEqual(textValue(japaneseElement("byok-consent-source", in: app)), "window")
+        let send = app.buttons["byok-send"].firstMatch, consent = japaneseElement("byok-confirm", in: app)
+        scrollBYOKElement(send, in: app); XCTAssertFalse(send.isEnabled)
+        scrollBYOKElement(consent, in: app); press(consent)
+        scrollBYOKElement(send, in: app); waitUntilEnabled(send); press(send)
+        let result = japaneseElement("byok-result", in: app)
+        XCTAssertTrue(result.waitForExistence(timeout: 8)); XCTAssertTrue(textValue(result).contains("离线"))
+        let body = japaneseElement("byok-user-note", in: app)
+        scrollBYOKElement(body, in: app); enterSearch("Original saved BYOK body", into: body)
+        let save = app.buttons["byok-save-note"].firstMatch
+        scrollBYOKElement(save, in: app); press(save)
+        waitForText(["已保存"], in: japaneseElement("byok-save-status", in: app), timeout: 8)
+        let saved = try originalSavedNote(token, manifest: "learning-v1.json")
+        let savedResult = try XCTUnwrap(saved["result"] as? [String: Any])
+        XCTAssertEqual((savedResult["provider"] as? [String: Any])?["endpoint"] as? String, "https://joint-ui.example/v1")
+        XCTAssertEqual(saved["userText"] as? String, "Original saved BYOK body")
+        let store = URL(fileURLWithPath: "/tmp").appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent("learning-v1.json")
+        XCTAssertFalse(String(decoding: try Data(contentsOf: store), as: UTF8.self).contains("synthetic-reading-ui-credential"))
+        press(app.buttons["byok-close"].firstMatch); press(app.buttons["ai-settings"].firstMatch)
+        XCTAssertTrue(app.buttons["ai-use-deepseek"].firstMatch.waitForExistence(timeout: 5))
+        press(app.buttons["byok-settings-open"].firstMatch)
+        XCTAssertTrue(endpoint.waitForExistence(timeout: 5)); enterSearch("https://different-ui.example/v1", into: endpoint, replacing: true)
+        waitForText(["旧会话密钥已撤销"], in: japaneseElement("byok-settings-status", in: app), timeout: 5)
+        XCTAssertEqual(key.value as? String, "")
+        XCTAssertEqual(try originalSavedNote(token, manifest: "learning-v1.json")["result"] as? NSDictionary, NSDictionary(dictionary: savedResult))
+    }
+    @MainActor func testMacDOCXReadingPDFEntryCancelExportAndOverwriteRefusal() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Reading-PDF-UI-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appendingPathComponent("Original UI.docx"), original = originalSemanticDOCX()
+        try original.write(to: source)
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launch(); app.activate(); defer { app.terminate() }
+        let entry = app.buttons["document-conversion"].firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 15)); press(entry)
+        XCTAssertTrue(app.buttons["conversion-export"].firstMatch.exists)
+        press(app.buttons["reading-pdf-open"].firstMatch)
+        let export = app.buttons["reading-pdf-export"].firstMatch
+        XCTAssertTrue(export.waitForExistence(timeout: 5)); XCTAssertFalse(export.isEnabled)
+        try chooseInput(source, trigger: app.buttons["reading-pdf-source"].firstMatch, app: app)
+        waitUntilEnabled(export); press(export)
+        XCTAssertTrue(filePanelButton(app, titles: ["Save", "保存"]).waitForExistence(timeout: 5))
+        app.typeKey(.escape, modifierFlags: []); waitUntilEnabled(export)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), [source.lastPathComponent])
+        let output = root.appendingPathComponent("Original Reading.pdf")
+        try chooseOutput(output, defaultName: "Original UI-阅读版.pdf", trigger: export, app: app)
+        waitForText(["已保存阅读版PDF"], in: japaneseElement("reading-pdf-status", in: app), timeout: 25)
+        let installed = try Data(contentsOf: output), pdf = try XCTUnwrap(PDFDocument(data: installed))
+        XCTAssertGreaterThan(pdf.pageCount, 0); XCTAssertTrue(pdf.string?.contains("window") == true)
+        XCTAssertEqual(try Data(contentsOf: source), original)
+        try chooseOutput(output, defaultName: "Original UI-阅读版.pdf", trigger: export, app: app)
+        waitForText(["输出位置已有文件"], in: japaneseElement("reading-pdf-status", in: app), timeout: 15)
+        XCTAssertEqual(try Data(contentsOf: output), installed); XCTAssertEqual(try Data(contentsOf: source), original)
+    }
     // UI foundation acceptance is compile-only locally. Run on an isolated CI/OS user.
     @MainActor func testMacLibraryLayoutSelectionAndOriginalSampleEntrypoints() throws {
         let app = XCUIApplication()

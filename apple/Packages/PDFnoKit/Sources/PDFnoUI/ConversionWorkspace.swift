@@ -98,10 +98,13 @@ struct ConversionWorkspace: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model = ConversionModel()
     @State private var importer = false
+    @State private var readingPDF = false
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text("DOCX 正文转换").font(.title2.bold())
+                Button("DOCX → 阅读版PDF（独立导出）") { readingPDF = true }
+                    .disabled(model.isBusy).accessibilityIdentifier("reading-pdf-open")
                 if model.cancellationFixture { Text("隔离自动测试：本地文件服务取消检查点").accessibilityIdentifier("conversion-fixture") }
                 Text("本地导出 UTF-8 TXT 或简化 HTML，最多 20 MiB。转换结果是正文文字副本。").foregroundStyle(.secondary)
                 HStack {
@@ -139,6 +142,7 @@ struct ConversionWorkspace: View {
         .frame(minWidth: 560, minHeight: 440)
         .interactiveDismissDisabled(model.isBusy)
         .onDisappear { model.cancel() }
+        .sheet(isPresented: $readingPDF) { DOCXReadingPDFExportWorkspace(source: model.source) }
         .fileImporter(isPresented: $importer, allowedContentTypes: [UTType(filenameExtension: "docx") ?? .data]) { result in
             switch result { case .success(let url): model.select(url); case .failure(let error): model.importFailed(error) }
         }

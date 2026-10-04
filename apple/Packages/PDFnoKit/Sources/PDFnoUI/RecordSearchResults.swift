@@ -16,7 +16,7 @@ struct RecordSearchResults: View {
             ForEach(response.hits) { hit in
                 VStack(alignment: .leading, spacing: 6) {
                     Text(hit.entry.title + " · " + hit.entry.target.book.format.label).font(.caption)
-                    Text(hit.preview).textSelection(.enabled).lineLimit(4)
+                    Text(hit.preview).textSelection(.enabled).lineLimit(4).accessibilityIdentifier("record-search-preview")
                     if hit.entry.target.kind == .japanese { Text("已保存日语建议 · 用户正文与读音修正独立保留").font(.caption).foregroundStyle(.secondary) }
                     Button(hit.entry.target.kind == .book ? "打开书籍" : "回到来源") {
                         opening = true

@@ -11,7 +11,9 @@ public struct EbookWorkspace: View {
     @State private var notes = false
     @State private var draft = ""
     @State private var captured: EbookAnchor?
-    public init(model: EbookLibraryModel) { self.model = model; session = model.reader }
+    private let editing: RecordEditingAdapter?
+    public init(model: EbookLibraryModel) { self.model = model; session = model.reader; editing = nil }
+    init(model: EbookLibraryModel, editing: RecordEditingAdapter) { self.model = model; session = model.reader; self.editing = editing }
     public var body: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
@@ -82,6 +84,11 @@ public struct EbookWorkspace: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(note.anchor.quote).font(.callout).accessibilityIdentifier("ebook-saved-quote")
                             if !note.userText.isEmpty { Text(note.userText).foregroundStyle(.secondary).accessibilityIdentifier("ebook-saved-user-note") }
+                            if let editing {
+                                RecordBodyEditor(editor: editing.editor, note: .ebook(note), identifier: "ebook-note") {
+                                    await editing.save(.ebook(note))
+                                } reload: { await editing.reload(.ebook(note)) }
+                            }
                             Button("回到原文 · 段落 \(note.anchor.blockID + 1)") { Task {
                                 if await session.navigate(to: note.anchor) { notes = false }
                                 else { model.error = EbookError.sourceMismatch.localizedDescription }
@@ -89,7 +96,8 @@ public struct EbookWorkspace: View {
                         }.padding(.vertical, 4)
                     }
                 }
-            }.navigationTitle("选文与笔记").toolbar { ToolbarItem { Button("完成") { notes = false } } }
+            }.accessibilityIdentifier("ebook-notes-list").navigationTitle("选文与笔记")
+                .toolbar { ToolbarItem { Button("完成") { notes = false }.accessibilityIdentifier("ebook-close-notes") } }
         }.frame(minWidth: 340, minHeight: 440)
     }
 }

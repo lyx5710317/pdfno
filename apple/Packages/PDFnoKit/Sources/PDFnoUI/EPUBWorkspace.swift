@@ -13,11 +13,13 @@ struct EPUBWorkspace: View {
     @State private var ai = false
     @State private var chapterTranslation = false
     @State private var japaneseLearning = false
+    @State private var byokLearning = false
     var body: some View {
         VStack(spacing: 0) {
             JapaneseLearningEntry(identifier: "epub-japanese-learning", disabled: session.busy) {
                 model.prepareJapaneseLearning(); japaneseLearning = true
             }
+            BYOKSelectionEntry(library: model, identifier: "epub-byok", disabled: session.busy) { byokLearning = true }
             EPUBCanvas(session: session)
             HStack {
                 Text(session.position).accessibilityIdentifier("epub-position")
@@ -84,6 +86,7 @@ struct EPUBWorkspace: View {
         .sheet(isPresented: $chapterTranslation) { EPUBChapterTranslationWorkspace(library: model, translation: model.chapterTranslation, learning: model.learning) }
         .sheet(isPresented: $japaneseLearning) { JapaneseLearningSheet(library: model) }
         .sheet(isPresented: $ai) { AILearningWorkspace(library: model, learning: model.learning) }
+        .sheet(isPresented: $byokLearning) { BYOKLearningWorkspace(library: model, model: model.byok) }
     }
 }
 #endif

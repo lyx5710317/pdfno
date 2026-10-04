@@ -18,6 +18,7 @@ final class SavedSearchModel<Response: SavedSearchResponse>: ObservableObject {
     @Published private(set) var phase: Phase = .idle
     @Published private(set) var error: String?
     private let search: @Sendable (String) async throws -> Response
+    private var metadata: LocalBookMetadataRepository?
     private var task: Task<Void, Never>?
     private var generation = UUID()
     private var subscriptions: Set<AnyCancellable> = []
@@ -75,6 +76,21 @@ extension SavedSearchModel where Response == SavedRecordSearchResponse {
     convenience init(root: URL) {
         let repository = SavedRecordSearchRepository(root: root)
         self.init(search: { try await repository.search($0) })
+        metadata = LocalBookMetadataRepository(root: root)
+    }
+    func saveMetadata(_ book: LibrarySearchBook, title: String, author: String) async -> Bool {
+        do {
+            guard let metadata else { throw LibrarySearchFailure.store }
+            let current = try await search("")
+            guard current.legacy.books.contains(where: { $0.identity == book.identity && $0.metadataRevision == book.metadataRevision }) else {
+                throw LibrarySearchFailure.metadataConflict
+            }
+            try await metadata.save(book: book.identity, title: title, author: author, expectedRevision: book.metadataRevision)
+            refresh(); await waitForSearch(); return true
+        } catch {
+            self.error = (error as? LibrarySearchFailure)?.localizedDescription ?? LibrarySearchFailure.store.localizedDescription
+            return false
+        }
     }
 }
 #endif

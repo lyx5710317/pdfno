@@ -83,6 +83,9 @@ struct JapaneseSavedNotesSection: View {
                         Text(verbatim: warning).foregroundStyle(.orange)
                     }
                     if !note.userText.isEmpty { Text(verbatim: note.userText).accessibilityIdentifier("japanese-saved-user-note") }
+                    RecordBodyEditor(editor: library.recordEditing.editor, note: .japanese(note), identifier: "japanese-note") {
+                        await library.recordEditing.save(.japanese(note))
+                    } reload: { await library.recordEditing.reload(.japanese(note)) }
                     Button("日语笔记 · 回到原文") { Task {
                         returnError = nil
                         if await library.returnToJapaneseSource(note.review.source) { returned() }

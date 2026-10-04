@@ -11,7 +11,9 @@ public struct TextFormatWorkspace: View {
     @State private var notes = false
     @State private var draft = ""
     @State private var captured: TextFormatAnchor?
-    public init(model: TextFormatLibraryModel) { self.model = model; session = model.reader }
+    private let editing: RecordEditingAdapter?
+    public init(model: TextFormatLibraryModel) { self.model = model; session = model.reader; editing = nil }
+    init(model: TextFormatLibraryModel, editing: RecordEditingAdapter) { self.model = model; session = model.reader; self.editing = editing }
     public var body: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
@@ -89,6 +91,11 @@ public struct TextFormatWorkspace: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(verbatim: note.anchor.quote).font(.callout).accessibilityIdentifier("textformat-saved-quote")
                             if !note.userText.isEmpty { Text(verbatim: note.userText).foregroundStyle(.secondary).accessibilityIdentifier("textformat-saved-user-note") }
+                            if let editing {
+                                RecordBodyEditor(editor: editing.editor, note: .text(note), identifier: "textformat-note") {
+                                    await editing.save(.text(note))
+                                } reload: { await editing.reload(.text(note)) }
+                            }
                             Button("回到原文 · 段落 \(note.anchor.blockID + 1)") { Task {
                                 if await session.navigate(to: note.anchor) { notes = false }
                                 else { model.error = TextFormatError.sourceMismatch.localizedDescription }
@@ -96,7 +103,8 @@ public struct TextFormatWorkspace: View {
                         }.padding(.vertical, 4)
                     }
                 }
-            }.navigationTitle("选文与笔记").toolbar { ToolbarItem { Button("完成") { notes = false } } }
+            }.accessibilityIdentifier("textformat-notes-list").navigationTitle("选文与笔记")
+                .toolbar { ToolbarItem { Button("完成") { notes = false }.accessibilityIdentifier("textformat-close-notes") } }
         }.frame(minWidth: 340, minHeight: 440)
     }
 }

@@ -38,6 +38,13 @@ public final class LibraryModel: ObservableObject {
     @Published var japaneseNotes: [JapaneseLearningNote] = []
     @Published var japaneseStoreError: String?
     lazy var japaneseLearning = makeJapaneseLearningModel()
+    private let recordRoot: URL
+    lazy var recordEditing = RecordEditingAdapter(root: recordRoot, library: self)
+    let byok: BYOKSettingsModel
+    let byokOfflineTransport: Bool
+    var byokSource: AISourceSnapshot?
+    @Published var byokUserText = ""
+    @Published var byokSaveStatus: String?
     private var japanesePDFSelectionChanges: AnyCancellable?
     private var japanesePDFSessionChanges: AnyCancellable?
     private var japaneseEPUBSelectionChanges: AnyCancellable?
@@ -77,6 +84,22 @@ public final class LibraryModel: ObservableObject {
         textFormats = TextFormatLibraryModel(root: root)
         booknoPreview = BooknoPreviewModel(repository: BooknoLibraryPreviewRepository(root: root))
         ebook = EbookLibraryModel(root: root)
+        recordRoot = root
+        #if DEBUG
+        if let learningTransport {
+            byok = BYOKSettingsModel(transport: learningTransport, aiSession: aiSession)
+            byokOfflineTransport = true
+        } else if let token = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"], UUID(uuidString: token) != nil,
+                  ProcessInfo.processInfo.environment["PDFNO_UI_TEST_DEEPSEEK"] == "offline" {
+            byok = BYOKSettingsModel(transport: OfflineSelectionUITestTransport(), aiSession: aiSession)
+            byokOfflineTransport = true
+        } else {
+            byok = BYOKSettingsModel(aiSession: aiSession); byokOfflineTransport = false
+        }
+        #else
+        byok = BYOKSettingsModel(transport: learningTransport ?? URLSessionAITransport(), aiSession: aiSession)
+        byokOfflineTransport = learningTransport != nil
+        #endif
         #endif
         #if DEBUG
         if let learningTransport {
@@ -110,11 +133,15 @@ public final class LibraryModel: ObservableObject {
         // The sidebar reads this nested model even while its reader is inactive.
         // Forward asynchronous load/restart changes as well as routed imports.
         ebookChanges = ebook.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
-        learning.japaneseScopeDidInvalidate = { [weak self] in self?.invalidateJapaneseLearning() }
-        epub.translationScopeDidChange = { [weak self] in self?.chapterTranslation.cancel(); self?.invalidateJapaneseLearning() }
-        japanesePDFSessionChanges = reader.$readerSessionID.dropFirst().sink { [weak self] _ in self?.invalidateJapaneseLearning() }
-        japanesePDFSelectionChanges = reader.$capturedSelection.dropFirst().sink { [weak self] anchor in self?.japaneseSelectionDidChange(anchor.map(AISelectionAnchor.pdf)) }
-        japaneseEPUBSelectionChanges = epub.$selection.dropFirst().sink { [weak self] anchor in self?.japaneseSelectionDidChange(anchor.map(AISelectionAnchor.epub)) }
+        learning.japaneseScopeDidInvalidate = { [weak self] in self?.invalidateJapaneseLearning(); self?.invalidateBYOKSelection() }
+        epub.translationScopeDidChange = { [weak self] in self?.chapterTranslation.cancel(); self?.invalidateJapaneseLearning(); self?.invalidateBYOKSelection() }
+        japanesePDFSessionChanges = reader.$readerSessionID.dropFirst().sink { [weak self] _ in self?.invalidateJapaneseLearning(); self?.invalidateBYOKSelection() }
+        japanesePDFSelectionChanges = reader.$capturedSelection.dropFirst().sink { [weak self] anchor in
+            self?.japaneseSelectionDidChange(anchor.map(AISelectionAnchor.pdf)); self?.byokSelectionDidChange(anchor.map(AISelectionAnchor.pdf))
+        }
+        japaneseEPUBSelectionChanges = epub.$selection.dropFirst().sink { [weak self] anchor in
+            self?.japaneseSelectionDidChange(anchor.map(AISelectionAnchor.epub)); self?.byokSelectionDidChange(anchor.map(AISelectionAnchor.epub))
+        }
         docxChanges = docx.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         textChanges = textFormats.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         #endif
