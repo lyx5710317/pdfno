@@ -1,6 +1,7 @@
 // Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
 import Foundation
 import SwiftUI
+import Combine
 import PDFnoDomain
 import PDFnoServices
 
@@ -14,6 +15,22 @@ import PDFnoServices
     private let debounce: Duration
     private var task: Task<Void, Never>?
     private var generation = UUID()
+    #if os(macOS)
+    private var libraryChanges: Set<AnyCancellable> = []
+    /// The visible search observes committed collections, never the editor's draft journal.
+    func observeChanges(in library: LibraryModel) {
+        stopObservingChanges()
+        library.$notes.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &libraryChanges)
+        library.$books.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &libraryChanges)
+        library.$epubNotes.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &libraryChanges)
+        library.$epubBooks.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &libraryChanges)
+        library.$comicBooks.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &libraryChanges)
+        library.docx.$notes.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &libraryChanges)
+        library.docx.$books.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &libraryChanges)
+        library.learning.$notes.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &libraryChanges)
+    }
+    func stopObservingChanges() { libraryChanges.removeAll() }
+    #endif
     private(set) var query = ""
     public convenience init(root: URL) {
         let repository = LibrarySearchRepository(root: root)

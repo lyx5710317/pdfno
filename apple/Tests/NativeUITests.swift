@@ -182,11 +182,6 @@ final class NativeUITests: XCTestCase {
         press(app.buttons["ai-saved-source"].firstMatch)
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
     }
-import AppKit
-#endif
-
-final class NativeUITests: XCTestCase {
-    #if os(macOS)
     // Run only in isolated CI/VM/OS user: XCTest launches the existing app bundle identity.
     @MainActor func testMacCoverSelectionGridListRestartAndRestore() throws {
         let app = XCUIApplication(), token = UUID().uuidString
@@ -261,11 +256,6 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(placeholder.waitForExistence(timeout: 15))
         XCTAssertEqual(try Data(contentsOf: store.appendingPathComponent("covers-v1.json")), before)
     }
-import AppKit
-#endif
-
-final class NativeUITests: XCTestCase {
-    #if os(macOS)
     // Execute only in isolated CI/VM/OS user: the runner can terminate the same bundle ID.
     @MainActor func testMacLibrarySearchMetadataUnicodeEmptyNoResultsAndRestart() throws {
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
@@ -355,6 +345,66 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(search.waitForExistence(timeout: 15)); press(search)
         XCTAssertTrue(input.waitForExistence(timeout: 8)); enterSearch("学習", into: input)
         waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
+    }
+    // Cross-slice acceptance: execute only on an isolated CI host, never the user's running app.
+    @MainActor func testMacEditedNoteSearchDraftExclusionCoverLayoutsAndExactSource() throws {
+        let app = XCUIApplication(), token = UUID().uuidString
+        let store = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token)
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launch(); app.activate(); defer { app.terminate(); try? FileManager.default.removeItem(at: store) }
+        try prepareOriginalPDFNoteEditing(app)
+        press(app.buttons["reader-notes"].firstMatch)
+        let input = app.descendants(matching: .any).matching(identifier: "note-input").firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 5)); enterSearch("integrationpreviousbody", into: input)
+        press(app.buttons["save-note"].firstMatch)
+        let edit = app.buttons["pdf-note-edit"].firstMatch
+        XCTAssertTrue(edit.waitForExistence(timeout: 8))
+        let before = try originalSavedNote(token, manifest: "library-v1.json")
+        let anchor = try XCTUnwrap(before["anchor"] as? [String: Any]), hash = try XCTUnwrap(anchor["fileSHA256"] as? String)
+        let original = store.appendingPathComponent("Originals/" + hash + ".pdf"), originalBytes = try Data(contentsOf: original)
+        pressEditingElement(edit, app: app)
+        enterSearch("integrationdraftbody", into: editingInput("pdf-note", app: app), replacing: true)
+        press(app.buttons["close-notes"].firstMatch); press(app.buttons["library-search"].firstMatch)
+        let search = app.textFields["library-search-input"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 8)); enterSearch("integrationdraftbody", into: search)
+        XCTAssertTrue(app.staticTexts["library-search-no-results"].firstMatch.waitForExistence(timeout: 8))
+        press(app.buttons["library-search-close"].firstMatch); press(app.buttons["reader-notes"].firstMatch)
+        XCTAssertEqual(textValue(editingInput("pdf-note", app: app)), "integrationdraftbody")
+        pressEditingElement(app.buttons["pdf-note-edit-cancel"].firstMatch, app: app)
+        pressEditingElement(edit, app: app)
+        enterSearch("integrationsavedbody 日本語", into: editingInput("pdf-note", app: app), replacing: true)
+        pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
+        waitForText(["已保存到本地"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
+        press(app.buttons["close-notes"].firstMatch)
+        press(app.buttons["library-grid-layout"].firstMatch); press(app.buttons["library-list-layout"].firstMatch)
+        press(app.buttons["library-edit-cover"].firstMatch)
+        XCTAssertTrue(app.buttons["cover-restore-automatic"].firstMatch.waitForExistence(timeout: 5))
+        let coverManifest = store.appendingPathComponent("covers-v1.json")
+        let coverState = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: coverManifest)) as? [String: Any])
+        let priorRevision = try XCTUnwrap((coverState["records"] as? [[String: Any]])?.first?["revision"] as? Int)
+        press(app.buttons["cover-restore-automatic"].firstMatch)
+        let restored = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            guard let data = try? Data(contentsOf: coverManifest),
+                  let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let revision = (state["records"] as? [[String: Any]])?.first?["revision"] as? Int else { return false }
+            return revision > priorRevision
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 8), .completed)
+        waitUntilEnabled(app.buttons["cover-editor-done"].firstMatch); press(app.buttons["cover-editor-done"].firstMatch)
+        press(app.buttons["next-page"].firstMatch)
+        waitForText(["2 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 5)
+        press(app.buttons["library-search"].firstMatch)
+        XCTAssertTrue(search.waitForExistence(timeout: 8)); enterSearch("integrationpreviousbody", into: search)
+        XCTAssertTrue(app.staticTexts["library-search-no-results"].firstMatch.waitForExistence(timeout: 8))
+        enterSearch("integrationsavedbody", into: search, replacing: true)
+        waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
+        press(app.buttons["library-search-source"].firstMatch)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
+        let after = try originalSavedNote(token, manifest: "library-v1.json")
+        XCTAssertEqual(after["userText"] as? String, "integrationsavedbody 日本語")
+        XCTAssertEqual(after["anchor"] as? NSDictionary, before["anchor"] as? NSDictionary)
+        XCTAssertEqual(after["id"] as? String, before["id"] as? String)
+        XCTAssertEqual(try Data(contentsOf: original), originalBytes)
     }
     @MainActor func testMacDOCXImportSemanticSelectionNotesAndRestart() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Word-UI-" + UUID().uuidString)

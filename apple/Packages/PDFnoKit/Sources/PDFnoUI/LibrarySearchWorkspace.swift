@@ -83,16 +83,8 @@ private struct LibrarySearchContent: View {
                     ToolbarItem { Button("完成") { dismiss() }.disabled(opening).accessibilityIdentifier("library-search-close") }
                 }
         }.frame(minWidth: 520, idealWidth: 640, minHeight: 480)
-            .task { model.updateQuery("") }
-            .onDisappear { model.cancel() }
-            .onReceive(library.$notes.dropFirst()) { _ in model.refresh() }
-            .onReceive(library.$books.dropFirst()) { _ in model.refresh() }
-            .onReceive(library.$epubNotes.dropFirst()) { _ in model.refresh() }
-            .onReceive(library.$epubBooks.dropFirst()) { _ in model.refresh() }
-            .onReceive(library.$comicBooks.dropFirst()) { _ in model.refresh() }
-            .onReceive(library.docx.$notes.dropFirst()) { _ in model.refresh() }
-            .onReceive(library.docx.$books.dropFirst()) { _ in model.refresh() }
-            .onReceive(library.learning.$notes.dropFirst()) { _ in model.refresh() }
+            .task { model.observeChanges(in: library); model.updateQuery("") }
+            .onDisappear { model.stopObservingChanges(); model.cancel() }
             .sheet(isPresented: $metadata) { LocalBookMetadataWorkspace(model: model) }
     }
     private var status: String {
