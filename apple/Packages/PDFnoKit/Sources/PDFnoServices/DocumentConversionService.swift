@@ -10,24 +10,45 @@ public protocol DocumentConversionAdapter: Sendable {
                  progress: @Sendable (ConversionPhase) -> Void) throws -> ConvertedDocument
 }
 
+/// Async adapters may use an actor-isolated semantic engine; file I/O still belongs to this service.
+public protocol AsyncDocumentConversionAdapter: Sendable {
+    var capabilities: [ConversionCapability] { get }
+    func convert(_ source: Data, to output: ConversionFormat,
+                 progress: @escaping @Sendable (ConversionPhase) -> Void) async throws -> ConvertedDocument
+}
+
 public struct DocumentConversionService: Sendable {
     private let adapters: [any DocumentConversionAdapter]
-    public init(adapters: [any DocumentConversionAdapter] = [DOCXTextConversionAdapter()]) { self.adapters = adapters }
-    public var capabilities: [ConversionCapability] { adapters.flatMap(\.capabilities) }
+    private let asyncAdapters: [any AsyncDocumentConversionAdapter]
+    public init(adapters: [any DocumentConversionAdapter] = [DOCXTextConversionAdapter()],
+                asyncAdapters: [any AsyncDocumentConversionAdapter] = []) {
+        self.adapters = adapters; self.asyncAdapters = asyncAdapters
+    }
+    public var capabilities: [ConversionCapability] { adapters.flatMap(\.capabilities) + asyncAdapters.flatMap(\.capabilities) }
 
     /// Cancellation propagates into the detached worker; completion follows the atomic commit point.
     public func convert(_ request: ConversionRequest,
                         progress: @escaping @Sendable (ConversionPhase) -> Void = { _ in }) async throws -> ConversionResult {
         try Task.checkCancellation()
-        guard let adapter = adapters.first(where: { $0.capabilities.contains { $0.input == request.input && $0.output == request.output } }) else {
-            throw ConversionError.unsupportedDirection
+        let matches: (ConversionCapability) -> Bool = { $0.input == request.input && $0.output == request.output }
+        let adapterID: String
+        let render: @Sendable (Data) async throws -> ConvertedDocument
+        if let adapter = adapters.first(where: { $0.capabilities.contains(where: matches) }) {
+            adapterID = adapter.capabilities.first(where: matches)!.adapterID
+            render = { try adapter.convert($0, to: request.output, progress: progress) }
+        } else if let adapter = asyncAdapters.first(where: { $0.capabilities.contains(where: matches) }) {
+            adapterID = adapter.capabilities.first(where: matches)!.adapterID
+            render = { try await adapter.convert($0, to: request.output, progress: progress) }
+        } else { throw ConversionError.unsupportedDirection }
+        let worker = Task.detached(priority: .utility) {
+            try await Self.perform(request, adapterID: adapterID, render: render, progress: progress)
         }
-        let worker = Task.detached(priority: .utility) { try Self.perform(request, adapter: adapter, progress: progress) }
         return try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }
     }
 
-    private static func perform(_ request: ConversionRequest, adapter: any DocumentConversionAdapter,
-                                progress: @Sendable (ConversionPhase) -> Void) throws -> ConversionResult {
+    private static func perform(_ request: ConversionRequest, adapterID: String,
+                                render: @Sendable (Data) async throws -> ConvertedDocument,
+                                progress: @Sendable (ConversionPhase) -> Void) async throws -> ConversionResult {
         guard request.source.isFileURL, request.source.pathExtension.lowercased() == request.input.fileExtension else { throw ConversionError.invalidSource }
         guard request.destination.isFileURL, request.destination.pathExtension.lowercased() == request.output.fileExtension,
               request.source.resolvingSymlinksInPath().standardizedFileURL != request.destination.resolvingSymlinksInPath().standardizedFileURL else {
@@ -46,14 +67,16 @@ public struct DocumentConversionService: Sendable {
             progress(.reading); try Task.checkCancellation()
             let source = try readSource(request.source)
             progress(.validating); try Task.checkCancellation()
-            let converted = try adapter.convert(source, to: request.output, progress: progress)
+            let converted = try await render(source)
             guard converted.data.count <= 16 * 1024 * 1024 else { throw ConversionError.resourceLimit }
             try destination.commit(converted.data, progress: progress)
             progress(.completed)
             return ConversionResult(destination: request.destination, byteCount: converted.data.count,
-                                    adapterID: adapter.capabilities.first!.adapterID, warnings: converted.warnings)
+                                    adapterID: adapterID, warnings: converted.warnings, readingPDFReport: converted.readingPDFReport)
         } catch is CancellationError { throw CancellationError() }
         catch let error as ConversionError { throw error }
+        catch let error as DOCXError { throw error }
+        catch let error as DOCXReadingPDFError { throw error }
         catch { throw ConversionError.ioFailure }
     }
 
