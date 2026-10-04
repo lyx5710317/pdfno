@@ -6,6 +6,172 @@ import AppKit
 
 final class NativeUITests: XCTestCase {
     #if os(macOS)
+    // Japanese flows extend the original 30 tests without modifying them. Compile locally;
+    // execute only on the authorized isolated CI host, using UUID stores and an intercepted
+    // transport. Confirm the visible offline marker BEFORE entering a synthetic credential.
+    @MainActor private func japaneseElement(_ id: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: id).firstMatch
+    }
+    @MainActor private func scrollJapaneseElement(_ element: XCUIElement, in app: XCUIApplication) {
+        XCTAssertTrue(element.waitForExistence(timeout: 8))
+        let form = japaneseElement("japanese-learning-form", in: app)
+        let nested = form.descendants(matching: .scrollView).firstMatch
+        let scroll = nested.exists ? nested : app.scrollViews.firstMatch
+        XCTAssertTrue(scroll.waitForExistence(timeout: 5))
+        for _ in 0..<16 {
+            let viewport = scroll.frame.insetBy(dx: 4, dy: 8), target = element.frame
+            if !target.isEmpty, viewport.contains(target), element.isHittable { return }
+            let delta: CGFloat = target.minY < viewport.minY
+                ? min(280, max(48, viewport.minY - target.minY + 16))
+                : -min(280, max(48, target.maxY - viewport.maxY + 16))
+            scroll.scroll(byDeltaX: 0, deltaY: delta)
+        }
+        XCTAssertTrue(scroll.frame.insetBy(dx: 4, dy: 8).contains(element.frame))
+        XCTAssertTrue(element.isHittable)
+    }
+    @MainActor private func prepareJapaneseOfflinePDF(_ app: XCUIApplication) throws {
+        try prepareOriginalPDFNoteEditing(app)
+        press(app.buttons["reader-japanese-learning"].firstMatch)
+        guard japaneseElement("japanese-offline-fixture", in: app).waitForExistence(timeout: 5) else {
+            throw NSError(domain: "PDFno-Offline-UI", code: 1, userInfo: [NSLocalizedDescriptionKey: "Fully intercepted Japanese transport required before synthetic key entry"])
+        }
+        XCTAssertFalse(app.buttons["japanese-learning-start"].firstMatch.isEnabled)
+        press(app.buttons["japanese-learning-close"].firstMatch)
+        press(app.buttons["ai-settings"].firstMatch)
+        XCTAssertTrue(app.buttons["ai-use-deepseek"].firstMatch.waitForExistence(timeout: 5))
+        press(app.buttons["ai-use-deepseek"].firstMatch)
+        let key = japaneseElement("ai-session-key", in: app)
+        XCTAssertTrue(key.waitForExistence(timeout: 5)); press(key); key.typeText("synthetic-reading-ui-credential")
+        press(app.buttons["ai-settings-save"].firstMatch)
+        press(app.buttons["reader-japanese-learning"].firstMatch)
+        XCTAssertTrue(japaneseElement("japanese-learning-source", in: app).waitForExistence(timeout: 5))
+        XCTAssertEqual(textValue(japaneseElement("japanese-learning-source", in: app)), "window")
+    }
+    @MainActor private func startJapaneseReview(_ app: XCUIApplication) {
+        let start = app.buttons["japanese-learning-start"].firstMatch
+        scrollJapaneseElement(start, in: app); XCTAssertFalse(start.isEnabled)
+        let consent = japaneseElement("japanese-learning-consent", in: app)
+        scrollJapaneseElement(consent, in: app); press(consent)
+        scrollJapaneseElement(start, in: app); XCTAssertTrue(start.isEnabled); press(start)
+    }
+    @MainActor func testMacJapaneseOfflineConsentComponentSwitchManualSaveRestartExactPDFReturn() throws {
+        let app = XCUIApplication(), token = UUID().uuidString
+        let root = URL(fileURLWithPath: "/tmp").appendingPathComponent("PDFno-UITests-" + token)
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_RESPONSE"] = "components"
+        app.launch(); app.activate(); defer { app.terminate() }
+        try prepareJapaneseOfflinePDF(app)
+        let legacy = root.appendingPathComponent("library-v1.json"), oldBytes = try Data(contentsOf: legacy)
+        startJapaneseReview(app)
+        waitForText(["收到可审阅建议", "未自动保存"], in: japaneseElement("japanese-learning-status", in: app), timeout: 8)
+        let manifest = root.appendingPathComponent("japanese-learning-v1.json")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: manifest.path))
+        XCTAssertEqual(textValue(japaneseElement("japanese-components-source", in: app)), "window")
+        let overlap = japaneseElement("japanese-components-overlap", in: app)
+        scrollJapaneseElement(overlap, in: app)
+        XCTAssertTrue(textValue(overlap).contains("一次显示清晰的一层"))
+        let subject = app.buttons["japanese-component-subject"].firstMatch
+        scrollJapaneseElement(subject, in: app); press(subject)
+        waitForText(["合成主语候选", "蓝色"], in: japaneseElement("japanese-component-explanation", in: app), timeout: 5)
+        let object = app.buttons["japanese-component-object"].firstMatch
+        scrollJapaneseElement(object, in: app); press(object)
+        waitForText(["合成宾语候选", "绿色"], in: japaneseElement("japanese-component-explanation", in: app), timeout: 5)
+        let omitted = app.buttons["japanese-component-omitted-subject"].firstMatch
+        scrollJapaneseElement(omitted, in: app); press(omitted)
+        waitForText(["省略", "推测"], in: japaneseElement("japanese-component-selected-label", in: app), timeout: 5)
+        XCTAssertEqual(textValue(japaneseElement("japanese-components-source", in: app)), "window")
+        let correction = japaneseElement("japanese-learning-correction", in: app)
+        scrollJapaneseElement(correction, in: app); enterSearch("ア", into: correction)
+        let body = japaneseElement("japanese-learning-user-note", in: app)
+        scrollJapaneseElement(body, in: app); enterSearch("Original independent Japanese note か\u{3099}👩🏽‍🚀", into: body)
+        let save = app.buttons["japanese-learning-save"].firstMatch
+        scrollJapaneseElement(save, in: app); press(save)
+        waitForText(["已保存独立学习记录"], in: japaneseElement("japanese-learning-status", in: app), timeout: 8)
+        let saved = try originalSavedNote(token, manifest: "japanese-learning-v1.json")
+        let review = try XCTUnwrap(saved["review"] as? [String: Any])
+        XCTAssertEqual((review["components"] as? [Any])?.count, 4)
+        XCTAssertEqual((saved["corrections"] as? [[String: Any]])?.first?["reading"] as? String, "ア")
+        XCTAssertEqual(try Data(contentsOf: legacy), oldBytes)
+        XCTAssertFalse(String(decoding: try Data(contentsOf: manifest), as: UTF8.self).contains("synthetic-reading-ui-credential"))
+        press(app.buttons["japanese-learning-close"].firstMatch)
+        app.terminate(); app.launch(); app.activate()
+        let book = japaneseElement("library-book", in: app)
+        XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
+        press(app.buttons["reader-notes"].firstMatch)
+        XCTAssertTrue(japaneseElement("japanese-saved-source", in: app).waitForExistence(timeout: 8))
+        XCTAssertEqual(textValue(japaneseElement("japanese-saved-source", in: app)), "window")
+        let returned = app.buttons["japanese-saved-return"].firstMatch
+        scrollEditingElement(returned, app: app); press(returned)
+        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
+        press(app.buttons["reader-japanese-learning"].firstMatch)
+        XCTAssertFalse(app.buttons["japanese-learning-start"].firstMatch.isEnabled, "Session key must not survive restart")
+    }
+    @MainActor func testMacJapaneseNativeEPUBSelectionManualSaveAndSourceReturnPreservesRuby() throws {
+        let app = XCUIApplication(), token = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        app.launch(); app.activate(); defer { app.terminate() }
+        try prepareJapaneseOfflinePDF(app); press(app.buttons["japanese-learning-close"].firstMatch)
+        press(app.buttons["open-epub-sample"].firstMatch)
+        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
+        press(app.buttons["epub-contents"].firstMatch); press(app.buttons["epub-chapter-1"].firstMatch)
+        waitForText(["第 2 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 15)
+        let original = try webText(in: app, matching: "日本語", prefix: true, timeout: 10)
+        original.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)).doubleClick()
+        press(app.buttons["epub-japanese-learning"].firstMatch)
+        let source = japaneseElement("japanese-learning-source", in: app)
+        XCTAssertTrue(source.waitForExistence(timeout: 8))
+        let quote = textValue(source); XCTAssertFalse(quote.isEmpty); XCTAssertFalse(quote.contains("にほんご"))
+        startJapaneseReview(app)
+        waitForText(["收到可审阅建议"], in: japaneseElement("japanese-learning-status", in: app), timeout: 8)
+        XCTAssertEqual(textValue(japaneseElement("japanese-components-source", in: app)), quote)
+        let save = app.buttons["japanese-learning-save"].firstMatch
+        scrollJapaneseElement(save, in: app); press(save)
+        waitForText(["已保存独立学习记录"], in: japaneseElement("japanese-learning-status", in: app), timeout: 8)
+        let saved = try originalSavedNote(token, manifest: "japanese-learning-v1.json")
+        let review = try XCTUnwrap(saved["review"] as? [String: Any]), snapshot = try XCTUnwrap(review["source"] as? [String: Any])
+        let anchor = try XCTUnwrap(snapshot["anchor"] as? [String: Any]), wrapper = try XCTUnwrap(anchor["epub"] as? [String: Any])
+        XCTAssertEqual((wrapper["_0"] as? [String: Any])?["quote"] as? String, quote)
+        let returned = app.buttons["japanese-learning-return"].firstMatch
+        scrollJapaneseElement(returned, in: app); press(returned)
+        waitForText(["第 2 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 10)
+        XCTAssertTrue(try webText(in: app, matching: "にほんご", prefix: false, timeout: 10).exists)
+        press(app.buttons["epub-notes"].firstMatch)
+        XCTAssertTrue(japaneseElement("japanese-saved-source", in: app).waitForExistence(timeout: 8))
+        XCTAssertEqual(textValue(japaneseElement("japanese-saved-source", in: app)), quote)
+    }
+    @MainActor func testMacJapaneseInvalidOutputAndCancelCannotCreateNotesOrLateReview() throws {
+        for scenario in ["invalid", "slow"] {
+            let app = XCUIApplication(), token = UUID().uuidString
+            app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+            app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+            app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_RESPONSE"] = scenario
+            app.launch(); app.activate()
+            defer { app.terminate() }
+            try prepareJapaneseOfflinePDF(app); startJapaneseReview(app)
+            if scenario == "invalid" {
+                waitForText(["输出无法验证", "仅保留来源"], in: japaneseElement("japanese-learning-status", in: app), timeout: 8)
+                XCTAssertFalse(app.buttons["japanese-learning-save"].firstMatch.isEnabled)
+                XCTAssertFalse(app.buttons["japanese-component-subject"].firstMatch.exists)
+                XCTAssertFalse(japaneseElement("japanese-learning-translation", in: app).exists)
+            } else {
+                let cancel = app.buttons["japanese-learning-cancel"].firstMatch
+                scrollJapaneseElement(cancel, in: app); press(cancel)
+                waitForText(["请求已取消", "迟到结果不会显示或保存"], in: japaneseElement("japanese-learning-status", in: app), timeout: 5)
+                XCTAssertFalse(japaneseElement("japanese-components-source", in: app).exists)
+                press(app.buttons["japanese-learning-close"].firstMatch)
+                press(app.buttons["reader-japanese-learning"].firstMatch)
+                XCTAssertFalse(japaneseElement("japanese-components-source", in: app).exists)
+            }
+            let budget = japaneseElement("japanese-learning-budget", in: app)
+            scrollJapaneseElement(budget, in: app)
+            waitForText(["已用 1 / 3"], in: budget, timeout: 5)
+            let path = URL(fileURLWithPath: "/tmp").appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent("japanese-learning-v1.json")
+            XCTAssertFalse(FileManager.default.fileExists(atPath: path.path))
+            app.terminate()
+        }
+    }
     // These flows are for the isolated integration CI host only. They use
     // original bundled books and a fresh UUID store, never real keys/API calls.
     @MainActor private func prepareOriginalPDFNoteEditing(_ app: XCUIApplication) throws {

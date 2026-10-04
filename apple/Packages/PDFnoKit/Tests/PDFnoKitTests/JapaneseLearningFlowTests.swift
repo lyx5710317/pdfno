@@ -14,6 +14,14 @@ private actor JapaneseFakeCredentials: AICredentialStore {
     func put(_ value: String, reference: UUID) {}
     func remove(_ reference: UUID) {}
 }
+private actor JapaneseDelayedCredentials: AICredentialStore {
+    var continuation: CheckedContinuation<String?, Error>?
+    func started() -> Bool { continuation != nil }
+    func read(_ reference: UUID) async throws -> String? { try await withCheckedThrowingContinuation { continuation = $0 } }
+    func put(_ value: String, reference: UUID) {}
+    func remove(_ reference: UUID) {}
+    func finish() { continuation?.resume(returning: japaneseSyntheticKey); continuation = nil }
+}
 private func japaneseEnvelope(_ content: String, finish: String = "stop", role: String = "assistant", tool: Any = NSNull()) throws -> Data {
     try JSONSerialization.data(withJSONObject: ["choices": [["finish_reason": finish,
         "message": ["role": role, "content": content, "tool_calls": tool, "function_call": NSNull()]]]])
@@ -97,6 +105,19 @@ struct JapaneseLearningFlowTests {
             #expect(!wire.contains(excluded))
         }
         #expect(await session.selection.attemptsUsed() == 1)
+    }
+    @Test func cancelledAsynchronousCredentialReadNeverReservesOrSends() async throws {
+        let credentials = JapaneseDelayedCredentials(), transport = JapaneseHTTPStub(), session = AppAISession()
+        let adapter = DeepSeekJapaneseLearningProvider(transport: transport, credentials: credentials, credentialReference: UUID(), aiSession: session)
+        let request = JapaneseLearningRequest(source: japaneseSource(), provider: japaneseConfig(mock: false))
+        let task = Task { try await adapter.analyze(request) }
+        let deadline = Date().addingTimeInterval(3)
+        while !(await credentials.started()), Date() < deadline { try await Task.sleep(for: .milliseconds(5)) }
+        try #require(await credentials.started())
+        task.cancel(); await credentials.finish()
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(await transport.requests.isEmpty)
+        #expect(await session.selection.attemptsUsed() == 0)
     }
     @Test func invalidInputConfigOrDeadlineNeverReadCredentialsOrSend() async throws {
         let credentials = JapaneseFakeCredentials(), transport = JapaneseHTTPStub(), session = AppAISession()

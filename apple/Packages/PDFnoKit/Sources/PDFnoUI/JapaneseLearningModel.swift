@@ -17,11 +17,18 @@ public final class JapaneseLearningModel: ObservableObject {
     @Published public private(set) var saving = false
     @Published public private(set) var saved = false
     @Published public private(set) var attemptsUsed = 0
-    @Published public private(set) var status = "未发送 · 独立日语学习组件尚未接主界面"
+    @Published public private(set) var status = "未发送 · 请先在原文中选择日语"
     @Published public private(set) var error: String?
     @Published public var userText = ""
     @Published public var readingCorrections: [String: String] = [:]
     public var canSave: Bool { saveNote != nil && review != nil && review?.status != .unavailable && !busy && !saving && !saved }
+    private var preparationFailure: AIFailure?
+    public var canStart: Bool {
+        guard let request else { return false }
+        return !busy && !saving && preparationFailure == nil && (try? request.validate()) != nil &&
+            (request.provider.mode == .mock || attemptsUsed < DeepSeekSelectionPolicy.maxAttempts)
+    }
+    public func presentFailure(_ failure: AIFailure) { error = failure.localizedDescription }
     private var provider: any JapaneseLearningProvider
     private let isCurrent: CurrentScope
     private let saveNote: SaveNote?
@@ -41,11 +48,12 @@ public final class JapaneseLearningModel: ObservableObject {
     }
     /// Host calls on capture/close/book/version/reflow/config/credential-generation changes.
     /// Replacing a provider also invalidates consent, even if nonsecret configuration is identical.
-    public func prepare(_ candidate: JapaneseLearningRequest?, provider replacement: (any JapaneseLearningProvider)? = nil) {
+    public func prepare(_ candidate: JapaneseLearningRequest?, provider replacement: (any JapaneseLearningProvider)? = nil, failure: AIFailure? = nil) {
         let scope = candidate.flatMap { try? JapaneseLearningCoordinator.fingerprint($0) } ?? ""
-        if replacement == nil && scope == confirmationScope && (candidate == nil) == (request == nil) { return }
+        if replacement == nil && failure == preparationFailure && scope == confirmationScope && (candidate == nil) == (request == nil) { return }
         retainDraft(); cancel()
         if let replacement { provider = replacement }
+        preparationFailure = failure
         request = candidate; confirmationScope = scope; confirmationRevision = UUID(); review = nil; saved = false; error = nil
         userText = ""; readingCorrections = [:]
         if let candidate {
@@ -55,7 +63,8 @@ public final class JapaneseLearningModel: ObservableObject {
                 userText = draft.userText; readingCorrections = draft.corrections
             }
         }
-        status = "固定选文已准备 · 等待手动确认与开始"
+        if let failure { error = failure.localizedDescription }
+        status = candidate == nil ? "请先在 PDF / EPUB 中选择日语原文" : "固定选文已准备 · 等待手动确认与开始"
         Task { [weak self, provider] in
             let used = await provider.attemptsUsed()
             guard let self else { return }; attemptsUsed = max(attemptsUsed, used)
@@ -65,6 +74,7 @@ public final class JapaneseLearningModel: ObservableObject {
         guard !busy, !saving, let prepared = request else { return }
         guard confirmed else { error = AIFailure.consent.localizedDescription; return }
         do {
+            if let preparationFailure { throw preparationFailure }
             try prepared.validate()
             guard isCurrent(prepared.source, prepared.provider) else { throw AIFailure.stale }
             guard provider.mode == prepared.provider.mode else { throw AIFailure.configuration }

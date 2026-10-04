@@ -3,7 +3,9 @@ import Foundation
 
 /// Independent selection-only contract. No change to AIRequest, persisted notes or reader anchors.
 public enum JapaneseLearningPolicy {
-    public static let promptVersion = "japanese-selection-1"
+    public static let promptVersion = "japanese-selection-2"
+    public static let legacyPromptVersion = "japanese-selection-1"
+    public static let maxComponents = 16
     public static let maxSourceUTF16 = DeepSeekSelectionPolicy.maxSourceUTF16
     public static let maxOutputTokens = DeepSeekSelectionPolicy.maxOutputTokens
     public static let maxTimeoutSeconds: Double = 30
@@ -82,13 +84,29 @@ public struct JapaneseLearningReview: Codable, Sendable, Equatable {
     public let readings: [JapaneseReadingSuggestion]
     public let grammar: [JapaneseGrammarSuggestion]
     public let warnings: [String]
+    public let components: [JapaneseSentenceComponent]
     public let status: JapaneseReviewStatus
     init(request: JapaneseLearningRequest, translationZh: String?, readings: [JapaneseReadingSuggestion],
-         grammar: [JapaneseGrammarSuggestion], warnings: [String], status: JapaneseReviewStatus) {
+         grammar: [JapaneseGrammarSuggestion], warnings: [String], status: JapaneseReviewStatus, components: [JapaneseSentenceComponent] = []) {
         requestID = request.id; source = request.source; provider = request.provider
         promptVersion = JapaneseLearningPolicy.promptVersion; authorReadings = request.authorReadings
         self.translationZh = translationZh; self.readings = readings; self.grammar = grammar
-        self.warnings = warnings; self.status = status
+        self.warnings = warnings; self.status = status; self.components = components
+    }
+    private enum CodingKeys: String, CodingKey { case requestID, source, provider, promptVersion, authorReadings, translationZh, readings, grammar, warnings, status, components }
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        requestID = try values.decode(UUID.self, forKey: .requestID)
+        source = try values.decode(AISourceSnapshot.self, forKey: .source)
+        provider = try values.decode(AIProviderConfig.self, forKey: .provider)
+        promptVersion = try values.decode(String.self, forKey: .promptVersion)
+        authorReadings = try values.decode([JapaneseAuthorReading].self, forKey: .authorReadings)
+        translationZh = try values.decodeIfPresent(String.self, forKey: .translationZh)
+        readings = try values.decode([JapaneseReadingSuggestion].self, forKey: .readings)
+        grammar = try values.decode([JapaneseGrammarSuggestion].self, forKey: .grammar)
+        warnings = try values.decode([String].self, forKey: .warnings)
+        status = try values.decode(JapaneseReviewStatus.self, forKey: .status)
+        components = try values.decodeIfPresent([JapaneseSentenceComponent].self, forKey: .components) ?? []
     }
 }
 public struct JapaneseReadingCorrection: Codable, Sendable, Equatable {
@@ -161,7 +179,8 @@ public enum JapaneseLearningValidator {
         guard (try? request.validate()) != nil, data.count <= 65536, JapaneseLearningJSON.hasUniqueKeys(data),
               String(data: data, encoding: .utf8).map({ $0.utf16.count <= 16000 }) == true,
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              Set(object.keys) == Set(["schemaVersion", "language", "sourceQuote", "offsetUnit", "translationZh", "readings", "grammar", "warnings"]),
+              Set(["schemaVersion", "language", "sourceQuote", "offsetUnit", "translationZh", "readings", "grammar", "warnings"]).isSubset(of: Set(object.keys)),
+              Set(object.keys).isSubset(of: Set(["schemaVersion", "language", "sourceQuote", "offsetUnit", "translationZh", "readings", "grammar", "warnings", "components"])),
               integer(object["schemaVersion"]) == 1, object["language"] as? String == "ja",
               object["offsetUnit"] as? String == "unicode-code-point",
               let quote = object["sourceQuote"] as? String, quote.utf8.elementsEqual(request.source.anchor.quote.utf8),
@@ -169,6 +188,11 @@ public enum JapaneseLearningValidator {
               let grammar = object["grammar"] as? [[String: Any]], grammar.count <= JapaneseLearningPolicy.maxGrammar,
               let modelWarnings = object["warnings"] as? [String], modelWarnings.count <= 8,
               modelWarnings.allSatisfy({ string($0, limit: 300) != nil }) else { return unavailable() }
+        let components: [[String: Any]]
+        if let raw = object["components"] {
+            guard let rows = raw as? [[String: Any]], rows.count <= JapaneseLearningPolicy.maxComponents else { return unavailable() }
+            components = rows
+        } else { components = [] } // Older valid reading/grammar replies remain a visibly partial review.
         let translation: String?
         if object["translationZh"] is NSNull { translation = nil }
         else if let value = string(object["translationZh"], limit: 2000) { translation = value }
@@ -210,18 +234,52 @@ public enum JapaneseLearningValidator {
             }
             acceptedGrammar.append(JapaneseGrammarSuggestion(id: id, span: span, labelZh: label, explanationZh: explanation))
         }
+        var acceptedComponents: [JapaneseSentenceComponent] = [], componentKeys: Set<String> = []
+        for item in components {
+            guard Set(item.keys) == Set(["id", "role", "quote", "start", "end", "prefix", "suffix", "certainty", "omitted", "explanationZh"]),
+                  let id = string(item["id"], limit: 64), ids.insert(id).inserted,
+                  let roleValue = item["role"] as? String, let role = JapaneseSentenceRole(rawValue: roleValue),
+                  let omittedValue = item["omitted"] as? NSNumber, ["c", "B"].contains(String(cString: omittedValue.objCType)),
+                  let certainty = item["certainty"] as? String, ["suggestion", "ambiguous"].contains(certainty),
+                  let explanation = string(item["explanationZh"], limit: 400) else {
+                warnings.append("一条句子成分的结构、角色或解释无效，已排除。"); continue
+            }
+            let omitted = omittedValue.boolValue
+            let componentSpan: JapaneseSpan?
+            if omitted {
+                guard certainty == "ambiguous", item["quote"] is NSNull, item["start"] is NSNull, item["end"] is NSNull,
+                      item["prefix"] as? String == "", item["suffix"] as? String == "" else {
+                    warnings.append("省略成分不得声明原文引文或跨度，已排除；不会在原文中虚构词语。"); continue
+                }
+                componentSpan = nil
+            } else {
+                guard let exact = span(item, text: quote) else {
+                    warnings.append("一条句子成分的原文范围或上下文无法验证，已排除；没有涂色或猜测位置。"); continue
+                }
+                componentSpan = exact
+            }
+            let key = role.rawValue + ":" + (componentSpan?.correctionKey ?? "omitted")
+            guard componentKeys.insert(key).inserted else {
+                warnings.append("重复的同角色同范围成分已排除；其他重叠或嵌套候选分别保留。"); continue
+            }
+            acceptedComponents.append(JapaneseSentenceComponent(id: id, role: role, span: componentSpan,
+                ambiguous: certainty == "ambiguous", omitted: omitted, explanationZh: explanation))
+        }
+        if acceptedComponents.contains(where: { $0.ambiguous || $0.omitted }) { warnings.append("句子成分含不确定候选或省略推测；文字标签与解释保留，省略成分不在原句中涂色。") }
         if acceptedReadings.contains(where: \.ambiguous) { warnings.append("部分读音存在上下文歧义，候选仅供审阅；请核对或填写用户修正。") }
         if acceptedReadings.isEmpty && acceptedGrammar.isEmpty { warnings.append("没有可验证的生成读音或语法条目；不会自动注音或高亮。") }
         return JapaneseLearningReview(request: request, translationZh: translation, readings: acceptedReadings,
-            grammar: acceptedGrammar, warnings: warnings, status: warnings.isEmpty ? .reviewable : .needsReview)
+            grammar: acceptedGrammar, warnings: warnings, status: warnings.isEmpty ? .reviewable : .needsReview, components: acceptedComponents)
     }
 }
 
 /// JSONSerialization collapses duplicate members. Reject them before either payload or envelope
 /// decoding, including escaped spellings of a key. JSONSerialization still owns syntax validation.
 public enum JapaneseLearningJSON {
-    public static func hasUniqueKeys(_ data: Data) -> Bool {
-        guard data.count <= 65536 else { return false }
+    public static func hasUniqueKeys(_ data: Data) -> Bool { uniqueKeys(data, maxBytes: 65536) }
+    public static func hasUniqueKeysForStore(_ data: Data) -> Bool { uniqueKeys(data, maxBytes: 5 * 1024 * 1024) }
+    private static func uniqueKeys(_ data: Data, maxBytes: Int) -> Bool {
+        guard data.count <= maxBytes else { return false }
         struct Frame { var keys: Set<String>?; var expectingKey: Bool }
         let bytes = Array(data)
         var stack: [Frame] = [], index = 0

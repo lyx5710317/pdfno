@@ -35,6 +35,8 @@ public final class AILearningModel: ObservableObject {
     private let coordinator = AIJobCoordinator()
     private let sessionCredentials = SessionCredentialStore()
     private let transport: any AIHTTPTransport
+    private let aiSession: AppAISession
+    var japaneseScopeDidInvalidate: (@MainActor () -> Void)?
     private let remoteBudget: DeepSeekSelectionBudget
     private let timeoutSeconds: Double
     private var temporaryCredentialReference: UUID?
@@ -55,7 +57,7 @@ public final class AILearningModel: ObservableObject {
     }
     public init(root: URL, transport: any AIHTTPTransport = URLSessionAITransport(), timeoutSeconds: Double = 30, offlineTransport: Bool = false, aiSession: AppAISession = .shared) {
         repository = AILearningRepository(root: root); self.transport = transport; self.timeoutSeconds = timeoutSeconds; self.offlineTransport = offlineTransport
-        remoteBudget = aiSession.selection
+        self.aiSession = aiSession; remoteBudget = aiSession.selection
         #if os(macOS)
         deepSeekTest = DeepSeekTestModel(service: DeepSeekSelfTest(budget: aiSession.probe))
         #endif
@@ -100,6 +102,7 @@ public final class AILearningModel: ObservableObject {
         status = source == nil ? "请先在原文中选择文字" : "来源已固定 · 确认范围后开始"
     }
     func cancel() {
+        japaneseScopeDidInvalidate?()
         generation = UUID(); task?.cancel(); task = nil
         if busy {
             if let index = attempts.lastIndex(where: { $0.outcome == .requesting }) { attempts[index].outcome = .failed(.cancelled) }
@@ -110,6 +113,17 @@ public final class AILearningModel: ObservableObject {
             guard let self else { return }
             let count = await remoteBudget.attemptsUsed(); remoteAttemptsUsed = max(remoteAttemptsUsed, count)
         }
+    }
+    /// Reuses this owner's transport/session reference and exact process selection counter.
+    /// No credential read, request or alternate provider occurs while creating the adapter.
+    func japaneseLearningProvider() throws -> any JapaneseLearningProvider {
+        guard config.isValid else { throw AIFailure.configuration }
+        if config.mode == .mock { return LocalMockJapaneseLearningProvider() }
+        guard config.mode != .unconfigured else { throw AIFailure.unconfigured }
+        guard DeepSeekSelectionPolicy.supports(config) else { throw AIFailure.configuration }
+        guard hasSessionCredential, let reference = temporaryCredentialReference else { throw AIFailure.credentials }
+        return DeepSeekJapaneseLearningProvider(transport: transport, credentials: sessionCredentials,
+            credentialReference: reference, aiSession: aiSession)
     }
     func start(confirmed: Bool, sourceIsCurrent: @escaping @MainActor (AISourceSnapshot) -> Bool) {
         guard let source, source.isValid else { error = AIFailure.inputLimit.localizedDescription; return }

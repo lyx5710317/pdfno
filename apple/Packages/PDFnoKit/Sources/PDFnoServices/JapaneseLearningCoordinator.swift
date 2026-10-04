@@ -28,7 +28,13 @@ public actor JapaneseLearningCoordinator {
     public static func draftFingerprint(_ source: AISourceSnapshot) throws -> String {
         struct Scope: Encodable { let bookID: UUID; let anchor: AISelectionAnchor }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
-        return SHA256.hash(data: try encoder.encode(Scope(bookID: source.bookID, anchor: source.anchor)))
+        let anchor: AISelectionAnchor
+        if case .epub(let value) = source.anchor {
+            anchor = .epub(EPUBAnchor(editionID: value.editionID, fileSHA256: value.fileSHA256,
+                resourceHref: value.resourceHref, spineIndex: value.spineIndex, start: value.start, end: value.end,
+                quote: value.quote, prefix: value.prefix, suffix: value.suffix, vertical: false))
+        } else { anchor = source.anchor }
+        return SHA256.hash(data: try encoder.encode(Scope(bookID: source.bookID, anchor: anchor)))
             .map { String(format: "%02x", $0) }.joined()
     }
     public func run(_ request: JapaneseLearningRequest, consent: AIConsent,

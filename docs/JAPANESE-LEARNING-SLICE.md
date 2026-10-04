@@ -1,5 +1,7 @@
 # 日语选文学习首片与整合契约
 
+> 本文保留 `feature/japanese-learning` 首片的历史实现与验证范围。本整合 worktree 的当前接入、成分分色、存储及验证见 [2026-10-04 整合报告](JAPANESE-LEARNING-INTEGRATION-2026-10-04.md)。首片的“尚未接入”不是本整合候选的状态。
+
 本地独立候选：`feature/japanese-learning`，基线 `f3ed484fee815effed2d955f8eb21bcd66d8546e`。只新增模块、原创离线测试、轻量检查脚本和本文件；没有修改已有文件、主分支、Bookno/CBR/CB7 工作树、LibraryWorkspace/LibraryModel、格式引擎、Package.swift、Xcode 工程或原有笔记 schema。**尚未接主界面或持久存储，不是已上线语言功能。**
 
 ## 已实现范围
