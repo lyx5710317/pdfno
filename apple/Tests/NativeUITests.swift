@@ -902,7 +902,10 @@ final class NativeUITests: XCTestCase {
         func number(_ n: Int) -> Data {
             let value = UInt64(n)
             for i in 0..<8 where value < (UInt64(1) << (7 * (i + 1))) {
-                var bytes = Data([UInt8(((UInt64(1) << i) - 1) << (8 - i) | (value >> (8 * i)))])
+                let prefixMask: UInt64 = ((UInt64(1) << i) - 1) << (8 - i)
+                let upperValue: UInt64 = value >> (8 * i)
+                let firstByte: UInt8 = UInt8(prefixMask | upperValue)
+                var bytes = Data([firstByte])
                 for j in 0..<i { bytes.append(UInt8((value >> (8 * j)) & 255)) }; return bytes
             }
             return Data([255]) + little(value, width: 8)

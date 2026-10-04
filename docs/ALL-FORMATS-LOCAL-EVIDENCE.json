@@ -10,7 +10,7 @@
     "nativeComicIncrement": "90ed6d6329986f6fd909c939b25df90f84e02004"
   },
   "authorization": "Local integration/offline regression/unsigned low-concurrency build-for-testing only. No push/main/Library/actual UI/API/Japanese/security-special retry.",
-  "candidateBinding": "Final delivery receipt contains exact candidate commit/tree SHA; this file is committed in that candidate. Tested implementation fingerprint excludes documentation and evidence.",
+  "candidateBinding": "Historical local evidence bound to initial c048c07d81828f21e6887b5f7543af86c7026eb1. Tested implementation fingerprint excludes documentation and evidence. Later CI and fixture-helper compiler compatibility correction are recorded in docs/ALL-FORMATS-CI-2026-10-04.md and their exact-SHA delivery receipts; these old hashes are not a claim about later changes.",
   "testedImplementationFingerprint": {
     "algorithm": "SHA256 of canonical compact sorted path-to-SHA256 JSON plus newline",
     "files": 490,
