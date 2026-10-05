@@ -196,13 +196,13 @@ struct PDFnoPanel<Content: View>: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: PDFnoDesign.Space.small) {
-                Label(title, systemImage: icon).font(PDFnoDesign.TypeStyle.section)
-                Spacer(minLength: 0)
                 Button(action: close) { Label("完成", systemImage: "xmark").labelStyle(.iconOnly) }
                     .buttonStyle(PDFnoActionStyle(role: .quiet))
                     .accessibilityLabel("完成")
                     .accessibilityIdentifier(closeIdentifier)
                     .help("关闭" + title)
+                Label(title, systemImage: icon).font(PDFnoDesign.TypeStyle.section)
+                Spacer(minLength: 0)
             }.padding(PDFnoDesign.Space.small)
             Divider()
             content().frame(maxWidth: .infinity, maxHeight: .infinity)

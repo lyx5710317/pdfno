@@ -30,6 +30,9 @@ public struct LibraryWorkspace: View {
                         Text("\(libraryBookCount) 本").font(PDFnoDesign.TypeStyle.metadata).foregroundStyle(.secondary)
                     }
                     PDFnoLibraryLayoutPicker(grid: $grid)
+                    Button { aiSettings = true } label: { Label("模型与 BYOK 设置", systemImage: "slider.horizontal.3") }
+                        .buttonStyle(PDFnoActionStyle(role: .quiet)).accessibilityIdentifier("ai-settings")
+                        .help("配置模型与会话临时密钥")
                 }.padding(PDFnoDesign.Space.regular)
                 #endif
                 Group {
@@ -170,7 +173,6 @@ public struct LibraryWorkspace: View {
                 .disabled(!model.canImport || model.isBusy || model.storageMaintenance)
                 .accessibilityIdentifier("library-local-recovery").help("预览本地删除、恢复与校验备份") }
             ToolbarItem { Button { conversion = true } label: { Label("格式转换", systemImage: "arrow.triangle.2.circlepath") }.accessibilityIdentifier("document-conversion").help("打开本地格式转换") }
-            ToolbarItem { Button { aiSettings = true } label: { Label("模型与 BYOK 设置", systemImage: "slider.horizontal.3") }.accessibilityIdentifier("ai-settings").help("配置模型与会话临时密钥") }
             #endif
         }
         .sheet(isPresented: $about) { FeatureStatusView() }

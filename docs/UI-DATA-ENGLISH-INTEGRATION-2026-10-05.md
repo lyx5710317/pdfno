@@ -95,6 +95,8 @@ API 核验：Apple 的 [`directoryURL`](https://developer.apple.com/documentatio
 
 修复候选 `4e34fd66243055ed59d5ae70f71b876b43637b12` 的[六项诊断](https://github.com/lyx5710317/pdfno/actions/runs/37318569284)通过 BYOK、DeepSeek、英语和目录闭环。漫画已实际完成布局／方向／翻页／跳页，但关闭按钮的 AX frame 在窗口右侧不可点击；PDF 在笔记入口处同样不可点击，尚未验证最终保存。后续把漫画页面／前后页／关闭，以及 Mac PDF 导航／前后页／笔记操作移至阅读区网格，避免继承书库工具栏后挤出窗口；保留操作标识、禁用条件、快捷键、草稿与来源行为，移动端沿用原工具栏。4e34 的完整 Native 已被下一修复取代，取消并保留其日志，不计为验收成功。
 
+候选 `61875e4efebee34145f504663d294fa6b66d4d60` 的[六项诊断](https://github.com/lyx5710317/pdfno/actions/runs/37320519893)完整通过漫画、BYOK与目录闭环，但 DeepSeek／英语设置入口及 PDF 面板关闭按钮仍在窗口右边缘不可点击。应用原默认窗口1180×780可能超过小屏可用区域；后续用 Apple [`NSScreen.visibleFrame`](https://developer.apple.com/documentation/appkit/nsscreen/visibleframe) 限制**新窗口初始**尺寸并居中，保留720×520内容最小值，不改已保存用户窗口状态。设置按钮进入书库上方固定可见区，面板关闭按钮放到面板标题前。保留所有 AX 标识、原断言与超时；恢复的旧窗口及极小屏幕仍须人工验收。官方接口链接、本机 SDK 与编译核验日期2026-10-05；此次网页 Markdown 抓取不可用，不能声称已完整读取网页说明。6187 Native 被下一修复取代并取消，未计为通过。
+
 实际 VoiceOver、真实 iPhone/iPad／Apple Pencil、实际云同步／Bookno API、真实服务语法质量与账单均未验收。移动端共享模块编译成功不能当作移动阅读入口完备。EPUB resize 清除临时 selection 是既有边界，本批未声称消除。独立安全专项仍为 `UNVERIFIED / platform-blocked`，Figma 配额阻塞未重试；功能与源码检查不能替代独立安全或未取得设计稿的像素验收。
 
 主 checkout、原有工作树与 Xcode 用户元数据保留，无本批实际用户数据变化。发布前可回退本地整合提交。若未来使用了回收站，先保留完整根目录／备份并通过当前模块恢复所需条目，再降级；旧应用不识别 `local-recovery-v1.json` 或英语记录／英语编辑 draft case，不能承诺旧版本可读取或覆盖。保留全部 Git 历史与切片提交，不用删源文件或全目录替换实现回滚。
