@@ -53,6 +53,9 @@ struct PDFNoteComposer: View {
         }
     }
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSTextField, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? 300, height: proposal.height ?? 96)
+    }
     func makeNSView(context: Context) -> NSTextField {
         let field = NSTextField()
         field.placeholderString = "写下你的笔记（可选）"
