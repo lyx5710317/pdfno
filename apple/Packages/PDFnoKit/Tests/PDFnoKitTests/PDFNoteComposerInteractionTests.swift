@@ -38,6 +38,13 @@ import PDFnoServices
             }
             return result
         }
+        func identifier(_ object: NSObject) -> String? {
+            // The public getter also works for AX bridge objects that do not
+            // declare protocol conformance or forward the legacy attribute.
+            let getter = #selector(NSAccessibilityProtocol.accessibilityIdentifier)
+            guard object.responds(to: getter) else { return nil }
+            return object.perform(getter)?.takeUnretainedValue() as? String
+        }
         try await settle()
         let originalInput = try #require(oldInput(in: host)), native = try #require(session.view)
         print("Synthetic original List AX exposes native editor: \(axObjects(in: host).contains { $0 === originalInput })")
@@ -52,6 +59,7 @@ import PDFnoServices
             #expect(fields.count == 1)
             let field = try #require(fields.first)
             #expect(field.accessibilityAttributeValue(.enabled) as? Bool == true)
+            #expect(identifier(field) == "note-input")
             return field
         }
         func value(_ field: NSObject) throws -> String {
@@ -66,7 +74,9 @@ import PDFnoServices
             let inHost = host.convert(window.convertPoint(fromScreen: point), from: nil)
             #expect(host.bounds.contains(inHost))
             let hit = try #require(window.accessibilityHitTest(point) as? NSObject)
-            #expect(hit.accessibilityAttributeValue(.role) as? String == NSAccessibility.Role.textField.rawValue)
+            #expect(hit.accessibilityAttributeValue(.role) as? String == field.accessibilityAttributeValue(.role) as? String)
+            #expect(identifier(hit) == "note-input")
+            #expect(hit === field)
             #expect(try value(hit) == value(field))
         }
         let editor = try exposedEditor()
@@ -106,8 +116,7 @@ private struct NoteComposerHostingFixture: View {
     @ObservedObject var state: NoteComposerHostingState
     var body: some View {
         PDFnoReaderShell(panels: state.panels) { PDFCanvas(session: session) } navigation: { Text("原创导航") } notes: {
-            PDFNotesPanelHost {
-              PDFnoPanel(title: "高亮与笔记", icon: "highlighter", closeIdentifier: "original-host-close", close: {}) {
+            PDFnoPanel(title: "高亮与笔记", icon: "highlighter", closeIdentifier: "original-host-close", close: {}) {
                 if state.composerInsideList {
                     List {
                         Section("当前选区") {
@@ -125,7 +134,6 @@ private struct NoteComposerHostingFixture: View {
                         Divider(); List { Section("已保存 · 本地") { Text("这本书还没有笔记") } }.accessibilityIdentifier("pdf-notes-list")
                     }.font(PDFnoDesign.TypeStyle.body)
                 }
-              }
             }
         }
     }
