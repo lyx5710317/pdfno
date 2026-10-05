@@ -21,13 +21,22 @@ final class NextBatchUITests: XCTestCase {
         wait(for: [ready], timeout: 15)
     }
     @MainActor private func reveal(_ item: XCUIElement, form: String, app: XCUIApplication) {
-        let scroll = element(form, app); XCTAssertTrue(scroll.waitForExistence(timeout: 10))
+        let scroll = app.scrollViews[form].firstMatch; XCTAssertTrue(scroll.waitForExistence(timeout: 10))
         XCTAssertTrue(item.waitForExistence(timeout: 10))
         for _ in 0..<12 {
-            if scroll.frame.insetBy(dx: 4, dy: 8).contains(item.frame), item.isHittable { return }
-            scroll.scroll(byDeltaX: 0, deltaY: item.frame.minY < scroll.frame.minY ? 280 : -280)
+            let viewport = scroll.frame.insetBy(dx: 4, dy: 8), target = item.frame
+            if !target.isEmpty, viewport.contains(target), item.isHittable { return }
+            let delta: CGFloat = target.minY < viewport.minY
+                ? min(280, max(48, viewport.minY - target.minY + 16))
+                : -min(280, max(48, target.maxY - viewport.maxY + 16))
+            scroll.scroll(byDeltaX: 0, deltaY: delta)
         }
+        XCTAssertTrue(scroll.frame.insetBy(dx: 4, dy: 8).contains(item.frame))
         XCTAssertTrue(item.isHittable)
+    }
+    private func cleanup(_ url: URL) {
+        do { try FileManager.default.removeItem(at: url) }
+        catch { print("Synthetic UI cleanup retained \(url.lastPathComponent): \(error.localizedDescription)") }
     }
     @MainActor private func chooseDirectory(_ url: URL, trigger: XCUIElement, app: XCUIApplication) throws {
         click(trigger)
@@ -72,7 +81,7 @@ final class NextBatchUITests: XCTestCase {
     @MainActor func testEnglishManualConsentSaveSearchAndRestartKeepsSourceAndNoKey() throws {
         let app = XCUIApplication(), token = UUID().uuidString
         let root = URL(fileURLWithPath: "/tmp/PDFno-UITests-" + token)
-        fixture(app, token: token); defer { app.terminate(); try? FileManager.default.removeItem(at: root) }
+        fixture(app, token: token); defer { app.terminate(); cleanup(root) }
         click(app.buttons["reader-navigation"].firstMatch)
         let search = app.textFields["search-input"].firstMatch; click(search); search.typeText("window")
         click(app.buttons["search-submit"].firstMatch); click(app.buttons["search-result"].firstMatch)
@@ -81,7 +90,8 @@ final class NextBatchUITests: XCTestCase {
         XCTAssertFalse(app.buttons["english-learning-start"].firstMatch.isEnabled)
         click(app.buttons["english-learning-close"].firstMatch)
         click(app.buttons["ai-settings"].firstMatch); click(app.buttons["ai-use-deepseek"].firstMatch)
-        let key = element("ai-session-key", app); click(key); key.typeText("synthetic-reading-ui-credential")
+        let key = app.secureTextFields["ai-session-key"].firstMatch
+        reveal(key, form: "ai-settings-form", app: app); click(key); key.typeText("synthetic-reading-ui-credential")
         click(app.buttons["ai-settings-save"].firstMatch)
         click(app.buttons["reader-english-learning"].firstMatch)
         text(element("english-learning-fixed-source", app), contains: "window")
@@ -117,7 +127,7 @@ final class NextBatchUITests: XCTestCase {
     @MainActor func testTrashConfirmationRestoreAndRestartPreserveOriginalBook() throws {
         let app = XCUIApplication(), token = UUID().uuidString
         let root = URL(fileURLWithPath: "/tmp/PDFno-UITests-" + token)
-        fixture(app, token: token); defer { app.terminate(); try? FileManager.default.removeItem(at: root) }
+        fixture(app, token: token); defer { app.terminate(); cleanup(root) }
         let before = try state("library-v1.json", root: root)
         let book = try XCTUnwrap((before["books"] as? [[String: Any]])?.first), id = try XCTUnwrap(book["id"] as? String)
         let hash = try XCTUnwrap(book["fileSHA256"] as? String)
@@ -135,11 +145,13 @@ final class NextBatchUITests: XCTestCase {
         reveal(restore, form: "local-recovery-form", app: app); click(restore)
         click(app.buttons["local-recovery-confirm-change"].firstMatch)
         text(element("local-recovery-status", app), contains: "已恢复")
+        print("Synthetic recovery checkpoint: restore completed; reading current manifest")
         XCTAssertEqual((try state("library-v1.json", root: root)["books"] as? [[String: Any]])?.first?["id"] as? String, id)
         XCTAssertEqual(try Data(contentsOf: original), bytes)
-        let directory = URL(fileURLWithPath: "/tmp/PDFno-Directory-UI-" + UUID().uuidString)
+        print("Synthetic recovery checkpoint: original bytes preserved; creating runner-owned backup parent")
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Directory-UI-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
+        defer { cleanup(directory) }
         let currentManifest = try Data(contentsOf: root.appendingPathComponent("library-v1.json"))
         let export = app.buttons["local-recovery-export"].firstMatch
         reveal(export, form: "local-recovery-form", app: app)
@@ -148,6 +160,7 @@ final class NextBatchUITests: XCTestCase {
         let package = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
             .first { $0.lastPathComponent.hasPrefix("PDFnoBackup-") })
         try verifyPackage(package)
+        print("Synthetic recovery checkpoint: exported inventory and payload SHA256 verified")
         XCTAssertEqual(try Data(contentsOf: package.appendingPathComponent("Payload/library-v1.json")), currentManifest)
         let inspect = app.buttons["local-recovery-inspect"].firstMatch
         reveal(inspect, form: "local-recovery-form", app: app)
@@ -164,6 +177,7 @@ final class NextBatchUITests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent("library-v1.json")), currentManifest)
         XCTAssertFalse(FileManager.default.fileExists(atPath: recovered.appendingPathComponent("note-edit-drafts-v1.json").path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: recovered.appendingPathComponent("record-edit-drafts-v1.json").path))
+        print("Synthetic recovery checkpoint: new-root restoration and unchanged active library verified")
         click(app.buttons["local-recovery-close"].firstMatch)
         app.terminate(); app.launch(); app.activate(); click(element("library-book", app))
         text(element("page-position", app), contains: "1 / 2")

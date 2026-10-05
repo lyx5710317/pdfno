@@ -51,6 +51,7 @@ struct AISettingsView: View {
                     if let error = learning.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "ai-settings-error") }
                 }
             }.font(PDFnoDesign.TypeStyle.body).formStyle(.grouped).navigationTitle("模型与 BYOK 设置")
+                .accessibilityIdentifier("ai-settings-form")
             .toolbar {
                 ToolbarItem { Button("取消") { secret = ""; dismiss() }.accessibilityIdentifier("ai-settings-cancel") }
                 ToolbarItem { Button("保存配置") { Task { if await learning.saveConfig(draft, temporarySecret: secret) { secret = ""; dismiss() } } }

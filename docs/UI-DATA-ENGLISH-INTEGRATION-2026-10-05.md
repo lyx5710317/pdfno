@@ -67,6 +67,8 @@ PDF 与 EPUB 的 Mac 阅读器均有“英语结构与语法”入口，固定�
 
 新增 `learning-maintenance.yml`，仅在隔离 GitHub macOS runner 诊断两项新 UI 用例，沿用现有 ad hoc 测试身份与180／240秒单例限制。它由本批 feature 分支推送触发，也保留登记到 main 后可用的手动入口；不能替代 `checks.yml` 的完整52项 UI、Swift／资源／移动编译与其他专项。最终 CI 状态、实际方法数量、feature 与 main 精确 SHA 应以最终外部 CI 收据和对应运行日志为准，不能沿用初版本地收据中的未上传状态。
 
+首轮[新增 UI 诊断](https://github.com/lyx5710317/pdfno/actions/runs/37291477257)记录了两个辅助逻辑问题：密钥和正文控件未先进入真正的滚动视口，以及导出前在通用 `/tmp` 创建测试目录发生权限错误。后续修复给设置表单增加可访问标识，按实际 `scrollViews` 视口定位并保留完整可见／可点击断言；备份输入目录使用测试 runner 的 `temporaryDirectory`。新增阶段日志核对清单 SHA、原件字节和当前书库未替换；原50项文件与每例超时均保留。修复必须以新的实际 UI 运行验证，不能用编译成功代替。
+
 未保存草稿拒绝维护、恢复后编辑基线核对、窄窗／深浅色／键盘仍需人工闭环。不能在当前用户桌面运行同 bundle ID XCTest。
 
 实际 VoiceOver、真实 iPhone/iPad／Apple Pencil、实际云同步／Bookno API、真实服务语法质量与账单均未验收。移动端共享模块编译成功不能当作移动阅读入口完备。EPUB resize 清除临时 selection 是既有边界，本批未声称消除。独立安全专项仍为 `UNVERIFIED / platform-blocked`，Figma 配额阻塞未重试；功能与源码检查不能替代独立安全或未取得设计稿的像素验收。
