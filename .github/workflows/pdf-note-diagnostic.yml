@@ -30,8 +30,8 @@ jobs:
               guard let token = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"], UUID(uuidString: token) != nil else { return }
               DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                   guard let window = NSApp.mainWindow, let content = window.contentView else { return }
-                  func allViews(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap { allViews($0) } }
-                  func describe(_ object: NSObject?) -> String {
+                  @MainActor func allViews(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap { allViews($0) } }
+                  @MainActor func describe(_ object: NSObject?) -> String {
                       guard let object else { return "nil" }
                       return "type=\\(type(of: object)) role=\\(String(describing: object.accessibilityAttributeValue(.role))) id=\\(String(describing: object.accessibilityAttributeValue(.identifier)))"
                   }
