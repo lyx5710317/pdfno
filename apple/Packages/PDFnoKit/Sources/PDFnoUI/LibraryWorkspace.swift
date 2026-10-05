@@ -497,8 +497,13 @@ struct ReaderWorkspace: View {
             Section("当前选区") {
                 if let anchor = session.capturedSelection {
                     PDFnoTextViewport(text: anchor.quote)
+                    #if os(macOS)
+                    NativeNoteBodyInput(text: $draft, identifier: "note-input", enabled: !model.storageMaintenance,
+                        label: "写下你的笔记（可选）").frame(height: 96)
+                    #else
                     TextField("写下你的笔记（可选）", text: $draft, axis: .vertical).lineLimit(3...8)
                         .accessibilityIdentifier("note-input")
+                    #endif
                     if !draft.isEmpty { PDFnoStatusMessage(text: "草稿未保存 · 关闭面板会保留，保存成功后清空") }
                     Button("保存高亮与笔记") {
                         if model.savePDFNoteImmediately(anchor: anchor, text: draft) { draft = "" }

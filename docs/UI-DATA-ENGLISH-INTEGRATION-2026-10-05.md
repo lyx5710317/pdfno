@@ -101,6 +101,8 @@ API 核验：Apple 的 [`directoryURL`](https://developer.apple.com/documentatio
 
 阅读壳的六项离屏 foundation 回归通过，包含宽窄面板、原 PDFView 身份／选区／来源／草稿保留；它不证明实际点击成功。六项诊断另保留仅隔离 runner 合成数据的 `LearningMaintenance.xcresult`，七天过期，供失败时核对实际面板与点击位置；没有本机桌面捕获或用户数据。`actions/upload-artifact` 使用官方 v4.6.2 的精确 SHA `ea165f8d65b6e75b540449e92b4886f43607fa02`，通过官方 GitHub ref API 核验2026-10-05，未添加 npm 或阅读引擎依赖。
 
+候选 `82e4489dd7c9c208d56411f51b286a6cfedc2ea0` 的[六项诊断](https://github.com/lyx5710317/pdfno/actions/runs/37325859465)仍为五项通过、PDF 输入点击失败。下载同 SHA 的 artifact `11352232963`（122239404字节），导出唯一失败方法的合成录像及事件；10／15秒帧确认面板和输入区域在屏幕内，绘制 offset／层级修复不足以证明或解决原多行 SwiftUI TextField 的点击问题。后续 Mac 新笔记输入复用现有 `NativeNoteBodyInput` 的 NSTextView／NSScrollView、原始文本 delegate 和96点可滚动编辑区，原 `note-input` 标识、草稿 owner／绑定／维护禁用／Unicode／保存后清空均保留；移动端仍用原 TextField。原52项方法用标识查找，不改测试或断言。该控件原正文编辑流程已被原回归使用，但新的草稿入口仍须本候选实际 UI 验收。82e Native 取消并归档，不算通过。
+
 实际 VoiceOver、真实 iPhone/iPad／Apple Pencil、实际云同步／Bookno API、真实服务语法质量与账单均未验收。移动端共享模块编译成功不能当作移动阅读入口完备。EPUB resize 清除临时 selection 是既有边界，本批未声称消除。独立安全专项仍为 `UNVERIFIED / platform-blocked`，Figma 配额阻塞未重试；功能与源码检查不能替代独立安全或未取得设计稿的像素验收。
 
 主 checkout、原有工作树与 Xcode 用户元数据保留，无本批实际用户数据变化。发布前可回退本地整合提交。若未来使用了回收站，先保留完整根目录／备份并通过当前模块恢复所需条目，再降级；旧应用不识别 `local-recovery-v1.json` 或英语记录／英语编辑 draft case，不能承诺旧版本可读取或覆盖。保留全部 Git 历史与切片提交，不用删源文件或全目录替换实现回滚。

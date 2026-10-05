@@ -10,6 +10,7 @@ struct NativeNoteBodyInput: NSViewRepresentable {
     @Binding var text: String
     let identifier: String
     let enabled: Bool
+    var label: String = "编辑用户正文"
 
     final class BodyTextView: NSTextView {
         private var requestedFocus = false
@@ -31,10 +32,10 @@ struct NativeNoteBodyInput: NSViewRepresentable {
     }
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
     func makeNSView(context: Context) -> NSScrollView {
-        Self.makeEditor(coordinator: context.coordinator, identifier: identifier, enabled: enabled)
+        Self.makeEditor(coordinator: context.coordinator, identifier: identifier, enabled: enabled, label: label)
     }
     // The same native control factory is exercised offscreen by storage tests.
-    static func makeEditor(coordinator: Coordinator, identifier: String, enabled: Bool) -> NSScrollView {
+    static func makeEditor(coordinator: Coordinator, identifier: String, enabled: Bool, label: String = "编辑用户正文") -> NSScrollView {
         let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 300, height: 96))
         scroll.borderType = .bezelBorder
         scroll.hasVerticalScroller = true
@@ -59,7 +60,7 @@ struct NativeNoteBodyInput: NSViewRepresentable {
         view.string = coordinator.text.wrappedValue
         view.delegate = coordinator
         view.setAccessibilityIdentifier(identifier)
-        view.setAccessibilityLabel("编辑用户正文")
+        view.setAccessibilityLabel(label)
         scroll.documentView = view
         return scroll
     }
