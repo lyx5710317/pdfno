@@ -9,6 +9,7 @@ public struct EPUBOutlineItem: Identifiable {
     public var id: Int { index }
     public let title: String
     public let index: Int
+    public let readerSessionID: UUID
 }
 private final class EPUBAssets: NSObject, WKURLSchemeHandler {
     func webView(_ webView: WKWebView, start task: any WKURLSchemeTask) {
@@ -42,6 +43,9 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
     @Published public private(set) var vertical = false
     @Published public private(set) var busy = false
     @Published public private(set) var error: String?
+    @Published public private(set) var canReturnToPreviousLocation = false
+    private var navigationHistory = ReaderNavigationHistory<EPUBAnchor>()
+    private var returningToPreviousLocation = false
     private var generation = UUID()
     public private(set) var documentVersion = 0
     public private(set) var spineIndex = 0
@@ -52,6 +56,7 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
     public func close() {
         translationScopeDidChange?()
         generation = UUID(); pendingOpen = nil
+        navigationHistory.clear(); canReturnToPreviousLocation = false; returningToPreviousLocation = false
         let requests = pending; pending.removeAll()
         for continuation in requests.values { continuation.resume(throwing: EPUBError.cancelled) }
         webView?.stopLoading(); webView?.configuration.userContentController.removeScriptMessageHandler(forName: "epub")
@@ -141,7 +146,7 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
         position = "第 \(chapter + 1) 章 · 第 \(page) 页" + (vertical ? " · 竖排" : "")
         outline = (state["outline"] as? [[String: Any]] ?? []).prefix(1000).compactMap {
             guard let title = $0["title"] as? String, title.utf8.count < 4096, let index = $0["index"] as? Int, (0..<1000).contains(index) else { return nil }
-            return EPUBOutlineItem(title: title, index: index)
+            return EPUBOutlineItem(title: title, index: index, readerSessionID: generation)
         }
         return state
     }
@@ -200,8 +205,13 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
             selection = try? anchorValue(value)
         }
     }
+    @discardableResult public func jump(to item: EPUBOutlineItem) async -> Bool {
+        guard book != nil, item.readerSessionID == generation else { return false }
+        return await command("chapter", index: item.index)
+    }
     public func command(_ name: String, index: Int? = nil, anchor: EPUBAnchor? = nil, notes: [EPUBNote]? = nil) async -> Bool {
         guard !busy else { return false }; let token = generation
+        let origin = progress, recordsJump = !returningToPreviousLocation && ["chapter", "navigate"].contains(name)
         busy = true; defer { if generation == token { busy = false } }
         do {
             var payload: [String: Any] = [:]
@@ -221,11 +231,26 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
                 // checks in request(), independently of asynchronous selection notifications.
                 selection = selected
             }
+            if recordsJump, let origin, let destination = progress, book?.accepts(origin) == true {
+                navigationHistory.record(origin, destination: destination)
+                canReturnToPreviousLocation = navigationHistory.previous != nil
+            }
             return true
         } catch {
             if generation == token { self.error = (error as? EPUBError)?.localizedDescription ?? EPUBError.bridge.localizedDescription }
             return false
         }
+    }
+    /// Uses the existing canonical quote/context resolver, also after reflow. No page geometry is invented.
+    @discardableResult public func returnToPreviousLocation() async -> Bool {
+        guard !busy, let previous = navigationHistory.previous, book?.accepts(previous) == true else { return false }
+        let token = generation
+        returningToPreviousLocation = true
+        defer { if generation == token { returningToPreviousLocation = false } }
+        guard await command("navigate", anchor: previous), generation == token else { return false }
+        navigationHistory.returned(to: previous)
+        canReturnToPreviousLocation = navigationHistory.previous != nil
+        return true
     }
     private func fail(_ error: Error) {
         close(); self.error = (error as? EPUBError)?.localizedDescription ?? EPUBError.bridge.localizedDescription
@@ -259,9 +284,14 @@ public struct EPUBCanvas: NSViewRepresentable {
         super.setFrameSize(newSize)
         guard changed, newSize.width > 100, newSize.height > 100 else { return }
         resize?.cancel()
-        resize = Task { [weak self] in
+        guard let session else { return }
+        let ticket = ReaderLayoutTicket(readerSessionID: session.readerSessionID, documentVersion: session.documentVersion)
+        resize = Task { [weak self, weak session] in
             do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
-            if let session = self?.session, session.progress != nil { _ = await session.command("resize") }
+            guard !Task.isCancelled, let self, let session, self.session === session,
+                  ticket.matches(sessionID: session.readerSessionID, documentVersion: session.documentVersion),
+                  session.progress != nil else { return }
+            _ = await session.command("resize")
         }
     }
 }

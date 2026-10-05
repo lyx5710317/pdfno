@@ -28,6 +28,7 @@ public struct PDFCanvas: NSViewRepresentable {
     public func updateNSView(_ view: PDFView, context: Context) { session.attach(view) }
     public static func dismantleNSView(_ view: PDFView, coordinator: PDFCanvasCoordinator) {
         NotificationCenter.default.removeObserver(coordinator)
+        coordinator.session.detach(view)
     }
 }
 #else
@@ -43,6 +44,7 @@ public struct PDFCanvas: UIViewRepresentable {
     public func updateUIView(_ view: PDFView, context: Context) { session.attach(view) }
     public static func dismantleUIView(_ view: PDFView, coordinator: PDFCanvasCoordinator) {
         NotificationCenter.default.removeObserver(coordinator)
+        coordinator.session.detach(view)
     }
 }
 #endif

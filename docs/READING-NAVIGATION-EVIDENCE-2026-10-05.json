@@ -1,0 +1,163 @@
+{
+  "date": "2026-10-05",
+  "baseline": "82585b1053b8a000f337274fec8ae597255c9135",
+  "branch": "feature/reading-navigation-20261005",
+  "scope": "Local independent reader navigation candidate; owner integration patch is NOT APPLIED.",
+  "host": {
+    "macOS": "27.0 (26A428)",
+    "Xcode": "27.0 (27A266a)",
+    "Swift": "6.4",
+    "architecture": "arm64"
+  },
+  "heavy_checks": {
+    "shared_wrapper_reviewed": true,
+    "wrapper_sha256": "f5673d761040495cb7b01647ca951621371c550161e20ed98fcad205113c1532",
+    "exclusive_flock": true,
+    "jobs": 2,
+    "isolated_outputs": true,
+    "signing_override": "CODE_SIGNING_ALLOWED=NO",
+    "no_permissions_or_signing_configuration_changed": true
+  },
+  "swift": {
+    "methods": 21,
+    "suites": 4,
+    "new_navigation_methods": 11,
+    "filter": "ReaderNavigationTests|PDFReaderTests|PDFQuoteConsistencyTests|EPUBTests",
+    "original_parameterized_methods_retained": true,
+    "executed_tests_create_no_NSWindow_NSHostingView_WKWebView": true,
+    "network_requests": 0,
+    "stores": "UUID temporary roots and self-authored baseline fixtures only"
+  },
+  "builds": {
+    "Mac": {
+      "result": "TEST BUILD SUCCEEDED",
+      "destination": "platform=macOS,arch=arm64"
+    },
+    "iPhone_iPad_Simulator": {
+      "result": "TEST BUILD SUCCEEDED",
+      "destination": "generic/platform=iOS Simulator",
+      "architecture_compilation": [
+        "arm64",
+        "x86_64"
+      ]
+    }
+  },
+  "logs": {
+    "swift-tests-final.log": {
+      "path": "/tmp/pdfno-reading-navigation-20261005-evidence/swift-tests-final.log",
+      "sha256": "bc56bcada337190be2723acb47be13a1155961d149d9c01095a71165fad7f5d3",
+      "bytes": 5342,
+      "result": "PASSED",
+      "marker": "Test run with 21 tests in 4 suites passed"
+    },
+    "mac-build-final.log": {
+      "path": "/tmp/pdfno-reading-navigation-20261005-evidence/mac-build-final.log",
+      "sha256": "f4e570f32feca62b8c17fc2f83ffb074de29131a0996c4246da602e746a52856",
+      "bytes": 34854,
+      "result": "PASSED",
+      "marker": "** TEST BUILD SUCCEEDED **"
+    },
+    "mobile-build-final.log": {
+      "path": "/tmp/pdfno-reading-navigation-20261005-evidence/mobile-build-final.log",
+      "sha256": "7de0d8e55193ac1dc49337afe6cb40f57e284202da04fff1522efd24782da9fc",
+      "bytes": 167383,
+      "result": "PASSED",
+      "marker": "** TEST BUILD SUCCEEDED **"
+    },
+    "mobile-build.log": {
+      "path": "/tmp/pdfno-reading-navigation-20261005-evidence/mobile-build.log",
+      "sha256": "71efed75b1bdd54c6208abf48978f1733c9f5e72b04bb452b4d120f78bd2c2de",
+      "bytes": 1141599,
+      "result": "FAILED_DISK_SPACE",
+      "reason": "UIKit PCM write failed: No space left on device; recovered by deleting only completed task-owned generated build outputs."
+    }
+  },
+  "preserved": {
+    "apple/Tests/EbookFormatUITests.swift": {
+      "sha256": "4d50ab3983c6df07fe03c296648c1bc6cc0ad497fa7ede759742988d9117c233",
+      "method_count": 4,
+      "byte_identical_to_baseline": true
+    },
+    "apple/Tests/NativeUITests.swift": {
+      "sha256": "1d22a88e17984f4123fe9728e4a978cf24d8d242737b192c40e5f073bebf16c6",
+      "method_count": 46,
+      "byte_identical_to_baseline": true
+    },
+    "apple/Tests/NextBatchUITests.swift": {
+      "sha256": "4ec8839f1dfa13b8f15992605efbc2c55510fd53878fde50c84ace6f87f46a63",
+      "method_count": 2,
+      "byte_identical_to_baseline": true
+    },
+    "apple/Packages/PDFnoKit/Sources/PDFnoUI/LibraryWorkspace.swift": {
+      "sha256": "4150b6540e8b93d1c221d744ce75813a1d68c6e9c0717ea9a8ef40013b3f428e",
+      "byte_identical_to_baseline": true
+    },
+    "apple/Packages/PDFnoKit/Sources/PDFnoUI/LibraryModel.swift": {
+      "sha256": "d26938ab6dd84571e03da1faf72276ef748ae9610cbbd7aa24e44b40ee0a1229",
+      "byte_identical_to_baseline": true
+    },
+    "apple/Packages/PDFnoKit/Sources/PDFnoUI/EPUBWorkspace.swift": {
+      "sha256": "39034321840ab88cf4c2be0008b2661feb9d23aea41ca200b878d83f9040d2a9",
+      "byte_identical_to_baseline": true
+    }
+  },
+  "original_ui_methods_preserved": 52,
+  "actual_ui_methods_executed": 0,
+  "unchanged_boundaries": [
+    "PDF/EPUB anchor and manifest schema",
+    "Domain",
+    "Services/repositories",
+    "reader engine resources",
+    "LibraryWorkspace.swift",
+    "LibraryModel.swift",
+    "EPUBWorkspace.swift",
+    "52 original UI tests",
+    "CBR layout",
+    "PDF saving",
+    "AI entry/provider/consent/credential flows",
+    "draft owners and journal code"
+  ],
+  "source_sha256": {
+    "apple/Packages/PDFnoKit/Sources/PDFnoReaders/EPUBReaderSession.swift": "38132374224fd544df00aa4f92491a4a13d9b3d45a4a26aef7625d9901f8c52b",
+    "apple/Packages/PDFnoKit/Sources/PDFnoReaders/PDFCanvas.swift": "9baa26693575fe5dceb868cc54c794ff565c0e13886949eb55d8b3fe2549f3cc",
+    "apple/Packages/PDFnoKit/Sources/PDFnoReaders/PDFReaderSession.swift": "d1cb8fe55382560ce1a3d5850a02444716cbbe137ca0db9933e6c6d35684a1c0",
+    "apple/Packages/PDFnoKit/Sources/PDFnoReaders/ReaderNavigationState.swift": "f609d4569bbd9ca3b7ccdf25009a9739b8cb0719c5671cf9839f84ff047f8192",
+    "apple/Packages/PDFnoKit/Sources/PDFnoUI/ReaderNavigationControls.swift": "e85628d8d078a66fe1ab372ee76a78cb5a3c52694082f0537e98b367b9172932",
+    "apple/Packages/PDFnoKit/Sources/PDFnoUI/ReaderNavigationShortcuts.swift": "9f3370dcad25a9bf2570e68f9150277cfb39fcc2eb1d67c227fde1434d0f2fee",
+    "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReaderNavigationTests.swift": "88286d10a39f1134b786d15b30999fa38c9875035fcdf892c6225e4daa5a6cc2",
+    "docs/READING-NAVIGATION-INTEGRATION.patch": "60f490b96e76a0c836136333f4175803595b1feaf0c5e89c91a5b09cfb32f897"
+  },
+  "integration_patch": {
+    "path": "docs/READING-NAVIGATION-INTEGRATION.patch",
+    "applied": false,
+    "git_apply_check": "PASSED",
+    "targets": [
+      "LibraryWorkspace.swift",
+      "EPUBWorkspace.swift"
+    ],
+    "patch_applied_combined_build": "NOT-RUN"
+  },
+  "checks": {
+    "source_guard": "PASSED",
+    "diff_check": "PASSED",
+    "domain_services_engine_byte_preservation": "PASSED"
+  },
+  "limits": [
+    "No desktop App/window/UI or simulator launch",
+    "No actual shortcut focus/event routing acceptance",
+    "EPUB runtime return/reflow/TOC navigation NOT-RUN; offline state/anchor/ticket and compile evidence only",
+    "PDF return restores page index, not within-page geometry or zoom",
+    "No EPUB/full-book search implementation",
+    "No real API/key/private books",
+    "No push/merge/release",
+    "Independent security UNVERIFIED / platform-blocked"
+  ],
+  "cleanup": {
+    "reason": "Recover from disk exhaustion without touching other tasks/user files",
+    "removed_completed_generated_outputs": [
+      "/tmp/pdfno-reading-navigation-20261005-build",
+      "/tmp/pdfno-reading-navigation-20261005-Mac"
+    ],
+    "raw_logs_preserved": true
+  }
+}
