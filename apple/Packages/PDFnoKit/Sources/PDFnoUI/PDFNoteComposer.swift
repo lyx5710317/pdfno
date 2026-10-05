@@ -15,8 +15,9 @@ struct PDFNoteComposer: View {
             Text("当前选区").font(PDFnoDesign.TypeStyle.metadata).foregroundStyle(.secondary)
             if let anchor {
                 PDFnoTextViewport(text: anchor.quote)
-                NativeNoteBodyInput(text: $draft, identifier: "note-input", enabled: enabled,
-                    label: "写下你的笔记（可选）").frame(height: 96)
+                TextEditor(text: $draft).font(PDFnoDesign.TypeStyle.body).autocorrectionDisabled(true)
+                    .frame(height: 96).disabled(!enabled)
+                    .accessibilityLabel("写下你的笔记（可选）").accessibilityIdentifier("note-input")
                 if !draft.isEmpty { PDFnoStatusMessage(text: "草稿未保存 · 关闭面板会保留，保存成功后清空") }
                 Button("保存高亮与笔记") {
                     if save(anchor, draft) { draft = "" }

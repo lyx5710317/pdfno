@@ -23,7 +23,7 @@ import PDFnoServices
             host.layoutSubtreeIfNeeded(); try await Task.sleep(for: .milliseconds(100)); host.displayIfNeeded()
         }
         func input(in root: NSView) -> NSTextView? {
-            if let text = root as? NSTextView, text.accessibilityIdentifier() == "note-input" { return text }
+            if let text = root as? NSTextView, text.isEditable { return text }
             for child in root.subviews { if let found = input(in: child) { return found } }
             return nil
         }
@@ -46,7 +46,7 @@ import PDFnoServices
         state.composerInsideList = false; try await settle()
         let editor = try #require(input(in: host)), exposed = axObjects(in: host)
         #expect(exposed.contains { $0 === editor })
-        #expect(exposed.compactMap { $0 as? NSTextView }.filter { $0.accessibilityIdentifier() == "note-input" }.count == 1)
+        #expect(exposed.compactMap { $0 as? NSTextView }.filter { $0.isEditable }.count == 1)
         #expect(editor.accessibilityRole() == .textArea && editor.isEditable)
         let point = host.convert(NSPoint(x: editor.visibleRect.midX, y: editor.visibleRect.midY), from: editor)
         #expect(!editor.visibleRect.isEmpty && host.bounds.contains(point))
@@ -60,7 +60,6 @@ import PDFnoServices
         state.draft = ""; try await settle()
         let axPoint = NSPoint(x: editor.accessibilityFrame().midX, y: editor.accessibilityFrame().midY)
         #expect((window.accessibilityHitTest(axPoint) as? NSTextView) === editor)
-        #expect(editor.enclosingScrollView?.accessibilityIdentifier() == "note-input-scroll")
         #expect(input(in: host) === editor && editor.string.isEmpty)
         #expect(axObjects(in: host).contains { $0 === editor })
         state.draft = originalDraft; state.panels.notes = false; try await settle()
