@@ -101,15 +101,22 @@ struct PDFnoTextViewport: View {
     let text: String
     var identifier = ""
     var height = PDFnoDesign.Metric.textViewport
+    @State private var measuredHeight: CGFloat = 0
     var body: some View {
         ScrollView {
             Text(verbatim: text).font(PDFnoDesign.TypeStyle.body).textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
                 .padding(PDFnoDesign.Space.small).accessibilityIdentifier(identifier)
-        }.frame(height: height)
+                .background { GeometryReader { geometry in Color.clear.preference(key: PDFnoTextHeightKey.self, value: geometry.size.height) } }
+        }.frame(height: min(height, max(40, measuredHeight > 0 ? measuredHeight : height)))
+            .onPreferenceChange(PDFnoTextHeightKey.self) { measuredHeight = $0 }
             .background(PDFnoDesign.Palette.surface, in: RoundedRectangle(cornerRadius: PDFnoDesign.Metric.corner))
             .overlay { RoundedRectangle(cornerRadius: PDFnoDesign.Metric.corner).strokeBorder(PDFnoDesign.Palette.border) }
     }
+}
+private struct PDFnoTextHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
 /// Only action controls belong here; source, drafts and reader hosts keep stable parents.

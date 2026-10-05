@@ -17,12 +17,6 @@ public struct BYOKSettingsView: View {
                 TextField("HTTPS endpoint（基础路径或完整 chat/completions）", text: $model.draft.endpoint)
                     .accessibilityIdentifier("byok-endpoint")
                 TextField("模型标识", text: $model.draft.model).accessibilityIdentifier("byok-model")
-                if let url = try? BYOKSelectionPolicy.finalURL(model.draft) {
-                    Text("实际接收域名：\(url.host ?? "")").font(.headline).textSelection(.enabled)
-                        .accessibilityIdentifier("byok-receiver-domain")
-                    Text(url.absoluteString).font(.caption.monospaced()).textSelection(.enabled)
-                    Text((try? BYOKSelectionPolicy.capability(model.draft).explanation) ?? "")
-                } else { Text("仅 HTTPS；不能包含 URL 用户名、密码、查询或片段。不跟随任何重定向。") }
             }
             Section("会话密钥") {
                 SecureField("本次会话临时 API key", text: $model.temporarySecret).accessibilityIdentifier("byok-session-key")
@@ -39,6 +33,14 @@ public struct BYOKSettingsView: View {
             Section("状态") {
                 PDFnoStatusMessage(text: model.status, kind: applying ? .busy : .information, identifier: "byok-settings-status")
                 if let error = model.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "byok-error") }
+            }
+            Section("接收方预览") {
+                if let url = try? BYOKSelectionPolicy.finalURL(model.draft) {
+                    Text("实际接收域名：\(url.host ?? "")").font(.headline).textSelection(.enabled)
+                        .accessibilityIdentifier("byok-receiver-domain")
+                    Text(url.absoluteString).font(.caption.monospaced()).textSelection(.enabled)
+                    Text((try? BYOKSelectionPolicy.capability(model.draft).explanation) ?? "")
+                } else { Text("仅 HTTPS；不能包含 URL 用户名、密码、查询或片段。不跟随任何重定向。") }
             }
         }
         .font(PDFnoDesign.TypeStyle.body).formStyle(.grouped)

@@ -65,9 +65,13 @@ PDF 与 EPUB 的 Mac 阅读器均有“英语结构与语法”入口，固定�
 
 用户已明确批准本批普通推送、完整隔离 CI、相关失败修复，以及全部通过后合入 main 并复验。首个候选 `1938c5c0e8d9ec904cfdca1813abe685176af71f` 已上传至本批 feature 分支；其[漫画 CI](https://github.com/lyx5710317/pdfno/actions/runs/37289962009)与[电子书专项 CI](https://github.com/lyx5710317/pdfno/actions/runs/37290041549)已通过，[Native 完整 CI](https://github.com/lyx5710317/pdfno/actions/runs/37289962008)在本次文档更新时仍运行。此后补充的目录 UI 往返需要在后续精确提交上重新运行完整检查。
 
-新增 `learning-maintenance.yml`，仅在隔离 GitHub macOS runner 诊断两项新 UI 用例，沿用现有 ad hoc 测试身份与180／240秒单例限制。它由本批 feature 分支推送触发，也保留登记到 main 后可用的手动入口；不能替代 `checks.yml` 的完整52项 UI、Swift／资源／移动编译与其他专项。最终 CI 状态、实际方法数量、feature 与 main 精确 SHA 应以最终外部 CI 收据和对应运行日志为准，不能沿用初版本地收据中的未上传状态。
+新增 `learning-maintenance.yml`，在隔离 GitHub macOS runner 诊断两项新 UI 及受影响的原有 BYOK／DeepSeek 设置用例，沿用现有 ad hoc 测试身份与180／240秒单例限制。它由本批 feature 分支推送触发，也保留登记到 main 后可用的手动入口；不能替代 `checks.yml` 的完整52项 UI、Swift／资源／移动编译与其他专项。最终 CI 状态、实际方法数量、feature 与 main 精确 SHA 应以最终外部 CI 收据和对应运行日志为准，不能沿用初版本地收据中的未上传状态。
 
 首轮[新增 UI 诊断](https://github.com/lyx5710317/pdfno/actions/runs/37291477257)记录了两个辅助逻辑问题：密钥和正文控件未先进入真正的滚动视口，以及导出前在通用 `/tmp` 创建测试目录发生权限错误。后续修复给设置表单增加可访问标识，按实际 `scrollViews` 视口定位并保留完整可见／可点击断言；备份输入目录使用测试 runner 的 `temporaryDirectory`。新增阶段日志核对清单 SHA、原件字节和当前书库未替换；原50项文件与每例超时均保留。修复必须以新的实际 UI 运行验证，不能用编译成功代替。
+
+[第二轮新 UI](https://github.com/lyx5710317/pdfno/actions/runs/37292863167)完成目录 SHA 与新目录恢复检查，但在最终重启前超过180秒；英语正文实际保存成功，仍因 TextView 的按钮式 AX enabled 等待失败。后续辅助器采用原有编辑测试已使用的可见坐标点击，并新增实际编辑值断言；目录路径通过保留／恢复原剪贴板的粘贴输入，准备就绪的控件直接核验后点击，减少逐字输入与重复轮询，保留全部备份、原件与重启断言。
+
+首轮 Native 取消前另记录了原 BYOK 密钥焦点和 DeepSeek 结果未在可访问列表出现的问题。修复让设置中的凭据先于较长预览／其他工具，并让短文本视口按实际内容高度收缩，长文本仍受既有高度上限约束、可独立滚动；两个原用例加入诊断，原测试源码不改。候选必须重新完整运行52项，不能把取消前部分通过的方法当作整体验收。
 
 未保存草稿拒绝维护、恢复后编辑基线核对、窄窗／深浅色／键盘仍需人工闭环。不能在当前用户桌面运行同 bundle ID XCTest。
 

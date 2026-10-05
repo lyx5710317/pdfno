@@ -2,6 +2,7 @@
 #if os(macOS)
 import XCTest
 import CryptoKit
+import AppKit
 
 /// Compile locally; execute only in isolated CI/VM/OS user with explicit scope.
 /// UUID stores and intercepted transport do not isolate an existing app process.
@@ -10,9 +11,13 @@ final class NextBatchUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
     @MainActor private func click(_ item: XCUIElement) {
-        XCTAssertTrue(item.waitForExistence(timeout: 10))
-        let ready = expectation(for: NSPredicate { _, _ in item.exists && item.isEnabled && item.isHittable }, evaluatedWith: item)
-        wait(for: [ready], timeout: 10); item.click()
+        if !item.exists { XCTAssertTrue(item.waitForExistence(timeout: 10)) }
+        if !item.isEnabled || !item.isHittable {
+            let ready = expectation(for: NSPredicate { _, _ in item.exists && item.isEnabled && item.isHittable }, evaluatedWith: item)
+            wait(for: [ready], timeout: 10)
+        }
+        XCTAssertTrue(item.exists && item.isEnabled && item.isHittable)
+        item.click()
     }
     @MainActor private func text(_ item: XCUIElement, contains value: String) {
         let ready = expectation(for: NSPredicate { _, _ in
@@ -21,8 +26,10 @@ final class NextBatchUITests: XCTestCase {
         wait(for: [ready], timeout: 15)
     }
     @MainActor private func reveal(_ item: XCUIElement, form: String, app: XCUIApplication) {
-        let scroll = app.scrollViews[form].firstMatch; XCTAssertTrue(scroll.waitForExistence(timeout: 10))
-        XCTAssertTrue(item.waitForExistence(timeout: 10))
+        let scroll = app.scrollViews[form].firstMatch
+        if !scroll.exists { XCTAssertTrue(scroll.waitForExistence(timeout: 10)) }
+        if !item.exists { XCTAssertTrue(item.waitForExistence(timeout: 10)) }
+        XCTAssertTrue(scroll.exists && item.exists)
         for _ in 0..<12 {
             let viewport = scroll.frame.insetBy(dx: 4, dy: 8), target = item.frame
             if !target.isEmpty, viewport.contains(target), item.isHittable { return }
@@ -38,13 +45,25 @@ final class NextBatchUITests: XCTestCase {
         do { try FileManager.default.removeItem(at: url) }
         catch { print("Synthetic UI cleanup retained \(url.lastPathComponent): \(error.localizedDescription)") }
     }
+    @MainActor private func pastePath(_ value: String, into field: XCUIElement) {
+        let board = NSPasteboard.general
+        let previous = (board.pasteboardItems ?? []).map { item in
+            let copy = NSPasteboardItem()
+            for type in item.types { if let bytes = item.data(forType: type) { copy.setData(bytes, forType: type) } }
+            return copy
+        }
+        board.clearContents(); board.setString(value, forType: .string); let change = board.changeCount
+        defer { if board.changeCount == change { board.clearContents(); board.writeObjects(previous) } }
+        field.typeKey("a", modifierFlags: .command); field.typeKey("v", modifierFlags: .command)
+        XCTAssertEqual(field.value as? String, value)
+    }
     @MainActor private func chooseDirectory(_ url: URL, trigger: XCUIElement, app: XCUIApplication) throws {
         click(trigger)
         let open = app.buttons["OKButton"].firstMatch
         XCTAssertTrue(open.waitForExistence(timeout: 10))
         app.typeKey("g", modifierFlags: [.command, .shift])
         let path = app.textFields["PathTextField"].firstMatch; click(path)
-        path.typeKey("a", modifierFlags: .command); path.typeText(url.path)
+        pastePath(url.path, into: path)
         XCTAssertEqual(path.value as? String, url.path)
         for _ in 0..<2 {
             if !path.exists || !path.isHittable { break }
@@ -101,7 +120,12 @@ final class NextBatchUITests: XCTestCase {
         text(element("english-learning-status", app), contains: "可审阅建议")
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("english-learning-v1.json").path))
         let input = element("english-learning-user-text", app)
-        reveal(input, form: "english-learning-form", app: app); click(input); input.typeText("Original English UI saved marker")
+        reveal(input, form: "english-learning-form", app: app)
+        // Native macOS TextView does not report button-like AX enabled state.
+        // Keep viewport/hit checks and prove the actual editor value and stored body.
+        input.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.15)).click()
+        input.typeText("Original English UI saved marker")
+        XCTAssertEqual(input.value as? String, "Original English UI saved marker")
         let save = app.buttons["english-learning-save"].firstMatch
         reveal(save, form: "english-learning-form", app: app); click(save)
         text(element("english-learning-status", app), contains: "已保存")

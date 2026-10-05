@@ -17,11 +17,6 @@ struct AISettingsView: View {
         NavigationStack {
             Form {
                 PDFnoStatusMessage(text: "选文翻译／解释支持本地 mock 或官方 DeepSeek；配置和输入密钥不会发送请求，选文窗口确认后由你点击开始。", identifier: "ai-network-status")
-                if byok != nil {
-                    Button("其他 HTTPS BYOK选文设置") { showBYOKSettings = true }.accessibilityIdentifier("byok-settings-open")
-                    Text("独立会话配置只用于BYOK选文入口；不会替换下方DeepSeek、日语、页或章节配置。").font(.caption).foregroundStyle(.secondary)
-                }
-                Button("DeepSeek 短句自助测试") { showDeepSeekTest = true }.accessibilityIdentifier("ai-deepseek-self-test")
                 Section("服务与模型") {
                     Picker("服务类型", selection: $draft.mode) {
                         Text("未配置").tag(AIProviderMode.unconfigured)
@@ -49,6 +44,13 @@ struct AISettingsView: View {
                 Section("处理范围与状态") {
                     Text("仅选文；无隐含上下文、整页或整章。mock 不联网且费用为零；真实服务费用未知。")
                     if let error = learning.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "ai-settings-error") }
+                }
+                Section("其他工具") {
+                    if byok != nil {
+                        Button("其他 HTTPS BYOK选文设置") { showBYOKSettings = true }.accessibilityIdentifier("byok-settings-open")
+                        Text("独立会话配置只用于BYOK选文入口；不会替换上方DeepSeek、日语、页或章节配置。").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Button("DeepSeek 短句自助测试") { showDeepSeekTest = true }.accessibilityIdentifier("ai-deepseek-self-test")
                 }
             }.font(PDFnoDesign.TypeStyle.body).formStyle(.grouped).navigationTitle("模型与 BYOK 设置")
                 .accessibilityIdentifier("ai-settings-form")
