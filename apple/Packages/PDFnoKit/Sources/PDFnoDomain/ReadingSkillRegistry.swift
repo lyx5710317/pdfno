@@ -66,6 +66,8 @@ public struct ReadingSkillManifest: Encodable, Sendable, Equatable {
     public let formats: [ReadingSkillFormat]
     public let sourceLanguages: [ReadingSkillLanguage]
     public let maxInputUTF16: Int
+    /// Legacy text-only synthetic demonstrations retain their existing 8000-unit gate. No remote grant.
+    public let maxMockInputUTF16: Int?
     public let maxSegments: Int
     public let parameters: [ReadingSkillParameter]
     public let result: ReadingSkillResultContract
@@ -77,10 +79,11 @@ public struct ReadingSkillManifest: Encodable, Sendable, Equatable {
     public init(skillID: String, skillVersion: String = "1.0.0", manifestSchemaVersion: Int = 1, runtimeVersion: String = "1.0.0",
                 title: String, scope: ReadingSkillScope, formats: [ReadingSkillFormat], sourceLanguages: [ReadingSkillLanguage],
                 maxInputUTF16: Int, maxSegments: Int, parameters: [ReadingSkillParameter], result: ReadingSkillResultContract,
-                routing: ReadingSkillRouting, budget: ReadingSkillBudget, tools: [String] = [], extraContext: [String] = [], automaticSave: Bool = false) {
+                routing: ReadingSkillRouting, budget: ReadingSkillBudget, maxMockInputUTF16: Int? = nil, tools: [String] = [], extraContext: [String] = [], automaticSave: Bool = false) {
         self.skillID = skillID; self.skillVersion = skillVersion; self.manifestSchemaVersion = manifestSchemaVersion
         self.runtimeVersion = runtimeVersion; self.title = title; self.scope = scope; self.formats = formats
         self.sourceLanguages = sourceLanguages; self.maxInputUTF16 = maxInputUTF16; self.maxSegments = maxSegments
+        self.maxMockInputUTF16 = maxMockInputUTF16
         self.parameters = parameters; self.result = result; self.routing = routing; self.budget = budget
         self.tools = tools; self.extraContext = extraContext; self.automaticSave = automaticSave
     }
@@ -127,7 +130,7 @@ public enum ReadingSkillProviderAvailability: Sendable, Equatable {
 /// Finite registry: only exact compiled contracts can become enabled. Disabled originals are retained.
 /// Neither a manifest nor a new registry allocates another AppAISession or creates a provider.
 public struct ReadingSkillRegistry: Sendable {
-    public static let runtimeVersion = "1.0.0"
+    public static let runtimeVersion = "1.0.1"
     public static let builtin = ReadingSkillRegistry(manifests: compiledManifests)
     public let entries: [ReadingSkillRegistration]
     public init(manifests: [ReadingSkillManifest]) {
@@ -135,11 +138,12 @@ public struct ReadingSkillRegistry: Sendable {
         entries = manifests.map { manifest in
             var reason: ReadingSkillDisabledReason?
             if counts[manifest.skillID, default: 0] != 1 { reason = .duplicateIdentity }
-            else if manifest.manifestSchemaVersion != 1 { reason = .manifestSchema }
+            else if ![1, 2].contains(manifest.manifestSchemaVersion) { reason = .manifestSchema }
             else if manifest.runtimeVersion != Self.runtimeVersion { reason = .runtimeVersion }
-            else if manifest.skillVersion != "1.0.0" { reason = .skillVersion }
             else if let reference = Self.compiledManifests.first(where: { $0.skillID == manifest.skillID }) {
-                if reference.result != manifest.result { reason = .missingValidator }
+                if reference.manifestSchemaVersion != manifest.manifestSchemaVersion { reason = .manifestSchema }
+                else if reference.skillVersion != manifest.skillVersion { reason = .skillVersion }
+                else if reference.result != manifest.result { reason = .missingValidator }
                 // Compare encoded bytes: String equality canonically equates different Unicode spelling.
                 else if (try? ReadingSkillIdentity.data(reference)) != (try? ReadingSkillIdentity.data(manifest)) { reason = .unsupportedContract }
             } else { reason = .unknownSkill }
@@ -172,10 +176,10 @@ public struct ReadingSkillRegistry: Sendable {
                 result = .init(kind: .selectionText, validatorID: "legacy-selection-text-1", promptVersions: ["selection-1", DeepSeekSelectionPolicy.promptVersion])
             case .japaneseSelection:
                 scope = .selection; formats = [.pdf, .epub]; languages = [.ja]; pool = .selection; title = "日语选文学习"
-                result = .init(kind: .japaneseReview, validatorID: "japanese-learning-2", promptVersions: [JapaneseLearningPolicy.promptVersion])
+                result = .init(kind: .japaneseReview, validatorID: "japanese-learning-2", promptVersions: [JapaneseLearningPolicy.promptVersion], validationVersion: 2)
             case .englishSelection:
                 scope = .selection; formats = [.pdf, .epub]; languages = [.en]; pool = .selection; title = "英语选文学习"
-                result = .init(kind: .englishReview, validatorID: "english-learning-1", promptVersions: [EnglishLearningPolicy.promptVersion])
+                result = .init(kind: .englishReview, validatorID: "english-learning-1", promptVersions: [EnglishLearningPolicy.promptVersion], validationVersion: 2)
             case .translatePDFPage:
                 scope = .pdfPhysicalPage; formats = [.pdf]; languages = ReadingSkillLanguage.allCases; pool = .pdfPage; title = "PDF 完整物理页翻译"
                 result = .init(kind: .selectionText, validatorID: "legacy-selection-text-1", promptVersions: [PDFPageTranslationPolicy.promptVersion])
@@ -184,10 +188,13 @@ public struct ReadingSkillRegistry: Sendable {
                 result = .init(kind: .selectionText, validatorID: "legacy-selection-text-1", promptVersions: [EPUBChapterTranslationPolicy.promptVersion])
             }
             let batch = scope != .selection
-            return ReadingSkillManifest(skillID: id.rawValue, title: title, scope: scope, formats: formats, sourceLanguages: languages,
+            let legacyTextMock = id == .translateSelection || id == .explainSelection
+            return ReadingSkillManifest(skillID: id.rawValue, skillVersion: batch ? "1.0.0" : "1.0.1",
+                manifestSchemaVersion: legacyTextMock ? 2 : 1, runtimeVersion: runtimeVersion, title: title, scope: scope, formats: formats, sourceLanguages: languages,
                 maxInputUTF16: batch ? 3000 : DeepSeekSelectionPolicy.maxSourceUTF16, maxSegments: batch ? 6 : 1,
                 parameters: [parameter], result: result, routing: batch ? .existingBatchHostOnly : .selectionAdapter,
-                budget: .init(pool: pool, maxSessionAttempts: batch ? 6 : DeepSeekSelectionPolicy.maxAttempts))
+                budget: .init(pool: pool, maxSessionAttempts: batch ? 6 : DeepSeekSelectionPolicy.maxAttempts),
+                maxMockInputUTF16: legacyTextMock ? 8000 : nil)
         }
     }
 }

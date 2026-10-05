@@ -21,7 +21,11 @@ import PDFnoServices
     @Published public var temporarySecret = ""
     @Published public private(set) var hasSessionCredential = false
     @Published public private(set) var preview: BYOKSelectionPreview?
-    @Published public private(set) var result: AIResult?
+    @Published public private(set) var result: AIResult? {
+        didSet { if result == nil { readingSkillPlan = nil; readingSkillResult = nil } }
+    }
+    public private(set) var readingSkillPlan: ReadingSkillInputPlan?
+    public private(set) var readingSkillResult: ReadingSkillResultEnvelope?
     @Published public private(set) var busy = false
     @Published public private(set) var status = "官方 DeepSeek 默认配置 · 尚未发送"
     @Published public private(set) var error: String?
@@ -97,10 +101,23 @@ import PDFnoServices
                 guard generation == token, snapshot.configuration == preview.request.provider,
                       sourceIsCurrent(preview.request.source) else { throw AIFailure.stale }
                 let provider = try BYOKProviderFactory.selection(snapshot: snapshot, session: session, transport: transport, aiSession: aiSession)
-                let output = try await coordinator.run(preview.request, consent: preview.consent, provider: provider)
+                let plan = try ReadingSkillInputPlan(request: .text(preview.request))
+                readingSkillPlan = plan
+                let envelope = try await ReadingSkillSelectionAdapter.runText(plan,
+                    consent: ReadingSkillConsent(taskID: plan.taskID, planFingerprint: plan.confirmationFingerprint),
+                    hostConsent: preview.consent, coordinator: coordinator, provider: provider,
+                    sourceAndConfigurationAreCurrent: { [weak self, session] source, config in
+                        let current = await session.snapshot()
+                        guard ReadingSkillIdentity.matches(current.configuration, config), current.hasSessionCredential else { return false }
+                        return await MainActor.run {
+                            guard let self, self.generation == token else { return false }
+                            return ReadingSkillIdentity.matches(self.draft, config) && sourceIsCurrent(source)
+                        }
+                    })
+                guard case .text(let output) = envelope.payload else { throw AIFailure.output }
                 guard generation == token else { return }
                 guard draft == preview.request.provider, sourceIsCurrent(output.source) else { throw AIFailure.stale }
-                result = output; status = output.fromCache ? "已校验内存缓存 · 未发送新请求" : "收到结果并核验原文 · 未自动保存笔记"
+                result = output; readingSkillResult = envelope; status = output.fromCache ? "已校验内存缓存 · 未发送新请求" : "收到结果并核验原文 · 未自动保存笔记"
             } catch {
                 guard generation == token else { return }
                 self.error = Self.message(error); status = "请求未完成 · 不会自动重试或切换供应商"
@@ -118,7 +135,7 @@ import PDFnoServices
         Task { [weak self] in let count = await budget.attemptsUsed(); guard let self else { return }; attemptsUsed = max(attemptsUsed, count) }
     }
     public static func message(_ error: Error) -> String {
-        let failure = AIJobCoordinator.safeError(error)
+        let failure = ReadingSkillSelectionAdapter.hostFailure(error)
         if failure == .configuration { return "此 BYOK 首片仅接受有效 HTTPS 地址和模型；不允许本地 HTTP、URL 凭据、查询、片段或重定向。" }
         if failure == .remoteInputLimit { return "仅接受最多500 UTF-16单位的 PDF/EPUB 固定选文；不会截断或扩范围。" }
         return failure.localizedDescription

@@ -10,7 +10,11 @@ public final class JapaneseLearningModel: ObservableObject {
     public typealias CurrentScope = @MainActor (AISourceSnapshot, AIProviderConfig) -> Bool
     public typealias SaveNote = @MainActor (JapaneseLearningNote) async throws -> Void
     @Published public private(set) var request: JapaneseLearningRequest?
-    @Published public private(set) var review: JapaneseLearningReview?
+    @Published public private(set) var review: JapaneseLearningReview? {
+        didSet { if review == nil { readingSkillPlan = nil; readingSkillResult = nil } }
+    }
+    public private(set) var readingSkillPlan: ReadingSkillInputPlan?
+    public private(set) var readingSkillResult: ReadingSkillResultEnvelope?
     @Published public private(set) var confirmationScope = ""
     @Published public private(set) var confirmationRevision = UUID()
     @Published public private(set) var busy = false
@@ -78,26 +82,37 @@ public final class JapaneseLearningModel: ObservableObject {
             try prepared.validate()
             guard isCurrent(prepared.source, prepared.provider) else { throw AIFailure.stale }
             guard provider.mode == prepared.provider.mode else { throw AIFailure.configuration }
-        } catch { self.error = AIJobCoordinator.safeError(error).localizedDescription; return }
+        } catch { self.error = ReadingSkillSelectionAdapter.hostFailure(error).localizedDescription; return }
         cancel(); let token = generation, provider = self.provider
         let request = JapaneseLearningRequest(source: prepared.source, provider: prepared.provider,
             authorReadings: prepared.authorReadings, timeoutSeconds: prepared.timeoutSeconds)
         review = nil; error = nil; busy = true; saved = false
         status = provider.mode == .mock ? "本地 mock 审阅演示 · 不联网" : "正在分析固定选文 · 共享选文额度 · 无自动重试"
         task = Task { [weak self] in
-            guard let self else { return }
+            guard let self, generation == token else { return }
             do {
                 let consent = AIConsent(requestID: request.id, scopeFingerprint: try JapaneseLearningCoordinator.fingerprint(request))
-                let result = try await coordinator.run(request, consent: consent, provider: provider)
+                let plan = try ReadingSkillInputPlan(request: .japanese(request))
+                readingSkillPlan = plan
+                let envelope = try await ReadingSkillSelectionAdapter.runJapanese(plan,
+                    consent: ReadingSkillConsent(taskID: plan.taskID, planFingerprint: plan.confirmationFingerprint),
+                    hostConsent: consent, coordinator: coordinator, provider: provider,
+                    sourceAndConfigurationAreCurrent: { [weak self] source, config in
+                        await MainActor.run {
+                            guard let self, self.generation == token else { return false }
+                            return self.isCurrent(source, config)
+                        }
+                    })
+                guard case .japanese(let result) = envelope.payload else { throw AIFailure.output }
                 guard generation == token else { return }
                 guard isCurrent(request.source, request.provider), result.requestID == request.id,
                       confirmationScope == (try JapaneseLearningCoordinator.fingerprint(request)) else { throw AIFailure.stale }
-                review = result
+                review = result; readingSkillResult = envelope
                 noteIDs = [result.requestID: UUID()]
                 status = result.status == .unavailable ? "输出无法验证 · 仅保留来源供审阅" : "收到可审阅建议 · 范围核验不代表语言准确 · 未自动保存"
             } catch {
                 guard generation == token else { return }
-                self.error = AIJobCoordinator.safeError(error).localizedDescription
+                self.error = ReadingSkillSelectionAdapter.hostFailure(error).localizedDescription
                 status = "本次未完成 · 不会自动重试或切换 mock"
             }
             let used = await provider.attemptsUsed()

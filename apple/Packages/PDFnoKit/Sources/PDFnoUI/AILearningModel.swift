@@ -21,7 +21,11 @@ public final class AILearningModel: ObservableObject {
     @Published var config = AIProviderConfig()
     @Published var source: AISourceSnapshot?
     @Published var kind: AILearningKind = .translate
-    @Published var result: AIResult?
+    @Published var result: AIResult? {
+        didSet { if result == nil { readingSkillPlan = nil; readingSkillResult = nil } }
+    }
+    public private(set) var readingSkillPlan: ReadingSkillInputPlan?
+    public private(set) var readingSkillResult: ReadingSkillResultEnvelope?
     @Published var notes: [AILearningNote] = []
     let storageRoot: URL
     @Published var userText = ""
@@ -159,19 +163,30 @@ public final class AILearningModel: ObservableObject {
         result = nil; error = nil; busy = true
         status = config.mode == .mock ? "本地 mock 正在生成 · 无网络请求" : "DeepSeek 正在处理固定选文 · 无自动重试"
         task = Task { [weak self] in
-            guard let self else { return }
+            guard let self, generation == token else { return }
             do {
                 let consent = AIConsent(requestID: request.id, scopeFingerprint: try AIJobCoordinator.fingerprint(request))
-                let result = try await coordinator.run(request, consent: consent, provider: provider)
+                let plan = try ReadingSkillInputPlan(request: .text(request))
+                readingSkillPlan = plan
+                let envelope = try await ReadingSkillSelectionAdapter.runText(plan,
+                    consent: ReadingSkillConsent(taskID: plan.taskID, planFingerprint: plan.confirmationFingerprint),
+                    hostConsent: consent, coordinator: coordinator, provider: provider,
+                    sourceAndConfigurationAreCurrent: { [weak self] source, config in
+                        await MainActor.run {
+                            guard let self, self.generation == token else { return false }
+                            return ReadingSkillIdentity.matches(self.config, config) && sourceIsCurrent(source)
+                        }
+                    })
+                guard case .text(let result) = envelope.payload else { throw AIFailure.output }
                 guard generation == token else { return }
                 guard config == request.provider, sourceIsCurrent(source), result.requestID == request.id else { throw AIFailure.stale }
-                self.result = result
+                self.result = result; readingSkillResult = envelope
                 if let index = attempts.firstIndex(where: { $0.id == request.id }) { attempts[index].outcome = .completed(result) }
                 status = result.fromCache ? "本次来自已校验内存缓存 · 没有发送网络请求" :
                     result.provider.mode == .mock ? "本地 mock 结果 · 不代表真实翻译或解释质量" : "收到 DeepSeek 结果并核验原文 · 未自动保存学习笔记"
             } catch {
                 guard generation == token else { return }
-                let failure = AIJobCoordinator.safeError(error)
+                let failure = ReadingSkillSelectionAdapter.hostFailure(error)
                 if let index = attempts.firstIndex(where: { $0.id == request.id }) { attempts[index].outcome = .failed(failure) }
                 self.error = failure.localizedDescription; status = "请求未完成 · 错误记录保留 · 不会自动重发"
             }

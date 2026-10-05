@@ -90,11 +90,12 @@ public struct ReadingSkillInputPlan: Sendable {
         case .unavailable: throw ReadingSkillFailure.capability
         }
         guard timeout.isFinite, timeout > 0, timeout <= manifest.budget.maxTimeoutSecondsPerRequest else { throw AIFailure.configuration }
+        let inputLimit = provider.mode == .mock ? (manifest.maxMockInputUTF16 ?? manifest.maxInputUTF16) : manifest.maxInputUTF16
+        let segmentLimit = manifest.scope == .selection ? inputLimit : DeepSeekSelectionPolicy.maxSourceUTF16
         guard !snapshots.isEmpty, snapshots.count <= manifest.maxSegments,
-              snapshots.allSatisfy({ $0.isValid && !$0.anchor.quote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-                  $0.anchor.quote.utf16.count <= DeepSeekSelectionPolicy.maxSourceUTF16 }) else { throw ReadingSkillFailure.input }
+              snapshots.allSatisfy({ $0.isValid && $0.anchor.quote.utf16.count <= segmentLimit }) else { throw ReadingSkillFailure.input }
         let count = snapshots.reduce(0) { $0 + $1.anchor.quote.utf16.count }
-        guard count <= manifest.maxInputUTF16 else { throw ReadingSkillFailure.input }
+        guard count <= inputLimit else { throw ReadingSkillFailure.input }
         for snapshot in snapshots {
             let format: ReadingSkillFormat, scope: ReadingSkillScope
             switch snapshot.anchor {

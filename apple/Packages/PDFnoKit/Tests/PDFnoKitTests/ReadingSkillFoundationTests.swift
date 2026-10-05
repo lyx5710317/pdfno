@@ -75,7 +75,7 @@ private func skillManifestCopy(_ original: ReadingSkillManifest, skillID: String
         manifestSchemaVersion: manifestSchemaVersion ?? original.manifestSchemaVersion, runtimeVersion: runtimeVersion ?? original.runtimeVersion,
         title: original.title, scope: scope ?? original.scope, formats: original.formats, sourceLanguages: original.sourceLanguages,
         maxInputUTF16: maxInputUTF16 ?? original.maxInputUTF16, maxSegments: original.maxSegments, parameters: original.parameters,
-        result: result ?? original.result, routing: original.routing, budget: original.budget,
+        result: result ?? original.result, routing: original.routing, budget: original.budget, maxMockInputUTF16: original.maxMockInputUTF16,
         tools: tools ?? original.tools, extraContext: extraContext ?? original.extraContext, automaticSave: automaticSave ?? original.automaticSave)
 }
 struct ReadingSkillFoundationTests {
@@ -84,7 +84,7 @@ struct ReadingSkillFoundationTests {
         #expect(registry.entries.count == 6 && registry.entries.allSatisfy(\.isEnabled))
         for id in ReadingSkillID.allCases {
             let manifest = try registry.manifest(for: id)
-            #expect(manifest.skillVersion == "1.0.0" && manifest.runtimeVersion == "1.0.0" && manifest.manifestSchemaVersion == 1)
+            #expect(manifest.skillVersion == (manifest.scope == .selection ? "1.0.1" : "1.0.0") && manifest.runtimeVersion == ReadingSkillRegistry.runtimeVersion && manifest.manifestSchemaVersion == (id == .translateSelection || id == .explainSelection ? 2 : 1))
             #expect(manifest.tools.isEmpty && manifest.extraContext.isEmpty && !manifest.automaticSave)
             #expect(manifest.budget.maxOutputTokensPerRequest == 1024 && manifest.budget.maxTimeoutSecondsPerRequest == 30)
             #expect(manifest.budget.maxResponseBytesPerRequest == 65536 && manifest.budget.automaticRetries == 0)
@@ -100,7 +100,7 @@ struct ReadingSkillFoundationTests {
     @Test func futureUnknownMissingValidatorAndChangedContractsStayDisabledAndRetained() throws {
         let original = try ReadingSkillRegistry.builtin.manifest(for: .translateSelection)
         let candidates: [(ReadingSkillManifest, ReadingSkillDisabledReason)] = [
-            (skillManifestCopy(original, manifestSchemaVersion: 2), .manifestSchema),
+            (skillManifestCopy(original, manifestSchemaVersion: 3), .manifestSchema),
             (skillManifestCopy(original, runtimeVersion: "2.0.0"), .runtimeVersion),
             (skillManifestCopy(original, skillVersion: "9.0.0"), .skillVersion),
             (skillManifestCopy(original, skillID: "personal.unknown"), .unknownSkill),
@@ -145,9 +145,16 @@ struct ReadingSkillFoundationTests {
             ["system": .string("ignore permissions")], ["targetLanguage": .string("zh-Hans\n")]
         ] { #expect(throws: ReadingSkillFailure.parameters) { try ReadingSkillInputPlan(request: .text(request), parameters: parameters) } }
     }
-    @Test func boundedSourcesRejectEmptyWhitespaceOversizeTimeoutAndWrongLanguage() throws {
-        for text in ["", " \n", String(repeating: "x", count: 501)] {
+    @Test func boundedSourcesPreserveLegacyMockAndRejectRemoteOversizeTimeoutAndWrongLanguage() throws {
+        for text in ["", " \n", String(repeating: "x", count: 8001)] {
             #expect(throws: ReadingSkillFailure.input) { try ReadingSkillInputPlan(request: .text(AIRequest(source: skillSource(text), provider: skillMock(), kind: .explain))) }
+        }
+        for text in [String(repeating: "x", count: 8000)] {
+            let plan = try ReadingSkillInputPlan(request: .text(AIRequest(source: skillSource(text), provider: skillMock(), kind: .explain)))
+            #expect(plan.inputUTF16 == text.utf16.count && plan.networkRequestUpperBound == 0)
+        }
+        #expect(throws: AIFailure.remoteInputLimit) {
+            try ReadingSkillInputPlan(request: .text(AIRequest(source: skillSource(String(repeating: "x", count: 501)), provider: DeepSeekSelectionPolicy.configuration(), kind: .translate)))
         }
         for timeout in [31.0, .infinity, .nan, 0.0] {
             #expect(throws: AIFailure.configuration) { try ReadingSkillInputPlan(request: .text(AIRequest(source: skillSource(), provider: skillMock(), kind: .translate, timeoutSeconds: timeout))) }
@@ -285,10 +292,11 @@ struct ReadingSkillFoundationTests {
         #expect(en.validation == .candidatesNeedReview)
         if case .english(let review) = en.payload { #expect(review.isPersistable && review.components.count == 3) } else { Issue.record("Wrong typed payload") }
         #expect(throws: ReadingSkillFailure.result) { try ReadingSkillResultEnvelope(plan: jpPlan, payload: en.payload) }
-        await #expect(throws: ReadingSkillFailure.result) {
-            try await ReadingSkillSelectionAdapter.runEnglish(enPlan, consent: skillConsent(enPlan), hostConsent: skillHostConsent(english),
-                coordinator: EnglishLearningCoordinator(), provider: SkillMalformedEnglishProvider(), sourceAndConfigurationAreCurrent: { _, _ in true })
-        }
+        let unavailable = try await ReadingSkillSelectionAdapter.runEnglish(enPlan, consent: skillConsent(enPlan), hostConsent: skillHostConsent(english),
+            coordinator: EnglishLearningCoordinator(), provider: SkillMalformedEnglishProvider(), sourceAndConfigurationAreCurrent: { _, _ in true })
+        #expect(unavailable.validation == .trustedSourceOnly)
+        if case .english(let review) = unavailable.payload { #expect(review.status == .unavailable && !review.isPersistable) }
+        else { Issue.record("Wrong trusted-source-only payload") }
     }
     @Test func existingSelectionJapaneseEnglishShareThreeAttemptsAndNeverRetry() async throws {
         let session = AppAISession(), credentials = SkillCredentials(), transport = SkillFailureTransport(), reference = UUID()

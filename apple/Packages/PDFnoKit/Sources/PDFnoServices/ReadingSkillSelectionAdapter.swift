@@ -5,10 +5,10 @@ import PDFnoDomain
 /// Explicit forwarding seam, not a new runtime or authority owner. The caller supplies:
 /// - the existing coordinator (including its cache/cancel lifecycle),
 /// - the host's already-bound provider using the SAME AppAISession.selection,
-/// - both the displayed Skills-plan confirmation and the original host confirmation,
+/// - Skills-plan consent bound to the host's confirmed scope, and the original host consent,
 /// - current source AND provider/credential-generation validation before and after work.
 /// No default provider, transport, credentials, budget, retry, save, or batch execution path.
-/// Existing UI buttons do not route here until a separately reviewed host integration.
+/// Existing text/BYOK/Japanese/English models forward here after their original confirmation gates.
 public enum ReadingSkillSelectionAdapter {
     public typealias CurrentSourceCheck = @Sendable (AISourceSnapshot, AIProviderConfig) async -> Bool
     public static func runText(_ plan: ReadingSkillInputPlan, consent: ReadingSkillConsent, hostConsent: AIConsent,
@@ -38,6 +38,17 @@ public enum ReadingSkillSelectionAdapter {
         let result = try await coordinator.run(request, consent: hostConsent, provider: provider)
         try await postflight(plan, current: sourceAndConfigurationAreCurrent)
         return try ReadingSkillResultEnvelope(plan: plan, payload: .english(result))
+    }
+    /// Preserve the host's established safe error messages and outcome types.
+    public static func hostFailure(_ error: Error) -> AIFailure {
+        guard let failure = error as? ReadingSkillFailure else { return AIJobCoordinator.safeError(error) }
+        switch failure {
+        case .consent: return .consent
+        case .staleSource: return .stale
+        case .input: return .inputLimit
+        case .result: return .output
+        case .unknownSkill, .disabled, .parameters, .language, .scope, .capability: return .configuration
+        }
     }
     private static func preflight(_ plan: ReadingSkillInputPlan, consent: ReadingSkillConsent,
                                   current: CurrentSourceCheck) async throws {

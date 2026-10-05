@@ -4,6 +4,8 @@
 
 已读取独立文档提交 `0b4a58d7c426803db84ca822acfc1b0296cc6d51` 的 `docs/ADR-0010-READING-SKILLS.md`、`docs/READING-SKILLS-ROADMAP.md`，以及本基线主规格、CONTRIBUTING、现有 AI/英日语/页/spine 实现和验证记录。本基线已包含英语接线；独立 ADR 当时的“main 尚无英语”是旧快照，不能沿用为当前结论。仓库与其祖先未找到适用 AGENTS.md，仓库未提供 `.agents/skills`。未夹带文档分支的规格、账本或其他改动。
 
+本文保留 `2553edf` 首片的历史范围和收据。后续实际宿主接入见[实接入增量](READING-SKILLS-HOST-INTEGRATION-2026-10-05.md)。
+
 ## 功能与限制矩阵
 
 | 能力 | 本片实际实现 | 路由与限制 |

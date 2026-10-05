@@ -6,7 +6,7 @@ import PDFnoDomain
 public enum ReadingSkillPayload: Sendable {
     case text(AIResult), japanese(JapaneseLearningReview), english(EnglishLearningReview)
 }
-public enum ReadingSkillValidation: String, Sendable { case sourceAndStructure, candidatesNeedReview }
+public enum ReadingSkillValidation: String, Sendable { case sourceAndStructure, candidatesNeedReview, trustedSourceOnly }
 public enum ReadingSkillUsage: String, Sendable { case unknown, localSynthetic, cacheWithoutNetwork }
 /// Ephemeral adapter view, never a replacement for learning-v1 / Japanese / English note files.
 /// Language quality, current-file navigation and save success are not inferred from this envelope.
@@ -32,13 +32,25 @@ public struct ReadingSkillResultEnvelope: Sendable {
             source = result.source; provider = result.provider; prompt = result.promptVersion; requestID = result.requestID
             validation = .sourceAndStructure; fromCache = result.fromCache
         case (.japanese(let request), .japanese(let result)):
-            guard result.isPersistable, ReadingSkillIdentity.matches(result.authorReadings, request.authorReadings) else { throw ReadingSkillFailure.result }
+            guard ReadingSkillIdentity.matches(result.authorReadings, request.authorReadings) else { throw ReadingSkillFailure.result }
+            if result.status == .unavailable {
+                // Exact host fallback only: no unverified output, span or model warning survives.
+                guard ReadingSkillIdentity.matches(result, JapaneseLearningValidator.validate(Data(), request: request)) else { throw ReadingSkillFailure.result }
+                validation = .trustedSourceOnly
+            } else {
+                guard result.isPersistable else { throw ReadingSkillFailure.result }; validation = .candidatesNeedReview
+            }
             source = result.source; provider = result.provider; prompt = result.promptVersion; requestID = result.requestID
-            validation = .candidatesNeedReview; fromCache = false
-        case (.english, .english(let result)):
-            guard result.isPersistable else { throw ReadingSkillFailure.result }
+            fromCache = false
+        case (.english(let request), .english(let result)):
+            if result.status == .unavailable {
+                guard ReadingSkillIdentity.matches(result, EnglishLearningValidator.validate(Data(), request: request)) else { throw ReadingSkillFailure.result }
+                validation = .trustedSourceOnly
+            } else {
+                guard result.isPersistable else { throw ReadingSkillFailure.result }; validation = .candidatesNeedReview
+            }
             source = result.source; provider = result.provider; prompt = result.promptVersion; requestID = result.requestID
-            validation = .candidatesNeedReview; fromCache = false
+            fromCache = false
         default: throw ReadingSkillFailure.result
         }
         guard requestID == plan.taskID, prompt == plan.promptVersion, plan.manifest.result.promptVersions.contains(prompt),
