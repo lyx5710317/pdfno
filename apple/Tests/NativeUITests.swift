@@ -180,7 +180,9 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(recapture.waitForExistence(timeout: 5)); waitUntilEnabled(recapture); press(recapture)
         let domain = japaneseElement("byok-consent-domain", in: app)
         XCTAssertTrue(domain.waitForExistence(timeout: 5)); XCTAssertTrue(textValue(domain).contains("joint-ui.example"))
-        XCTAssertEqual(textValue(japaneseElement("byok-consent-source", in: app)), "window")
+        let consentSource = app.staticTexts["byok-consent-source"].firstMatch
+        XCTAssertTrue(consentSource.waitForExistence(timeout: 5))
+        XCTAssertEqual(textValue(consentSource), "window")
         let send = app.buttons["byok-send"].firstMatch, consent = japaneseElement("byok-confirm", in: app)
         scrollBYOKElement(send, in: app); XCTAssertFalse(send.isEnabled)
         scrollBYOKElement(consent, in: app); press(consent)
@@ -198,7 +200,9 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(saved["userText"] as? String, "Original saved BYOK body")
         let store = URL(fileURLWithPath: "/tmp").appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent("learning-v1.json")
         XCTAssertFalse(String(decoding: try Data(contentsOf: store), as: UTF8.self).contains("synthetic-reading-ui-credential"))
-        press(app.buttons["byok-close"].firstMatch); press(app.buttons["ai-settings"].firstMatch)
+        press(app.buttons["byok-close"].firstMatch)
+        let originalSettings = app.buttons["ai-settings"].firstMatch
+        XCTAssertTrue(originalSettings.waitForExistence(timeout: 5)); waitUntilEnabled(originalSettings); press(originalSettings)
         XCTAssertTrue(app.buttons["ai-use-deepseek"].firstMatch.waitForExistence(timeout: 5))
         press(app.buttons["byok-settings-open"].firstMatch)
         XCTAssertTrue(endpoint.waitForExistence(timeout: 5)); enterSearch("https://different-ui.example/v1", into: endpoint, replacing: true)

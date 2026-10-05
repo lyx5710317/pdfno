@@ -58,8 +58,10 @@ public struct BYOKSelectionConsentView: View {
                 Text("模型：\(preview.request.provider.model) · \(preview.request.kind == .translate ? "翻译" : "解释")")
                 Text(preview.request.source.anchor.locationLabel)
                 Text("将发送的完整选文（\(preview.sourceText.utf16.count)/500 UTF-16）：")
-                ScrollView { Text(preview.sourceText).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled) }
-                    .frame(maxHeight: 180).accessibilityIdentifier("byok-consent-source")
+                ScrollView {
+                    Text(preview.sourceText).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
+                        .accessibilityIdentifier("byok-consent-source")
+                }.frame(maxHeight: 180)
                 Text(preview.capability.explanation).font(.caption)
                 Text("最多1024输出token、30秒、应用会话共3次阅读请求；失败和取消也计数，不自动重试。服务可能收费。")
                 Toggle("我确认上述域名、模型、完整选文和费用范围，允许发送一次", isOn: $confirmed)
