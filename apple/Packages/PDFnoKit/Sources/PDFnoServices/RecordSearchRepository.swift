@@ -64,8 +64,18 @@ public actor RecordSearchRepository {
             let title: String?
             if isPDF { title = pdfBooks[source.bookID].flatMap { $0.editionID == id.editionID && $0.fileSHA256 == id.fileSHA256 ? $0.title : nil } }
             else { title = epubBooks[source.bookID].flatMap { $0.editionID == id.editionID && $0.fileSHA256 == id.fileSHA256 ? $0.title : nil } }
-            let generated = ([n.review.translationZh ?? ""] + n.review.readings.flatMap { $0.candidates + [$0.explanationZh] } +
-                n.review.grammar.flatMap { [$0.labelZh, $0.explanationZh] } + n.review.components.map { $0.explanationZh } + n.review.warnings).joined(separator: "\n")
+            var generatedFields: [String] = [n.review.translationZh ?? ""]
+            for reading in n.review.readings {
+                generatedFields.append(contentsOf: reading.candidates)
+                generatedFields.append(reading.explanationZh)
+            }
+            for grammar in n.review.grammar {
+                generatedFields.append(grammar.labelZh)
+                generatedFields.append(grammar.explanationZh)
+            }
+            for component in n.review.components { generatedFields.append(component.explanationZh) }
+            generatedFields.append(contentsOf: n.review.warnings)
+            let generated = generatedFields.joined(separator: "\n")
             entries.append(RecordSearchEntry(target: RecordSearchTarget(book: id, kind: .japanese, noteID: n.id),
                 title: title ?? "来源书籍不在书库", userText: n.userText, quote: source.anchor.quote, generatedText: generated,
                 correctionsText: n.corrections.map { $0.reading }.joined(separator: "\n"), location: source.anchor.locationLabel, sourceAvailable: title != nil))
