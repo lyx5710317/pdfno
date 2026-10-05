@@ -96,7 +96,7 @@ public struct LocalRecoveryWorkspace: View {
                         Text("\(preview.inventory.entries.count) 个文件 · \(preview.inventory.totalBytes) 字节").font(.caption)
                         Text(preview.restoreMode)
                         Text("不恢复未保存草稿、缓存、密钥或账户。当前书库不会被替换。")
-                        Button("确认恢复到新目录…") { action = .restore; picker = true }
+                        Button("确认恢复到新目录…") { action = .restore; picker = true }.accessibilityIdentifier("local-recovery-restore-package")
                     }.padding().background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
                 }
                 if let preview = model.changePreview {

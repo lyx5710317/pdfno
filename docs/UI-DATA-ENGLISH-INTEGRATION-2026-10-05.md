@@ -57,13 +57,17 @@ PDF 与 EPUB 的 Mac 阅读器均有“英语结构与语法”入口，固定�
 | JavaScript | 25 项引擎／桥接／安全回归；锁定依赖及资源再生核对；本机 Node 20.20.2，远程 CI 仍需用其 Node 22 环境复验 |
 | source guard／需求账本／diff | 649 源文件检查、8 项账本回归与 diff 检查通过 |
 
-保留 `NativeUITests.swift` 的原46项与 `EbookFormatUITests.swift` 的原4项文件，逐字节与基线相同，未降低断言、skip 或扩大超时。新增 `NextBatchUITests.swift` 两项：英语同意／保存／搜索／重启无密钥，以及回收站确认／恢复／重启原书；生成器与工程同步登记。共52项实际 Mac UI 方法已具备编译入口，**本批实际执行为0**。编译、不可见 in-process host 和上一批 main CI 都不是本候选的实际 UI 通过证据。
+保留 `NativeUITests.swift` 的原46项与 `EbookFormatUITests.swift` 的原4项文件，逐字节与基线相同，未降低断言、skip 或扩大超时。新增 `NextBatchUITests.swift` 两项：英语同意／保存／搜索／重启无密钥，以及回收站确认／恢复／目录选择／SHA备份预检／恢复到新目录／重启原书；生成器与工程同步登记。共52项实际 Mac UI 方法已具备编译入口，首个本地收据产生时实际执行为0。编译、不可见 in-process host 和上一批 main CI 都不是本候选的实际 UI 通过证据。
 
 统一回归曾发现第二窗口启动关闭旧 EPUB reader，已修正宿主恢复复用，保留旧章节回归的断言与超时。英语拦截响应补齐严格 index=0；生成结果的字节比对用排序键编码，避免 JSON 字段顺序的不确定性。失败与最终复验日志均保留。
 
 ## 后续验收与回滚
 
-本候选须获得本批推送范围授权，之后在独立 CI／VM／无现存 PDFno 的 OS 用户运行原50项与新2项实际 UI，以及目录选择／备份预检／新目录恢复、未保存草稿拒绝维护、恢复后编辑基线核对、窄窗／深浅色／键盘的人工闭环。不能在当前用户桌面运行同 bundle ID XCTest。此前特定旧提交的推送／合并许可不适用于本批。
+用户已明确批准本批普通推送、完整隔离 CI、相关失败修复，以及全部通过后合入 main 并复验。首个候选 `1938c5c0e8d9ec904cfdca1813abe685176af71f` 已上传至本批 feature 分支；其[漫画 CI](https://github.com/lyx5710317/pdfno/actions/runs/37289962009)与[电子书专项 CI](https://github.com/lyx5710317/pdfno/actions/runs/37290041549)已通过，[Native 完整 CI](https://github.com/lyx5710317/pdfno/actions/runs/37289962008)在本次文档更新时仍运行。此后补充的目录 UI 往返需要在后续精确提交上重新运行完整检查。
+
+新增手动 `learning-maintenance.yml`，仅在隔离 GitHub macOS runner 诊断两项新 UI 用例，沿用现有 ad hoc 测试身份与180／240秒单例限制；它不能替代 `checks.yml` 的完整52项 UI、Swift／资源／移动编译与其他专项。最终 CI 状态、实际方法数量、feature 与 main 精确 SHA 应以最终外部 CI 收据和对应运行日志为准，不能沿用初版本地收据中的未上传状态。
+
+未保存草稿拒绝维护、恢复后编辑基线核对、窄窗／深浅色／键盘仍需人工闭环。不能在当前用户桌面运行同 bundle ID XCTest。
 
 实际 VoiceOver、真实 iPhone/iPad／Apple Pencil、实际云同步／Bookno API、真实服务语法质量与账单均未验收。移动端共享模块编译成功不能当作移动阅读入口完备。EPUB resize 清除临时 selection 是既有边界，本批未声称消除。独立安全专项仍为 `UNVERIFIED / platform-blocked`，Figma 配额阻塞未重试；功能与源码检查不能替代独立安全或未取得设计稿的像素验收。
 

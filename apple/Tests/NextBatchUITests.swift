@@ -1,6 +1,7 @@
 // Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
 #if os(macOS)
 import XCTest
+import CryptoKit
 
 /// Compile locally; execute only in isolated CI/VM/OS user with explicit scope.
 /// UUID stores and intercepted transport do not isolate an existing app process.
@@ -27,6 +28,36 @@ final class NextBatchUITests: XCTestCase {
             scroll.scroll(byDeltaX: 0, deltaY: item.frame.minY < scroll.frame.minY ? 280 : -280)
         }
         XCTAssertTrue(item.isHittable)
+    }
+    @MainActor private func chooseDirectory(_ url: URL, trigger: XCUIElement, app: XCUIApplication) throws {
+        click(trigger)
+        let open = app.buttons["OKButton"].firstMatch
+        XCTAssertTrue(open.waitForExistence(timeout: 10))
+        app.typeKey("g", modifierFlags: [.command, .shift])
+        let path = app.textFields["PathTextField"].firstMatch; click(path)
+        path.typeKey("a", modifierFlags: .command); path.typeText(url.path)
+        XCTAssertEqual(path.value as? String, url.path)
+        for _ in 0..<2 {
+            if !path.exists || !path.isHittable { break }
+            app.typeKey(.return, modifierFlags: [])
+            let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !path.exists || !path.isHittable }, object: app)
+            if XCTWaiter.wait(for: [dismissed], timeout: 5) == .completed { break }
+        }
+        XCTAssertFalse(path.exists && path.isHittable)
+        if open.exists { click(open) }
+    }
+    private func verifyPackage(_ package: URL) throws {
+        let inventory = try state("inventory-v1.json", root: package)
+        let entries = try XCTUnwrap(inventory["entries"] as? [[String: Any]])
+        XCTAssertFalse(entries.isEmpty)
+        for entry in entries {
+            let path = try XCTUnwrap(entry["path"] as? String)
+            XCTAssertFalse(path.contains("..")); XCTAssertFalse(path.hasPrefix("/"))
+            let bytes = try Data(contentsOf: package.appendingPathComponent("Payload").appendingPathComponent(path))
+            XCTAssertEqual(bytes.count, entry["byteLength"] as? Int)
+            XCTAssertEqual(SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined(), entry["sha256"] as? String)
+            XCTAssertFalse(path.contains("edit-drafts")); XCTAssertFalse(path.contains("Keychain"))
+        }
     }
     private func state(_ file: String, root: URL) throws -> [String: Any] {
         try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent(file))) as? [String: Any])
@@ -106,6 +137,33 @@ final class NextBatchUITests: XCTestCase {
         text(element("local-recovery-status", app), contains: "已恢复")
         XCTAssertEqual((try state("library-v1.json", root: root)["books"] as? [[String: Any]])?.first?["id"] as? String, id)
         XCTAssertEqual(try Data(contentsOf: original), bytes)
+        let directory = URL(fileURLWithPath: "/tmp/PDFno-Directory-UI-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let currentManifest = try Data(contentsOf: root.appendingPathComponent("library-v1.json"))
+        let export = app.buttons["local-recovery-export"].firstMatch
+        reveal(export, form: "local-recovery-form", app: app)
+        try chooseDirectory(directory, trigger: export, app: app)
+        text(element("local-recovery-status", app), contains: "已导出并校验")
+        let package = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            .first { $0.lastPathComponent.hasPrefix("PDFnoBackup-") })
+        try verifyPackage(package)
+        XCTAssertEqual(try Data(contentsOf: package.appendingPathComponent("Payload/library-v1.json")), currentManifest)
+        let inspect = app.buttons["local-recovery-inspect"].firstMatch
+        reveal(inspect, form: "local-recovery-form", app: app)
+        try chooseDirectory(package, trigger: inspect, app: app)
+        text(element("local-recovery-status", app), contains: "备份预检通过")
+        let restorePackage = app.buttons["local-recovery-restore-package"].firstMatch
+        reveal(restorePackage, form: "local-recovery-form", app: app)
+        try chooseDirectory(directory, trigger: restorePackage, app: app)
+        text(element("local-recovery-status", app), contains: "已恢复到新目录")
+        let recovered = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            .first { $0.lastPathComponent.hasPrefix("PDFnoRecovered-") })
+        XCTAssertEqual(try Data(contentsOf: recovered.appendingPathComponent("library-v1.json")), currentManifest)
+        XCTAssertEqual(try Data(contentsOf: recovered.appendingPathComponent("Originals/" + hash + ".pdf")), bytes)
+        XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent("library-v1.json")), currentManifest)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: recovered.appendingPathComponent("note-edit-drafts-v1.json").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: recovered.appendingPathComponent("record-edit-drafts-v1.json").path))
         click(app.buttons["local-recovery-close"].firstMatch)
         app.terminate(); app.launch(); app.activate(); click(element("library-book", app))
         text(element("page-position", app), contains: "1 / 2")

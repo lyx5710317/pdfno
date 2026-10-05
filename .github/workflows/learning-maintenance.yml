@@ -1,0 +1,17 @@
+name: Isolated learning and maintenance UI checks
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  learning-maintenance:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Guard committed sources and reproduce application project
+        run: |
+          python3 scripts/check-native-source.py
+          python3 scripts/generate-apple-project.py
+          git diff --exit-code -- apple
+      - name: Synthetic English consent and directory backup UI round trips
+        run: xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/Mac -resultBundlePath .build/LearningMaintenance.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 240 -only-testing:PDFnoMacUITests/NextBatchUITests test
