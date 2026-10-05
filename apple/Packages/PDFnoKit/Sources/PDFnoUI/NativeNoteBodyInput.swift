@@ -22,6 +22,21 @@ struct NativeNoteBodyInput: NSViewRepresentable {
             }
         }
     }
+    /// SwiftUI owns this plain container; the scroll view and text view keep
+    /// their native accessibility parent/child relationship inside it.
+    final class EditorHostView: NSView {
+        let scrollView: NSScrollView
+        init(scrollView: NSScrollView) {
+            self.scrollView = scrollView
+            super.init(frame: scrollView.frame)
+            scrollView.frame = bounds
+            scrollView.autoresizingMask = [.width, .height]
+            addSubview(scrollView)
+            setAccessibilityElement(false)
+        }
+        required init?(coder: NSCoder) { return nil }
+        override var isFlipped: Bool { true }
+    }
     final class Coordinator: NSObject, NSTextViewDelegate {
         var text: Binding<String>
         init(text: Binding<String>) { self.text = text }
@@ -31,8 +46,9 @@ struct NativeNoteBodyInput: NSViewRepresentable {
         }
     }
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
-    func makeNSView(context: Context) -> NSScrollView {
-        Self.makeEditor(coordinator: context.coordinator, identifier: identifier, enabled: enabled, label: label)
+    func makeNSView(context: Context) -> EditorHostView {
+        EditorHostView(scrollView: Self.makeEditor(coordinator: context.coordinator,
+            identifier: identifier, enabled: enabled, label: label))
     }
     // The same native control factory is exercised offscreen by storage tests.
     static func makeEditor(coordinator: Coordinator, identifier: String, enabled: Bool, label: String = "编辑用户正文") -> NSScrollView {
@@ -65,7 +81,8 @@ struct NativeNoteBodyInput: NSViewRepresentable {
         scroll.documentView = view
         return scroll
     }
-    func updateNSView(_ scroll: NSScrollView, context: Context) {
+    func updateNSView(_ host: EditorHostView, context: Context) {
+        let scroll = host.scrollView
         context.coordinator.text = $text
         guard let view = scroll.documentView as? NSTextView else { return }
         view.isEditable = enabled
