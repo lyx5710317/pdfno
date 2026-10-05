@@ -14,7 +14,7 @@ struct EPUBChapterTranslationWorkspace: View {
         NavigationStack {
             GeometryReader { geometry in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: PDFnoDesign.Space.section) {
                         Text("章节范围：当前完整 spine 文档。一个文档可能包含多个目录章节，一个目录章节也可能跨文档。本首片不按目录锚点推断逻辑章节。")
                             .foregroundStyle(.secondary).accessibilityIdentifier("chapter-definition")
                         Text("独立双语正文 · 原 EPUB 字节不改。保留基字，作者 ruby 读音不发送；图片与原版式不重建。结果仅在内存，退出应用前请主动保存需要的学习笔记。")
@@ -26,7 +26,7 @@ struct EPUBChapterTranslationWorkspace: View {
                             Text(snapshot.scopeLabel).font(.headline).accessibilityIdentifier("chapter-scope")
                         }
                         if let error = translation.preparationError {
-                            Text(error).foregroundStyle(.red).accessibilityIdentifier("chapter-preparation-error")
+                            PDFnoStatusMessage(text: error, kind: .error, identifier: "chapter-preparation-error")
                         }
                         if let plan = translation.plan {
                             Text("接收方：api.deepseek.com · deepseek-flash · 简体中文。只发送下列全部原文分段的 sourceText/task；不发送 EPUB、文件名、书籍身份、目录、上下文、笔记或历史结果。")
@@ -45,15 +45,15 @@ struct EPUBChapterTranslationWorkspace: View {
                                     .disabled(translation.busy).accessibilityIdentifier("chapter-scope-consent")
                                 Button("发送完整文档全部 \(plan.sources.count) 段") {
                                     translation.start(confirmed: confirmed, sourceIsCurrent: library.isCurrentAISource); confirmed = false
-                                }.buttonStyle(.borderedProminent).accessibilityIdentifier("chapter-start")
+                                }.buttonStyle(PDFnoActionStyle(role: .primary)).accessibilityIdentifier("chapter-start")
                                     .disabled(!confirmed || translation.temporarySecret.isEmpty || translation.busy || plan.sources.count > 6 - translation.attemptsUsed)
                             }
                             if translation.busy {
                                 Button("取消剩余分段") { translation.cancel(); confirmed = false }.accessibilityIdentifier("chapter-cancel")
                             }
                             Button("回到此文档原文") { returnToSource(plan.sources.first) }.accessibilityIdentifier("chapter-return-source")
-                            Text(translation.status).accessibilityIdentifier("chapter-status")
-                            if let error = translation.error { Text(error).foregroundStyle(.red).accessibilityIdentifier("chapter-error") }
+                            PDFnoStatusMessage(text: translation.status, kind: translation.busy ? .busy : .information, identifier: "chapter-status")
+                            if let error = translation.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "chapter-error") }
                             cards(plan: plan, segments: $translation.segments, width: geometry.size.width, retained: false)
                         }
                         ForEach($translation.retainedBatches) { $batch in
@@ -63,11 +63,11 @@ struct EPUBChapterTranslationWorkspace: View {
                                 .font(.caption).foregroundStyle(.secondary)
                             cards(plan: batch.plan, segments: $batch.segments, width: geometry.size.width, retained: true)
                         }
-                    }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
+                    }.font(PDFnoDesign.TypeStyle.body).padding(PDFnoDesign.Space.section).frame(maxWidth: .infinity, alignment: .leading)
                 }.accessibilityIdentifier("chapter-scroll")
             }.navigationTitle("当前 EPUB spine 文档 · 双语对照")
             .toolbar { ToolbarItem { Button("完成（取消未完成请求）") { translation.cancel(); dismiss() }.accessibilityIdentifier("chapter-close") } }
-        }.frame(minWidth: 520, idealWidth: 860, minHeight: 560, idealHeight: 740)
+        }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: 860, minHeight: 560, idealHeight: 740)
         .onChange(of: translation.temporarySecret) { _, _ in confirmed = false }
         .onDisappear { translation.cancel() }
     }
@@ -83,7 +83,7 @@ struct EPUBChapterTranslationWorkspace: View {
                         HStack(alignment: .top, spacing: 20) { original(segment); translated(segment) }
                     } else { VStack(alignment: .leading, spacing: 12) { original(segment); translated(segment) } }
                     if let result = segment.result {
-                        TextField("此段学习笔记（可选）", text: $segment.userText, axis: .vertical)
+                        TextField("此段学习笔记（可选）", text: $segment.userText, axis: .vertical).lineLimit(3...8)
                             .accessibilityIdentifier("chapter-user-note-\(segment.id)")
                         Button("引用 · 回到此段原文") { returnToSource(segment.source) }
                             .accessibilityIdentifier("chapter-segment-return-\(segment.id)")
@@ -95,25 +95,25 @@ struct EPUBChapterTranslationWorkspace: View {
                                 saveNotices[result.requestID] = await learning.saveChapterResult(result, userText: text, validateSource: library.validateChapterSource)
                                     ? "学习笔记已保存 · 原文、译文与用户正文分别保留" : (learning.error ?? "学习笔记未保存")
                             }
-                        }.disabled(saved || translation.busy).accessibilityIdentifier("chapter-save-\(segment.id)")
-                        if let notice = saveNotices[result.requestID] { Text(notice).accessibilityIdentifier("chapter-note-status-\(segment.id)") }
+                        }.buttonStyle(PDFnoActionStyle(role: .primary)).disabled(saved || translation.busy).accessibilityIdentifier("chapter-save-\(segment.id)")
+                        if let notice = saveNotices[result.requestID] { PDFnoStatusMessage(text: notice, kind: saved ? .success : .information, identifier: "chapter-note-status-\(segment.id)") }
                     }
-                }.padding().background(.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
+                }.pdfnoCard()
             }
         }
     }
     private func original(_ segment: EPUBChapterTranslationSegment) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("原文").font(.caption).foregroundStyle(.secondary)
-            Text(segment.source.anchor.quote).textSelection(.enabled).accessibilityIdentifier("chapter-original-\(segment.id)")
+            PDFnoTextViewport(text: segment.source.anchor.quote, identifier: "chapter-original-\(segment.id)", height: 180)
         }.frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
     }
     private func translated(_ segment: EPUBChapterTranslationSegment) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("译文").font(.caption).foregroundStyle(.secondary)
-            if let result = segment.result { Text(result.text).textSelection(.enabled).accessibilityIdentifier("chapter-result-\(segment.id)") }
-            else if let failure = segment.failure { Text("此段未完成：" + failure.localizedDescription).foregroundStyle(.red) }
-            else { Text("尚未完成").foregroundStyle(.secondary) }
+            if let result = segment.result { PDFnoTextViewport(text: result.text, identifier: "chapter-result-\(segment.id)", height: 180) }
+            else if let failure = segment.failure { PDFnoStatusMessage(text: "此段未完成：" + failure.localizedDescription, kind: .error) }
+            else { PDFnoStatusMessage(text: "尚未完成", kind: .information) }
         }.frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
     }
 }

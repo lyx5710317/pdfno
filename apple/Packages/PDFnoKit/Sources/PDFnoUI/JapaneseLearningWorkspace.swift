@@ -19,7 +19,7 @@ public struct JapaneseLearningWorkspace: View {
         Form {
             if let request = learning.request {
                 Section("固定来源 · 日语选文") {
-                    Text(verbatim: request.source.anchor.quote).textSelection(.enabled).accessibilityIdentifier("japanese-learning-source")
+                    PDFnoTextViewport(text: request.source.anchor.quote, identifier: "japanese-learning-source")
                     Text(request.source.anchor.locationLabel).foregroundStyle(.secondary)
                     Text("原文不修改；作者 ruby、生成建议、用户修正和笔记分别保留。")
                     if let returnToSource {
@@ -37,12 +37,12 @@ public struct JapaneseLearningWorkspace: View {
                         .accessibilityIdentifier("japanese-learning-consent")
                     Button("开始日语学习") { learning.start(confirmed: confirmed); confirmed = false }
                         .disabled(!confirmed || !learning.canStart)
-                        .accessibilityIdentifier("japanese-learning-start")
+                        .buttonStyle(PDFnoActionStyle(role: .primary)).accessibilityIdentifier("japanese-learning-start")
                     if learning.busy { Button("取消请求") { learning.cancel(); confirmed = false }.accessibilityIdentifier("japanese-learning-cancel") }
                 }
-            } else { Text("先在 PDF / EPUB 原文中选择一小段日语，然后重新固定选文。") }
-            Text(learning.status).accessibilityIdentifier("japanese-learning-status").id("japanese-task-state")
-            if let error = learning.error { Text(verbatim: error).foregroundStyle(.red).accessibilityIdentifier("japanese-learning-error") }
+            } else { PDFnoEmptyState(title: "尚未固定日语选文", detail: "先在 PDF / EPUB 原文中选择一小段日语，然后重新固定选文。") }
+            PDFnoStatusMessage(text: learning.status, kind: learning.busy ? .busy : .information, identifier: "japanese-learning-status").id("japanese-task-state")
+            if let error = learning.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "japanese-learning-error") }
             if let review = learning.review {
                 Section("结果仅供审阅 · \(review.provider.mode == .mock ? "本地 mock" : "模型建议")") {
                     Text("逐字范围校验通过不等于读音或语法正确。中文译文与语法说明各自展示。")
@@ -92,14 +92,14 @@ public struct JapaneseLearningWorkspace: View {
                     }
                 }
                 Section("手动保存独立记录") {
-                    TextField("你的笔记（不会被再分析覆盖）", text: $learning.userText, axis: .vertical).accessibilityIdentifier("japanese-learning-user-note")
+                    TextField("你的笔记（不会被再分析覆盖）", text: $learning.userText, axis: .vertical).lineLimit(3...8).accessibilityIdentifier("japanese-learning-user-note")
                     Text("保存内容：固定原文及锚点、模型建议与警告、你的假名修正和独立笔记。此组件不会自动写入原书或已有笔记。")
                     Button("保存审阅后的学习记录") { Task { _ = await learning.save() } }
-                        .disabled(!learning.canSave).accessibilityIdentifier("japanese-learning-save")
+                        .buttonStyle(PDFnoActionStyle(role: .primary)).disabled(!learning.canSave).accessibilityIdentifier("japanese-learning-save")
                     Text("只有点击保存才创建独立学习笔记；保存后可从当前书籍的“高亮与笔记”查看并回到原文。")
                 }
             }
-        }.accessibilityIdentifier("japanese-learning-form").formStyle(.grouped).navigationTitle("日语选文学习")
+        }.font(PDFnoDesign.TypeStyle.body).accessibilityIdentifier("japanese-learning-form").formStyle(.grouped).navigationTitle("日语选文学习")
         .onChange(of: learning.confirmationRevision) { _, _ in confirmed = false }
         .onChange(of: learning.review?.requestID) { _, id in if id != nil { proxy.scrollTo("japanese-current-review", anchor: .top) } }
         .toolbar { ToolbarItem { Button("查看结果／错误") { proxy.scrollTo(learning.review == nil ? "japanese-task-state" : "japanese-current-review", anchor: .top) }.accessibilityIdentifier("japanese-learning-show-result") } }

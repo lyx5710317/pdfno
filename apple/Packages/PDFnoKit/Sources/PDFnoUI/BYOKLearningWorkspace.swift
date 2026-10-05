@@ -10,7 +10,7 @@ struct BYOKSettingsSheet: View {
         NavigationStack {
             BYOKSettingsView(model: model).navigationTitle("HTTPS BYOK选文 · 独立会话配置")
                 .toolbar { ToolbarItem { Button("完成") { dismiss() }.accessibilityIdentifier("byok-settings-close") } }
-        }.frame(minWidth: 520, minHeight: 560)
+        }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: PDFnoDesign.Metric.sheetIdeal, minHeight: 560)
     }
 }
 
@@ -37,16 +37,15 @@ struct BYOKLearningWorkspace: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                HStack {
+                PDFnoAdaptiveActions {
                     Button("重新固定选文") { Task { await library.prepareBYOKSelection(kind: kind) } }
                         .disabled(model.busy || saving).accessibilityIdentifier("byok-recapture")
-                    Spacer()
                     Button("完成（取消未完成请求）") { library.invalidateBYOKSelection(); dismiss() }
                         .disabled(saving).accessibilityIdentifier("byok-close")
                 }.padding()
                 Divider()
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: PDFnoDesign.Space.section) {
                         if library.byokOfflineTransport {
                             Text("离线transport替身 · 不发送真实API").accessibilityIdentifier("byok-offline-fixture")
                         }
@@ -58,12 +57,12 @@ struct BYOKLearningWorkspace: View {
                         }.pickerStyle(.segmented).accessibilityIdentifier("byok-kind").disabled(model.busy || saving)
                         BYOKSelectionConsentView(model: model, sourceIsCurrent: library.isCurrentBYOKSource)
                         if let result = model.result {
-                            TextField("你的笔记（与模型结果独立）", text: $library.byokUserText, axis: .vertical)
+                            TextField("你的笔记（与模型结果独立）", text: $library.byokUserText, axis: .vertical).lineLimit(3...8)
                                 .accessibilityIdentifier("byok-user-note")
                             Button("保存BYOK学习笔记") {
                                 saving = true
                                 Task { _ = await library.saveBYOKResult(); saving = false }
-                            }.disabled(saving || result.provider != model.draft || !library.isCurrentBYOKSource(result.source)
+                            }.buttonStyle(PDFnoActionStyle(role: .primary)).disabled(saving || result.provider != model.draft || !library.isCurrentBYOKSource(result.source)
                                 || library.learning.notes.contains { $0.result.requestID == result.requestID })
                                 .accessibilityIdentifier("byok-save-note")
                             Button("引用 · 回到原文") {
@@ -72,12 +71,12 @@ struct BYOKLearningWorkspace: View {
                                 }
                             }.accessibilityIdentifier("byok-result-source")
                         }
-                        if let status = library.byokSaveStatus { Text(status).accessibilityIdentifier("byok-save-status") }
+                        if let status = library.byokSaveStatus { PDFnoStatusMessage(text: status, kind: saving ? .busy : .information, identifier: "byok-save-status") }
                         Text("只有手动保存才写学习笔记；关闭不会自动保存结果。").font(.caption).foregroundStyle(.secondary)
-                    }.padding().frame(maxWidth: .infinity, alignment: .leading)
+                    }.font(PDFnoDesign.TypeStyle.body).padding(PDFnoDesign.Space.section).frame(maxWidth: .infinity, alignment: .leading)
                 }.accessibilityIdentifier("byok-selection-workspace")
             }.navigationTitle("BYOK固定选文")
-        }.frame(minWidth: 520, minHeight: 600)
+        }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: PDFnoDesign.Metric.sheetIdeal, minHeight: 600)
             .onChange(of: kind) { _, value in Task { await library.prepareBYOKSelection(kind: value) } }
             .onDisappear { library.invalidateBYOKSelection() }
             .sheet(isPresented: $settings) { BYOKSettingsSheet(model: model) }

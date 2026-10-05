@@ -177,7 +177,7 @@ public struct LibraryWorkspace: View {
         .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("知道了") { model.error = nil }
         } message: { Text(model.error ?? "") }
-        .overlay { if model.isBusy { ProgressView("正在打开…").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14)) } }
+        .overlay { if model.isBusy { PDFnoStatusMessage(text: "正在打开…", kind: .busy).frame(maxWidth: 320).pdfnoCard() } }
     }
     private var libraryBookCount: Int {
         #if os(macOS)
@@ -315,10 +315,15 @@ struct ReaderWorkspace: View {
             if let book = session.book {
                 VStack(spacing: 0) {
                     #if os(macOS)
-                    JapaneseLearningEntry(identifier: "reader-japanese-learning") {
-                        model.prepareJapaneseLearning(); japaneseLearning = true
-                    }
-                    BYOKSelectionEntry(library: model, identifier: "reader-byok") { byokLearning = true }
+                    PDFnoAdaptiveActions {
+                        JapaneseLearningEntry(identifier: "reader-japanese-learning") {
+                            model.prepareJapaneseLearning(); japaneseLearning = true
+                        }
+                        BYOKSelectionEntry(library: model, identifier: "reader-byok") { byokLearning = true }
+                    }.buttonStyle(PDFnoActionStyle(role: .quiet))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, PDFnoDesign.Space.regular).padding(.vertical, PDFnoDesign.Space.tight)
+                        .background(PDFnoDesign.Palette.chrome)
                     #endif
                     #if os(macOS)
                     PDFnoReaderShell(panels: panels) {
@@ -433,10 +438,10 @@ struct ReaderWorkspace: View {
                     Button(match.string ?? "匹配结果") { session.show(match); closeNavigation() }
                         .accessibilityIdentifier("search-result")
                 }
-                if searched && session.searchMatches.isEmpty { Text("没有匹配文本。扫描页可能没有可选文字。").font(.caption) }
+                if searched && session.searchMatches.isEmpty { PDFnoEmptyState(title: "没有匹配文本", detail: "扫描页可能没有可选文字。请更换关键词或检查文字层。", icon: "magnifyingglass") }
             }
             Section("目录") {
-                if session.outline.isEmpty { Text("此 PDF 没有内置目录") }
+                if session.outline.isEmpty { PDFnoEmptyState(title: "此 PDF 没有内置目录", detail: "可以从下方页码或文本搜索定位。") }
                 ForEach(session.outline) { item in Button(item.title) { session.go(to: item.pageIndex); closeNavigation() } }
             }
             Section("页面") {
@@ -456,17 +461,18 @@ struct ReaderWorkspace: View {
         List {
             Section("当前选区") {
                 if let anchor = session.capturedSelection {
-                    Text(anchor.quote).textSelection(.enabled)
+                    PDFnoTextViewport(text: anchor.quote)
                     TextField("写下你的笔记（可选）", text: $draft, axis: .vertical).lineLimit(3...8)
                         .accessibilityIdentifier("note-input")
+                    if !draft.isEmpty { PDFnoStatusMessage(text: "草稿未保存 · 关闭面板会保留，保存成功后清空") }
                     Button("保存高亮与笔记") {
                         Task { if await model.saveNote(anchor: anchor, text: draft) { draft = "" } }
-                    }.accessibilityIdentifier("save-note")
-                } else { Text("在 PDF 中选中文字，再打开这里。扫描页或受限文件可能不可选择。") }
+                    }.buttonStyle(PDFnoActionStyle(role: .primary)).accessibilityIdentifier("save-note")
+                } else { PDFnoEmptyState(title: "尚未选择原文", detail: "在 PDF 中选中文字，再打开这里。扫描页或受限文件可能不可选择。") }
             }
             Section("已保存 · 本地") {
                 let notes = model.notes.filter { $0.bookID == session.book?.id }
-                if notes.isEmpty { Text("这本书还没有笔记") }
+                if notes.isEmpty { PDFnoEmptyState(title: "这本书还没有笔记", detail: "选择原文后保存高亮或笔记；来源会随记录保留。", icon: "note.text") }
                 ForEach(notes) { note in
                     VStack(alignment: .leading, spacing: 8) {
                         Text(note.anchor.quote).font(.callout).accessibilityIdentifier("saved-note-quote")

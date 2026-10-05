@@ -38,7 +38,7 @@ struct JapaneseLearningSheet: View {
                     }
                 }
             }
-        }.frame(minWidth: 440, minHeight: 600).preferredColorScheme(fixtureColorScheme)
+        }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: PDFnoDesign.Metric.sheetIdeal, minHeight: 600).preferredColorScheme(fixtureColorScheme)
         .onDisappear { library.japaneseLearning.cancel() }
     }
 }
@@ -59,8 +59,8 @@ struct JapaneseSavedNotesSection: View {
     @State private var returnError: String?
     var body: some View {
         Section("日语学习笔记 · 已保存到本地") {
-            if let error = library.japaneseStoreError { Text(error).foregroundStyle(.red) }
-            if let returnError { Text(returnError).foregroundStyle(.red).accessibilityIdentifier("japanese-saved-return-error") }
+            if let error = library.japaneseStoreError { PDFnoStatusMessage(text: error, kind: .error) }
+            if let returnError { PDFnoStatusMessage(text: returnError, kind: .error, identifier: "japanese-saved-return-error") }
             ForEach(library.japaneseNotes.filter { $0.review.source.bookID == bookID }) { note in
                 VStack(alignment: .leading, spacing: 8) {
                     Text(verbatim: note.review.source.anchor.quote).textSelection(.enabled).accessibilityIdentifier("japanese-saved-source")
