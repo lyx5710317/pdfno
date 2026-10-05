@@ -107,8 +107,11 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(preview.waitForExistence(timeout: 5)); XCTAssertTrue(textValue(preview).contains("Saved parity"))
         press(app.buttons["record-search-source"].firstMatch)
         XCTAssertTrue(navigation.waitForExistence(timeout: 25))
+        waitUntilEnabled(navigation)
         press(app.buttons[prefix + "-notes"].firstMatch)
-        XCTAssertEqual(textValue(japaneseElement(prefix + "-saved-quote", in: app)), quote)
+        let returnedQuote = app.staticTexts[prefix + "-saved-quote"].firstMatch
+        XCTAssertTrue(returnedQuote.waitForExistence(timeout: 8))
+        XCTAssertEqual(textValue(returnedQuote), quote)
         XCTAssertEqual(try originalSavedNote(token, manifest: manifest)["anchor"] as? NSDictionary, before["anchor"] as? NSDictionary)
         if !ebook { XCTAssertEqual(try Data(contentsOf: input), original) }
     }
@@ -169,7 +172,12 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(key.waitForExistence(timeout: 5)); press(key); key.typeText("synthetic-reading-ui-credential")
         press(app.buttons["byok-apply"].firstMatch)
         waitForText(["仅在本次会话生效"], in: japaneseElement("byok-settings-status", in: app), timeout: 5)
-        press(app.buttons["byok-settings-close"].firstMatch); press(app.buttons["byok-recapture"].firstMatch)
+        let settingsClose = app.buttons["byok-settings-close"].firstMatch
+        press(settingsClose)
+        let settingsDismissed = expectation(for: NSPredicate { _, _ in !settingsClose.exists }, evaluatedWith: app)
+        wait(for: [settingsDismissed], timeout: 10)
+        let recapture = app.buttons["byok-recapture"].firstMatch
+        XCTAssertTrue(recapture.waitForExistence(timeout: 5)); waitUntilEnabled(recapture); press(recapture)
         let domain = japaneseElement("byok-consent-domain", in: app)
         XCTAssertTrue(domain.waitForExistence(timeout: 5)); XCTAssertTrue(textValue(domain).contains("joint-ui.example"))
         XCTAssertEqual(textValue(japaneseElement("byok-consent-source", in: app)), "window")
@@ -208,7 +216,7 @@ final class NativeUITests: XCTestCase {
         app.launch(); app.activate(); defer { app.terminate() }
         let entry = app.buttons["document-conversion"].firstMatch
         XCTAssertTrue(entry.waitForExistence(timeout: 15)); press(entry)
-        XCTAssertTrue(app.buttons["conversion-export"].firstMatch.exists)
+        XCTAssertTrue(app.buttons["conversion-export"].firstMatch.waitForExistence(timeout: 5))
         press(app.buttons["reading-pdf-open"].firstMatch)
         let export = app.buttons["reading-pdf-export"].firstMatch
         XCTAssertTrue(export.waitForExistence(timeout: 5)); XCTAssertFalse(export.isEnabled)
