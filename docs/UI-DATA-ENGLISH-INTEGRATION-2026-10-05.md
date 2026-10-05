@@ -79,6 +79,8 @@ PDF 与 EPUB 的 Mac 阅读器均有“英语结构与语法”入口，固定�
 
 API 核验：Apple 的 [`directoryURL`](https://developer.apple.com/documentation/appkit/nssavepanel/directoryurl) 与 [`beginSheetModal(for:completionHandler:)`](https://developer.apple.com/documentation/appkit/nssavepanel/beginsheetmodal%28for%3Acompletionhandler%3A%29) 官方接口及本机 SDK 编译已核对（2026-10-05）。初始位置提示不替代用户选择或服务完整校验；正式签名／沙盒实际目录授权仍须独立验收。
 
+[目录面板诊断](https://github.com/lyx5710317/pdfno/actions/runs/37299244807)中，BYOK、DeepSeek、英语三项实际通过，目录用例在143秒内完成全部服务／原件／SHA／新目录／重启检查，但系统 `message` 的路径提示没有进入预期 AX label。后续使用 Apple [`accessoryView`](https://developer.apple.com/documentation/appkit/nssavepanel/accessoryview) 加入可访问的当前目录文本，并由 `NSOpenSavePanelDelegate` 的目录变化回调更新实际位置；测试继续核验完整目录路径，不再把配置提示当作面板实际位置。全部业务断言和原超时保留，新候选仍须完整 CI。
+
 未保存草稿拒绝维护、恢复后编辑基线核对、窄窗／深浅色／键盘仍需人工闭环。不能在当前用户桌面运行同 bundle ID XCTest。
 
 实际 VoiceOver、真实 iPhone/iPad／Apple Pencil、实际云同步／Bookno API、真实服务语法质量与账单均未验收。移动端共享模块编译成功不能当作移动阅读入口完备。EPUB resize 清除临时 selection 是既有边界，本批未声称消除。独立安全专项仍为 `UNVERIFIED / platform-blocked`，Figma 配额阻塞未重试；功能与源码检查不能替代独立安全或未取得设计稿的像素验收。

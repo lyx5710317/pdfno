@@ -29,11 +29,18 @@ struct PDFnoDirectoryPicker: NSViewRepresentable {
         var didAttach: (() -> Void)?
         override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); didAttach?() }
     }
-    @MainActor final class Coordinator {
+    @MainActor final class Coordinator: NSObject, NSOpenSavePanelDelegate {
         var owner: PDFnoDirectoryPicker?
         weak var host: HostView?
         var panel: NSOpenPanel?
+        private var directoryLabel: NSTextField?
         private var scheduled = false
+        func panel(_ sender: Any, didChangeToDirectoryURL url: URL?) {
+            updateDirectoryLabel(url)
+        }
+        private func updateDirectoryLabel(_ url: URL?) {
+            directoryLabel?.stringValue = "当前文件夹：" + (url?.resolvingSymlinksInPath().path ?? "尚未选择")
+        }
         func presentIfNeeded() {
             guard owner?.isPresented == true, panel == nil, !scheduled, host?.window != nil else { return }
             scheduled = true
@@ -46,12 +53,21 @@ struct PDFnoDirectoryPicker: NSViewRepresentable {
                 panel.allowsMultipleSelection = false; panel.treatsFilePackagesAsDirectories = true
                 let initial = owner.initialDirectory?.resolvingSymlinksInPath()
                 panel.directoryURL = initial
-                panel.message = owner.message + (initial.map { "\n初始位置：" + $0.path } ?? "")
+                panel.message = owner.message
+                let location = NSTextField(wrappingLabelWithString: "")
+                location.frame = NSRect(x: 0, y: 0, width: 560, height: 54)
+                location.isSelectable = true
+                location.setAccessibilityIdentifier("pdfno-directory-current-location")
+                self.directoryLabel = location
+                panel.accessoryView = location
+                panel.delegate = self
+                self.updateDirectoryLabel(panel.directoryURL)
                 self.panel = panel
                 panel.beginSheetModal(for: window) { [weak self] response in
                     guard let self else { return }
                     let chosen = response == .OK ? panel.url : nil
                     self.panel = nil
+                    self.directoryLabel = nil
                     guard let owner = self.owner else { return }
                     owner.isPresented = false
                     if let chosen { owner.onPick(chosen) }

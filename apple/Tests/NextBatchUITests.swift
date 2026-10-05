@@ -78,8 +78,9 @@ final class NextBatchUITests: XCTestCase {
         click(trigger)
         let open = app.buttons["OKButton"].firstMatch
         XCTAssertTrue(open.waitForExistence(timeout: 10))
-        let location = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "初始位置：" + url.resolvingSymlinksInPath().path)).firstMatch
-        XCTAssertTrue(location.waitForExistence(timeout: 10), "The real folder panel must show the previously selected location")
+        let location = element("pdfno-directory-current-location", app)
+        XCTAssertTrue(location.waitForExistence(timeout: 10), "The real folder panel must show its current directory")
+        text(location, contains: "当前文件夹：" + url.resolvingSymlinksInPath().path)
         click(open)
     }
     private func verifyPackage(_ package: URL) throws {
