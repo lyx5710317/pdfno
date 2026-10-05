@@ -22,9 +22,9 @@ import PDFnoServices
         func settle() async throws {
             host.layoutSubtreeIfNeeded(); try await Task.sleep(for: .milliseconds(100)); host.displayIfNeeded()
         }
-        func input(in root: NSView) -> NSTextView? {
-            if let text = root as? NSTextView, text.isEditable { return text }
-            for child in root.subviews { if let found = input(in: child) { return found } }
+        func oldInput(in root: NSView) -> NSTextView? {
+            if let text = root as? NSTextView, text.accessibilityIdentifier() == "note-input" { return text }
+            for child in root.subviews { if let found = oldInput(in: child) { return found } }
             return nil
         }
         // SwiftUI AX bridge nodes expose AppKit's public legacy attribute transport
@@ -39,34 +39,52 @@ import PDFnoServices
             return result
         }
         try await settle()
-        let oldInput = try #require(input(in: host)), native = try #require(session.view)
-        print("Synthetic original List AX exposes native editor: \(axObjects(in: host).contains { $0 === oldInput })")
+        let originalInput = try #require(oldInput(in: host)), native = try #require(session.view)
+        print("Synthetic original List AX exposes native editor: \(axObjects(in: host).contains { $0 === originalInput })")
         session.search("window"); session.show(try #require(session.searchMatches.first)); session.captureSelection()
         let anchor = try #require(session.capturedSelection), document = try #require(session.document), identity = session.readerSessionID
         state.composerInsideList = false; try await settle()
-        let editor = try #require(input(in: host)), exposed = axObjects(in: host)
-        #expect(exposed.contains { $0 === editor })
-        #expect(exposed.compactMap { $0 as? NSTextView }.filter { $0.isEditable }.count == 1)
-        #expect(editor.accessibilityRole() == .textArea && editor.isEditable)
-        let point = host.convert(NSPoint(x: editor.visibleRect.midX, y: editor.visibleRect.midY), from: editor)
-        #expect(!editor.visibleRect.isEmpty && host.bounds.contains(point))
-        // NSView.hitTest takes a point in its superview's coordinates.
-        let hit = try #require(host.hitTest(host.superview?.convert(point, from: host) ?? point))
-        #expect(hit === editor || hit.isDescendant(of: editor))
+        func exposedEditor() throws -> NSObject {
+            let fields = axObjects(in: host).filter {
+                let role = $0.accessibilityAttributeValue(.role) as? String
+                return role == NSAccessibility.Role.textField.rawValue || role == NSAccessibility.Role.textArea.rawValue
+            }
+            #expect(fields.count == 1)
+            let field = try #require(fields.first)
+            #expect(field.accessibilityAttributeValue(.enabled) as? Bool == true)
+            return field
+        }
+        func value(_ field: NSObject) throws -> String {
+            try #require(field.accessibilityAttributeValue(.value) as? String)
+        }
+        func verifyHit(_ field: NSObject) throws {
+            let origin = try #require(field.accessibilityAttributeValue(.position) as? NSValue).pointValue
+            let size = try #require(field.accessibilityAttributeValue(.size) as? NSValue).sizeValue
+            let frame = NSRect(origin: origin, size: size)
+            #expect(!frame.isEmpty)
+            let point = NSPoint(x: frame.midX, y: frame.midY)
+            let inHost = host.convert(window.convertPoint(fromScreen: point), from: nil)
+            #expect(host.bounds.contains(inHost))
+            let hit = try #require(window.accessibilityHitTest(point) as? NSObject)
+            #expect(hit.accessibilityAttributeValue(.role) as? String == NSAccessibility.Role.textField.rawValue)
+            #expect(try value(hit) == value(field))
+        }
+        let editor = try exposedEditor()
+        #expect(try value(editor).utf8.elementsEqual(state.draft.utf8))
+        try verifyHit(editor)
         #expect(session.view === native && session.document === document && session.readerSessionID == identity)
         #expect(session.capturedSelection == anchor && session.resolution(of: anchor) == .exact)
         let originalDraft = "Original hosting draft 日本語 cafe\u{301} 👩🏽‍🚀"
         #expect(state.draft.utf8.elementsEqual(originalDraft.utf8))
         state.draft = ""; try await settle()
-        let axPoint = NSPoint(x: editor.accessibilityFrame().midX, y: editor.accessibilityFrame().midY)
-        #expect((window.accessibilityHitTest(axPoint) as? NSTextView) === editor)
-        #expect(input(in: host) === editor && editor.string.isEmpty)
-        #expect(axObjects(in: host).contains { $0 === editor })
+        let emptyEditor = try exposedEditor()
+        #expect(try value(emptyEditor).isEmpty)
+        try verifyHit(emptyEditor)
         state.draft = originalDraft; state.panels.notes = false; try await settle()
         state.panels.notes = true; try await settle()
-        let reopened = try #require(input(in: host))
-        #expect(reopened.string.utf8.elementsEqual(originalDraft.utf8))
-        #expect(axObjects(in: host).contains { $0 === reopened })
+        let reopened = try exposedEditor()
+        #expect(try value(reopened).utf8.elementsEqual(originalDraft.utf8))
+        try verifyHit(reopened)
         #expect(session.view === native && session.document === document && session.readerSessionID == identity)
         #expect(session.capturedSelection == anchor && session.resolution(of: anchor) == .exact)
         #expect(data == (try originalSample()))
