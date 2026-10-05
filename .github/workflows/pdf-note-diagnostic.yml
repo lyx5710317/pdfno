@@ -1,5 +1,9 @@
 name: Temporary PDF note hit diagnostics
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/integration-ui-data-english-20261005]
+    paths: [.github/workflows/pdf-note-diagnostic.yml]
 permissions:
   contents: read
 jobs:
