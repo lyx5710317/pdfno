@@ -59,7 +59,7 @@ jobs:
                   let appHit = NSApp.accessibilityHitTest(screen) as? NSObject
                   let windowHit = window.accessibilityHitTest(screen) as? NSObject
                   let contentHit = content.accessibilityHitTest(screen) as? NSObject
-                  let result: [String: Any] = ["windowWidth": window.frame.width, "fieldFrame": field.frame.description,
+                  let result: [String: Any] = ["windowWidth": window.frame.width, "fieldFrame": String(describing: field.frame),
                       "fieldCell": describe(field.cell), "appHit": describe(appHit), "windowHit": describe(windowHit), "contentHit": describe(contentHit),
                       "appHitIsCell": appHit === field.cell, "windowHitIsCell": windowHit === field.cell, "contentHitIsCell": contentHit === field.cell,
                       "hidden": field.isHiddenOrHasHiddenAncestor]
