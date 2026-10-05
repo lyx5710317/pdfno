@@ -16,9 +16,11 @@ struct EPUBWorkspace: View {
     @State private var englishLearning = false
     @State private var draftOwner = UUID().uuidString
     @State private var byokLearning = false
+    @State private var aiTools = false
     var body: some View {
         VStack(spacing: 0) {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: PDFnoDesign.Space.small)], alignment: .leading, spacing: PDFnoDesign.Space.small) {
+                Button("AI工具") { aiTools = true }.disabled(session.busy).accessibilityIdentifier("epub-ai-tools")
                 JapaneseLearningEntry(identifier: "epub-japanese-learning", disabled: session.busy) {
                     model.prepareJapaneseLearning(); japaneseLearning = true
                 }
@@ -110,6 +112,7 @@ struct EPUBWorkspace: View {
         .sheet(isPresented: $japaneseLearning) { JapaneseLearningSheet(library: model) }
         .sheet(isPresented: $ai) { AILearningWorkspace(library: model, learning: model.learning) }
         .sheet(isPresented: $byokLearning) { BYOKLearningWorkspace(library: model, model: model.byok) }
+        .sheet(isPresented: $aiTools) { ReadingToolsWorkspace(library: model) }
     }
 }
 #endif

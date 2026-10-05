@@ -24,6 +24,7 @@ struct PDFPageTranslationWorkspace: View {
                         PDFnoStatusMessage(text: preparationError, kind: .error, identifier: "page-preparation-error")
                     }
                     if let plan = translation.plan {
+                        PDFnoSettingsCard("来源、接收方与现有范围", symbol: "doc.text") {
                         Text("PDF 第 \(plan.snapshot.pageIndex + 1) 页 · 完整可提取文本 \(plan.snapshot.text.utf16.count) UTF-16 单位 · \(plan.sources.count) 段")
                             .font(.headline).accessibilityIdentifier("page-scope")
                         Text("接收方：api.deepseek.com · deepseek-flash · 简体中文。仅按下列完整计划发送 sourceText/task，不上传 PDF、图片、文件名、笔记或其他页面。")
@@ -54,6 +55,7 @@ struct PDFPageTranslationWorkspace: View {
                         if let error = translation.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "page-error") }
                         if plan.sources.count > 6 - translation.attemptsUsed, !translation.busy, translation.segments.allSatisfy({ $0.result == nil }) {
                             Text(PDFPageTranslationFailure.budget.localizedDescription).foregroundStyle(.red)
+                        }
                         }
                         ForEach($translation.segments) { $segment in
                             VStack(alignment: .leading, spacing: 10) {

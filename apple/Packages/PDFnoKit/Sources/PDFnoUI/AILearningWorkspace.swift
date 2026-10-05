@@ -9,61 +9,161 @@ struct AISettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var draft: AIProviderConfig
     @State private var secret = ""
+    @State private var category = PDFnoSettingsCategory.ai
     @State private var showDeepSeekTest = false
     private let byok: BYOKSettingsModel?
+    private let library: LibraryModel?
     @State private var showBYOKSettings = false
-    init(learning: AILearningModel, byok: BYOKSettingsModel? = nil) { self.learning = learning; self.byok = byok; _draft = State(initialValue: learning.config) }
+    @State private var showTools = false
+    @State private var showRecovery = false
+    @State private var showBookno = false
+    init(learning: AILearningModel, byok: BYOKSettingsModel? = nil, library: LibraryModel? = nil,
+         initialCategory: PDFnoSettingsCategory = .ai) {
+        self.learning = learning; self.byok = byok; self.library = library
+        _draft = State(initialValue: learning.config)
+        _category = State(initialValue: initialCategory)
+    }
     var body: some View {
         NavigationStack {
-            Form {
-                PDFnoStatusMessage(text: "选文翻译／解释支持本地 mock 或官方 DeepSeek；配置和输入密钥不会发送请求，选文窗口确认后由你点击开始。", identifier: "ai-network-status")
-                Section("服务与模型") {
-                    Picker("服务类型", selection: $draft.mode) {
-                        Text("未配置").tag(AIProviderMode.unconfigured)
-                        Text("本地 mock 示例").tag(AIProviderMode.mock)
-                        Text("OpenAI-compatible（DeepSeek已支持）").tag(AIProviderMode.openAICompatible)
-                    }.accessibilityIdentifier("ai-provider-mode")
-                    Button("使用本地 mock 示例") { draft.mode = .mock; draft.label = "本地 mock"; draft.model = "synthetic-selection-1"; draft.endpoint = ""; secret = "" }
-                        .accessibilityIdentifier("ai-use-mock")
-                    Button("使用 DeepSeek 选文配置") { draft = DeepSeekSelectionPolicy.configuration(); secret = "" }.accessibilityIdentifier("ai-use-deepseek")
-                    TextField("服务名称", text: $draft.label).accessibilityIdentifier("ai-provider-label")
-                    TextField("API endpoint", text: $draft.endpoint).accessibilityIdentifier("ai-endpoint")
-                    TextField("模型", text: $draft.model).accessibilityIdentifier("ai-model")
-                }
-                Section("会话密钥") {
-                    if draft.mode == .openAICompatible {
-                        if let url = try? OpenAICompatibleSelectionProvider.finalURL(draft) { Text(verbatim: "最终 API 路径：" + url.absoluteString).font(.caption) }
-                        if DeepSeekSelectionPolicy.supports(draft) {
-                            SecureField("当前应用会话的临时 API key", text: $secret).accessibilityIdentifier("ai-session-key")
-                            Text("由你手动输入；只留在本次应用内存，不写文件或持久钥匙串。保存时新输入会替换会话密钥，留空则清除；重开应用后需重新输入。")
-                        } else { Text("此服务仍仅配置预览，不收取密钥或发送阅读请求。本片只开放官方 DeepSeek HTTPS 地址及 deepseek-flash。") }
-                    }
-                    Text(learning.hasSessionCredential ? "当前会话密钥已输入" : "当前会话密钥未配置").accessibilityIdentifier("ai-credential-status")
-                    if learning.hasSessionCredential { Button("清除当前会话密钥") { Task { await learning.clearSessionCredential() } }.accessibilityIdentifier("ai-clear-key") }
-                }
-                Section("处理范围与状态") {
-                    Text("仅选文；无隐含上下文、整页或整章。mock 不联网且费用为零；真实服务费用未知。")
-                    if let error = learning.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "ai-settings-error") }
-                }
-                Section("其他工具") {
-                    if byok != nil {
-                        Button("其他 HTTPS BYOK选文设置") { showBYOKSettings = true }.accessibilityIdentifier("byok-settings-open")
-                        Text("独立会话配置只用于BYOK选文入口；不会替换上方DeepSeek、日语、页或章节配置。").font(.caption).foregroundStyle(.secondary)
-                    }
-                    Button("DeepSeek 短句自助测试") { showDeepSeekTest = true }.accessibilityIdentifier("ai-deepseek-self-test")
-                }
-            }.font(PDFnoDesign.TypeStyle.body).formStyle(.grouped).navigationTitle("模型与 BYOK 设置")
-                .accessibilityIdentifier("ai-settings-form")
+            PDFnoSettingsShell(category: $category) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: PDFnoDesign.Space.regular) {
+                        categoryContent
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                }.accessibilityIdentifier("ai-settings-form")
+            }.navigationTitle("设置 · " + category.title)
             .toolbar {
-                ToolbarItem { Button("取消") { secret = ""; dismiss() }.accessibilityIdentifier("ai-settings-cancel") }
+                ToolbarItem { Button("取消") { secret = ""; dismiss() }.keyboardShortcut(.cancelAction).accessibilityIdentifier("ai-settings-cancel") }
+                ToolbarItem {
+                    if byok != nil {
+                        Button("HTTPS BYOK") { showBYOKSettings = true }.accessibilityIdentifier("byok-settings-open")
+                            .help("打开独立 HTTPS BYOK 选文身份，不替换当前阅读配置")
+                    }
+                }
                 ToolbarItem { Button("保存配置") { Task { if await learning.saveConfig(draft, temporarySecret: secret) { secret = ""; dismiss() } } }
-                    .accessibilityIdentifier("ai-settings-save") }
+                    .accessibilityIdentifier("ai-settings-save").disabled(category != .ai) }
             }
-        }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: PDFnoDesign.Metric.sheetIdeal, minHeight: 560)
+        }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: 980, minHeight: 560)
         .sheet(isPresented: $showDeepSeekTest) { DeepSeekSelfTestView(model: learning.deepSeekTest) }
         .sheet(isPresented: $showBYOKSettings) { if let byok { BYOKSettingsSheet(model: byok) } }
+        .sheet(isPresented: $showTools) { if let library { ReadingToolsWorkspace(library: library) } }
+        .sheet(isPresented: $showBookno) { if let library { BooknoPreviewWorkspace(model: library.booknoPreview) } }
+        .sheet(isPresented: $showRecovery) {
+            if let recovery = library?.recoveryManagement {
+                NavigationStack {
+                    LocalRecoveryWorkspace(model: recovery)
+                        .toolbar { ToolbarItem { Button("完成") { showRecovery = false }.accessibilityIdentifier("local-recovery-close") } }
+                }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: 640, minHeight: 520)
+            }
+        }
+        .onChange(of: category) { _, _ in secret = "" }
         .onChange(of: DeepSeekSelectionPolicy.supports(draft)) { _, supported in if !supported { secret = "" } }
         .onDisappear { secret = "" }
+    }
+    @ViewBuilder private var categoryContent: some View {
+        switch category {
+        case .ai: aiContent
+        case .tools:
+            PDFnoSettingsCard("现有阅读能力", detail: "选文翻译与解释、日语、英语、PDF物理页、EPUB spine 文档以及已保存记录搜索。", symbol: "book") {
+                Text("各入口沿用原来源确认、预算与手动保存。可进入不表示真实模型或语言质量已验收。")
+                if library != nil {
+                    Button("打开阅读工具") { showTools = true }.accessibilityIdentifier("settings-reading-tools")
+                }
+            }
+            ForEach(PDFnoPlannedCapability.settings) { PDFnoPlannedCapabilityCard(capability: $0) }
+            PDFnoSettingsCard("工具目录", status: "规划中") {
+                Text("网页阅读与公共搜索尚未实现；没有可连接的工具目录。本片未新增下载、添加、授权或自动安装流程。")
+                PDFnoPlannedDirectory()
+            }
+        case .backup:
+            PDFnoSettingsCard("本地回收站与校验备份", detail: "预览删除与恢复，目录包校验后恢复至新目录。", symbol: "archivebox", status: "现有本地能力") {
+                if let library {
+                    Button("打开回收站与备份") {
+                        library.prepareRecoveryManagement(); showRecovery = library.recoveryManagement != nil
+                    }.disabled(!library.canImport || library.isBusy || library.storageMaintenance)
+                        .accessibilityIdentifier("settings-local-recovery")
+                } else { Text("请从书库的原入口打开本地管理。") }
+            }
+            PDFnoSettingsCard("Bookno 离线预览", detail: "现有离线交换预览，与实际网络同步分开。", symbol: "arrow.left.arrow.right") {
+                if let library {
+                    Button("打开 Bookno 离线预览") { showBookno = true }
+                        .disabled(!library.canImport || library.isBusy || library.storageMaintenance)
+                        .accessibilityIdentifier("settings-bookno-preview")
+                }
+            }
+            PDFnoSettingsCard("Bookno 实际同步与 iCloud", status: "未实现 · 默认关闭") {
+                Text("本片未新增联网同步、账号连接或云端授权。")
+            }
+        case .general:
+            PDFnoSettingsCard("阅读与外观", symbol: "slider.horizontal.3", status: "沿用现有阅读器") {
+                Text("列表／网格及阅读器导航仍由原入口操作。外观跟随系统；本片未新增主题、语言或自动保存设置。")
+            }
+        case .shortcuts:
+            PDFnoSettingsCard("现有应用内快捷键", symbol: "keyboard") {
+                Text("PDF 导航与搜索：⌘F\n书库与已保存笔记搜索：⌘⇧F\n原生菜单与面板关闭沿用系统行为。")
+                Text("本片未新增全局快捷键、快捷键录制或系统权限申请。").foregroundStyle(.secondary)
+            }
+        case .diagnostics:
+            PDFnoSettingsCard("请求与错误记录", symbol: "doc.text.magnifyingglass") {
+                Text("阅读任务中的状态、错误和取消来自原模型。独立短句测试记录只在应用会话内保留。")
+                Button("DeepSeek 短句自助测试") { showDeepSeekTest = true }
+                    .accessibilityIdentifier("settings-diagnostic-test")
+                Text("本片未新增日志上传或导出。打开此页面不会发送测试请求。").foregroundStyle(.secondary)
+            }
+        case .about:
+            PDFnoSettingsCard("PDFno", detail: "原生本地阅读与可核对的学习记录。", symbol: "book.closed") {
+                Text("AGPL-3.0-or-later · 临时 AI 工具与设置布局")
+                Text("现有阅读、笔记与有限 AI 入口各保留原能力范围。语义检索、MCP 和工具调用仍为规划。")
+            }
+        }
+    }
+    private var aiContent: some View {
+        Group {
+            PDFnoStatusMessage(text: "选文翻译／解释支持本地 mock 或官方 DeepSeek；配置和输入密钥不会发送请求，选文窗口确认后由你点击开始。", identifier: "ai-network-status")
+            PDFnoSettingsCard("官方 DeepSeek 与现有阅读配置", detail: "此配置供原有选文、日语与英语入口；页与 spine 仍手动输入本次密钥。", symbol: "sparkles") {
+                Picker("服务类型", selection: $draft.mode) {
+                    Text("未配置").tag(AIProviderMode.unconfigured)
+                    Text("本地 mock 示例").tag(AIProviderMode.mock)
+                    Text("HTTPS／DeepSeek").tag(AIProviderMode.openAICompatible)
+                }.accessibilityIdentifier("ai-provider-mode")
+                Button("使用本地 mock 示例") { draft.mode = .mock; draft.label = "本地 mock"; draft.model = "synthetic-selection-1"; draft.endpoint = ""; secret = "" }
+                    .accessibilityIdentifier("ai-use-mock")
+                Button("使用 DeepSeek 选文配置") { draft = DeepSeekSelectionPolicy.configuration(); secret = "" }.accessibilityIdentifier("ai-use-deepseek")
+                if draft.mode == .openAICompatible, DeepSeekSelectionPolicy.supports(draft) {
+                    PDFnoSettingsField("当前应用会话的临时 API key") {
+                        SecureField("当前应用会话的临时 API key", text: $secret).accessibilityIdentifier("ai-session-key")
+                    }
+                }
+                PDFnoSettingsField("服务名称") { TextField("服务名称", text: $draft.label).accessibilityIdentifier("ai-provider-label") }
+                PDFnoSettingsField("API endpoint") { TextField("API endpoint", text: $draft.endpoint).accessibilityIdentifier("ai-endpoint") }
+                PDFnoSettingsField("模型") { TextField("模型", text: $draft.model).accessibilityIdentifier("ai-model") }
+                if draft.mode == .openAICompatible {
+                    if DeepSeekSelectionPolicy.supports(draft) {
+                        Text("由你手动输入；只留在本次应用内存。保存时新输入会替换会话密钥，留空则清除；重开应用需重新输入。分类切换会清空尚未应用的密钥输入。").foregroundStyle(.secondary)
+                    } else { Text("此服务仍仅配置预览，不收取密钥或发送阅读请求。本片只开放官方 DeepSeek HTTPS 地址及 deepseek-flash。") }
+                }
+                Text(learning.hasSessionCredential ? "当前会话密钥已输入" : "当前会话密钥未配置").accessibilityIdentifier("ai-credential-status")
+                if learning.hasSessionCredential { Button("清除当前会话密钥") { Task { await learning.clearSessionCredential() } }.accessibilityIdentifier("ai-clear-key") }
+                if let url = try? OpenAICompatibleSelectionProvider.finalURL(draft), draft.mode == .openAICompatible {
+                    Text(verbatim: "最终 API 路径：" + url.absoluteString).textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true).font(.caption)
+                }
+                if let error = learning.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "ai-settings-error") }
+            }
+            PDFnoSettingsCard("其他 HTTPS BYOK 选文配置", detail: "独立会话身份；不会替换上方 DeepSeek、日语、英语、页或 spine 配置。", symbol: "network") {
+                if byok != nil {
+                    Button("其他 HTTPS BYOK选文设置") { showBYOKSettings = true }.accessibilityIdentifier("settings-byok-details")
+                } else { Text("此宿主未接入独立 BYOK 设置。") }
+            }
+            PDFnoSettingsCard("会话密钥与预算", symbol: "lock") {
+                Text("配置预览与分类切换不保存、不测试、不发送。应用会话凭据和未应用输入各沿用原生命周期；持久 Keychain 尚未启用。")
+                Text("选文翻译、解释、日语、英语与独立 BYOK 共用 3 次；PDF页与EPUB spine 各 6 次。每次最多 1024 输出 tokens、30 秒、64 KiB 响应；失败、取消也计数，自动重试 0 次。")
+                Text("费用与 usage 未知；页与 spine 只处理完整预览计划，不附加上下文。mock 不联网且费用为零。").foregroundStyle(.secondary)
+            }
+            PDFnoSettingsCard("独立短句自助测试", detail: "只测试原创短句，不读取书籍；有独立确认与 3 次上限。", symbol: "checkmark.bubble") {
+                Button("DeepSeek 短句自助测试") { showDeepSeekTest = true }.accessibilityIdentifier("ai-deepseek-self-test")
+            }
+        }.textFieldStyle(.roundedBorder)
     }
 }
 struct AILearningWorkspace: View {
@@ -74,15 +174,16 @@ struct AILearningWorkspace: View {
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
-            List {
-                Section("本次固定选文") {
+            ScrollView {
+            VStack(alignment: .leading, spacing: PDFnoDesign.Space.regular) {
+                PDFnoSettingsCard("本次固定选文") {
                     if let source = learning.source {
                         PDFnoTextViewport(text: source.anchor.quote, identifier: "ai-source-quote")
                         Text(source.anchor.locationLabel).font(.caption).accessibilityIdentifier("ai-source-location")
                         Text("\(source.anchor.quote.utf16.count) UTF-16 单位 · 不附加其他上下文")
                     } else { PDFnoEmptyState(title: "尚未固定选文", detail: "先在 PDF / EPUB 原文中选择文字，再打开选文学习。") }
                 }
-                Section("任务与处理范围") {
+                PDFnoSettingsCard("任务与处理范围") {
                     Picker("任务", selection: $learning.kind) {
                         Text("选文翻译").tag(AILearningKind.translate); Text("选文解释").tag(AILearningKind.explain)
                     }.accessibilityIdentifier("ai-kind")
@@ -109,7 +210,7 @@ struct AILearningWorkspace: View {
                     if let error = learning.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "ai-error") }
                 }.id("ai-task-state")
                 if let result = learning.result {
-                    Section("结果 · \(result.provider.mode == .mock ? "本地 mock" : "模型生成")") {
+                    PDFnoSettingsCard("结果 · \(result.provider.mode == .mock ? "本地 mock" : "模型生成")") {
                         PDFnoTextViewport(text: result.text, identifier: "ai-result", height: 220)
                         Button("引用 · 回到原文") { Task { learning.cancel(); if await library.returnToAISource(result.source) { dismiss() } } }
                             .accessibilityIdentifier("ai-result-source")
@@ -124,7 +225,7 @@ struct AILearningWorkspace: View {
                         Text("只有你点击保存才写入学习笔记；关闭窗口只取消未完成请求，不自动保存结果。")
                     }.id("ai-current-result")
                 }
-                Section("本次应用的请求记录 · 当前书籍 · 最近10项") {
+                PDFnoSettingsCard("本次应用的请求记录 · 当前书籍 · 最近10项") {
                     let attempts = learning.attempts.filter { $0.source.bookID == library.currentAIBookID }
                     if attempts.isEmpty { PDFnoEmptyState(title: "还没有请求记录", detail: "确认范围并点击开始后，任务记录显示在这里。", icon: "clock") }
                     ForEach(attempts) { attempt in
@@ -140,7 +241,7 @@ struct AILearningWorkspace: View {
                     }
                     Text("记录只留内存，切书不混用；应用退出后不保留未主动保存的内容。")
                 }
-                Section("已保存学习笔记 · 本地") {
+                PDFnoSettingsCard("已保存学习笔记 · 本地") {
                     let savedNotes = learning.notes.filter { $0.result.source.bookID == library.currentAIBookID }
                     if savedNotes.isEmpty { PDFnoEmptyState(title: "还没有学习笔记", detail: "完成任务后手动保存；原文、结果与用户正文分别保留。", icon: "note.text") }
                     ForEach(savedNotes) { note in
@@ -156,7 +257,8 @@ struct AILearningWorkspace: View {
                         }
                     }
                 }
-            }.font(PDFnoDesign.TypeStyle.body).accessibilityIdentifier("ai-notes-list").navigationTitle("选文学习")
+            }.padding(PDFnoDesign.Space.section)
+            }.background(PDFnoDesign.Palette.chrome).font(PDFnoDesign.TypeStyle.body).accessibilityIdentifier("ai-notes-list").navigationTitle("选文学习")
             .toolbar {
                 ToolbarItem { Button("查看结果／错误") { proxy.scrollTo(learning.result == nil ? "ai-task-state" : "ai-current-result", anchor: .top) } }
                 ToolbarItem { Button("完成（取消未完成请求）") { learning.cancel(); dismiss() }.accessibilityIdentifier("ai-close") }

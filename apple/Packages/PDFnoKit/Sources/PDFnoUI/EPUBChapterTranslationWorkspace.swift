@@ -29,6 +29,7 @@ struct EPUBChapterTranslationWorkspace: View {
                             PDFnoStatusMessage(text: error, kind: .error, identifier: "chapter-preparation-error")
                         }
                         if let plan = translation.plan {
+                            PDFnoSettingsCard("来源、接收方与现有范围", symbol: "book") {
                             Text("接收方：api.deepseek.com · deepseek-flash · 简体中文。只发送下列全部原文分段的 sourceText/task；不发送 EPUB、文件名、书籍身份、目录、上下文、笔记或历史结果。")
                             Text(verbatim: "完整计划 \(plan.sources.count) 段 / 最多 6 次请求；每段 ≤500 UTF-16、1024 输出 tokens、30 秒。合计 ≤\(plan.maxOutputTokens) 输出 tokens、\(plan.maxDurationSeconds) 秒请求超时预算。章节会话额度已用 \(translation.attemptsUsed) / 6。失败和取消也计入，费用未知，已发请求可能收费；无自动重试。")
                                 .font(.callout).accessibilityIdentifier("chapter-limits")
@@ -54,6 +55,7 @@ struct EPUBChapterTranslationWorkspace: View {
                             Button("回到此文档原文") { returnToSource(plan.sources.first) }.accessibilityIdentifier("chapter-return-source")
                             PDFnoStatusMessage(text: translation.status, kind: translation.busy ? .busy : .information, identifier: "chapter-status")
                             if let error = translation.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "chapter-error") }
+                            }
                             cards(plan: plan, segments: $translation.segments, width: geometry.size.width, retained: false)
                         }
                         ForEach($translation.retainedBatches) { $batch in

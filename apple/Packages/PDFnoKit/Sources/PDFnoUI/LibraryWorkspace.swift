@@ -10,6 +10,7 @@ public struct LibraryWorkspace: View {
     @State private var importer = false
     @State private var about = false
     @State private var aiSettings = false
+    @State private var aiTools = false
     @State private var conversion = false
     @State private var librarySearch = false
     @State private var booknoPreview = false
@@ -131,6 +132,10 @@ public struct LibraryWorkspace: View {
                             }
                         }.disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-ebook-sample")
                         #endif
+                        #if os(macOS)
+                        Button { aiTools = true } label: { Label("AI工具", systemImage: "square.grid.2x2") }
+                            .accessibilityIdentifier("ai-tools-open").disabled(model.isBusy || model.storageMaintenance)
+                        #endif
                         Text("仅在设备本地处理").font(.caption).foregroundStyle(.secondary)
                     }.buttonStyle(PDFnoActionStyle(role: .quiet))
                         .padding(PDFnoDesign.Space.regular)
@@ -189,7 +194,8 @@ public struct LibraryWorkspace: View {
         }
         .sheet(isPresented: $booknoPreview) { BooknoPreviewWorkspace(model: model.booknoPreview) }
         .sheet(isPresented: $conversion) { ConversionWorkspace() }
-        .sheet(isPresented: $aiSettings) { AISettingsView(learning: model.learning, byok: model.byok) }
+        .sheet(isPresented: $aiSettings) { AISettingsView(learning: model.learning, byok: model.byok, library: model) }
+        .sheet(isPresented: $aiTools) { ReadingToolsWorkspace(library: model) }
         #endif
         .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("知道了") { model.error = nil }
@@ -330,6 +336,7 @@ struct ReaderWorkspace: View {
     @State private var englishLearning = false
     @State private var draftOwner = UUID().uuidString
     @State private var byokLearning = false
+    @State private var aiTools = false
     var body: some View {
         Group {
             if let book = session.book {
@@ -344,6 +351,7 @@ struct ReaderWorkspace: View {
                             .disabled(session.pageIndex >= book.pageCount - 1).accessibilityIdentifier("next-page").help("阅读下一页")
                         Button { openNotes() } label: { Label("高亮与笔记", systemImage: "highlighter") }
                             .accessibilityIdentifier("reader-notes").accessibilityValue(notesVisible ? "已展开" : "已收起").help("显示或收起高亮与笔记，保留草稿和选区")
+                        Button("AI工具") { aiTools = true }.accessibilityIdentifier("reader-ai-tools")
                         JapaneseLearningEntry(identifier: "reader-japanese-learning") {
                             model.prepareJapaneseLearning(); japaneseLearning = true
                         }
@@ -421,6 +429,7 @@ struct ReaderWorkspace: View {
         .sheet(isPresented: $ai) { AILearningWorkspace(library: model, learning: model.learning) }
         .sheet(isPresented: $pageTranslation) { PDFPageTranslationWorkspace(library: model, translation: model.pageTranslation, learning: model.learning) }
         .sheet(isPresented: $byokLearning) { BYOKLearningWorkspace(library: model, model: model.byok) }
+        .sheet(isPresented: $aiTools) { ReadingToolsWorkspace(library: model) }
         #endif
     }
     private var navigationVisible: Bool {

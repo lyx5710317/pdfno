@@ -8,6 +8,55 @@ public struct BYOKSettingsView: View {
     @State private var applying = false
     public init(model: BYOKSettingsModel) { self.model = model }
     public var body: some View {
+        #if os(macOS)
+        ScrollView {
+            VStack(alignment: .leading, spacing: PDFnoDesign.Space.regular) {
+                PDFnoStatusMessage(text: "配置只在本次会话保存；填写不会发送请求。此身份仅供独立 HTTPS BYOK 选文入口，不切换其他阅读工具。持久 Keychain 尚未启用。")
+                PDFnoSettingsCard("独立 HTTPS 服务与模型", symbol: "network") {
+                    Button("使用官方 DeepSeek 默认配置") { model.draft = DeepSeekSelectionPolicy.configuration() }
+                        .accessibilityIdentifier("byok-deepseek-default")
+                    PDFnoSettingsField("服务名称") { TextField("服务名称", text: $model.draft.label).accessibilityIdentifier("byok-label") }
+                    PDFnoSettingsField("HTTPS endpoint（基础路径或完整 chat/completions）") {
+                        TextField("HTTPS endpoint（基础路径或完整 chat/completions）", text: $model.draft.endpoint).accessibilityIdentifier("byok-endpoint")
+                    }
+                    PDFnoSettingsField("模型标识") { TextField("模型标识", text: $model.draft.model).accessibilityIdentifier("byok-model") }
+                }
+                PDFnoSettingsCard("会话密钥", symbol: "lock") {
+                    PDFnoSettingsField("本次会话临时 API key") {
+                        SecureField("本次会话临时 API key", text: $model.temporarySecret).accessibilityIdentifier("byok-session-key")
+                    }
+                    Text(model.hasSessionCredential ? "已有会话密钥；重新应用配置时需要重新输入。" : "未配置会话密钥")
+                    // Keep one stable action stack; no duplicated responsive controls.
+                    VStack(alignment: .leading, spacing: PDFnoDesign.Space.small) {
+                        Button("应用本次会话配置") {
+                            applying = true
+                            Task { await model.apply(); applying = false }
+                        }.disabled(applying).accessibilityIdentifier("byok-apply")
+                        Button("清除临时密钥") { Task { await model.clearCredential() } }.disabled(applying)
+                            .accessibilityIdentifier("byok-clear-key")
+                    }
+                }
+                PDFnoSettingsCard("状态与依赖") {
+                    PDFnoStatusMessage(text: model.status, kind: applying ? .busy : .information, identifier: "byok-settings-status")
+                    if let error = model.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "byok-error") }
+                }
+                PDFnoSettingsCard("接收方预览") {
+                    if let url = try? BYOKSelectionPolicy.finalURL(model.draft) {
+                        Text("实际接收域名：\(url.host ?? "")").font(.headline).textSelection(.enabled)
+                            .accessibilityIdentifier("byok-receiver-domain")
+                        Text(url.absoluteString).font(.caption.monospaced()).textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text((try? BYOKSelectionPolicy.capability(model.draft).explanation) ?? "")
+                    } else { Text("仅 HTTPS；不能包含 URL 用户名、密码、查询或片段。不跟随任何重定向。") }
+                }
+            }.textFieldStyle(.roundedBorder).padding(PDFnoDesign.Space.section)
+        }.background(PDFnoDesign.Palette.chrome)
+            .task { await model.load() }.onDisappear { model.invalidate() }
+        #else
+        originalForm
+        #endif
+    }
+    private var originalForm: some View {
         Form {
             PDFnoStatusMessage(text: "配置只在本次会话保存。填写地址、模型或密钥不会发送请求。关闭应用后需要重新输入；持久 Keychain 尚未启用。")
             Section("服务与模型") {
@@ -60,6 +109,15 @@ public struct BYOKSelectionConsentView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let preview = model.preview {
+                #if os(macOS)
+                Text(preview.request.source.anchor.locationLabel)
+                Text("将发送的完整选文（\(preview.sourceText.utf16.count)/500 UTF-16）：")
+                PDFnoTextViewport(text: preview.sourceText, identifier: "byok-consent-source")
+                Text("实际接收域名：\(preview.receiverDomain)").font(.headline).textSelection(.enabled)
+                    .accessibilityIdentifier("byok-consent-domain")
+                Text(preview.receiverURL.absoluteString).font(.caption.monospaced()).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                Text("模型：\(preview.request.provider.model) · \(preview.request.kind == .translate ? "翻译" : "解释")")
+                #else
                 Text("实际接收域名：\(preview.receiverDomain)").font(.headline).textSelection(.enabled)
                     .accessibilityIdentifier("byok-consent-domain")
                 Text(preview.receiverURL.absoluteString).font(.caption.monospaced()).textSelection(.enabled)
@@ -67,6 +125,7 @@ public struct BYOKSelectionConsentView: View {
                 Text(preview.request.source.anchor.locationLabel)
                 Text("将发送的完整选文（\(preview.sourceText.utf16.count)/500 UTF-16）：")
                 PDFnoTextViewport(text: preview.sourceText, identifier: "byok-consent-source")
+                #endif
                 Text(preview.capability.explanation).font(.caption)
                 Text("最多1024输出token、30秒、应用会话共3次阅读请求；失败和取消也计数，不自动重试。服务可能收费。")
                 Toggle("我确认上述域名、模型、完整选文和费用范围，允许发送一次", isOn: $confirmed)
