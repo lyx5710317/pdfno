@@ -493,23 +493,32 @@ struct ReaderWorkspace: View {
         }.frame(minWidth: 300, minHeight: 420)
     }
     private var notesContent: some View {
+        #if os(macOS)
+        VStack(spacing: 0) {
+            PDFNoteComposer(anchor: session.capturedSelection, draft: $draft, enabled: !model.storageMaintenance) { anchor, text in
+                model.savePDFNoteImmediately(anchor: anchor, text: text)
+            }
+            Divider()
+            List { savedNotesContent }
+        }.font(PDFnoDesign.TypeStyle.body).accessibilityIdentifier("pdf-notes-list")
+        #else
         List {
             Section("当前选区") {
                 if let anchor = session.capturedSelection {
                     PDFnoTextViewport(text: anchor.quote)
-                    #if os(macOS)
-                    NativeNoteBodyInput(text: $draft, identifier: "note-input", enabled: !model.storageMaintenance,
-                        label: "写下你的笔记（可选）").frame(height: 96)
-                    #else
                     TextField("写下你的笔记（可选）", text: $draft, axis: .vertical).lineLimit(3...8)
                         .accessibilityIdentifier("note-input")
-                    #endif
                     if !draft.isEmpty { PDFnoStatusMessage(text: "草稿未保存 · 关闭面板会保留，保存成功后清空") }
                     Button("保存高亮与笔记") {
                         if model.savePDFNoteImmediately(anchor: anchor, text: draft) { draft = "" }
                     }.buttonStyle(PDFnoActionStyle(role: .primary)).accessibilityIdentifier("save-note")
                 } else { PDFnoEmptyState(title: "尚未选择原文", detail: "在 PDF 中选中文字，再打开这里。扫描页或受限文件可能不可选择。") }
             }
+            savedNotesContent
+        }.font(PDFnoDesign.TypeStyle.body).accessibilityIdentifier("pdf-notes-list")
+        #endif
+    }
+    @ViewBuilder private var savedNotesContent: some View {
             Section("已保存 · 本地") {
                 let notes = model.notes.filter { $0.bookID == session.book?.id }
                 if notes.isEmpty { PDFnoEmptyState(title: "这本书还没有笔记", detail: "选择原文后保存高亮或笔记；来源会随记录保留。", icon: "note.text") }
@@ -533,6 +542,5 @@ struct ReaderWorkspace: View {
             JapaneseSavedNotesSection(library: model, bookID: session.book?.id) { closeNotes() }
             EnglishSavedNotesSection(library: model, bookID: session.book?.id) { closeNotes() }
             #endif
-        }.font(PDFnoDesign.TypeStyle.body).accessibilityIdentifier("pdf-notes-list")
     }
 }
