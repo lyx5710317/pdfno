@@ -21,7 +21,7 @@ public struct BYOKSettingsView: View {
             Section("会话密钥") {
                 SecureField("本次会话临时 API key", text: $model.temporarySecret).accessibilityIdentifier("byok-session-key")
                 Text(model.hasSessionCredential ? "已有会话密钥；重新应用配置时需要重新输入。" : "未配置会话密钥")
-                PDFnoAdaptiveActions {
+                VStack(alignment: .leading, spacing: PDFnoDesign.Space.small) {
                     Button("应用本次会话配置") {
                         applying = true
                         Task { await model.apply(); applying = false }
