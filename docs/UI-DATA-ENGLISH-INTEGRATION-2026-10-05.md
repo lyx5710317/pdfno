@@ -97,6 +97,10 @@ API 核验：Apple 的 [`directoryURL`](https://developer.apple.com/documentatio
 
 候选 `61875e4efebee34145f504663d294fa6b66d4d60` 的[六项诊断](https://github.com/lyx5710317/pdfno/actions/runs/37320519893)完整通过漫画、BYOK与目录闭环，但 DeepSeek／英语设置入口及 PDF 面板关闭按钮仍在窗口右边缘不可点击。应用原默认窗口1180×780可能超过小屏可用区域；后续用 Apple [`NSScreen.visibleFrame`](https://developer.apple.com/documentation/appkit/nsscreen/visibleframe) 限制**新窗口初始**尺寸并居中，保留720×520内容最小值，不改已保存用户窗口状态。设置按钮进入书库上方固定可见区，面板关闭按钮放到面板标题前。保留所有 AX 标识、原断言与超时；恢复的旧窗口及极小屏幕仍须人工验收。官方接口链接、本机 SDK 与编译核验日期2026-10-05；此次网页 Markdown 抓取不可用，不能声称已完整读取网页说明。6187 Native 被下一修复取代并取消，未计为通过。
 
+候选 `791179de5187ffe3a1071e9ba0ce651837b1b943` 的[六项诊断](https://github.com/lyx5710317/pdfno/actions/runs/37322665341)通过五项，包括完整漫画、DeepSeek、英语和目录闭环；唯一 PDF 失败是在小屏覆盖面板输入框点击处，尚未输入草稿或验证保存。后续用阅读壳的实际 trailing 布局取代笔记面板绘制 offset，并明确原生 PDF canvas／导航／笔记的层级，保持原 reader、PDFView、selection 与草稿 owner，不重建 reader。新的实际 UI 才能确认点击问题解决；791 Native 取消并保留证据，不能算通过。
+
+阅读壳的六项离屏 foundation 回归通过，包含宽窄面板、原 PDFView 身份／选区／来源／草稿保留；它不证明实际点击成功。六项诊断另保留仅隔离 runner 合成数据的 `LearningMaintenance.xcresult`，七天过期，供失败时核对实际面板与点击位置；没有本机桌面捕获或用户数据。`actions/upload-artifact` 使用官方 v4.6.2 的精确 SHA `ea165f8d65b6e75b540449e92b4886f43607fa02`，通过官方 GitHub ref API 核验2026-10-05，未添加 npm 或阅读引擎依赖。
+
 实际 VoiceOver、真实 iPhone/iPad／Apple Pencil、实际云同步／Bookno API、真实服务语法质量与账单均未验收。移动端共享模块编译成功不能当作移动阅读入口完备。EPUB resize 清除临时 selection 是既有边界，本批未声称消除。独立安全专项仍为 `UNVERIFIED / platform-blocked`，Figma 配额阻塞未重试；功能与源码检查不能替代独立安全或未取得设计稿的像素验收。
 
 主 checkout、原有工作树与 Xcode 用户元数据保留，无本批实际用户数据变化。发布前可回退本地整合提交。若未来使用了回收站，先保留完整根目录／备份并通过当前模块恢复所需条目，再降级；旧应用不识别 `local-recovery-v1.json` 或英语记录／英语编辑 draft case，不能承诺旧版本可读取或覆盖。保留全部 Git 历史与切片提交，不用删源文件或全目录替换实现回滚。

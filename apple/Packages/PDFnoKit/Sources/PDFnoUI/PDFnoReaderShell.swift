@@ -64,13 +64,16 @@ struct PDFnoReaderShell<Reader: View, Navigation: View, Notes: View>: View {
                     .padding(.leading, layout.leading)
                     .padding(.trailing, layout.trailing)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .zIndex(0)
                 if layout.showNavigation {
                     navigation().frame(width: layout.navigationWidth, height: geometry.size.height)
+                        .zIndex(1)
                         .accessibilityIdentifier("reader-navigation-panel")
                 }
                 if layout.showNotes {
                     notes().frame(width: layout.notesWidth, height: geometry.size.height)
-                        .offset(x: layout.notesOffset)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                        .zIndex(2)
                         .accessibilityIdentifier("reader-notes-panel")
                 }
             }
