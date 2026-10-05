@@ -294,6 +294,20 @@ public final class LibraryModel: ObservableObject {
             await load(); reader.project(notes); status = "高亮与笔记已保存到本地"; return true
         } catch { self.error = error.localizedDescription; return false }
     }
+    /// A local Save button returns only after the note's atomic manifest commit.
+    /// Source validation and the host lease remain on the main actor throughout.
+    func savePDFNoteImmediately(anchor: PDFSourceAnchor, text: String) -> Bool {
+        guard let hostOperation = try? storeWriteGate.beginWrite() else { return false }
+        defer { hostOperation.finish() }
+        guard let book = reader.book, reader.resolution(of: anchor) == .exact else {
+            error = LibraryError.sourceMismatch.localizedDescription; return false
+        }
+        do {
+            let state = try repository.saveNoteImmediately(ReadingNote(bookID: book.id, anchor: anchor, userText: text))
+            books = state.books; notes = state.notes; reader.project(notes)
+            status = "高亮与笔记已保存到本地"; return true
+        } catch { self.error = error.localizedDescription; return false }
+    }
     struct PDFProgressSnapshot {
         let bookID: UUID
         let sessionID: UUID

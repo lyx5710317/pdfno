@@ -47,6 +47,7 @@ private struct ComicThumbnail: Sendable { let index: Int; let data: String }
     public var hasNext: Bool { (visibleIndices.max() ?? pageIndex) + 1 < (book?.pages.count ?? 0) }
     public var position: String {
         guard book != nil else { return "没有打开的漫画" }
+        guard !busy else { return "正在更新漫画页面…" }
         let indices = visibleIndices.sorted()
         let text = indices.count == 2 ? "\(indices[0] + 1)–\(indices[1] + 1)" : "\(pageIndex + 1)"
         return "第 \(text) / \(book?.pages.count ?? 0) 页"

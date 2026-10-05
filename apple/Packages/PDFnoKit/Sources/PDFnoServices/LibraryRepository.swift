@@ -37,6 +37,11 @@ public actor LibraryRepository {
         root.appendingPathComponent("Originals", isDirectory: true).appendingPathComponent(book.fileSHA256 + ".pdf")
     }
     public func load() throws -> LibraryState {
+        try Self.readState(root: root)
+    }
+    private static func readState(root: URL) throws -> LibraryState {
+        let manifest = root.appendingPathComponent("library-v1.json")
+        let manager = FileManager.default
         guard manager.fileExists(atPath: manifest.path) else { return LibraryState() }
         let data = try BoundedFileReader.read(manifest, limit: 10 * 1024 * 1024)
         return try Self.decode(data)
@@ -81,8 +86,13 @@ public actor LibraryRepository {
         }
     }
     private func commit(_ state: LibraryState) throws {
+        try Self.commit(state, root: root)
+    }
+    private static func commit(_ state: LibraryState, root: URL) throws {
+        let manifest = root.appendingPathComponent("library-v1.json")
+        let manager = FileManager.default
         // Refuse corrupt/future-version overwrite even if the caller cached earlier state.
-        _ = try load()
+        _ = try readState(root: root)
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let bytes = try encoder.encode(state)
         _ = try Self.decode(bytes)
@@ -97,6 +107,8 @@ public actor LibraryRepository {
     public func importPDF(_ data: Data, filename: String, pageCount: Int) throws -> BookRecord {
         let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
         defer { storeWrite.finish() }
+        let transaction = LibraryManifestTransactions.shared.lock(for: root)
+        transaction.lock(); defer { transaction.unlock() }
 
         guard data.count <= 200 * 1024 * 1024 else { throw LibraryError.fileTooLarge }
         guard data.starts(with: Data("%PDF-".utf8)), pageCount > 0 else { throw LibraryError.invalidDocument }
@@ -122,6 +134,8 @@ public actor LibraryRepository {
     public func saveProgress(bookID: UUID, pageIndex: Int) throws {
         let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
         defer { storeWrite.finish() }
+        let transaction = LibraryManifestTransactions.shared.lock(for: root)
+        transaction.lock(); defer { transaction.unlock() }
 
         var state = try load()
         guard let index = state.books.firstIndex(where: { $0.id == bookID }),
@@ -134,6 +148,8 @@ public actor LibraryRepository {
     public func updateNoteBody(expected: ReadingNote, text: String) throws -> ReadingNote {
         let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
         defer { storeWrite.finish() }
+        let transaction = LibraryManifestTransactions.shared.lock(for: root)
+        transaction.lock(); defer { transaction.unlock() }
 
         guard NoteBodySnapshot.pdf(expected).accepts(text) else { throw NoteBodyEditError.tooLong }
         var state = try load()
@@ -147,10 +163,18 @@ public actor LibraryRepository {
         state.notes[index] = next; try commit(state); return next
     }
     public func saveNote(_ note: ReadingNote) throws {
+        _ = try saveNoteImmediately(note)
+    }
+    /// Complete a bounded local note command before returning to its caller.
+    /// All manifest writers share the same lock, including actor-based progress,
+    /// imports and CAS edits. Maintenance admission still uses the root gate.
+    public nonisolated func saveNoteImmediately(_ note: ReadingNote) throws -> LibraryState {
         let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
         defer { storeWrite.finish() }
+        let transaction = LibraryManifestTransactions.shared.lock(for: root)
+        transaction.lock(); defer { transaction.unlock() }
 
-        var state = try load()
+        var state = try Self.readState(root: root)
         guard let book = state.books.first(where: { $0.id == note.bookID }), Self.valid(note, for: book) else {
             throw LibraryError.sourceMismatch
         }
@@ -163,6 +187,20 @@ public actor LibraryRepository {
             guard note.revision == 1 else { throw LibraryError.revisionConflict }
             state.notes.append(note)
         }
-        try commit(state)
+        try Self.commit(state, root: root)
+        return state
+    }
+}
+
+/// In-process manifest transactions; no cross-process or power-loss guarantee.
+private final class LibraryManifestTransactions: @unchecked Sendable {
+    static let shared = LibraryManifestTransactions()
+    private let registry = NSLock()
+    private var locks: [String: NSRecursiveLock] = [:]
+    func lock(for root: URL) -> NSRecursiveLock {
+        let path = root.standardizedFileURL.resolvingSymlinksInPath().path
+        registry.lock(); defer { registry.unlock() }
+        if let lock = locks[path] { return lock }
+        let lock = NSRecursiveLock(); locks[path] = lock; return lock
     }
 }

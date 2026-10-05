@@ -489,7 +489,7 @@ struct ReaderWorkspace: View {
                         .accessibilityIdentifier("note-input")
                     if !draft.isEmpty { PDFnoStatusMessage(text: "草稿未保存 · 关闭面板会保留，保存成功后清空") }
                     Button("保存高亮与笔记") {
-                        Task { if await model.saveNote(anchor: anchor, text: draft) { draft = "" } }
+                        if model.savePDFNoteImmediately(anchor: anchor, text: draft) { draft = "" }
                     }.buttonStyle(PDFnoActionStyle(role: .primary)).accessibilityIdentifier("save-note")
                 } else { PDFnoEmptyState(title: "尚未选择原文", detail: "在 PDF 中选中文字，再打开这里。扫描页或受限文件可能不可选择。") }
             }

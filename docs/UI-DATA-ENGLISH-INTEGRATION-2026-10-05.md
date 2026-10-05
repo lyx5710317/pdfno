@@ -1,6 +1,6 @@
 # PDFno UI、回收备份与英语学习整合
 
-核验日期：2026-10-05。基线 `7bea8ec89ea7273b3b52ee714fbf1180b3d51c73`。本批仅在独立整合工作树开发、本地提交；未推送、合并、发布、迁移用户书库或启动桌面 App。源代码仍为 AGPL-3.0-or-later。
+核验日期：2026-10-05。基线 `7bea8ec89ea7273b3b52ee714fbf1180b3d51c73`。本批在独立整合工作树开发；用户后来批准普通推送、完整隔离 CI 和通过后合入 main。历史候选和本轮修复的实际状态见下文与精确提交 CI 收据；未迁移用户书库或启动本机桌面 App。源代码仍为 AGPL-3.0-or-later。
 
 原切片与接口依据：
 
@@ -82,6 +82,16 @@ API 核验：Apple 的 [`directoryURL`](https://developer.apple.com/documentatio
 [目录面板诊断](https://github.com/lyx5710317/pdfno/actions/runs/37299244807)中，BYOK、DeepSeek、英语三项实际通过，目录用例在143秒内完成全部服务／原件／SHA／新目录／重启检查，但系统 `message` 的路径提示没有进入预期 AX label。后续使用 Apple [`accessoryView`](https://developer.apple.com/documentation/appkit/nssavepanel/accessoryview) 加入可访问的当前目录文本，并由 `NSOpenSavePanelDelegate` 的目录变化回调更新实际位置；测试继续核验完整目录路径，不再把配置提示当作面板实际位置。全部业务断言和原超时保留，新候选仍须完整 CI。
 
 未保存草稿拒绝维护、恢复后编辑基线核对、窄窗／深浅色／键盘仍需人工闭环。不能在当前用户桌面运行同 bundle ID XCTest。
+
+### main 82585b1 的两项回归与修复
+
+候选 `82585b1053b8a000f337274fec8ae597255c9135` 的 feature 完整 CI 实际通过470项 Swift、25项 Node、52项 UI及全部专项后，普通快进合入 main。随后 [main Native CI](https://github.com/lyx5710317/pdfno/actions/runs/37308094587) 实际执行全部52项，50项通过、两项失败；漫画、电子书和四项诊断分别通过，不能据此称 main 完整验收通过。
+
+`testMacCBRImportSpreadsDirectionPageJumpAndRestart` 在读取页码后点击布局菜单，未找到“双页”。漫画原状态在加载／保存尚未结束时已显示页码，而布局控件仍禁用；窄窗工具栏也可能压缩控件。修复在 busy 时明确显示更新状态，只在渲染和进度保存结束后显示就绪页码，并把方向／布局选择器移到阅读区的单一自适应网格。保留原标识、选项、忙碌禁用及真正的设置／进度保存。
+
+`testMacPDFPanelSwitchRetainsOriginalSelectionAndUnsavedDraft` 保留原选文与 Unicode 草稿的断言已通过，点击保存后立即读取 manifest 未找到笔记。原按钮启动异步任务，点击返回并不保证原子保存已完成；日志不能单独证明其他来源拒绝的原因。修复使本地 PDF 保存命令同步完成来源核验和原子 manifest 提交，成功后才清空草稿并投影结果。沿用根目录 writer admission；同根所有 PDF manifest 写入在同一进程事务锁下完成读／改／写，避免同步入口与进度、导入和 CAS 正文编辑互相丢失记录。失败保留草稿和原文件。单次 manifest 仍限10 MiB；该本地命令会占用主线程完成文件 I/O，不承诺跨进程或断电持久性，后续大书库性能须单独验收。
+
+新增四项存储回归核对返回时已落盘、Unicode／原件保留、多 repository 并发笔记与进度不丢失、暂停拒绝、损坏／未来 schema 文件保持及来源／CAS约束。本轮完整 Swift 为474项／60 suites。诊断 workflow 加入上述两项原用例，成为六项实际 UI；完整 Native 仍必须执行52项。原52项测试源码、断言及180／240秒限制均未修改。新提交必须先通过 feature 全部检查，再普通合入 main 并完整复验；最终状态以新的精确 SHA 收据为准，保留此次失败日志。
 
 实际 VoiceOver、真实 iPhone/iPad／Apple Pencil、实际云同步／Bookno API、真实服务语法质量与账单均未验收。移动端共享模块编译成功不能当作移动阅读入口完备。EPUB resize 清除临时 selection 是既有边界，本批未声称消除。独立安全专项仍为 `UNVERIFIED / platform-blocked`，Figma 配额阻塞未重试；功能与源码检查不能替代独立安全或未取得设计稿的像素验收。
 
