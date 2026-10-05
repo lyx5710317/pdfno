@@ -1,7 +1,7 @@
 # PDFno AI 开发技术规格
 
 版本：**0.3 原生 Apple 架构＋Mac EPUB／CBZ／DeepSeek 选文 AI／有限正文转换实施稿**
-修订与官方来源核验日期：**2026-10-03**（各历史证据保留原日期）
+修订日期：**2026-10-05**（阅读 Skills 文档规划；各历史代码/官方来源证据保留原日期）
 项目标识：`pdfno`；产品显示名：`PDFno`
 目标：原生 macOS、iPhone、iPad；Mac 优先交付，先完善 Mac 再适配 iPhone/iPad；长期三端目标保留
 用途：产品需求、技术边界、分阶段实现和验收的共同依据
@@ -17,7 +17,7 @@
 
 - **CONFIRMED 用户要求**：用户已决定的产品方向或约束。
 - **VERIFIED-SNAPSHOT**：注明日期、路径或提交的只读代码/官方来源事实；不能扩大为运行成功。
-- **OBSERVED**：UPDF 脱敏桌面观察，按所述动作与限制成立。
+- **OBSERVED**：UPDF／闪念的脱敏桌面观察，按具体应用版本、动作与限制成立，不相互替代。
 - **PROPOSED**：本文的模型、接口、目录、默认数值、阶段、选型建议和验收目标。
 - **DECISION**：尚需决定的系统版本、引擎、存储、同步内容、API 传输或发行配置。
 - **NOT-IMPLEMENTED / NOT-RUN**：未来代码不存在，或本轮未执行对应测试。
@@ -34,13 +34,15 @@
 
 EPUB 闭环后，用户授权 Mac BYOK／选文 AI 小切片，并在独立 DeepSeek 短句测试后报告“三次测试都成功了”（USER-REPORTED；agent 未读取真实密钥、亲自调用或核验账单）。用户随后授权在已有设置与 PDF/EPUB 学习窗口实现最小真实选文翻译／解释。当前9.1为官方 DeepSeek 的有限入口：500 UTF-16 单元、1024输出tokens、30秒、独立三次阅读请求额度、会话临时 key、每次显示范围及费用并由用户最终发送；其他配置仍预览，本地 mock 明确选择。9.2原有独立短句测试保持三次／128tokens且不共享阅读密钥。自动验证只用原创样例、虚构 key 和完全拦截的 transport；选文入口不扩大到页／章／书、问答或完整 N4，不据用户短句成功宣称新选文质量通过。随后独立批准的受限 PDF 当前页入口见9.3；已授权的完整当前 EPUB spine 文档候选见9.4，逻辑目录章节推断与整书仍未实现。
 
+**2026-10-05 当前文档范围**：用户要求把阅读 Skills 的实现方式写入开发文档，之后逐步实施。该授权只覆盖本次独立文档工作树、本地文档提交和路线说明，不授权本次实现新 runtime、推送/合并、调用模型/MCP、安装依赖或迁移真实数据。早先代码切片的授权不能扩展本次范围。后续实施逐张任务卡另确定获准切片；见 [ADR 0010](ADR-0010-READING-SKILLS.md) 与 [P0–P3路线](READING-SKILLS-ROADMAP.md)。
+
 ### 0.3 原稿来源、版本与文档权威
 
 已通过 Library 官方材料获取流程取得并完整读取原稿 1–1050 行：原文件名 `PDFno_AI_Development_Spec_v0.1.md`，读取时 Library version **1**、内部内容 **v0.2**、字节数 **94,484**，SHA-256 `5c33d02a0b5a973a68d12462e2f8af18a5e284336d7728206b22f48e63a84cbb`。文件名与内部版本是不同概念。
 
 主规格：`docs/PDFno_AI_Development_Spec_v0.3_Native.md`。私人 Library 原项已以 replace 保留身份和版本历史；这里是用于公开仓库的去标识副本。第 22 章保留完整需求覆盖，第 23 章记录 N0 文档阶段验证；后续原生代码状态和真实运行结果以当前实施/验证记录为准。
 
-`docs/ADR-0002-NATIVE-APPLE.md`、`NATIVE-APPLE-PLAN.md`、`EPUB-ENGINE-AUDIT.md` 等是当前 checkout 既有文档，保留其快照。本规格整合完整需求并修订原规格；旧“补充 v0.2”说明及旧路线历史不能推翻 v0.3 的原生决定。参考文件不等于全部已经实现。
+`docs/ADR-0002-NATIVE-APPLE.md`、`NATIVE-APPLE-PLAN.md`、`EPUB-ENGINE-AUDIT.md` 等是当前 checkout 既有文档，保留其快照。本规格整合完整需求并修订原规格；旧“补充 v0.2”说明及旧路线历史不能推翻 v0.3 的原生决定。阅读 Skills 采用 ADR 0010 的契约与分阶段路线，不另建立冲突主规格。参考文件不等于全部已经实现。
 
 ## 1 产品要求与追踪表
 
@@ -91,6 +93,14 @@ demo 的 Unicode/ruby、不可变来源、任务隔离、原子笔记与 revisio
 Bookno 原规格基线 `zcode/develop` / `9ae3056bff8dd64fac43185d2bfa5f22b20dc689` 记载原生 Mac/iOS、共享 SwiftData、私有 CloudKit、`Book` / `BookSource` / `ReadingNote`、UUID、external IDs、importedContentHash、coverData 与版本化 importer。这是继承的旧快照，不是今天重新验证的 API 或设备同步事实。`syncIdentity` 恢复时可重置，不作跨应用永久主键。本文不复用、配置或公布其私有容器值；PDFno 使用独立 API 与自身身份。
 
 复制任何参考源码前核验权属、许可证、依赖、字典、字体与再分发许可。可读取私人源码并不证明可以公开发布。优先重新实现纯领域规则并使用合法 golden fixtures；Bookno 设计 token 待通过获准资料取得，不猜色值。
+
+### 2.4 2026-10-05 AI 代码快照与时间边界
+
+**VERIFIED-SNAPSHOT**：发布 `main = 7bea8ec89ea7273b3b52ee714fbf1180b3d51c73`，只读核对领域/service/UI文件，未运行应用或真实模型。有限PDF/EPUB选文、PDF整物理页、EPUB当前spine双语、日语假名/语法分色，以及独立有限HTTPS BYOK和手动保存/记录搜索已在此代码基线中。具体限制、源码文件和未来适配见 [路线当前能力表](READING-SKILLS-ROADMAP.md#当前能力与迁移顺序)。这是源码存在证据，不增加真实服务兼容、语言质量、设备UI或审计验收结论。
+
+英语结构解析仍在独立整合候选，未在上述发布main发现；只有实际合并及对应验证后才登记可用。正在运行的CI不由本次文档判定。9.1的2026-10-03官方DeepSeek限制和9.4最初spine候选状态是历史记录，不能用旧“其他服务只预览／spine未发布”概括本节较新快照；现有自定义HTTPS BYOK仍只支持受限选文非流式JSON，不等于全provider、页/章或工具能力。
+
+本次新增 Skills registry/运行时、原创论证/学习卡、单书全文索引与跨章QA、个人模板编辑/MCP均为 **PROPOSED / NOT-IMPLEMENTED**。当前已保存记录搜索不是一书全文检索。Bookno实际API和iCloud继续推后，独立累计安全审计仍UNVERIFIED。
 
 ## 3 范围分层与实施门禁
 
@@ -436,6 +446,16 @@ Swift structured concurrency＋URLSession task 取消；后台处理检查 Cance
 
 本地模型说明实际 host；iPhone loopback 是手机自身，不是 Mac 的 Ollama。局域网/代理不称完全离线。PDF/EPUB/漫画源文件、图片和 OCR 不作为自动 fallback 上传。语言质量独立人工评分，结构合法不等于译文、读音、语法正确。
 
+### 8.5 阅读 Skills 的统一契约与分阶段路线
+
+**CONFIRMED 文档方向，PROPOSED 技术设计**。Skill由提示词、真实输入范围/格式/语言/参数、所需provider能力、结构化结果schema、来源validator、权限/预算/取消、缓存/保存与独立版本组成。不是任意提示词即可获得检索或工具权限。完整契约见 [ADR 0010](ADR-0010-READING-SKILLS.md)，实现依赖、失败用例与完成标准见 [阅读Skills路线](READING-SKILLS-ROADMAP.md)。
+
+P0先内置registry并适配现有简单按钮；不改500 UTF-16选文、3000/6段页或spine、1024output tokens/30秒/64KiB、共享selection三次及独立page/spine六次预算；自动重试为零。8.3的并发2/自动重试2仅为未来一般建议，不作用于本受限profile。保留既有prompt/文件validator与UTF-16锚点单位，不为统一系统自动迁移用户记录。
+
+P1新增有限选文解释、论证结构、可引用学习卡；P2本地单书chunk/index与增量重建、范围内检索/跨章QA及个人模板编辑导入导出；P3另做外部研究/MCP Client，MCP Server为方向相反的后期独立切片。索引、上下文、provider、模板及外部工具是不同对象和权限；无OCR的扫描页显式未覆盖。工具默认关闭、最小只读、接收方与数据预览、无任意代码，原书/网页内容为不可信数据。
+
+结果始终区分引用、释义和推断；sourceRef由宿主赋值并回查，不接受模型自造坐标/页码/“已验证”。缓存/生成/手动保存分开，用户正文revision/CAS保护；未知/未来/损坏版本只读保留。分享只包含用户选定的脱敏模板包，不含书/笔记/key。新runtime、真实服务与设备验收均尚未执行，本节不授权后续实现或联网。
+
 ## 9 BYOK 与原生模型服务
 
 ```swift
@@ -462,7 +482,7 @@ URLSession delegate 默认停止带认证重定向；受允许适配需检查完
 
 模型不能调用工具读取其他文件、邮件、系统命令或改变设置；输出仅数据，HTML/Markdown 清洗并使用允许协议。高亮/语法 span 和问答引用须按第 7、10 章校验，不接受模型自报“已验证”。
 
-### 9.1 已实施的 Mac DeepSeek 选文切片与边界
+### 9.1 已实施的 Mac DeepSeek 选文切片与边界（2026-10-03历史profile）
 
 2026-10-03 的实际类型为 `AIProviderConfig`、`AISourceSnapshot`、`AIRequest`、`AIConsent`、`AIResult`、`AILearningNote`，由已有原生设置／学习窗口承载。用户授权真实选文翻译与简短解释；完整目标仍是上面的 PROPOSED ProviderAdapter 契约。该选文入口没有 SSE、vision、usage、文档检索、页／章／整书范围或完整英日结构化语法验收；独立当前页入口见9.3。ADR0004保留离线基础，当前扩展见 ADR0006 与 VALIDATION。
 
@@ -500,7 +520,7 @@ URLSession delegate 默认停止带认证重定向；受允许适配需检查完
 
 [页翻译切片记录](PDF-PAGE-TRANSLATION-SLICE.md)记录全部边界、原创多段／扫描／超限PDF、离线transport及三项完整UI用例。组合本地回归／编译已经通过，最终完整应用UI以同SHA隔离CI为准。真实阅读翻译质量／费用、OCR、布局保真、移动端、持久Keychain／usage／SSE／章节恢复仍未验收或未实现；独立完整当前 EPUB spine 文档候选见9.4，自动测试完全拦截且只用虚构密钥。
 
-### 9.4 已授权的 Mac 完整当前 EPUB spine 文档候选
+### 9.4 已授权的 Mac 完整当前 EPUB spine 文档候选（首次切片记录）
 
 2026-10-04 的本地整合候选增加“翻译当前文档”：范围是当前 spine 资源中全部 `epub-canonical-utf16-1` 正文，包含现有标题与 ruby 基底，排除 rt/rp；不是当前视口、分页、TOC fragment、推断逻辑章或全书。确认页同时展示 href、spine 序号、完整 `[0, UTF16Count)`、全部原文预览、每段原文及计划。超过3000 UTF-16或完整计划超过6段时拒绝；桥接回传真实长度且 text=null，不偷偷截取局部内容。单段最多500 UTF-16，按 Character 边界分割且拼合必须 scalar-exact 等于全范围。
 
@@ -511,6 +531,12 @@ URLSession delegate 默认停止带认证重定向；受允许适配需检查完
 TXT／Markdown／HTML 的首片阅读见5.7；活动文本读者不能使用隐藏PDF／EPUB范围或任何现有AI入口。文本书籍保留列表和网格入口，封面编辑、文本笔记正文编辑与文本书目/笔记搜索不在本候选范围；搜索窗口明确当前格式范围。全文目标与未来 typed text AI 契约继续保留。
 
 [章节切片记录](EPUB-CHAPTER-TRANSLATION-SLICE.md)和[两模块整合交接](TEXT-CHAPTER-INTEGRATION-2026-10-04.md)区分本地回归、编译与未执行UI。本候选本地提交、不推送、不合main、不写共享Library；29个完整UI须取得发布许可后在隔离CI按确切整合SHA执行。真实语言质量、账单/TLS/账号、TOC逻辑范围、整书、自动恢复、移动阅读与独立安全专项不因离线功能验证变为通过。
+
+### 9.5 当前provider与Skills能力注册规则
+
+2.4的发布源码已含独立 `BYOKProviderCapability`：官方DeepSeek或有限 `httpsChatCompletionsJSON`。后者要求HTTPS/Bearer/chat-completions/system-user/nonstream/max_tokens/json_object/单assistant完整stop，拒绝全部重定向，仍仅PDF/EPUB选文与共享selection预算。9.1旧官方入口以及日语/页/spine的原provider并未因此改成通用BYOK；支持一项能力不自动获得SSE、vision、usage、embedding或tool calling。实际兼容和语言质量需获准服务测试，不能依据“OpenAI-compatible”标签断言。
+
+Skill注册需输入适配器、真实provider profile、结果schema与宿主validator都存在；未知/未合并/缺能力项禁用并保留，禁止偷偷切换模型、服务或mock。凭据仅宿主会话解析，不进入模板/书籍WebView/缓存/日志/导出。新模板与目录不授权数据外发；导入/预览/参数编辑不发送。后续实现沿用 [ADR 0010权限和预算契约](ADR-0010-READING-SKILLS.md#provider权限和运行状态)。
 
 ## 10 假名与日英语法辅助
 
@@ -1109,6 +1135,12 @@ T01–T22及UAT01–UAT15是完整目标；N0 文档阶段全部原生运行 NOT
 
 语言评分区分译文忠实度、语法、日语读音和引用匹配，用授权固定语料及人工评审；performance报告本地打开/提取/定位与网络延迟分开，不承诺秒开任意大书。页/章断点恢复与取消要检查发出的实际请求计数而不是只看按钮状态。
 
+### 17.6 阅读 Skills 分阶段补充验收
+
+[路线P0–P3](READING-SKILLS-ROADMAP.md)逐张RS卡列依赖、失败案例与完成标准，复用既有R04–R07/R16、T04–T11、UAT02–09/UAT12等范围，不增正式ID或改变83项原定义。重点覆盖未知manifest/变量/validator拒绝、旧按钮/预算共享、Unicode/ruby/来源过期、取消迟到/未知网络提交、畸形结果/伪引用、cache版本隔离、CAS/旧文件保护、本地索引增量与扫描覆盖、恶意模板/书/网页及Client/Server权限隔离。
+
+每片分别记录源码/编译/mock/实际UI/真实服务和语言质量证据，未运行项标NOT-RUN。原创fixture不得读取真实私人书/笔记；agent本次不执行模型/MCP，不安装依赖，不触发PDFno窗口。独立累计安全审计仍UNVERIFIED，文档检查和普通测试不能替代它。Bookno/iCloud和移动实际适配另验。
+
 ## 18 AI 编码任务拆分与完成定义
 
 ### 18.1 实施顺序
@@ -1128,6 +1160,7 @@ T01–T22及UAT01–UAT15是完整目标；N0 文档阶段全部原生运行 NOT
 | N4B 学习与读音 | N4A/N2B或N3B | 日英语法 schema/span/纠错、侧栏假名/作者 ruby；原文回跳、用户编辑保护 |
 | N4C 页/章双语 | N4A、稳定 SourceSnapshot | 分段/缓存/预算/取消/部分恢复与原译文视图；T07/T08/UAT07–09 |
 | N4D 文档问答 | N4A、提取/检索 ADR | 限定范围/索引状态/引用回查；正确/虚构/重复/过期来源，UAT12；真实质量另验 |
+| N4E 阅读 Skills | 本次仅规划；未来逐片授权，已有来源/预算/保存契约 | [ADR 0010](ADR-0010-READING-SKILLS.md)及[RS-P0–P3任务卡](READING-SKILLS-ROADMAP.md)：统一内置入口→原创阅读任务→单书检索/个人模板→外部Client/独立Server；不增加83项正式ID，不提前启用网络或新功能 |
 | N5 迁移 | 新 repository/schema/revision | 自制旧 JSON importer、映射/预览/幂等/中断/回滚；真实数据仅用户指定输入 |
 | N6 iCloud | 数据内容/后端/身份已决定，outbox/mock通过 | 自有容器，两设备后 Mac/iPhone/iPad 离线/冲突/墓碑/账号/配额；生产配置另验 |
 | N7A Bookno API | Bookno 接收侧当前代码/契约确认 | DTO/schema/cover/highlight/note、资产去重、预览/配对/回执；T12–T14 |
@@ -1243,6 +1276,12 @@ AGPL、PDFKit 和已选 Kookit 独立 EPUB 边界；不暗中更换引擎。开�
 
 已读取 [Create Chat Completion](https://api-docs.deepseek.com/api/create-chat-completion/) 的POST路径、当前model、max_tokens、thinking与响应终态；[Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode/) 说明默认开启思考，可显式disabled；[Models and pricing](https://api-docs.deepseek.com/quick_start/pricing/) 用于确认服务定价是外部动态事实，不硬编码人民币承诺。[First API call](https://api-docs.deepseek.com/)为官方入口；本次中文根页超时，不把失败页当完整内容。作为9.1／9.2协议依据，agent没有发送真实请求；独立短句的用户成功报告另列，不能证明新选文质量或账单。2026-10-03再次核验chat-completion的JSON response_format与完整终态，并复核thinking disabled；[JSON Output](https://api-docs.deepseek.com/guides/json_mode/)本次读取超时，不将其算完整阅读。
 
+### 21.6 闪念实机参考与外部工具来源（2026-10-05）
+
+**OBSERVED**：实机为 `闪念 - AI 语音笔记`，`com.chenxi.shanniankapian`，Mac1.0.32；只查看AI模式、九项模板菜单、本会话记忆说明、模型与本地索引/MCP/Agent控制，未执行模板/AI请求、改设置、上传、读取凭据或私人笔记。模板全文/变量编辑、串联与保存结果均未验证；能力不能归因于“全部提示词”。官方[站点](https://ideasnap.xyz/)、[工作流](https://ideasnap.xyz/workflow/)、[集成](https://ideasnap.xyz/integrations/)用于核对同一产品，移动App Store的Skills更新不证明Mac实测。
+
+UI目录中的Exa/Jina/Microsoft Learn地址与对应官方文档一致，arxiv.caseyjhand为维护者社区wrapper，非arxiv.org官方MCP。只查看[Exa](https://exa.ai/docs/get-started/exa-mcp)、[Jina](https://github.com/jina-ai/MCP)、[Arxiv维护者](https://github.com/cyanheads/arxiv-mcp-server)、[Microsoft](https://learn.microsoft.com/en-us/training/support/mcp)说明，未连接服务。认证/费用/上游来源差异及未核验目录维护机制见 [路线来源表](READING-SKILLS-ROADMAP.md#闪念参考与工具商店来源核验)。免费入口不等于模型免费或允许传书；不假设目录来自统一registry。PDFno契约/manifest/路线为原创建议，不复制闪念私有模板或实现。
+
 ## 22 原 v0.2 完整需求覆盖核对
 
 ### 22.1 按原章节逐项核对
@@ -1288,6 +1327,8 @@ AGPL、PDFKit 和已选 Kookit 独立 EPUB 边界；不暗中更换引擎。开�
 2026-10-03格式覆盖复核：5.3逐项列齐官方18个扩展名、每项状态／平台／门槛，`.doc`不混入，XML限定可阅读标记文档；DRM-free、图片序列附加目标及未来漫画AI翻译均明确保留。13区分七个原始高保真转换方向与两个有限正文导出方向。此前“17项格式”是分组计数错误，不代表撤回任何格式要求；正式定义共83项：R17＋T22＋U13＋S8＋J8＋UAT15；旧UI01–UI07、AI01–AI03及A00–A15任务范围继续单列保留。此前95混合了不同类别及范围端点，未删除需求；可复算账本见`REQUIREMENTS-LEDGER.json`。
 
 AI 缓存/取消/保密、Unicode/ruby、Bookno两层重放/修订/回执、本地编辑/封面保护、云离线/墓碑、转换全部方向、UPDF观察限制与自有品牌均继续有效。既有 v0.2 的 TypeScript 类型不是新 app 代码，领域与provider草案已换 Swift语义；外部JSON仍是传输格式。
+
+2026-10-05阅读Skills路线在既有正式要求上增加实现计划引用；83项ID、类别数量、原审计基线状态与定义不变。`REQUIREMENTS-LEDGER.json`的`readingSkillsPlan`仅保存文档状态/覆盖/任务引用，`specLine`跟随本主规格位置更新；不把规划标成完成，不把RS任务算成新正式要求。本次文档验证记录与历史N0运行证据分开。
 
 ## 23 N0 文档阶段验证与交付记录（历史）
 
