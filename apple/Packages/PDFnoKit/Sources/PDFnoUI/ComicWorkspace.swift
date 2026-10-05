@@ -17,22 +17,18 @@ struct ComicWorkspace: View {
                 Picker("页面布局", selection: Binding(get: { session.layout }, set: { value in Task { await session.setLayout(value) } })) {
                     Text("自动").tag(ComicLayout.automatic); Text("单页").tag(ComicLayout.single); Text("双页").tag(ComicLayout.double)
                 }.disabled(session.busy).accessibilityIdentifier("comic-layout")
-            }.padding(10)
-            ComicCanvas(session: session)
-            HStack { Text(session.position).accessibilityIdentifier("comic-position"); Spacer(); Text("CBZ · 本地") }.font(.caption).padding(10)
-            if let error = session.error { Text(error).foregroundStyle(.red).padding().accessibilityIdentifier("comic-error") }
-        }.navigationTitle(session.book?.title ?? "漫画")
-        .overlay { if session.busy { ProgressView("正在打开漫画…").padding().background(.regularMaterial) } }
-        .toolbar {
-            ToolbarItemGroup {
                 Button("页面") { pages = true }.disabled(session.book == nil).accessibilityIdentifier("comic-pages")
                 Button { Task { await session.previous() } } label: { Label("上一页", systemImage: session.direction == .rightToLeft ? "chevron.right" : "chevron.left") }
                     .disabled(session.busy || !session.hasPrevious).accessibilityIdentifier("comic-previous")
                 Button { Task { await session.next() } } label: { Label("下一页", systemImage: session.direction == .rightToLeft ? "chevron.left" : "chevron.right") }
                     .disabled(session.busy || !session.hasNext).accessibilityIdentifier("comic-next")
                 Button("关闭漫画") { close() }.accessibilityIdentifier("comic-close")
-            }
-        }
+            }.padding(10)
+            ComicCanvas(session: session)
+            HStack { Text(session.position).accessibilityIdentifier("comic-position"); Spacer(); Text("CBZ · 本地") }.font(.caption).padding(10)
+            if let error = session.error { Text(error).foregroundStyle(.red).padding().accessibilityIdentifier("comic-error") }
+        }.navigationTitle(session.book?.title ?? "漫画")
+        .overlay { if session.busy { ProgressView("正在打开漫画…").padding().background(.regularMaterial) } }
         .sheet(isPresented: $pages) {
             NavigationStack {
                 List(Array((session.book?.pages ?? []).enumerated()), id: \.offset) { index, page in

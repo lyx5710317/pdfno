@@ -334,6 +334,14 @@ struct ReaderWorkspace: View {
                 VStack(spacing: 0) {
                     #if os(macOS)
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: PDFnoDesign.Space.small)], alignment: .leading, spacing: PDFnoDesign.Space.small) {
+                        Button { openNavigation() } label: { Label("导航与搜索", systemImage: "list.bullet") }
+                            .accessibilityIdentifier("reader-navigation").keyboardShortcut("f", modifiers: .command).accessibilityValue(navigationVisible ? "已展开" : "已收起").help("显示或收起 PDF 目录与文本搜索")
+                        Button { session.go(to: session.pageIndex - 1) } label: { Label("上一页", systemImage: "chevron.left") }
+                            .disabled(session.pageIndex == 0).accessibilityIdentifier("previous-page").help("阅读上一页")
+                        Button { session.go(to: session.pageIndex + 1) } label: { Label("下一页", systemImage: "chevron.right") }
+                            .disabled(session.pageIndex >= book.pageCount - 1).accessibilityIdentifier("next-page").help("阅读下一页")
+                        Button { openNotes() } label: { Label("高亮与笔记", systemImage: "highlighter") }
+                            .accessibilityIdentifier("reader-notes").accessibilityValue(notesVisible ? "已展开" : "已收起").help("显示或收起高亮与笔记，保留草稿和选区")
                         JapaneseLearningEntry(identifier: "reader-japanese-learning") {
                             model.prepareJapaneseLearning(); japaneseLearning = true
                         }
@@ -374,6 +382,7 @@ struct ReaderWorkspace: View {
                     }.font(PDFnoDesign.TypeStyle.metadata).foregroundStyle(.secondary).padding(PDFnoDesign.Space.regular)
                         .background(PDFnoDesign.Palette.chrome)
                 }.navigationTitle(book.title)
+                #if !os(macOS)
                 .toolbar {
                     ToolbarItemGroup {
                         Button { openNavigation() } label: { Label("导航与搜索", systemImage: "list.bullet") }
@@ -386,6 +395,7 @@ struct ReaderWorkspace: View {
                             .accessibilityIdentifier("reader-notes").accessibilityValue(notesVisible ? "已展开" : "已收起").help("显示或收起高亮与笔记，保留草稿和选区")
                     }
                 }
+                #endif
                 .onChange(of: session.pageIndex) { _, _ in
                     if let snapshot = model.capturePDFProgress() { Task { await model.saveProgress(snapshot) } }
                 }

@@ -93,6 +93,8 @@ API 核验：Apple 的 [`directoryURL`](https://developer.apple.com/documentatio
 
 新增四项存储回归核对返回时已落盘、Unicode／原件保留、多 repository 并发笔记与进度不丢失、暂停拒绝、损坏／未来 schema 文件保持及来源／CAS约束。本轮完整 Swift 为474项／60 suites。诊断 workflow 加入上述两项原用例，成为六项实际 UI；完整 Native 仍必须执行52项。原52项测试源码、断言及180／240秒限制均未修改。新提交必须先通过 feature 全部检查，再普通合入 main 并完整复验；最终状态以新的精确 SHA 收据为准，保留此次失败日志。
 
+修复候选 `4e34fd66243055ed59d5ae70f71b876b43637b12` 的[六项诊断](https://github.com/lyx5710317/pdfno/actions/runs/37318569284)通过 BYOK、DeepSeek、英语和目录闭环。漫画已实际完成布局／方向／翻页／跳页，但关闭按钮的 AX frame 在窗口右侧不可点击；PDF 在笔记入口处同样不可点击，尚未验证最终保存。后续把漫画页面／前后页／关闭，以及 Mac PDF 导航／前后页／笔记操作移至阅读区网格，避免继承书库工具栏后挤出窗口；保留操作标识、禁用条件、快捷键、草稿与来源行为，移动端沿用原工具栏。4e34 的完整 Native 已被下一修复取代，取消并保留其日志，不计为验收成功。
+
 实际 VoiceOver、真实 iPhone/iPad／Apple Pencil、实际云同步／Bookno API、真实服务语法质量与账单均未验收。移动端共享模块编译成功不能当作移动阅读入口完备。EPUB resize 清除临时 selection 是既有边界，本批未声称消除。独立安全专项仍为 `UNVERIFIED / platform-blocked`，Figma 配额阻塞未重试；功能与源码检查不能替代独立安全或未取得设计稿的像素验收。
 
 主 checkout、原有工作树与 Xcode 用户元数据保留，无本批实际用户数据变化。发布前可回退本地整合提交。若未来使用了回收站，先保留完整根目录／备份并通过当前模块恢复所需条目，再降级；旧应用不识别 `local-recovery-v1.json` 或英语记录／英语编辑 draft case，不能承诺旧版本可读取或覆盖。保留全部 Git 历史与切片提交，不用删源文件或全目录替换实现回滚。
