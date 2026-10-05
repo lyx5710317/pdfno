@@ -365,7 +365,9 @@ struct ReaderWorkspace: View {
                     } navigation: {
                         PDFnoPanel(title: "导航与搜索", icon: "list.bullet", closeIdentifier: "close-navigation", close: { panels.navigation = false }) { navigationContent }
                     } notes: {
-                        PDFnoPanel(title: "高亮与笔记", icon: "highlighter", closeIdentifier: "close-notes", close: { panels.notes = false }) { notesContent }
+                        PDFNotesPanelHost {
+                            PDFnoPanel(title: "高亮与笔记", icon: "highlighter", closeIdentifier: "close-notes", close: { panels.notes = false }) { notesContent }
+                        }
                     }
                     .background {
                         GeometryReader { geometry in

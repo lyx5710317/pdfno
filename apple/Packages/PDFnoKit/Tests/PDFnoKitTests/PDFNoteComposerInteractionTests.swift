@@ -106,7 +106,8 @@ private struct NoteComposerHostingFixture: View {
     @ObservedObject var state: NoteComposerHostingState
     var body: some View {
         PDFnoReaderShell(panels: state.panels) { PDFCanvas(session: session) } navigation: { Text("原创导航") } notes: {
-            PDFnoPanel(title: "高亮与笔记", icon: "highlighter", closeIdentifier: "original-host-close", close: {}) {
+            PDFNotesPanelHost {
+              PDFnoPanel(title: "高亮与笔记", icon: "highlighter", closeIdentifier: "original-host-close", close: {}) {
                 if state.composerInsideList {
                     List {
                         Section("当前选区") {
@@ -124,6 +125,7 @@ private struct NoteComposerHostingFixture: View {
                         Divider(); List { Section("已保存 · 本地") { Text("这本书还没有笔记") } }.accessibilityIdentifier("pdf-notes-list")
                     }.font(PDFnoDesign.TypeStyle.body)
                 }
+              }
             }
         }
     }

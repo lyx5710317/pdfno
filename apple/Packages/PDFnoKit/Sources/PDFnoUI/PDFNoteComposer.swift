@@ -1,9 +1,21 @@
 // Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
 #if os(macOS)
 import SwiftUI
+import AppKit
 import PDFnoDomain
 
-/// Keep the native draft editor outside the saved-record List's AX row proxies.
+/// A native panel boundary keeps its virtual controls in the same AppKit AX host.
+struct PDFNotesPanelHost<Content: View>: NSViewRepresentable {
+    @ViewBuilder let content: () -> Content
+    func makeNSView(context: Context) -> NSHostingView<Content> {
+        let view = NSHostingView(rootView: content())
+        view.sizingOptions = []
+        return view
+    }
+    func updateNSView(_ view: NSHostingView<Content>, context: Context) { view.rootView = content() }
+}
+
+/// Keep the draft editor outside the saved-record List's AX row proxies.
 struct PDFNoteComposer: View {
     let anchor: PDFSourceAnchor?
     @Binding var draft: String
