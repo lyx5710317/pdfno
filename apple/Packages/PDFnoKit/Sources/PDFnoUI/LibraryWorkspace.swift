@@ -13,6 +13,7 @@ public struct LibraryWorkspace: View {
     @State private var conversion = false
     @State private var librarySearch = false
     @State private var booknoPreview = false
+    @State private var localRecovery = false
     @State private var compactColumn: NavigationSplitViewColumn = .sidebar
     @State private var selectedBookID: UUID?
     @State private var grid = false
@@ -145,6 +146,7 @@ public struct LibraryWorkspace: View {
             ReaderWorkspace(model: model, session: model.reader)
             #endif
         }
+        .disabled(model.storageMaintenance)
         .task { await model.load() }
         .onChange(of: displayedBookID) { _, id in selectedBookID = id }
         .fileImporter(isPresented: $importer, allowedContentTypes: importTypes) { result in
@@ -162,6 +164,11 @@ public struct LibraryWorkspace: View {
                     .help(model.textFormats.isActive ? "文本格式封面尚未开放" : "编辑选中书籍的本地封面")
             }
             ToolbarItem { Button { librarySearch = true } label: { Label("书库与笔记搜索", systemImage: "magnifyingglass") }.accessibilityIdentifier("library-search").keyboardShortcut("f", modifiers: [.command, .shift]).help("搜索书名与已保存笔记") }
+            ToolbarItem { Button {
+                model.prepareRecoveryManagement(); localRecovery = model.recoveryManagement != nil
+            } label: { Label("回收站与备份", systemImage: "archivebox") }
+                .disabled(!model.canImport || model.isBusy || model.storageMaintenance)
+                .accessibilityIdentifier("library-local-recovery").help("预览本地删除、恢复与校验备份") }
             ToolbarItem { Button { conversion = true } label: { Label("格式转换", systemImage: "arrow.triangle.2.circlepath") }.accessibilityIdentifier("document-conversion").help("打开本地格式转换") }
             ToolbarItem { Button { aiSettings = true } label: { Label("模型与 BYOK 设置", systemImage: "slider.horizontal.3") }.accessibilityIdentifier("ai-settings").help("配置模型与会话临时密钥") }
             #endif
@@ -170,6 +177,14 @@ public struct LibraryWorkspace: View {
         #if os(macOS)
         .sheet(item: $coverEditor) { item in LibraryCoverEditor(covers: model.covers, item: item) }
         .sheet(isPresented: $librarySearch) { LibrarySearchWorkspace(library: model) }
+        .sheet(isPresented: $localRecovery) {
+            NavigationStack {
+                if let recovery = model.recoveryManagement {
+                    LocalRecoveryWorkspace(model: recovery)
+                        .toolbar { ToolbarItem { Button("完成") { localRecovery = false }.accessibilityIdentifier("local-recovery-close") } }
+                }
+            }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: 640, minHeight: 520)
+        }
         .sheet(isPresented: $booknoPreview) { BooknoPreviewWorkspace(model: model.booknoPreview) }
         .sheet(isPresented: $conversion) { ConversionWorkspace() }
         .sheet(isPresented: $aiSettings) { AISettingsView(learning: model.learning, byok: model.byok) }
@@ -177,7 +192,7 @@ public struct LibraryWorkspace: View {
         .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("知道了") { model.error = nil }
         } message: { Text(model.error ?? "") }
-        .overlay { if model.isBusy { PDFnoStatusMessage(text: "正在打开…", kind: .busy).frame(maxWidth: 320).pdfnoCard() } }
+        .overlay { if model.isBusy { PDFnoStatusMessage(text: model.storageMaintenance ? "正在校验并重载书库…" : "正在打开…", kind: .busy).frame(maxWidth: 320).pdfnoCard() } }
     }
     private var libraryBookCount: Int {
         #if os(macOS)
@@ -283,7 +298,8 @@ public struct FeatureStatusView: View {
                 }
                 Section("后续接入") {
                     Text("EPUB：Mac 本地重排阅读；移动适配与固定版式待验收")
-                    Text("Mac AI：选文翻译／解释、受限 PDF 当前页与 EPUB 当前完整文档双语对照；范围预览、手动确认发送和学习笔记。当前 EPUB 文档不等于目录逻辑章节；日语选文读音与中文语法建议可审阅并手动保存；真实质量与完整日英学习待验收")
+                    Text("Mac AI：选文翻译／解释、受限 PDF 当前页与 EPUB 当前完整文档双语对照；范围预览、手动确认发送和学习笔记。当前 EPUB 文档不等于目录逻辑章节；日语选文读音与中文语法建议可审阅并手动保存；英语选文结构与语法及保存／搜索／编辑入口已接；真实语言质量与实际新界面闭环待验收")
+                    Text("本地回收站、校验目录备份和恢复到新目录：Mac候选已接线；实际目录选择与新界面闭环待隔离验收。未保存草稿不进入备份。")
                     Text("Bookno API：尚未接入")
                     Text("iCloud：未配置容器，数据仅保存在本地")
                     Text("CBZ / CBT：移动阅读适配待验收；当前 Mac 支持静态 PNG / JPEG，CBT 限未压缩 POSIX USTAR；CB7 限非 solid COPY/LZMA/LZMA2 和明文头；CBR 限 RAR4/RAR5 STORE")
@@ -309,6 +325,8 @@ struct ReaderWorkspace: View {
     @State private var ai = false
     @State private var pageTranslation = false
     @State private var japaneseLearning = false
+    @State private var englishLearning = false
+    @State private var draftOwner = UUID().uuidString
     @State private var byokLearning = false
     var body: some View {
         Group {
@@ -319,6 +337,8 @@ struct ReaderWorkspace: View {
                         JapaneseLearningEntry(identifier: "reader-japanese-learning") {
                             model.prepareJapaneseLearning(); japaneseLearning = true
                         }
+                        Button("英语结构与语法") { model.prepareEnglishLearning(); englishLearning = true }
+                            .accessibilityIdentifier("reader-english-learning").help("固定当前选文，确认后生成英语结构候选")
                         BYOKSelectionEntry(library: model, identifier: "reader-byok") { byokLearning = true }
                     }.buttonStyle(PDFnoActionStyle(role: .quiet))
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -382,6 +402,9 @@ struct ReaderWorkspace: View {
         .sheet(isPresented: $notesPanel) { notesSheet }
         #endif
         #if os(macOS)
+        .onChange(of: draft) { _, value in model.recordVisibleDraft(owner: draftOwner, dirty: !value.isEmpty) }
+        .onDisappear { model.recordVisibleDraft(owner: draftOwner, dirty: false) }
+        .sheet(isPresented: $englishLearning) { EnglishLearningSheet(library: model) }
         .sheet(isPresented: $japaneseLearning) { JapaneseLearningSheet(library: model) }
         .sheet(isPresented: $ai) { AILearningWorkspace(library: model, learning: model.learning) }
         .sheet(isPresented: $pageTranslation) { PDFPageTranslationWorkspace(library: model, translation: model.pageTranslation, learning: model.learning) }
@@ -491,6 +514,7 @@ struct ReaderWorkspace: View {
             }
             #if os(macOS)
             JapaneseSavedNotesSection(library: model, bookID: session.book?.id) { closeNotes() }
+            EnglishSavedNotesSection(library: model, bookID: session.book?.id) { closeNotes() }
             #endif
         }.font(PDFnoDesign.TypeStyle.body).accessibilityIdentifier("pdf-notes-list")
     }

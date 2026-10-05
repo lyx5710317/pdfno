@@ -23,6 +23,12 @@ public final class PDFReaderSession: ObservableObject {
     private var projected: [(PDFPage, PDFAnnotation)] = []
     private var restoringView = false
     public init() {}
+    public func close() {
+        for (page, annotation) in projected { page.removeAnnotation(annotation) }
+        projected = []; document = nil; book = nil; capturedSelection = nil
+        searchMatches = []; outline = []; pageIndex = 0; restoringView = false
+        readerSessionID = UUID(); view?.document = nil
+    }
     public func open(data: Data, book: BookRecord) throws {
         guard let pdf = PDFDocument(data: data), !pdf.isLocked, pdf.pageCount == book.pageCount else {
             throw ReaderError.invalidPDF

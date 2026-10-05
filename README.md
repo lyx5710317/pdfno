@@ -45,6 +45,8 @@ Mac 的“格式转换”入口可将普通 DOCX 正文导出为 UTF-8 TXT／简
 
 Mac EPUB 首片接受非加密重排内容。限额为 20 MiB 归档、1000 条目、4 MiB 单项、50 MiB 实际解压；只接受有像素限额的静态 PNG/JPEG，外部字体、SVG、动画及其他资源暂不支持。书籍脚本和未经授权的网络资源会被清洗／阻断，失败会明确报告。
 
+本批本地候选新增 Mac 书库回收站／校验目录备份、PDF／EPUB 英语结构与语法、英语笔记搜索和正文编辑；共享写入暂停、来源提交复核及启动恢复已接线。完整本地证据与实际 UI 尚待验收的边界见 [UI／数据／英语整合记录](docs/UI-DATA-ENGLISH-INTEGRATION-2026-10-05.md)。
+
 ## 构建与验证
 
 EPUB 资源已经随源码保存，直接在 Xcode 运行无需 Node。需要重建资源时使用 Node 22+：
@@ -67,7 +69,7 @@ xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMobile -configuration
 
 ## 数据与迁移
 
-Mac 数据目录为用户 Application Support 下的 `PDFnoNative`；移动端使用自己的 app 容器。`library-v1.json` 保存书目、进度和笔记，`Originals/<sha256>.pdf` 保存导入副本。EPUB 使用独立 `epub-v1.json` 与 `Originals/<sha256>.epub`；漫画CBZ使用 `comics-v1.json` 与 `Originals/<sha256>.cbz`，CBT另用 `comics-cbt-v1.json` 与 `Originals/<sha256>.cbt`（不迁移CBZ数据），有限CB7/CBR使用各自comics-cb7/cbr-v1.json与原扩展名；学习数据另存 `learning-v1.json`，AI 结果／来源与用户正文分字段，不保存密钥，不改 PDF/EPUB schema；Word另存 `docx-mammoth-v1.json` 与原始hash.docx，旧候选 `docx-v1.json` 不自动迁移；学习文件接受 `selection-1`、`deepseek-selection-1`、`deepseek-pdf-page-1` prompt 及严格page anchor。回滚到不接受新 prompt／page anchor 的 AI 版本会保护性拒绝该学习文件，降级前备份或恢复原有学习副本，不能承诺旧版本读取新结果；每次有效更新先备份上一版 manifest，再原子替换。单窗口 repository actor 管理本地写入，尚未承诺跨进程写入、SQLite 事务、云冲突或崩溃后自动修复。手工恢复前退出应用并复制 manifest、backup 和 Originals；校验备份后再恢复。旧 Electron notes/localStorage 不会被读取或重写；需要单独的 legacy-demo 只读导入器，旧文本 fingerprint 不能转成虚构 PDF 坐标。
+Mac 数据目录为用户 Application Support 下的 `PDFnoNative`；移动端使用自己的 app 容器。`library-v1.json` 保存书目、进度和笔记，`Originals/<sha256>.pdf` 保存导入副本。EPUB 使用独立 `epub-v1.json` 与 `Originals/<sha256>.epub`；漫画CBZ使用 `comics-v1.json` 与 `Originals/<sha256>.cbz`，CBT另用 `comics-cbt-v1.json` 与 `Originals/<sha256>.cbt`（不迁移CBZ数据），有限CB7/CBR使用各自comics-cb7/cbr-v1.json与原扩展名；学习数据另存 `learning-v1.json`，AI 结果／来源与用户正文分字段，不保存密钥，不改 PDF/EPUB schema；Word另存 `docx-mammoth-v1.json` 与原始hash.docx，旧候选 `docx-v1.json` 不自动迁移；学习文件接受 `selection-1`、`deepseek-selection-1`、`deepseek-pdf-page-1` prompt 及严格page anchor。回滚到不接受新 prompt／page anchor 的 AI 版本会保护性拒绝该学习文件，降级前备份或恢复原有学习副本，不能承诺旧版本读取新结果；每次有效更新先备份上一版 manifest，再原子替换。当前整合候选使用同根进程级写入门暂停／排空所有已登记 writer；本地回收操作有阶段日志、CAS、失败回滚和待决日志启动恢复，普通单 manifest 写入维持既有原子替换。仍未承诺跨进程写入、SQLite 事务、云冲突或断电持久性。手工恢复前退出应用并复制 manifest、backup 和 Originals；校验备份后再恢复。旧 Electron notes/localStorage 不会被读取或重写；需要单独的 legacy-demo 只读导入器，旧文本 fingerprint 不能转成虚构 PDF 坐标。
 
 用户已授权旧 Electron/React/Node/CLI 骨架退役。移出文件、未跟踪元数据和运行缓存有仓库外备份，完整 Git 历史保留；[迁移与恢复记录](docs/NATIVE-MIGRATION.md) 给出保留/移出理由及回滚方式。历史审计文档保留并标明时态。原 `PDFnoBridge.xcodeproj` 只是 CLI 辅助工程，不是当前原生阅读器主应用。
 

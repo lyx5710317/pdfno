@@ -95,6 +95,9 @@ public actor LibraryRepository {
         try bytes.write(to: manifest, options: .atomic)
     }
     public func importPDF(_ data: Data, filename: String, pageCount: Int) throws -> BookRecord {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         guard data.count <= 200 * 1024 * 1024 else { throw LibraryError.fileTooLarge }
         guard data.starts(with: Data("%PDF-".utf8)), pageCount > 0 else { throw LibraryError.invalidDocument }
         var state = try load()
@@ -117,6 +120,9 @@ public actor LibraryRepository {
         return data
     }
     public func saveProgress(bookID: UUID, pageIndex: Int) throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         var state = try load()
         guard let index = state.books.firstIndex(where: { $0.id == bookID }),
               (0..<state.books[index].pageCount).contains(pageIndex) else { throw LibraryError.sourceMismatch }
@@ -126,6 +132,9 @@ public actor LibraryRepository {
     }
     /// Compare-and-set the complete saved baseline; copy all immutable fields.
     public func updateNoteBody(expected: ReadingNote, text: String) throws -> ReadingNote {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         guard NoteBodySnapshot.pdf(expected).accepts(text) else { throw NoteBodyEditError.tooLong }
         var state = try load()
         guard let index = state.notes.firstIndex(where: { $0.id == expected.id && $0.bookID == expected.bookID }),
@@ -138,6 +147,9 @@ public actor LibraryRepository {
         state.notes[index] = next; try commit(state); return next
     }
     public func saveNote(_ note: ReadingNote) throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         var state = try load()
         guard let book = state.books.first(where: { $0.id == note.bookID }), Self.valid(note, for: book) else {
             throw LibraryError.sourceMismatch

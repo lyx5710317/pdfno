@@ -23,6 +23,7 @@ public final class AILearningModel: ObservableObject {
     @Published var kind: AILearningKind = .translate
     @Published var result: AIResult?
     @Published var notes: [AILearningNote] = []
+    let storageRoot: URL
     @Published var userText = ""
     @Published var busy = false
     @Published var status = "未配置 · 未发送请求"
@@ -56,6 +57,7 @@ public final class AILearningModel: ObservableObject {
         return (try? encoder.encode(DraftSource(bookID: source.bookID, anchor: anchor))).map(LibraryRepository.digest)
     }
     public init(root: URL, transport: any AIHTTPTransport = URLSessionAITransport(), timeoutSeconds: Double = 30, offlineTransport: Bool = false, aiSession: AppAISession = .shared) {
+        storageRoot = root
         repository = AILearningRepository(root: root); self.transport = transport; self.timeoutSeconds = timeoutSeconds; self.offlineTransport = offlineTransport
         self.aiSession = aiSession; remoteBudget = aiSession.selection
         #if os(macOS)
@@ -125,6 +127,17 @@ public final class AILearningModel: ObservableObject {
         return DeepSeekJapaneseLearningProvider(transport: transport, credentials: sessionCredentials,
             credentialReference: reference, aiSession: aiSession)
     }
+    /// Reuses this existing owner; constructing an adapter neither reads a key
+    /// nor sends a request, and English receives the same selection counter.
+    func englishLearningProvider() throws -> any EnglishLearningProvider {
+        guard config.isValid else { throw AIFailure.configuration }
+        if config.mode == .mock { return LocalMockEnglishLearningProvider() }
+        guard config.mode != .unconfigured else { throw AIFailure.unconfigured }
+        guard DeepSeekSelectionPolicy.supports(config) else { throw AIFailure.configuration }
+        guard hasSessionCredential, let reference = temporaryCredentialReference else { throw AIFailure.credentials }
+        return DeepSeekEnglishLearningProvider(transport: transport, credentials: sessionCredentials,
+            credentialReference: reference, aiSession: aiSession)
+    }
     func start(confirmed: Bool, sourceIsCurrent: @escaping @MainActor (AISourceSnapshot) -> Bool) {
         guard let source, source.isValid else { error = AIFailure.inputLimit.localizedDescription; return }
         guard confirmed else { error = AIFailure.consent.localizedDescription; return }
@@ -167,6 +180,8 @@ public final class AILearningModel: ObservableObject {
         }
     }
     func savePageResult(_ result: AIResult, userText: String, sourceIsCurrent: (AISourceSnapshot) -> Bool) async -> Bool {
+        guard let operation = try? LocalStoreWriteGate.shared(root: storageRoot).beginWrite() else { return false }
+        defer { operation.finish() }
         guard case .pdfPage = result.source.anchor, result.promptVersion == PDFPageTranslationPolicy.promptVersion,
               sourceIsCurrent(result.source) else { error = AIFailure.stale.localizedDescription; return false }
         guard !notes.contains(where: { $0.result.requestID == result.requestID }) else { return true }
@@ -176,6 +191,8 @@ public final class AILearningModel: ObservableObject {
         } catch { self.error = AIJobCoordinator.safeError(error).localizedDescription; return false }
     }
     func saveChapterResult(_ result: AIResult, userText: String, validateSource: (AISourceSnapshot) async -> Bool) async -> Bool {
+        guard let operation = try? LocalStoreWriteGate.shared(root: storageRoot).beginWrite() else { return false }
+        defer { operation.finish() }
         guard case .epubChapter = result.source.anchor, result.promptVersion == EPUBChapterTranslationPolicy.promptVersion,
               await validateSource(result.source) else { error = AIFailure.stale.localizedDescription; return false }
         guard !notes.contains(where: { $0.result.requestID == result.requestID }) else { return true }
@@ -185,6 +202,8 @@ public final class AILearningModel: ObservableObject {
         } catch { self.error = AIJobCoordinator.safeError(error).localizedDescription; return false }
     }
     func save(sourceIsCurrent: (AISourceSnapshot) -> Bool) async -> Bool {
+        guard let operation = try? LocalStoreWriteGate.shared(root: storageRoot).beginWrite() else { return false }
+        defer { operation.finish() }
         guard let result, sourceIsCurrent(result.source), result.provider == config else { error = AIFailure.stale.localizedDescription; return false }
         guard !notes.contains(where: { $0.result.requestID == result.requestID }) else { return true }
         do {

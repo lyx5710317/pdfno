@@ -21,7 +21,7 @@ public struct RecordBookIdentity: Sendable, Equatable, Identifiable {
         self.format = format; self.bookID = bookID; self.editionID = editionID; self.fileSHA256 = fileSHA256
     }
 }
-public enum RecordSearchKind: String, Sendable { case book, note, japanese }
+public enum RecordSearchKind: String, Sendable { case book, note, japanese, english }
 public struct RecordSearchTarget: Sendable, Equatable, Identifiable {
     public let book: RecordBookIdentity
     public let kind: RecordSearchKind
@@ -69,7 +69,7 @@ public struct RecordSearchResponse: SavedSearchResponse {
     public init(hits: [RecordSearchHit] = [], totalCount: Int = 0) { self.hits = hits; self.totalCount = totalCount }
 }
 public enum ResolvedRecordSearchSource: Sendable {
-    case text(TextFormatBook, TextFormatAnchor?), ebook(EbookBook, EbookAnchor?), japanese(AISourceSnapshot)
+    case text(TextFormatBook, TextFormatAnchor?), ebook(EbookBook, EbookAnchor?), japanese(AISourceSnapshot), english(AISourceSnapshot)
 }
 /// The integration UI can group each typed result by its original identity without inventing format aliases.
 public struct SavedRecordSearchResponse: SavedSearchResponse {

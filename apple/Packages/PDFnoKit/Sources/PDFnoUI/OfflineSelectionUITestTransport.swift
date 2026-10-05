@@ -20,6 +20,21 @@ actor OfflineSelectionUITestTransport: AIHTTPTransport {
         requests += 1
         if pageScenario == "slow" { try await Task.sleep(for: .seconds(30)) }
         if pageScenario == "fail-second", requests == 2 { return AIHTTPResponse(status: 402, body: Data()) }
+        if payload["task"] == "english-selection-learning" {
+            // Exact synthetic spans exercise review/save/source UI only. These
+            // ambiguous suggestions deliberately make no grammar quality claim.
+            let content = try JSONSerialization.data(withJSONObject: ["schemaVersion": 1, "language": "en", "sourceQuote": quote,
+                "offsetUnit": "unicode-code-point", "translationZh": "[离线英语 UI 替身] 仅验证来源与保存，不判断语法。",
+                "components": [["id": "s", "role": "subject", "quote": quote, "start": 0, "end": quote.unicodeScalars.count,
+                    "prefix": "", "suffix": "", "certainty": "ambiguous", "omitted": false, "inferred": false,
+                    "explanationZh": "合成主语候选：仅验证颜色、审阅和点击解释。"]],
+                "grammar": [["id": "g", "aspect": "clause", "quote": quote, "start": 0, "end": quote.unicodeScalars.count,
+                    "prefix": "", "suffix": "", "certainty": "ambiguous", "explanationZh": "合成英语语法解释：只用于协议和保存测试。"]],
+                "warnings": ["离线 UI transport，没有真实语言判断。"]])
+            return AIHTTPResponse(status: 200, body: try JSONSerialization.data(withJSONObject: ["choices": [[
+                "index": 0, "finish_reason": "stop", "message": ["role": "assistant", "tool_calls": NSNull(), "content": String(decoding: content, as: UTF8.self)]
+            ]]]))
+        }
         if payload["task"] == "japanese-selection-learning" {
             if japaneseScenario == "slow" { try await Task.sleep(for: .seconds(30)) }
             let first = String(quote.first ?? "日"), end = first.unicodeScalars.count

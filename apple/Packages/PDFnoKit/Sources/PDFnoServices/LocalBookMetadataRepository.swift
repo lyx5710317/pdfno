@@ -29,6 +29,9 @@ public actor LocalBookMetadataRepository {
         return state
     }
     public func save(book: LocalBookIdentity, title: String, author: String, expectedRevision: Int) throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         var state = try load()
         let index = state.records.firstIndex { $0.id == book.id }
         guard expectedRevision >= 0, expectedRevision < Int.max - 1,

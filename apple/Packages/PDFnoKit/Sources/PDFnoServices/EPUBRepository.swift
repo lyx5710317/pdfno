@@ -59,6 +59,9 @@ public actor EPUBRepository {
         try bytes.write(to: manifest, options: .atomic)
     }
     public func importBook(_ data: Data, filename: String) throws -> EPUBBook {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         _ = try EPUBArchive.validate(data)
         var state = try load(); let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         if let existing = state.books.first(where: { $0.fileSHA256 == hash }) { return existing }
@@ -74,6 +77,9 @@ public actor EPUBRepository {
         _ = try EPUBArchive.validate(data); return data
     }
     public func saveProgress(_ anchor: EPUBAnchor, bookID: UUID) throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         var state = try load()
         guard let index = state.books.firstIndex(where: { $0.id == bookID && $0.accepts(anchor) }) else { throw EPUBError.sourceMismatch }
         guard state.books[index].progress != anchor else { return }
@@ -82,6 +88,9 @@ public actor EPUBRepository {
     /// Legacy EPUB notes have no revision field; the saved snapshot is the
     /// compare-and-set baseline, preserving compatibility with schema 1.
     public func updateNoteBody(expected: EPUBNote, text: String) throws -> EPUBNote {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         guard NoteBodySnapshot.epub(expected).accepts(text) else { throw NoteBodyEditError.tooLong }
         var state = try load()
         guard let index = state.notes.firstIndex(where: { $0.id == expected.id && $0.bookID == expected.bookID }),
@@ -93,6 +102,9 @@ public actor EPUBRepository {
         state.notes[index] = next; try commit(state); return next
     }
     public func saveNote(_ note: EPUBNote) throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         var state = try load()
         guard note.userText.utf8.count <= 16000, !state.notes.contains(where: { $0.id == note.id }),
               state.books.contains(where: { $0.id == note.bookID && $0.accepts(note.anchor) }) else { throw EPUBError.sourceMismatch }

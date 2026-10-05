@@ -32,7 +32,7 @@ private struct LibrarySearchContent: View {
                 TextField("书名、作者、笔记或引文", text: $query)
                     .textFieldStyle(.roundedBorder).accessibilityIdentifier("library-search-input")
                     .onChange(of: query) { _, value in sourceError = nil; model.updateQuery(value) }
-                Text("搜索PDF／EPUB／DOCX／四种漫画书目，以及已保存的PDF／EPUB／文本／电子书／AI与日语笔记；文本和电子书仅书名。共享300项显示上限；不搜索全书正文、扫描图片或未保存草稿。")
+                Text("搜索PDF／EPUB／DOCX／四种漫画书目，以及已保存的PDF／EPUB／文本／电子书／AI与日英学习笔记；文本和电子书仅书名。共享300项显示上限；不搜索全书正文、扫描图片或未保存草稿。")
                     .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
                 HStack {
                     Text(status).font(.caption).accessibilityIdentifier("library-search-status")
@@ -91,8 +91,10 @@ private struct LibrarySearchContent: View {
                     ToolbarItem { Button("完成") { dismiss() }.disabled(opening).accessibilityIdentifier("library-search-close") }
                 }
         }.frame(minWidth: 520, idealWidth: 640, minHeight: 480)
-            .task { model.observeChanges(in: library); model.updateQuery("") }
-            .onDisappear { model.stopObservingChanges(); model.cancel() }
+            .task { library.activeSavedSearch = model; model.observeChanges(in: library); model.updateQuery("") }
+            .onDisappear { model.stopObservingChanges(); model.cancel(); if library.activeSavedSearch === model { library.activeSavedSearch = nil } }
+            .onChange(of: library.storageMaintenance) { _, paused in if paused { model.cancel() } else { model.refresh() } }
+            .disabled(library.storageMaintenance)
             .sheet(isPresented: $metadata) { LocalBookMetadataWorkspace(model: model) }
     }
     private var status: String {

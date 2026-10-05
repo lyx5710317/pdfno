@@ -13,6 +13,8 @@ struct EPUBWorkspace: View {
     @State private var ai = false
     @State private var chapterTranslation = false
     @State private var japaneseLearning = false
+    @State private var englishLearning = false
+    @State private var draftOwner = UUID().uuidString
     @State private var byokLearning = false
     var body: some View {
         VStack(spacing: 0) {
@@ -20,6 +22,8 @@ struct EPUBWorkspace: View {
                 JapaneseLearningEntry(identifier: "epub-japanese-learning", disabled: session.busy) {
                     model.prepareJapaneseLearning(); japaneseLearning = true
                 }
+                Button("英语结构与语法") { model.prepareEnglishLearning(); englishLearning = true }
+                    .disabled(session.busy).accessibilityIdentifier("epub-english-learning")
                 BYOKSelectionEntry(library: model, identifier: "epub-byok", disabled: session.busy) { byokLearning = true }
             }.buttonStyle(PDFnoActionStyle(role: .quiet))
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -94,10 +98,14 @@ struct EPUBWorkspace: View {
                         }
                     }
                     JapaneseSavedNotesSection(library: model, bookID: session.book?.id) { notes = false }
+                    EnglishSavedNotesSection(library: model, bookID: session.book?.id) { notes = false }
                 }.font(PDFnoDesign.TypeStyle.body).accessibilityIdentifier("epub-notes-list").navigationTitle("高亮与笔记").toolbar { ToolbarItem { Button("完成") { notes = false }.accessibilityIdentifier("epub-close-notes") } }
             }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: 480, minHeight: 420)
         }
         .sheet(isPresented: $chapterTranslation) { EPUBChapterTranslationWorkspace(library: model, translation: model.chapterTranslation, learning: model.learning) }
+        .onChange(of: draft) { _, value in model.recordVisibleDraft(owner: draftOwner, dirty: !value.isEmpty) }
+        .onDisappear { model.recordVisibleDraft(owner: draftOwner, dirty: false) }
+        .sheet(isPresented: $englishLearning) { EnglishLearningSheet(library: model) }
         .sheet(isPresented: $japaneseLearning) { JapaneseLearningSheet(library: model) }
         .sheet(isPresented: $ai) { AILearningWorkspace(library: model, learning: model.learning) }
         .sheet(isPresented: $byokLearning) { BYOKLearningWorkspace(library: model, model: model.byok) }

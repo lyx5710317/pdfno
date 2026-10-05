@@ -12,6 +12,8 @@ public final class LibraryModel: ObservableObject {
     @Published var books: [BookRecord] = []
     @Published var notes: [ReadingNote] = []
     @Published var isBusy = false
+    @Published var storageMaintenance = false
+    let storeWriteGate: LocalStoreWriteGate
     @Published var error: String?
     @Published var status = "本地书库 · 云同步未启用"
     @Published var canImport = false
@@ -35,10 +37,20 @@ public final class LibraryModel: ObservableObject {
     public let docx: DOCXLibraryModel
     public let textFormats: TextFormatLibraryModel
     let japaneseRepository: JapaneseLearningRepository
+    let englishRepository: EnglishLearningRepository
     @Published var japaneseNotes: [JapaneseLearningNote] = []
+    @Published var englishNotes: [EnglishLearningNote] = []
+    @Published var englishStoreError: String?
+    lazy var englishLearning = makeEnglishLearningModel()
+    var englishCommitFence: EnglishLearningSourceCommitFence?
+    var needsRecoveryDraftReview = false
+    var startupRecoveryCompleted = false
+    var startupRecoveryTask: Task<Bool, Never>?
+    weak var activeSavedSearch: SavedRecordSearchModel?
+    var recoveryManagement: LocalRecoveryManagementModel?
     @Published var japaneseStoreError: String?
     lazy var japaneseLearning = makeJapaneseLearningModel()
-    private let recordRoot: URL
+    let recordRoot: URL
     lazy var recordEditing = RecordEditingAdapter(root: recordRoot, library: self)
     let byok: BYOKSettingsModel
     let byokOfflineTransport: Bool
@@ -74,12 +86,14 @@ public final class LibraryModel: ObservableObject {
     // Internal injection keeps native source/storage regressions in fresh test
     // directories without configuring or accessing the user's real library.
     init(root: URL, aiSession: AppAISession = .shared, learningTransport: (any AIHTTPTransport)? = nil) {
+        storeWriteGate = LocalStoreWriteGate.shared(root: root)
         covers = CoverLibraryModel.shared(root: root)
         repository = LibraryRepository(root: root)
         epubRepository = EPUBRepository(root: root)
         comicRepository = ComicRepository(root: root)
         #if os(macOS)
         japaneseRepository = JapaneseLearningRepository(root: root)
+        englishRepository = EnglishLearningRepository(root: root)
         docx = DOCXLibraryModel(root: root)
         textFormats = TextFormatLibraryModel(root: root)
         booknoPreview = BooknoPreviewModel(repository: BooknoLibraryPreviewRepository(root: root))
@@ -120,7 +134,8 @@ public final class LibraryModel: ObservableObject {
         #else
         let beforePDFBodySave: @MainActor () throws -> Void = {}
         #endif
-        noteEditing = NoteEditingModel(root: root) { [repository, epubRepository, learningRepository = learning.repository] snapshot, text in
+        noteEditing = NoteEditingModel(root: root) { [repository, epubRepository, learningRepository = learning.repository, gate = storeWriteGate] snapshot, text in
+            let operation = try gate.beginWrite(); defer { operation.finish() }
             switch snapshot {
             case .pdf(let note):
                 try beforePDFBodySave()
@@ -133,17 +148,20 @@ public final class LibraryModel: ObservableObject {
         // The sidebar reads this nested model even while its reader is inactive.
         // Forward asynchronous load/restart changes as well as routed imports.
         ebookChanges = ebook.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
-        learning.japaneseScopeDidInvalidate = { [weak self] in self?.invalidateJapaneseLearning(); self?.invalidateBYOKSelection() }
-        epub.translationScopeDidChange = { [weak self] in self?.chapterTranslation.cancel(); self?.invalidateJapaneseLearning(); self?.invalidateBYOKSelection() }
-        japanesePDFSessionChanges = reader.$readerSessionID.dropFirst().sink { [weak self] _ in self?.invalidateJapaneseLearning(); self?.invalidateBYOKSelection() }
+        learning.japaneseScopeDidInvalidate = { [weak self] in self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
+        epub.translationScopeDidChange = { [weak self] in self?.chapterTranslation.cancel(); self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
+        japanesePDFSessionChanges = reader.$readerSessionID.dropFirst().sink { [weak self] _ in self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
         japanesePDFSelectionChanges = reader.$capturedSelection.dropFirst().sink { [weak self] anchor in
             self?.japaneseSelectionDidChange(anchor.map(AISelectionAnchor.pdf)); self?.byokSelectionDidChange(anchor.map(AISelectionAnchor.pdf))
+            self?.englishSelectionDidChange(anchor.map(AISelectionAnchor.pdf))
         }
         japaneseEPUBSelectionChanges = epub.$selection.dropFirst().sink { [weak self] anchor in
             self?.japaneseSelectionDidChange(anchor.map(AISelectionAnchor.epub)); self?.byokSelectionDidChange(anchor.map(AISelectionAnchor.epub))
+            self?.englishSelectionDidChange(anchor.map(AISelectionAnchor.epub))
         }
         docxChanges = docx.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         textChanges = textFormats.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
+        LibraryMaintenanceOwners.register(self, root: root)
         #endif
     }
     private static func isolatedUITestRoot(_ value: UUID) -> URL {
@@ -158,10 +176,20 @@ public final class LibraryModel: ObservableObject {
         return FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-UITests-" + value.uuidString)
         #endif
     }
-    private var progressSequence = 0
+    var progressSequence = 0
     func load() async {
         #if os(macOS)
-        comic.persist = { [comicRepository] bookID, progress in try await comicRepository.saveProgress(progress, bookID: bookID) }
+        if !startupRecoveryCompleted { guard await recoverStorageOnStartup() else { return } }
+        #endif
+        await reloadStoredLibrary()
+    }
+    func reloadStoredLibrary() async {
+        #if os(macOS)
+        comic.persist = { [weak self, comicRepository, gate = storeWriteGate, epoch = storeWriteGate.snapshot.epoch] bookID, progress in
+            guard let self, !storageMaintenance, readingComic, comic.book?.id == bookID else { throw ComicError.cancelled }
+            let operation = try gate.beginWrite(expectedEpoch: epoch); defer { operation.finish() }
+            try Task.checkCancellation(); try await comicRepository.saveProgress(progress, bookID: bookID)
+        }
         #endif
         do {
             let state = try await repository.load(); books = state.books; notes = state.notes; canImport = true
@@ -175,10 +203,13 @@ public final class LibraryModel: ObservableObject {
             await learning.load()
             #if os(macOS)
             await loadJapaneseLearningNotes()
+            await loadEnglishLearningNotes()
             #endif
         } catch { self.error = error.localizedDescription; canImport = false }
     }
     func importFile(_ url: URL) async {
+        guard let hostOperation = try? storeWriteGate.beginWrite() else { return  }
+        defer { hostOperation.finish() }
         learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
         await saveProgress()
         if url.pathExtension.lowercased() == "doc" { error = DOCXError.legacyDOC.localizedDescription; return }
@@ -210,6 +241,8 @@ public final class LibraryModel: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
     func open(_ book: BookRecord) async {
+        guard let hostOperation = try? storeWriteGate.beginWrite() else { return  }
+        defer { hostOperation.finish() }
         learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
         guard !isBusy else { return }
         isBusy = true; defer { isBusy = false }
@@ -251,6 +284,8 @@ public final class LibraryModel: ObservableObject {
         await importFile(url)
     }
     func saveNote(anchor: PDFSourceAnchor, text: String) async -> Bool {
+        guard let hostOperation = try? storeWriteGate.beginWrite() else { return false }
+        defer { hostOperation.finish() }
         guard let book = reader.book, reader.resolution(of: anchor) == .exact else {
             error = LibraryError.sourceMismatch.localizedDescription; return false
         }
@@ -274,6 +309,8 @@ public final class LibraryModel: ObservableObject {
         return PDFProgressSnapshot(bookID: book.id, sessionID: reader.readerSessionID, pageIndex: reader.pageIndex, sequence: progressSequence)
     }
     func saveProgress() async {
+        guard let hostOperation = try? storeWriteGate.beginWrite() else { return  }
+        defer { hostOperation.finish() }
         #if os(macOS)
         if textFormats.isActive, let anchor = textFormats.reader.progress { await textFormats.saveProgress(anchor); return }
         if ebook.isActive, let anchor = ebook.reader.progress { await ebook.saveProgress(anchor); return }
@@ -281,6 +318,8 @@ public final class LibraryModel: ObservableObject {
         if let snapshot = capturePDFProgress() { await saveProgress(snapshot) }
     }
     func saveProgress(_ snapshot: PDFProgressSnapshot) async {
+        guard let hostOperation = try? storeWriteGate.beginWrite() else { return  }
+        defer { hostOperation.finish() }
         guard snapshot.sequence == progressSequence, snapshot.sessionID == reader.readerSessionID, snapshot.bookID == reader.book?.id else { return }
         do {
             try await repository.saveProgress(bookID: snapshot.bookID, pageIndex: snapshot.pageIndex)
@@ -289,6 +328,8 @@ public final class LibraryModel: ObservableObject {
         catch { self.error = error.localizedDescription }
     }
     func importEPUB(_ url: URL) async {
+        guard let hostOperation = try? storeWriteGate.beginWrite() else { return  }
+        defer { hostOperation.finish() }
         learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
         #if os(macOS)
         guard canImport, !isBusy else { return }; isBusy = true; defer { isBusy = false }
@@ -307,6 +348,8 @@ public final class LibraryModel: ObservableObject {
         #endif
     }
     func openEPUB(_ book: EPUBBook) async {
+        guard let hostOperation = try? storeWriteGate.beginWrite() else { return  }
+        defer { hostOperation.finish() }
         learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
         #if os(macOS)
         guard !isBusy else { return }; isBusy = true; defer { isBusy = false }
@@ -328,6 +371,8 @@ public final class LibraryModel: ObservableObject {
     }
     #if os(macOS)
     func importDOCX(_ url: URL) async {
+        guard let hostOperation = try? storeWriteGate.beginWrite() else { return  }
+        defer { hostOperation.finish() }
         learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
         guard canImport, !isBusy else { return }; isBusy = true; defer { isBusy = false }
         await saveProgress()
@@ -340,6 +385,8 @@ public final class LibraryModel: ObservableObject {
         if let url = Bundle.module.url(forResource: "study-sample", withExtension: "docx") { await importDOCX(url) }
     }
     func openDOCX(_ book: DOCXBook) async {
+        guard let hostOperation = try? storeWriteGate.beginWrite() else { return  }
+        defer { hostOperation.finish() }
         learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
         guard !isBusy else { return }; isBusy = true; defer { isBusy = false }
         await saveProgress()
@@ -394,6 +441,8 @@ public final class LibraryModel: ObservableObject {
         }
     }
     func saveEPUBNote(_ anchor: EPUBAnchor, text: String) async -> Bool {
+        guard let hostOperation = try? storeWriteGate.beginWrite() else { return false }
+        defer { hostOperation.finish() }
         guard let book = epub.book, book.accepts(anchor) else { return false }
         do {
             try await epubRepository.saveNote(EPUBNote(bookID: book.id, anchor: anchor, userText: text))
@@ -401,6 +450,8 @@ public final class LibraryModel: ObservableObject {
         } catch { self.error = error.localizedDescription; return false }
     }
     func saveEPUBProgress(_ anchor: EPUBAnchor) async {
+        guard let hostOperation = try? storeWriteGate.beginWrite() else { return  }
+        defer { hostOperation.finish() }
         guard let book = epub.book, book.accepts(anchor) else { return }
         do { try await epubRepository.saveProgress(anchor, bookID: book.id) }
         catch { self.error = error.localizedDescription }

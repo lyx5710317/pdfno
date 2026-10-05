@@ -72,6 +72,9 @@ public actor DOCXRepository {
         return try importBook(Self.boundedRead(url), filename: url.lastPathComponent)
     }
     public func importBook(_ data: Data, filename: String) throws -> DOCXBook {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         guard URL(fileURLWithPath: filename).pathExtension.lowercased() != "doc" else { throw DOCXError.legacyDOC }
         guard URL(fileURLWithPath: filename).pathExtension.lowercased() == "docx" else { throw DOCXError.unsupportedContent }
         _ = try DOCXParser.preflight(data)
@@ -112,12 +115,18 @@ public actor DOCXRepository {
         guard book.accepts(anchor), try document(book).resolves(anchor) else { throw DOCXError.sourceMismatch }
     }
     public func saveNote(_ note: DOCXNote) throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         var state = try load()
         guard note.userText.utf8.count <= 16000, !state.notes.contains(where: { $0.id == note.id }),
               let book = state.books.first(where: { $0.id == note.bookID }) else { throw DOCXError.sourceMismatch }
         try verify(note.anchor, book: book); state.notes.append(note); try commit(state)
     }
     public func saveProgress(_ anchor: DOCXAnchor, bookID: UUID) throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         var state = try load()
         guard let index = state.books.firstIndex(where: { $0.id == bookID }) else { throw DOCXError.sourceMismatch }
         try verify(anchor, book: state.books[index])

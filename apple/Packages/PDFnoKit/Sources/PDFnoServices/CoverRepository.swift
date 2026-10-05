@@ -151,6 +151,9 @@ public actor CoverRepository {
         return (record, raster)
     }
     public func replace(_ identity: CoverIdentity, withLocalImage url: URL) throws -> CoverRecord {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         let state = try load(); _ = try original(identity)
         let scoped = url.startAccessingSecurityScopedResource(); defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         let data = try BoundedFileReader.read(url, limit: CoverLimits.inputBytes)
@@ -162,11 +165,17 @@ public actor CoverRepository {
     }
     /// Explicit restore rebuilds the automatic cover even when extractor/source have not changed.
     public func restoreAutomatic(_ identity: CoverIdentity) throws -> CoverRecord {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         let old = try load().records.first { $0.identity.bookID == identity.bookID }
         let (record, raster) = try generate(identity, revision: (old?.revision ?? 0) + 1)
         try save(record, raster: raster); return record
     }
     public func thumbnail(for identity: CoverIdentity) throws -> CoverThumbnail {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         try Task.checkCancellation()
         let existing = try load().records.first { $0.identity.bookID == identity.bookID }
         var record = existing?.identity == identity ? existing : nil

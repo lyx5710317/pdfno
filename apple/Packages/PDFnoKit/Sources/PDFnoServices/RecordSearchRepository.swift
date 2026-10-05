@@ -6,22 +6,31 @@ import PDFnoDomain
 public actor RecordSearchRepository {
     private let text: TextFormatRepository
     private let ebook: EbookRepository
+    private let gate: LocalStoreWriteGate
+    private let english: EnglishLearningRepository
     private let japanese: JapaneseLearningRepository
     private let pdf: LibraryRepository
     private let epub: EPUBRepository
     public init(root: URL) {
+        gate = .shared(root: root); english = EnglishLearningRepository(root: root)
         text = TextFormatRepository(root: root); ebook = EbookRepository(root: root)
         japanese = JapaneseLearningRepository(root: root); pdf = LibraryRepository(root: root); epub = EPUBRepository(root: root)
     }
     public func search(_ query: String, limit: Int = LibrarySearchIndex.resultLimit) async throws -> RecordSearchResponse {
+        let epoch = gate.snapshot.epoch
+        guard gate.snapshot.phase == .writable else { throw LibrarySearchFailure.store }
         let tokens = try LibrarySearchIndex.tokens(query); try Task.checkCancellation()
         let t = try await text.load(); try Task.checkCancellation()
         let e = try await ebook.load(); try Task.checkCancellation()
         let j = try await japanese.load(); try Task.checkCancellation()
+        let en = try await english.load(); try Task.checkCancellation()
         let p = try await pdf.load(); try Task.checkCancellation()
         let u = try await epub.load(); try Task.checkCancellation()
-        let task = Task.detached { try Self.build(tokens, text: t, ebook: e, japanese: j, pdf: p, epub: u, limit: limit) }
-        return try await withTaskCancellationHandler(operation: { try await task.value }, onCancel: { task.cancel() })
+        guard gate.snapshot.phase == .writable, gate.snapshot.epoch == epoch else { throw LibrarySearchFailure.store }
+        let task = Task.detached { try Self.build(tokens, text: t, ebook: e, japanese: j, english: en, pdf: p, epub: u, limit: limit) }
+        let result = try await withTaskCancellationHandler(operation: { try await task.value }, onCancel: { task.cancel() })
+        guard gate.snapshot.phase == .writable, gate.snapshot.epoch == epoch else { throw LibrarySearchFailure.store }
+        return result
     }
     private static func identity(_ b: TextFormatBook) -> RecordBookIdentity {
         RecordBookIdentity(format: .text(b.format), bookID: b.id, editionID: b.editionID, fileSHA256: b.fileSHA256)
@@ -29,7 +38,7 @@ public actor RecordSearchRepository {
     private static func identity(_ b: EbookBook) -> RecordBookIdentity {
         RecordBookIdentity(format: .ebook(b.format), bookID: b.id, editionID: b.editionID, fileSHA256: b.fileSHA256)
     }
-    private static func build(_ tokens: [String], text: TextFormatState, ebook: EbookState, japanese: JapaneseLearningState,
+    private static func build(_ tokens: [String], text: TextFormatState, ebook: EbookState, japanese: JapaneseLearningState, english: EnglishLearningState,
                               pdf: LibraryState, epub: EPUBState, limit: Int) throws -> RecordSearchResponse {
         guard !tokens.isEmpty else { return RecordSearchResponse() }
         var entries: [RecordSearchEntry] = []
@@ -80,6 +89,23 @@ public actor RecordSearchRepository {
                 title: title ?? "来源书籍不在书库", userText: n.userText, quote: source.anchor.quote, generatedText: generated,
                 correctionsText: n.corrections.map { $0.reading }.joined(separator: "\n"), location: source.anchor.locationLabel, sourceAvailable: title != nil))
         }
+        for n in english.notes {
+            try Task.checkCancellation()
+            let source = n.review.source, isPDF: Bool
+            switch source.anchor { case .pdf: isPDF = true; case .epub: isPDF = false; default: continue }
+            let id = RecordBookIdentity(format: isPDF ? .pdf : .epub, bookID: source.bookID,
+                editionID: source.anchor.editionID, fileSHA256: source.anchor.fileSHA256)
+            let title: String?
+            if isPDF { title = pdfBooks[source.bookID].flatMap { $0.editionID == id.editionID && $0.fileSHA256 == id.fileSHA256 ? $0.title : nil } }
+            else { title = epubBooks[source.bookID].flatMap { $0.editionID == id.editionID && $0.fileSHA256 == id.fileSHA256 ? $0.title : nil } }
+            var fields = [n.review.translationZh ?? ""]
+            for component in n.review.components { fields.append(component.role.labelZh); fields.append(component.explanationZh) }
+            for grammar in n.review.grammar { fields.append(grammar.aspect.labelZh); fields.append(grammar.explanationZh) }
+            fields.append(contentsOf: n.review.warnings)
+            entries.append(RecordSearchEntry(target: RecordSearchTarget(book: id, kind: .english, noteID: n.id),
+                title: title ?? "来源书籍不在书库", userText: n.userText, quote: source.anchor.quote,
+                generatedText: fields.joined(separator: "\n"), location: source.anchor.locationLabel, sourceAvailable: title != nil))
+        }
         var hits: [RecordSearchHit] = [], count = 0
         for entry in entries.sorted(by: { $0.id < $1.id }) {
             try Task.checkCancellation()
@@ -108,8 +134,16 @@ public actor RecordSearchRepository {
             guard target.kind == .note, let n = state.notes.first(where: { $0.id == target.noteID && $0.bookID == b.id }), b.accepts(n.anchor) else { throw LibrarySearchFailure.source }
             return .ebook(b, n.anchor)
         case .pdf, .epub:
-            guard target.kind == .japanese, let n = try await japanese.load().notes.first(where: { $0.id == target.noteID }) else { throw LibrarySearchFailure.source }
-            let source = n.review.source
+            let source: AISourceSnapshot
+            switch target.kind {
+            case .japanese:
+                guard let n = try await japanese.load().notes.first(where: { $0.id == target.noteID }) else { throw LibrarySearchFailure.source }
+                source = n.review.source
+            case .english:
+                guard let n = try await english.load().notes.first(where: { $0.id == target.noteID }) else { throw LibrarySearchFailure.source }
+                source = n.review.source
+            default: throw LibrarySearchFailure.source
+            }
             guard source.isValid, source.bookID == target.book.bookID, source.anchor.editionID == target.book.editionID,
                   source.anchor.fileSHA256 == target.book.fileSHA256 else { throw LibrarySearchFailure.source }
             switch (target.book.format, source.anchor) {
@@ -119,7 +153,7 @@ public actor RecordSearchRepository {
                 guard try await epub.load().books.contains(where: { $0.id == source.bookID && $0.accepts(a) }) else { throw LibrarySearchFailure.source }
             default: throw LibrarySearchFailure.source
             }
-            return .japanese(source)
+            return target.kind == .english ? .english(source) : .japanese(source)
         }
     }
 }
@@ -127,14 +161,18 @@ public actor RecordSearchRepository {
 /// One request combines the existing index and admitted record types, with one display budget.
 /// A failure in either store family fails the request, allowing the UI to clear all stale hits.
 public actor SavedRecordSearchRepository {
+    private let gate: LocalStoreWriteGate
     private let legacy: LibrarySearchRepository
     private let records: RecordSearchRepository
-    public init(root: URL) { legacy = LibrarySearchRepository(root: root); records = RecordSearchRepository(root: root) }
+    public init(root: URL) { gate = .shared(root: root); legacy = LibrarySearchRepository(root: root); records = RecordSearchRepository(root: root) }
     public func search(_ query: String) async throws -> SavedRecordSearchResponse {
+        let epoch = gate.snapshot.epoch
+        guard gate.snapshot.phase == .writable else { throw LibrarySearchFailure.store }
         let old = try await legacy.search(query); try Task.checkCancellation()
         let displayed = old.groups.reduce(0) { $0 + $1.hits.count }
         let newer = try await records.search(query, limit: LibrarySearchIndex.resultLimit - displayed)
         try Task.checkCancellation()
+        guard gate.snapshot.phase == .writable, gate.snapshot.epoch == epoch else { throw LibrarySearchFailure.store }
         return SavedRecordSearchResponse(legacy: old, records: newer)
     }
 }

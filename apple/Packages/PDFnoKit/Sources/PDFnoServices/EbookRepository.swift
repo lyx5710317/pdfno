@@ -69,6 +69,9 @@ public actor EbookRepository {
         return try importBook(Self.boundedRead(url), filename: url.lastPathComponent)
     }
     public func importBook(_ data: Data, filename: String, candidate: EbookBook? = nil) throws -> EbookBook {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         guard let format = EbookFormat(rawValue: URL(fileURLWithPath: filename).pathExtension.lowercased()) else { throw EbookError.unsupportedContent }
         let kind = try EbookPreflight.validate(data, format: format)
         var state = try load(); let hash = Self.hash(data)
@@ -110,6 +113,9 @@ public actor EbookRepository {
         guard book.accepts(anchor), try document(book).resolves(anchor) else { throw EbookError.sourceMismatch }
     }
     public func saveNote(_ note: EbookNote) throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         var state = try load()
         guard note.userText.utf8.count <= 16000, !state.notes.contains(where: { $0.id == note.id }),
               let book = state.books.first(where: { $0.id == note.bookID }) else { throw EbookError.sourceMismatch }
@@ -118,6 +124,9 @@ public actor EbookRepository {
     /// Body-only compare-and-set against the saved snapshot. Reopening a reader is unnecessary.
     /// Never recreate or normalize a source anchor while editing a saved body.
     public func updateNoteBody(expected: EbookNote, text: String) throws -> EbookNote {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         try Task.checkCancellation()
         guard text.utf8.count <= 16000 else { throw NoteBodyEditError.tooLong }
         var state = try load()
@@ -131,6 +140,9 @@ public actor EbookRepository {
         try Task.checkCancellation(); try commit(state); return next
     }
     public func saveProgress(_ anchor: EbookAnchor, bookID: UUID) throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         var state = try load()
         guard let index = state.books.firstIndex(where: { $0.id == bookID }) else { throw EbookError.sourceMismatch }
         try verify(anchor, book: state.books[index])

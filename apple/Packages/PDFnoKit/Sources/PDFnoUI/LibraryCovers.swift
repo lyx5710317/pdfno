@@ -21,17 +21,24 @@ final class CoverLibraryModel: ObservableObject {
         let model = CoverLibraryModel(root: key); models[key] = WeakModel(model); return model
     }
     let repository: CoverRepository
+    let storageRoot: URL
+    @Published private(set) var maintenanceGeneration = 0
     @Published private(set) var generations: [UUID: Int] = [:]
     @Published private(set) var busy = false
     @Published var error: String?
-    init(root: URL) { repository = CoverRepository(root: root) }
+    init(root: URL) { storageRoot = root; repository = CoverRepository(root: root) }
+    func invalidateAfterMaintenance() async {
+        await repository.clearMemoryCache()
+        for id in Array(generations.keys) { generations[id, default: 0] += 1 }
+    }
+    func resumeAfterMaintenance() { maintenanceGeneration += 1 }
     func replace(_ identity: CoverIdentity, url: URL) async {
-        guard !busy else { return }; busy = true; defer { busy = false }
+        guard !busy, let operation = try? LocalStoreWriteGate.shared(root: storageRoot).beginWrite() else { return }; defer { operation.finish() }; busy = true; defer { busy = false }
         do { _ = try await repository.replace(identity, withLocalImage: url); generations[identity.bookID, default: 0] += 1 }
         catch { self.error = error.localizedDescription }
     }
     func restore(_ identity: CoverIdentity) async {
-        guard !busy else { return }; busy = true; defer { busy = false }
+        guard !busy, let operation = try? LocalStoreWriteGate.shared(root: storageRoot).beginWrite() else { return }; defer { operation.finish() }; busy = true; defer { busy = false }
         do { _ = try await repository.restoreAutomatic(identity); generations[identity.bookID, default: 0] += 1 }
         catch { self.error = error.localizedDescription }
     }
@@ -66,9 +73,10 @@ struct LibraryCoverImage: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(failure ? "封面暂不可用" : origin)
             .accessibilityIdentifier("cover-image-" + identity.bookID.uuidString)
-            .task(id: "\(identity.hashValue)-\(covers.generations[identity.bookID, default: 0])") {
+            .task(id: "\(identity.hashValue)-\(covers.generations[identity.bookID, default: 0])-\(covers.maintenanceGeneration)") {
                 image = nil; failure = false
                 do {
+                    let operation = try LocalStoreWriteGate.shared(root: covers.storageRoot).beginWrite(); defer { operation.finish() }
                     let result = try await covers.repository.thumbnail(for: identity)
                     try Task.checkCancellation()
                     #if os(macOS)

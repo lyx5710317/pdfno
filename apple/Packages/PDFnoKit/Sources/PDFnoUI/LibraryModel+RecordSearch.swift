@@ -47,7 +47,7 @@ extension LibraryModel {
                 guard case .ebook(let freshBook, let freshAnchor) = try await repository.resolve(target), freshBook.id == book.id,
                       let freshAnchor, freshAnchor == anchor, recordSearchReaderScope() == activeScope, !Task.isCancelled else { return false }
                 return await ebook.reader.navigate(to: freshAnchor)
-            case .japanese(let source):
+            case .japanese(let source), .english(let source):
                 let format: LocalBookFormat
                 switch source.anchor {
                 case .pdf(let anchor):
@@ -73,10 +73,16 @@ extension LibraryModel {
                     guard sameRecordEPUB(target.book, session: session), epub.error == nil, epub.webView != nil else { return false }
                 }
                 let activeScope = recordSearchReaderScope()
-                guard !Task.isCancelled, case .japanese(let fresh) = try await repository.resolve(target) else { return false }
+                guard !Task.isCancelled else { return false }
+                let fresh: AISourceSnapshot
+                switch try await repository.resolve(target) {
+                case .japanese(let value) where target.kind == .japanese: fresh = value
+                case .english(let value) where target.kind == .english: fresh = value
+                default: return false
+                }
                 let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
                 guard try encoder.encode(fresh) == encoder.encode(source), recordSearchReaderScope() == activeScope, !Task.isCancelled else { return false }
-                return await returnToJapaneseSource(fresh)
+                return target.kind == .english ? await returnToEnglishSource(fresh) : await returnToJapaneseSource(fresh)
             }
         } catch { return false }
     }

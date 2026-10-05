@@ -86,8 +86,8 @@ public struct LocalRecoveryWorkspace: View {
                 Text("本地回收站与备份").font(.title2).bold()
                 Text("移至回收站会暂时移出本地书库，保留原件、来源、阅读位置和已保存笔记。回收站没有自动清空或永久删除。")
                 HStack {
-                    Button("导出校验备份") { action = .export; picker = true }
-                    Button("预检备份目录") { action = .inspect; picker = true }
+                    Button("导出校验备份") { action = .export; picker = true }.accessibilityIdentifier("local-recovery-export")
+                    Button("预检备份目录") { action = .inspect; picker = true }.accessibilityIdentifier("local-recovery-inspect")
                     Button("刷新") { Task { await model.refresh() } }
                 }
                 if let preview = model.backupPreview {
@@ -104,14 +104,14 @@ public struct LocalRecoveryWorkspace: View {
                         Text(preview.tombstoneID == nil ? "确认移至回收站" : "确认恢复回收记录").font(.headline)
                         Text("关联已保存笔记：\(preview.savedRecords)；保留资产：\(preview.retainedAssets)。数据变化或冲突会阻止提交。")
                         HStack {
-                            Button("取消") { model.dismissChange() }
-                            Button(preview.tombstoneID == nil ? "移至本地回收站" : "恢复到书库") { Task { await model.confirmChange() } }
+                            Button("取消") { model.dismissChange() }.accessibilityIdentifier("local-recovery-cancel-change")
+                            Button(preview.tombstoneID == nil ? "移至本地回收站" : "恢复到书库") { Task { await model.confirmChange() } }.accessibilityIdentifier("local-recovery-confirm-change")
                         }
                     }.padding().background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
                 }
                 Text("书库").font(.headline)
                 ForEach(model.books) { book in
-                    HStack { Text(book.title); Spacer(); Button("移至回收站…") { Task { await model.preview(.book(book)) } } }
+                    HStack { Text(book.title); Spacer(); Button("移至回收站…") { Task { await model.preview(.book(book)) } }.accessibilityIdentifier("local-recovery-trash-" + book.id.uuidString) }
                 }
                 Text("回收站（一直保留）").font(.headline)
                 if model.tombstones.isEmpty { Text("回收站为空").foregroundStyle(.secondary) }
@@ -119,7 +119,7 @@ public struct LocalRecoveryWorkspace: View {
                     HStack {
                         Text(label(entry.target)); Spacer()
                         if entry.restored { Text("已恢复").foregroundStyle(.secondary) }
-                        else { Button("预检恢复…") { Task { await model.previewRestore(entry.id) } } }
+                        else { Button("预检恢复…") { Task { await model.previewRestore(entry.id) } }.accessibilityIdentifier("local-recovery-restore-" + entry.id.uuidString) }
                     }
                 }
                 Text(model.message).font(.callout).accessibilityIdentifier("local-recovery-status")
@@ -127,6 +127,7 @@ public struct LocalRecoveryWorkspace: View {
                     .font(.caption).foregroundStyle(.secondary)
             }.padding()
         }
+        .accessibilityIdentifier("local-recovery-form")
         .disabled(model.busy)
         .overlay { if model.busy { ProgressView("正在校验本地数据…") } }
         .task { await model.refresh() }

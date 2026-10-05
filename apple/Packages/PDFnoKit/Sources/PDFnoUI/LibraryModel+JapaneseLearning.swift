@@ -9,7 +9,10 @@ extension LibraryModel {
         JapaneseLearningModel(provider: UnavailableJapaneseLearningProvider(), sourceIsCurrent: { [weak self] source, config in
             self?.isCurrentJapaneseScope(source, config: config) == true
         }, saveReviewedNote: { [weak self] note in
-            guard let self, await validateJapaneseSourceForSave(note.review.source, config: note.review.provider) else { throw AIFailure.stale }
+            guard let self, !storageMaintenance else { throw AIFailure.stale }
+            let operation = try storeWriteGate.beginWrite()
+            defer { operation.finish() }
+            guard await validateJapaneseSourceForSave(note.review.source, config: note.review.provider) else { throw AIFailure.stale }
             try await japaneseRepository.saveNote(note)
             japaneseNotes = try await japaneseRepository.load().notes
         })

@@ -19,11 +19,13 @@ final class RecordEditingAdapter {
     init(root: URL, library: LibraryModel) {
         self.library = library
         editor = RecordEditingModel(root: root, filename: "record-edit-drafts-v1.json") {
-            [text = library.textFormats.repository, ebook = library.ebook.repository, japanese = library.japaneseRepository] snapshot, body in
+            [text = library.textFormats.repository, ebook = library.ebook.repository, japanese = library.japaneseRepository, english = library.englishRepository, gate = library.storeWriteGate] snapshot, body in
+            let operation = try gate.beginWrite(); defer { operation.finish() }
             switch snapshot {
             case .text(let n): return .text(try await text.updateNoteBody(expected: n, text: body))
             case .ebook(let n): return .ebook(try await ebook.updateNoteBody(expected: n, text: body))
             case .japanese(let n): return .japanese(try await japanese.updateNoteBody(expected: n, text: body))
+            case .english(let n): return .english(try await english.updateNoteBody(expected: n, text: body))
             }
         }
     }
@@ -47,6 +49,9 @@ final class RecordEditingAdapter {
             case .japanese:
                 guard let n = try await library.japaneseRepository.load().notes.first(where: { $0.id == note.noteID && $0.review.source.bookID == note.bookID }) else { throw NoteBodyEditError.conflict }
                 fresh = .japanese(n)
+            case .english:
+                guard let n = try await library.englishRepository.load().notes.first(where: { $0.id == note.noteID && $0.review.source.bookID == note.bookID }) else { throw NoteBodyEditError.conflict }
+                fresh = .english(n)
             }
             publish(fresh, library: library, textSession: nil, ebookSession: nil); editor.rebase(fresh)
         } catch { editor.reportReloadFailure(note) }
@@ -57,6 +62,8 @@ final class RecordEditingAdapter {
         case .ebook(let n): library.ebook.publishEditedNote(n, session: ebookSession)
         case .japanese(let n):
             if let i = library.japaneseNotes.firstIndex(where: { $0.id == n.id }) { library.japaneseNotes[i] = n }
+        case .english(let n):
+            if let i = library.englishNotes.firstIndex(where: { $0.id == n.id }) { library.englishNotes[i] = n }
         }
     }
 }

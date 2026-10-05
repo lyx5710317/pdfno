@@ -14,9 +14,15 @@ public actor JapaneseLearningRepository {
     private let root: URL
     public init(root: URL) { self.root = root.standardizedFileURL.resolvingSymlinksInPath() }
     public func load() async throws -> JapaneseLearningState { try await JapaneseLearningFileGate.shared.load(root: root) }
-    public func saveNote(_ note: JapaneseLearningNote) async throws { try await JapaneseLearningFileGate.shared.save(note, root: root) }
+    public func saveNote(_ note: JapaneseLearningNote) async throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+        try await JapaneseLearningFileGate.shared.save(note, root: root)
+    }
     public func updateNoteBody(expected: JapaneseLearningNote, text: String) async throws -> JapaneseLearningNote {
-        try await JapaneseLearningFileGate.shared.updateBody(expected: expected, text: text, root: root)
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+        return try await JapaneseLearningFileGate.shared.updateBody(expected: expected, text: text, root: root)
     }
     public static func decode(_ data: Data) throws -> JapaneseLearningState {
         func object(_ value: Any?, _ required: Set<String>, optional: Set<String> = []) -> [String: Any]? {

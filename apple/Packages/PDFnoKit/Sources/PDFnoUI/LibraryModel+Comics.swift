@@ -12,6 +12,8 @@ extension LibraryModel {
         readingComic = false
     }
     func importComic(_ url: URL) async {
+        guard let hostOperation = try? storeWriteGate.beginWrite() else { return  }
+        defer { hostOperation.finish() }
         learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
         #if os(macOS)
         guard canImport, !isBusy else { return }
@@ -35,6 +37,8 @@ extension LibraryModel {
         #endif
     }
     func openComic(_ book: ComicBook) async {
+        guard let hostOperation = try? storeWriteGate.beginWrite() else { return  }
+        defer { hostOperation.finish() }
         learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
         #if os(macOS)
         guard !isBusy else { return }; isBusy = true; defer { isBusy = false }

@@ -70,6 +70,9 @@ public actor TextFormatRepository {
         return try importBook(Self.boundedRead(url), filename: url.lastPathComponent)
     }
     public func importBook(_ data: Data, filename: String) throws -> TextFormatBook {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         guard let format = TextFileFormat.from(filename: filename) else { throw TextFormatError.unsupportedContent }
         _ = try TextFileDecoder.decode(data, format: format)
         var state = try load(); let hash = Self.hash(data)
@@ -109,6 +112,9 @@ public actor TextFormatRepository {
         guard book.accepts(anchor), try document(book).resolves(anchor) else { throw TextFormatError.sourceMismatch }
     }
     public func saveNote(_ note: TextFormatNote) throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         var state = try load()
         guard note.userText.utf8.count <= 16000, !state.notes.contains(where: { $0.id == note.id }),
               let book = state.books.first(where: { $0.id == note.bookID }) else { throw TextFormatError.sourceMismatch }
@@ -117,6 +123,9 @@ public actor TextFormatRepository {
     /// Body-only compare-and-set against the saved snapshot. Reopening a reader is unnecessary.
     /// Never recreate or normalize a source anchor while editing a saved body.
     public func updateNoteBody(expected: TextFormatNote, text: String) throws -> TextFormatNote {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         try Task.checkCancellation()
         guard text.utf8.count <= 16000 else { throw NoteBodyEditError.tooLong }
         var state = try load()
@@ -130,6 +139,9 @@ public actor TextFormatRepository {
         try Task.checkCancellation(); try commit(state); return next
     }
     public func saveProgress(_ anchor: TextFormatAnchor, bookID: UUID) throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         var state = try load()
         guard let index = state.books.firstIndex(where: { $0.id == bookID }) else { throw TextFormatError.sourceMismatch }
         try verify(anchor, book: state.books[index])

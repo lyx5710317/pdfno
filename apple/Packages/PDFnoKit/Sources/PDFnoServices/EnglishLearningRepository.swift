@@ -14,9 +14,15 @@ public actor EnglishLearningRepository {
     private let root: URL
     public init(root: URL) { self.root = root.standardizedFileURL.resolvingSymlinksInPath() }
     public func load() async throws -> EnglishLearningState { try await EnglishLearningFileGate.shared.load(root: root) }
-    public func saveNote(_ note: EnglishLearningNote) async throws { try await EnglishLearningFileGate.shared.save(note, root: root) }
+    public func saveNote(_ note: EnglishLearningNote, commitFence: EnglishLearningSourceCommitFence? = nil) async throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+        try await EnglishLearningFileGate.shared.save(note, root: root, commitFence: commitFence)
+    }
     public func updateNoteBody(expected: EnglishLearningNote, text: String) async throws -> EnglishLearningNote {
-        try await EnglishLearningFileGate.shared.updateBody(expected: expected, text: text, root: root)
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+        return try await EnglishLearningFileGate.shared.updateBody(expected: expected, text: text, root: root)
     }
     public static func decode(_ data: Data) throws -> EnglishLearningState {
         guard data.count <= maxBytes, JapaneseLearningJSON.hasUniqueKeysForStore(data),
@@ -95,7 +101,14 @@ private actor EnglishLearningFileGate {
         try Task.checkCancellation()
         try data.write(to: path, options: .atomic)
     }
-    func save(_ note: EnglishLearningNote, root: URL) throws {
+    func save(_ note: EnglishLearningNote, root: URL, commitFence: EnglishLearningSourceCommitFence?) throws {
+        if let commitFence {
+            try commitFence.withValidatedCommit(root: root, source: note.review.source) {
+                try saveValidated(note, root: root)
+            }
+        } else { try saveValidated(note, root: root) }
+    }
+    private func saveValidated(_ note: EnglishLearningNote, root: URL) throws {
         try Task.checkCancellation()
         guard note.isPersistable else { throw AIFailure.output }
         var state = try load(root: root)

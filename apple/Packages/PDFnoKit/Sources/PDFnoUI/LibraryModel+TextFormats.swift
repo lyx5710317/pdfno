@@ -4,6 +4,8 @@ import Foundation
 import PDFnoDomain
 extension LibraryModel {
     func importTextFormat(_ url: URL) async {
+        guard let hostOperation = try? storeWriteGate.beginWrite() else { return  }
+        defer { hostOperation.finish() }
         learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
         guard canImport, !isBusy else { return }; isBusy = true; defer { isBusy = false }
         await saveProgress()
@@ -14,6 +16,8 @@ extension LibraryModel {
         } catch { self.error = error.localizedDescription }
     }
     func openTextFormat(_ book: TextFormatBook) async {
+        guard let hostOperation = try? storeWriteGate.beginWrite() else { return  }
+        defer { hostOperation.finish() }
         learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
         guard !isBusy else { return }; isBusy = true; defer { isBusy = false }
         await saveProgress()

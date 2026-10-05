@@ -65,6 +65,9 @@ public actor AILearningRepository {
         try data.write(to: manifest, options: .atomic)
     }
     public func saveConfig(_ config: AIProviderConfig) throws -> AIProviderConfig {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         guard config.isValid else { throw AIFailure.configuration }
         var state = try load(), next = config
         next.id = state.config.id; next.generation = state.config.generation + 1
@@ -72,6 +75,9 @@ public actor AILearningRepository {
     }
     /// Editing user text never regenerates or modifies the saved AI result.
     public func updateNoteBody(expected: AILearningNote, text: String) throws -> AILearningNote {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         guard NoteBodySnapshot.learning(expected).accepts(text) else { throw NoteBodyEditError.tooLong }
         var state = try load()
         guard let index = state.notes.firstIndex(where: { $0.id == expected.id }),
@@ -83,6 +89,9 @@ public actor AILearningRepository {
         state.notes[index] = next; try commit(state); return next
     }
     public func saveNote(_ note: AILearningNote) throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         guard Self.valid(note) else { throw AIFailure.output }
         var state = try load()
         guard !state.notes.contains(where: { $0.id == note.id || $0.result.requestID == note.result.requestID }) else { throw AIFailure.stale }

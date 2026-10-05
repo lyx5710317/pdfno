@@ -66,6 +66,9 @@ public actor ComicRepository {
         try bytes.write(to: manifest, options: .atomic)
     }
     public func importBook(_ data: Data, filename: String) throws -> ComicBook {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         guard let format = ComicArchiveFormat(rawValue: URL(fileURLWithPath: filename).pathExtension.lowercased()) else { throw ComicError.unavailable }
         let combined = try load()
         var state = try load(format)
@@ -96,6 +99,9 @@ public actor ComicRepository {
         guard archive.pages == book.pages else { throw ComicError.sourceMismatch }; return archive
     }
     public func saveProgress(_ progress: ComicProgress, bookID: UUID) throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
+        defer { storeWrite.finish() }
+
         let combined = try load()
         guard let book = combined.books.first(where: { $0.id == bookID && $0.accepts(progress) }),
               let format = book.archiveFormat else { throw ComicError.sourceMismatch }

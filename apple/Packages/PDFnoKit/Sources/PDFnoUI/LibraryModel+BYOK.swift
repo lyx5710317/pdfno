@@ -27,6 +27,8 @@ extension LibraryModel {
         return (try? encoder.encode(captured)) == (try? encoder.encode(source))
     }
     func saveBYOKResult() async -> Bool {
+        guard let operation = try? storeWriteGate.beginWrite() else { return false }
+        defer { operation.finish() }
         guard let result = byok.result, result.promptVersion == "selection-1",
               result.provider == byok.draft, isCurrentBYOKSource(result.source) else {
             byokSaveStatus = AIFailure.stale.localizedDescription; return false

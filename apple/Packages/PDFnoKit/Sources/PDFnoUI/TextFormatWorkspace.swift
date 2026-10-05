@@ -10,6 +10,7 @@ public struct TextFormatWorkspace: View {
     @State private var navigation = false
     @State private var notes = false
     @State private var draft = ""
+    @State private var draftOwner = UUID().uuidString
     @State private var captured: TextFormatAnchor?
     private let editing: RecordEditingAdapter?
     public init(model: TextFormatLibraryModel) { self.model = model; session = model.reader; editing = nil }
@@ -53,6 +54,8 @@ public struct TextFormatWorkspace: View {
             Button { navigation = true } label: { Label("标题目录", systemImage: "list.bullet") }.disabled(!session.ready).accessibilityIdentifier("textformat-navigation")
             Button { Task { captured = await session.captureSelection(); notes = true } } label: { Label("选文与笔记", systemImage: "highlighter") }.disabled(!session.ready).accessibilityIdentifier("textformat-notes")
         } }
+        .onChange(of: draft) { _, value in LibraryMaintenanceOwners.setDraft(root: model.storageRoot, owner: draftOwner, dirty: !value.isEmpty) }
+        .onDisappear { LibraryMaintenanceOwners.setDraft(root: model.storageRoot, owner: draftOwner, dirty: false) }
         .onChange(of: session.progress) { _, anchor in if let anchor { Task { await model.saveProgress(anchor) } } }
         .sheet(isPresented: $navigation) { navigationSheet }
         .sheet(isPresented: $notes) { notesSheet }

@@ -48,6 +48,9 @@ public struct SavedBodyDraftJournal<Snapshot: SavedBodySnapshot>: Sendable {
         return state.drafts
     }
     public func save(_ drafts: [SavedBodyDraft<Snapshot>]) throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: url.deletingLastPathComponent()).beginWrite()
+        defer { storeWrite.finish() }
+
         _ = try load()
         let data = try JSONEncoder().encode(State(schemaVersion: 1, drafts: drafts.sorted { $0.baseline.key < $1.baseline.key }))
         guard data.count <= 10 * 1024 * 1024 else { throw NoteBodyEditError.draftStore }

@@ -15,12 +15,15 @@ import PDFnoReaders
     @Published public var error: String?
     public let reader = EbookReaderSession()
     public let repository: EbookRepository
-    public init(root: URL) { repository = EbookRepository(root: root) }
+    let storageRoot: URL
+    public init(root: URL) { storageRoot = root; repository = EbookRepository(root: root) }
     public func load() async throws {
         let state = try await repository.load(); books = state.books; notes = state.notes
     }
     public func deactivate() { isActive = false; reader.close() }
     public func importFile(_ url: URL) async throws {
+        let hostOperation = try LocalStoreWriteGate.shared(root: storageRoot).beginWrite()
+        defer { hostOperation.finish() }
         guard !busy else { throw EbookError.cancelled }; busy = true; defer { busy = false }
         let scoped = url.startAccessingSecurityScopedResource(); defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         let data = try await Task.detached { try BoundedFileReader.read(url, limit: 8 * 1024 * 1024) }.value
@@ -34,6 +37,8 @@ import PDFnoReaders
         try await load(); try await activate(book)
     }
     public func open(_ book: EbookBook) async throws {
+        let hostOperation = try LocalStoreWriteGate.shared(root: storageRoot).beginWrite()
+        defer { hostOperation.finish() }
         guard !busy else { throw EbookError.cancelled }; busy = true; defer { busy = false }
         try await load()
         guard let current = books.first(where: { $0.id == book.id }) else { throw EbookError.sourceMismatch }
@@ -46,6 +51,8 @@ import PDFnoReaders
         try await repository.bindRenderedDocument(document, book: book); isActive = true
     }
     public func saveNote(_ anchor: EbookAnchor, text: String) async -> Bool {
+        guard let hostOperation = try? LocalStoreWriteGate.shared(root: storageRoot).beginWrite() else { return false }
+        defer { hostOperation.finish() }
         guard !busy, let book = reader.book, book.accepts(anchor), reader.document?.resolves(anchor) == true else {
             error = EbookError.sourceMismatch.localizedDescription; return false
         }
@@ -59,6 +66,8 @@ import PDFnoReaders
         if isActive, let session, reader.readerSessionID == session, reader.book?.id == note.bookID { reader.project(notes) }
     }
     public func saveProgress(_ anchor: EbookAnchor) async {
+        guard let hostOperation = try? LocalStoreWriteGate.shared(root: storageRoot).beginWrite() else { return  }
+        defer { hostOperation.finish() }
         guard !busy, let book = reader.book, book.accepts(anchor), reader.document?.resolves(anchor) == true else { return }
         do { try await repository.saveProgress(anchor, bookID: book.id) }
         catch { self.error = error.localizedDescription }

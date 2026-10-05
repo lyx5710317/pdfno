@@ -16,17 +16,22 @@ import PDFnoReaders
     public let reader = TextFormatReaderSession()
     public let repository: TextFormatRepository
     private var activationGeneration = UUID()
-    public init(root: URL) { repository = TextFormatRepository(root: root) }
+    let storageRoot: URL
+    public init(root: URL) { storageRoot = root; repository = TextFormatRepository(root: root) }
     public func load() async throws {
         let state = try await repository.load(); books = state.books; notes = state.notes
     }
     public func deactivate() { activationGeneration = UUID(); isActive = false; reader.close() }
     public func importFile(_ url: URL) async throws {
+        let hostOperation = try LocalStoreWriteGate.shared(root: storageRoot).beginWrite()
+        defer { hostOperation.finish() }
         guard !busy else { return }; busy = true; defer { busy = false }
         let scoped = url.startAccessingSecurityScopedResource(); defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         let book = try await repository.importFile(url); try await load(); try await activate(book)
     }
     public func open(_ book: TextFormatBook) async throws {
+        let hostOperation = try LocalStoreWriteGate.shared(root: storageRoot).beginWrite()
+        defer { hostOperation.finish() }
         guard !busy else { return }; busy = true; defer { busy = false }
         try await load()
         guard let current = books.first(where: { $0.id == book.id }) else { throw TextFormatError.sourceMismatch }
@@ -44,6 +49,8 @@ import PDFnoReaders
         guard token == activationGeneration, session == reader.readerSessionID, reader.ready else { throw TextFormatError.cancelled }
     }
     public func saveNote(_ anchor: TextFormatAnchor, text: String) async -> Bool {
+        guard let hostOperation = try? LocalStoreWriteGate.shared(root: storageRoot).beginWrite() else { return false }
+        defer { hostOperation.finish() }
         guard !busy, let book = reader.book, book.accepts(anchor), reader.document?.resolves(anchor) == true else {
             error = TextFormatError.sourceMismatch.localizedDescription; return false
         }
@@ -57,6 +64,8 @@ import PDFnoReaders
         if isActive, let session, reader.readerSessionID == session, reader.book?.id == note.bookID { reader.project(notes) }
     }
     public func saveProgress(_ anchor: TextFormatAnchor) async {
+        guard let hostOperation = try? LocalStoreWriteGate.shared(root: storageRoot).beginWrite() else { return  }
+        defer { hostOperation.finish() }
         guard !busy, let book = reader.book, book.accepts(anchor), reader.document?.resolves(anchor) == true else { return }
         do { try await repository.saveProgress(anchor, bookID: book.id) }
         catch { self.error = error.localizedDescription }
