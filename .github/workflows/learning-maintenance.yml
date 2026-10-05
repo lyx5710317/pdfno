@@ -1,5 +1,8 @@
 name: Isolated learning and maintenance UI checks
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/integration-ui-data-english-20261005]
 permissions:
   contents: read
 jobs:
