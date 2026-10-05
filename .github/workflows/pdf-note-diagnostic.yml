@@ -17,6 +17,43 @@ jobs:
           python3 scripts/check-native-source.py
           python3 scripts/generate-apple-project.py
           git diff --exit-code -- apple
+      - name: Inject temporary app hit-path probe in synthetic runner build
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('apple/Packages/PDFnoKit/Sources/PDFnoUI/PDFNoteComposer.swift')
+          source = path.read_text().replace('}.padding(PDFnoDesign.Space.regular).frame(maxWidth: .infinity, alignment: .leading)', '}.padding(PDFnoDesign.Space.regular).frame(maxWidth: .infinity, alignment: .leading).onAppear { dumpSyntheticPDFNotes() }')
+          source += '''
+          #if os(macOS)
+          import AppKit
+          @MainActor private func dumpSyntheticPDFNotes() {
+              guard let token = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"], UUID(uuidString: token) != nil else { return }
+              DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                  guard let window = NSApp.mainWindow, let content = window.contentView else { return }
+                  func allViews(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap { allViews($0) } }
+                  func describe(_ object: NSObject?) -> String {
+                      guard let object else { return "nil" }
+                      return "type=\\(type(of: object)) role=\\(String(describing: object.accessibilityAttributeValue(.role))) id=\\(String(describing: object.accessibilityAttributeValue(.identifier)))"
+                  }
+                  let views = allViews(content)
+                  var lines = views.map { "type=\\(type(of: $0)) frame=\\($0.frame) bounds=\\($0.bounds) hidden=\\($0.isHidden)" }
+                  for view in views {
+                      let field = view as? NSTextField
+                      guard field?.placeholderString == "写下你的笔记（可选）" else { continue }
+                      let center = view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil)
+                      let screen = window.convertPoint(toScreen: center)
+                      lines.append("INPUT screen=\\(screen) physical=\\(describe(content.hitTest(content.superview!.convert(center, from: nil))))")
+                      lines.append("WINDOW AX HIT \\(describe(window.accessibilityHitTest(screen) as? NSObject))")
+                      lines.append("CONTENT AX HIT \\(describe(content.accessibilityHitTest(screen) as? NSObject))")
+                  }
+                  let path = URL(fileURLWithPath: "/tmp/PDFno-UITests-" + token).appendingPathComponent("hit-diagnostic.json")
+                  try? JSONSerialization.data(withJSONObject: lines).write(to: path)
+              }
+          }
+          #endif
+          '''
+          path.write_text(source)
+          PY
       - name: Append temporary synthetic diagnostic to runner only
         run: |
           cat >> apple/Tests/NativeUITests.swift <<'SWIFT'
@@ -32,6 +69,8 @@ jobs:
                   XCTAssertTrue(input.waitForExistence(timeout: 5))
                   print("SYNTHETIC PDF INPUT enabled=\(input.isEnabled) hittable=\(input.isHittable) frame=\(input.frame)")
                   print("SYNTHETIC PDF APP TREE: \(app.debugDescription)")
+                  let hitPath = URL(fileURLWithPath: "/tmp/PDFno-UITests-" + token).appendingPathComponent("hit-diagnostic.json")
+                  if let data = try? Data(contentsOf: hitPath), let lines = try? JSONSerialization.jsonObject(with: data) { print("SYNTHETIC IN-PROCESS PATHS: \(lines)") }
                   let screenshot = XCTAttachment(screenshot: app.screenshot())
                   screenshot.name = "Synthetic PDF before hit"; screenshot.lifetime = .keepAlways; add(screenshot)
                   let processes = NSRunningApplication.runningApplications(withBundleIdentifier: "org.pdfno.PDFnoMac")
