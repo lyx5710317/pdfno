@@ -75,6 +75,10 @@ PDF 与 EPUB 的 Mac 阅读器均有“英语结构与语法”入口，固定�
 
 [四项诊断](https://github.com/lyx5710317/pdfno/actions/runs/37294477069)中，原 DeepSeek、英语和目录备份／恢复／重启均实际通过，目录用例用时139秒。原 BYOK 在点击应用配置后事件循环不再响应；后续把其状态动作区从重复候选的自适应布局改为单一稳定纵向布局，继续用原用例验证。三项诊断通过仍不等于四项或完整52项通过；最终结果由后续精确候选收据核对。
 
+[后续诊断](https://github.com/lyx5710317/pdfno/actions/runs/37296332316)验证原 BYOK 实际通过，但暴露窄窗工具栏中的选文 AI 不可点击，以及三次目录路径导航在较慢 runner 再次超过180秒。PDF／EPUB 的选文 AI 与 PDF 整页翻译移入阅读区的单一自适应学习工具网格，标识与任务／确认行为保留。Mac 目录入口采用真实 `NSOpenPanel`；会话内保存刚导出的父目录和包 URL，用作后两次面板的初始位置，显示位置并仍要求用户确认实际面板返回 URL。未持久化目录授权、未自动预检或恢复，iOS 保留系统 fileImporter。用例保留三次真实目录面板、所有 SHA／原件／当前书库／重启断言及原超时，新增核对面板显示初始位置。
+
+API 核验：Apple 的 [`directoryURL`](https://developer.apple.com/documentation/appkit/nssavepanel/directoryurl) 与 [`beginSheetModal(for:completionHandler:)`](https://developer.apple.com/documentation/appkit/nssavepanel/beginsheetmodal%28for%3Acompletionhandler%3A%29) 官方接口及本机 SDK 编译已核对（2026-10-05）。初始位置提示不替代用户选择或服务完整校验；正式签名／沙盒实际目录授权仍须独立验收。
+
 未保存草稿拒绝维护、恢复后编辑基线核对、窄窗／深浅色／键盘仍需人工闭环。不能在当前用户桌面运行同 bundle ID XCTest。
 
 实际 VoiceOver、真实 iPhone/iPad／Apple Pencil、实际云同步／Bookno API、真实服务语法质量与账单均未验收。移动端共享模块编译成功不能当作移动阅读入口完备。EPUB resize 清除临时 selection 是既有边界，本批未声称消除。独立安全专项仍为 `UNVERIFIED / platform-blocked`，Figma 配额阻塞未重试；功能与源码检查不能替代独立安全或未取得设计稿的像素验收。

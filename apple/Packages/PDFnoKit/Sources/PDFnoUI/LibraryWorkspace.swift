@@ -333,13 +333,17 @@ struct ReaderWorkspace: View {
             if let book = session.book {
                 VStack(spacing: 0) {
                     #if os(macOS)
-                    PDFnoAdaptiveActions {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: PDFnoDesign.Space.small)], alignment: .leading, spacing: PDFnoDesign.Space.small) {
                         JapaneseLearningEntry(identifier: "reader-japanese-learning") {
                             model.prepareJapaneseLearning(); japaneseLearning = true
                         }
                         Button("英语结构与语法") { model.prepareEnglishLearning(); englishLearning = true }
                             .accessibilityIdentifier("reader-english-learning").help("固定当前选文，确认后生成英语结构候选")
                         BYOKSelectionEntry(library: model, identifier: "reader-byok") { byokLearning = true }
+                        Button("翻译当前页") { model.preparePageTranslation(); pageTranslation = true }
+                            .accessibilityIdentifier("reader-page-translation").help("预览当前页翻译范围，确认后手动发送")
+                        Button("选文 AI") { model.learning.prepare(model.captureAISource()); ai = true }
+                            .accessibilityIdentifier("reader-ai").help("预览已捕获选文的 AI 任务")
                     }.buttonStyle(PDFnoActionStyle(role: .quiet))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, PDFnoDesign.Space.regular).padding(.vertical, PDFnoDesign.Space.tight)
@@ -380,10 +384,6 @@ struct ReaderWorkspace: View {
                             .disabled(session.pageIndex >= book.pageCount - 1).accessibilityIdentifier("next-page").help("阅读下一页")
                         Button { openNotes() } label: { Label("高亮与笔记", systemImage: "highlighter") }
                             .accessibilityIdentifier("reader-notes").accessibilityValue(notesVisible ? "已展开" : "已收起").help("显示或收起高亮与笔记，保留草稿和选区")
-                        #if os(macOS)
-                        Button("翻译当前页") { model.preparePageTranslation(); pageTranslation = true }.accessibilityIdentifier("reader-page-translation").help("预览当前页翻译范围，确认后手动发送")
-                        Button("选文 AI") { model.learning.prepare(model.captureAISource()); ai = true }.accessibilityIdentifier("reader-ai").help("预览已捕获选文的 AI 任务")
-                        #endif
                     }
                 }
                 .onChange(of: session.pageIndex) { _, _ in

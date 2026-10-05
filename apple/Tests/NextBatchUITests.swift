@@ -74,6 +74,14 @@ final class NextBatchUITests: XCTestCase {
         XCTAssertFalse(path.exists && path.isHittable)
         if open.exists { click(open) }
     }
+    @MainActor private func confirmInitialDirectory(_ url: URL, trigger: XCUIElement, app: XCUIApplication) {
+        click(trigger)
+        let open = app.buttons["OKButton"].firstMatch
+        XCTAssertTrue(open.waitForExistence(timeout: 10))
+        let location = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "初始位置：" + url.resolvingSymlinksInPath().path)).firstMatch
+        XCTAssertTrue(location.waitForExistence(timeout: 10), "The real folder panel must show the previously selected location")
+        click(open)
+    }
     private func verifyPackage(_ package: URL) throws {
         let inventory = try state("inventory-v1.json", root: package)
         let entries = try XCTUnwrap(inventory["entries"] as? [[String: Any]])
@@ -188,11 +196,11 @@ final class NextBatchUITests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: package.appendingPathComponent("Payload/library-v1.json")), currentManifest)
         let inspect = app.buttons["local-recovery-inspect"].firstMatch
         reveal(inspect, form: "local-recovery-form", app: app)
-        try chooseDirectory(package, trigger: inspect, app: app)
+        confirmInitialDirectory(package, trigger: inspect, app: app)
         text(element("local-recovery-status", app), contains: "备份预检通过")
         let restorePackage = app.buttons["local-recovery-restore-package"].firstMatch
         reveal(restorePackage, form: "local-recovery-form", app: app)
-        try chooseDirectory(directory, trigger: restorePackage, app: app)
+        confirmInitialDirectory(directory, trigger: restorePackage, app: app)
         text(element("local-recovery-status", app), contains: "已恢复到新目录")
         let recovered = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
             .first { $0.lastPathComponent.hasPrefix("PDFnoRecovered-") })

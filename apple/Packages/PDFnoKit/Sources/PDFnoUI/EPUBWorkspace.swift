@@ -18,13 +18,15 @@ struct EPUBWorkspace: View {
     @State private var byokLearning = false
     var body: some View {
         VStack(spacing: 0) {
-            PDFnoAdaptiveActions {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: PDFnoDesign.Space.small)], alignment: .leading, spacing: PDFnoDesign.Space.small) {
                 JapaneseLearningEntry(identifier: "epub-japanese-learning", disabled: session.busy) {
                     model.prepareJapaneseLearning(); japaneseLearning = true
                 }
                 Button("英语结构与语法") { model.prepareEnglishLearning(); englishLearning = true }
                     .disabled(session.busy).accessibilityIdentifier("epub-english-learning")
                 BYOKSelectionEntry(library: model, identifier: "epub-byok", disabled: session.busy) { byokLearning = true }
+                Button("选文 AI") { model.learning.prepare(model.captureAISource()); ai = true }
+                    .accessibilityIdentifier("epub-ai")
             }.buttonStyle(PDFnoActionStyle(role: .quiet))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, PDFnoDesign.Space.regular).padding(.vertical, PDFnoDesign.Space.tight)
@@ -53,7 +55,6 @@ struct EPUBWorkspace: View {
                 Button(session.vertical ? "横排" : "竖排") { Task { _ = await session.command("vertical") } }
                     .accessibilityIdentifier("epub-orientation")
                 Button("高亮与笔记") { notes = true }.accessibilityIdentifier("epub-notes").accessibilityValue(notes ? "已展开" : "已收起").help("显示高亮与笔记，保留选文和草稿")
-                Button("选文 AI") { model.learning.prepare(model.captureAISource()); ai = true }.accessibilityIdentifier("epub-ai")
                 Button("取消并关闭") { session.close() }.accessibilityIdentifier("epub-close")
             }
         }

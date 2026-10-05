@@ -15,6 +15,8 @@ public typealias LocalRecoveryHostPause = @MainActor (@escaping LocalRecoveryPau
     @Published public private(set) var changePreview: LocalRecoveryChangePreview?
     @Published public private(set) var backupPreview: LocalRecoveryPreview?
     @Published public private(set) var busy = false
+    @Published public private(set) var lastExportedParent: URL?
+    @Published public private(set) var lastExportedPackage: URL?
     @Published public private(set) var message = "回收站一直保留。原件与已保存笔记可恢复；未保存草稿不进入备份。"
     private let service: LocalRecoveryService
     private let pause: LocalRecoveryHostPause
@@ -52,6 +54,7 @@ public typealias LocalRecoveryHostPause = @MainActor (@escaping LocalRecoveryPau
         do {
             let service = service, destination = parent.appendingPathComponent("PDFnoBackup-" + UUID().uuidString + ".pdfnobackup")
             try await pause { permit in _ = try await service.exportBackup(to: destination, permit: permit) }
+            lastExportedParent = parent; lastExportedPackage = destination
             message = "已导出并校验目录备份：\(destination.lastPathComponent)。不包含草稿、缓存、密钥或事务暂存。"
         } catch { message = error.localizedDescription }
     }
@@ -131,11 +134,26 @@ public struct LocalRecoveryWorkspace: View {
         .disabled(model.busy)
         .overlay { if model.busy { ProgressView("正在校验本地数据…") } }
         .task { await model.refresh() }
+        #if os(macOS)
+        .background {
+            PDFnoDirectoryPicker(isPresented: $picker, initialDirectory: initialDirectory, message: pickerMessage) { url in
+                receiveDirectory(url)
+            }.frame(width: 0, height: 0)
+        }
+        #else
         .fileImporter(isPresented: $picker, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first {
-                Task { switch action { case .export: await model.export(to: url); case .inspect: await model.inspect(url); case .restore: await model.restore(to: url) } }
+                receiveDirectory(url)
             }
         }
+        #endif
+    }
+    private var initialDirectory: URL? { action == .inspect ? model.lastExportedPackage : model.lastExportedParent }
+    private var pickerMessage: String {
+        switch action { case .export: "选择存放备份的文件夹"; case .inspect: "选择要预检的备份文件夹"; case .restore: "选择用于存放新恢复目录的文件夹" }
+    }
+    private func receiveDirectory(_ url: URL) {
+        Task { switch action { case .export: await model.export(to: url); case .inspect: await model.inspect(url); case .restore: await model.restore(to: url) } }
     }
     private func label(_ target: LocalRecoveryTarget) -> String {
         switch target { case .book(let book): book.title; case .note(let manifest, _): "已保存笔记 · " + manifest }
