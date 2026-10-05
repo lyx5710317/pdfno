@@ -58,6 +58,9 @@ import PDFnoServices
         let originalDraft = "Original hosting draft 日本語 cafe\u{301} 👩🏽‍🚀"
         #expect(state.draft.utf8.elementsEqual(originalDraft.utf8))
         state.draft = ""; try await settle()
+        let axPoint = NSPoint(x: editor.accessibilityFrame().midX, y: editor.accessibilityFrame().midY)
+        #expect((window.accessibilityHitTest(axPoint) as? NSTextView) === editor)
+        #expect(editor.enclosingScrollView?.accessibilityIdentifier() == "note-input-scroll")
         #expect(input(in: host) === editor && editor.string.isEmpty)
         #expect(axObjects(in: host).contains { $0 === editor })
         state.draft = originalDraft; state.panels.notes = false; try await settle()
@@ -101,8 +104,8 @@ private struct NoteComposerHostingFixture: View {
                 } else {
                     VStack(spacing: 0) {
                         PDFNoteComposer(anchor: state.anchor, draft: $state.draft, enabled: true) { _, _ in false }
-                        Divider(); List { Section("已保存 · 本地") { Text("这本书还没有笔记") } }
-                    }.font(PDFnoDesign.TypeStyle.body).accessibilityIdentifier("pdf-notes-list")
+                        Divider(); List { Section("已保存 · 本地") { Text("这本书还没有笔记") } }.accessibilityIdentifier("pdf-notes-list")
+                    }.font(PDFnoDesign.TypeStyle.body)
                 }
             }
         }

@@ -499,8 +499,8 @@ struct ReaderWorkspace: View {
                 model.savePDFNoteImmediately(anchor: anchor, text: text)
             }
             Divider()
-            List { savedNotesContent }
-        }.font(PDFnoDesign.TypeStyle.body).accessibilityIdentifier("pdf-notes-list")
+            List { savedNotesContent }.accessibilityIdentifier("pdf-notes-list")
+        }.font(PDFnoDesign.TypeStyle.body)
         #else
         List {
             Section("当前选区") {

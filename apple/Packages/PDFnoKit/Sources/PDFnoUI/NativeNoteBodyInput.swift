@@ -37,6 +37,7 @@ struct NativeNoteBodyInput: NSViewRepresentable {
     // The same native control factory is exercised offscreen by storage tests.
     static func makeEditor(coordinator: Coordinator, identifier: String, enabled: Bool, label: String = "编辑用户正文") -> NSScrollView {
         let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 300, height: 96))
+        scroll.setAccessibilityIdentifier(identifier + "-scroll")
         scroll.borderType = .bezelBorder
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
