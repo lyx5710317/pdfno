@@ -60,6 +60,7 @@ struct PDFnoDirectoryPicker: NSViewRepresentable {
                 location.setAccessibilityIdentifier("pdfno-directory-current-location")
                 self.directoryLabel = location
                 panel.accessoryView = location
+                panel.isAccessoryViewDisclosed = true
                 panel.delegate = self
                 self.updateDirectoryLabel(panel.directoryURL)
                 self.panel = panel
