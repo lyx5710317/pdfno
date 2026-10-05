@@ -76,8 +76,9 @@ final class NativeUITests: XCTestCase {
         XCTAssertFalse(quote.isEmpty)
         enterSearch("Original committed parity body", into: japaneseElement(prefix + "-user-note", in: app))
         press(app.buttons[prefix + "-save-note"].firstMatch)
-        let before = try originalSavedNote(token, manifest: manifest)
         let editor = app.buttons[prefix + "-note-edit"].firstMatch, listID = prefix + "-notes-list"
+        XCTAssertTrue(editor.waitForExistence(timeout: 8), "Read the manifest only after the saved row is published")
+        let before = try originalSavedNote(token, manifest: manifest)
         scrollRecordElement(editor, listID: listID, app: app); press(editor)
         enterRecordBody("Original uncommitted draft 日本語", prefix: prefix + "-note", listID: listID, app: app)
         XCTAssertEqual(try originalSavedNote(token, manifest: manifest)["userText"] as? String, "Original committed parity body")
