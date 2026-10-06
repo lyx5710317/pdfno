@@ -86,6 +86,7 @@ struct EPUBChapterTranslationWorkspace: View {
                     } else { VStack(alignment: .leading, spacing: 12) { original(segment); translated(segment) } }
                     if let result = segment.result {
                         TextField("此段学习笔记（可选）", text: $segment.userText, axis: .vertical).lineLimit(3...8)
+                            .autocorrectionDisabled(true)
                             .accessibilityIdentifier("chapter-user-note-\(segment.id)")
                         Button("引用 · 回到此段原文") { returnToSource(segment.source) }
                             .accessibilityIdentifier("chapter-segment-return-\(segment.id)")

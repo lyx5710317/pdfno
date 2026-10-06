@@ -31,6 +31,7 @@ private struct LibrarySearchContent: View {
             VStack(spacing: 12) {
                 TextField("书名、作者、笔记或引文", text: $query)
                     .textFieldStyle(.roundedBorder).accessibilityIdentifier("library-search-input")
+                    .autocorrectionDisabled(true)
                     .onChange(of: query) { _, value in sourceError = nil; model.updateQuery(value) }
                 Text("搜索PDF／EPUB／DOCX／四种漫画书目，以及已保存的PDF／EPUB／文本／电子书／AI与日英学习笔记；文本和电子书仅书名。共享300项显示上限；不搜索全书正文、扫描图片或未保存草稿。")
                     .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)

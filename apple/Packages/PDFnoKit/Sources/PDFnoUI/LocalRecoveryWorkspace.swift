@@ -114,7 +114,11 @@ public struct LocalRecoveryWorkspace: View {
                 }
                 Text("书库").font(.headline)
                 ForEach(model.books) { book in
-                    HStack { Text(book.title); Spacer(); Button("移至回收站…") { Task { await model.preview(.book(book)) } }.accessibilityIdentifier("local-recovery-trash-" + book.id.uuidString) }
+                    HStack {
+                        Text(book.title); Spacer()
+                        Button("移至回收站…") { Task { await model.preview(.book(book)) } }
+                            .accessibilityIdentifier("local-recovery-trash-" + book.id.uuidString)
+                    }
                 }
                 Text("回收站（一直保留）").font(.headline)
                 if model.tombstones.isEmpty { Text("回收站为空").foregroundStyle(.secondary) }
