@@ -96,6 +96,7 @@ public struct DOCXReadingPDFExportWorkspace: View {
                 Text("按阶段显示进度；取消在原子提交前清理暂存文件。").font(.caption).foregroundStyle(.secondary)
             }
             Text(model.status).textSelection(.enabled).accessibilityIdentifier("reading-pdf-status")
+                .id(model.status)
             if let result = model.result {
                 Text(result.destination.path).font(.caption).textSelection(.enabled)
             }
