@@ -2,6 +2,8 @@
 
 基线 `6a67d1fd883f79737d0e3e12c756b683a662f230`。独立分支 `feature/mac-ui-experience-20261006`，持久 checkout 位于主仓库 `.build/MacUIExperience/2026-10-06/tree`。这是工具驱动的实际 Mac App 像素、原生辅助功能树及键鼠检查，不是人工体验验收；隐藏组件渲染不计入本表。
 
+本轮新增段落 UI 的最终隔离复测在 `5fa38439ef5c43a1fbc53a8da36f36cefd9ef555` 实际通过 **4/4、零失败、零跳过**，命令退出0，xcresult已收尾且正式摘要可解析。首次4失败与断连证据保留。生产代码仍等于完整542项Swift验证的ef203f3；新驱动的22项离线/DOM回归与专用build通过。两项电子书Node因安装未获批准仍NOT-RUN，真实服务、移动实际UI、安全专项等边界未因此改变。逐项结果见末节。
+
 ## 执行与隔离
 
 环境：arm64 macOS 27.0.1 (26A434)、Xcode 27.0 (27A266a)、Swift 6.4。专用 bundle 为 `org.pdfno.ui.experience20261006.PDFnoMac`，忽略目录内复制工程在 App 初始化前强制绑定 UUID `5125DAB3-0972-4882-9C05-DBE37DD0DEEB`，Library 为 `/tmp/PDFno-UITests-5125DAB3-0972-4882-9C05-DBE37DD0DEEB`，transport 为 offline。App-only 外观/窗口菜单只存在于测试副本；系统主题、权限和受版本管理的 App 入口未改。原书为仓库自制 PDF/EPUB，导入后的两个 Originals 已与仓库 fixture 逐字节比较相同。
@@ -61,17 +63,17 @@
 | 专用 App/runner | TEST BUILD SUCCEEDED，实际产品 Info/xctestrun 核对独立 org.pdfno.integration.experience20261006.PDFnoMac 与 runner，合法测试UUID或硬绑定备用UUID、强制offline。 |
 | guards/再生 | source guard685、codec96+原创fixture6、账本8项通过，Xcode工程/原PDF再生无diff；原56方法正文逐字节未改，新总60。 |
 | 可用 Node | loader/rangy/comics/docx 14/14 PASS、0 skipped。两个电子书Node文件缺 jsdom@26.1.0，在加载前退出，NOT-RUN。 |
-| 新4 UI单次 | 实际执行4项，4失败、0通过，共8 failure (3 unexpected)、206.36秒；三个PDF方法在search-result exists/enabled/hittable等待超时，未开始段落请求；EPUB未找到WebView下window StaticText。没有重派发。 |
+| 新4 UI首次单次 | 实际执行4项，4失败、0通过，共8 failure (3 unexpected)、206.36秒；三个PDF方法在search-result exists/enabled/hittable等待超时，未开始段落请求；EPUB未找到WebView下window StaticText。断连时没有重派发；后续完成诊断/驱动修正后另获授权，复测结果见末节。 |
 | 进程与结果包 | 连接断开/ executor key changed 后原session不能恢复。后续有界实际执行只读检查成功；原 xcodebuild PID27858 和 EPUB App PID27908 已不存在，全部4方法失败日志完整。wrapper仍未写最终exit，xcresult仍缺Info.plist；进程退出码与结果包完整性UNKNOWN。 |
-| 后续段落CUA | 整合harness BUILD SUCCEEDED；真实CUA定位调用返回Transport closed，没有重复尝试或更改权限。 |
+| 首次后续段落CUA | 整合harness BUILD SUCCEEDED；真实CUA定位调用返回Transport closed，没有重复尝试或更改权限。随后新增4项通过独立XCTest驱动实际复测，不表示CUA已恢复。 |
 
 首个 PDF 失败的前置干扰已定位到日志：147行输入 `window`，输入值断言未失败；163–168行点击 search-submit 时出现来自目标 App 的 Dialog，232行起含 `window` / `win` 和中文输入候选；538–540行记录 interruption 未被处理，随后 search-result 等待超时。输入法候选弹窗是直接观察证据；输入尚未提交导致搜索绑定不同只是待验证推断，不能据此排除产品问题。没有切换系统输入法、处理权限弹窗或更改原56方法。EPUB 在源码156行等待 WebView 下 `window` StaticText 失败，日志743–748行另记 AXHeading 的 automation type mismatch；原创 fixture 确实含以 window 开头的段落，仍不能确定是加载、AX投影或选择器问题。没有为猜测根因修改产品或削弱断言。
 
-上述UI失败的最终根因尚未确认，不能排除产品可访问性/布局回归，也不能把选择器失败作为段落功能通过。新typed展示/确认/保存/引用、insufficient/invalid/truncated/slow、EPUB引用的实际GUI闭环仍NOT-VERIFIED；542离线回归不替代它们。自动与自定义附件均keepNever，只交付此前查看过的19张自制窗口图，未读取/导出自动截图。只读复核记录见 `ui-readonly-diagnosis.json`；没有重新派发UI测试。
+首次只读诊断时最终根因尚未确认，不能排除产品可访问性/布局回归，也不能把选择器失败作为段落功能通过；当时新typed展示/确认/保存/引用、insufficient/invalid/truncated/slow、EPUB引用的实际GUI闭环均NOT-VERIFIED。542离线回归不替代实际GUI。自动与自定义附件均keepNever，只交付此前查看过的19张自制窗口图，未读取/导出自动截图。该阶段只读复核记录见 `ui-readonly-diagnosis.json`，没有重派发。后续驱动修正及实际复测见下面两个阶段。
 
 自动审批拒绝在本独立tree按现有package-lock补齐npm开发依赖（jsdom26.1.0、registry.npmjs.org、ignore-scripts、独立cache/空配置），理由为超出“不安装组件/不依赖外部安装”约束。安装没有执行，也未换路线。主任务已收到具体命令向用户请求新增授权，当前仍暂停；两项NOT-RUN不能称完整Node全绿。
 
-证据为 evidence 下各 command.json/log、isolated-uitest-execution-identity.json、integrated-original-ui-protection.json、paragraph-ui-once.log、ParagraphUI.xcresult（未收尾）。末次实际源码候选为ef203f3；后续报告提交只改文档。未push/dispatch/merge，公开发布另批。
+首次整合证据为 evidence 下各 command.json/log、isolated-uitest-execution-identity.json、integrated-original-ui-protection.json、paragraph-ui-once.log、ParagraphUI.xcresult（未收尾）。当时实际源码候选为ef203f3，75e83aa/a0d15fe仅改文档；随后5fa3843修正测试驱动，生产代码不变。未push/dispatch/merge，公开发布另批。
 
 Library保存没有开始API写入：当前/usr/bin/python3不支持官方helper的`str | None`类型标注，helper在导入时退出；现有环境依赖查询也返回Transport closed。没有改helper、安装Python或换直接写入路线，没有有效library_file_id；图片与报告仅按本地路径交付。
 
@@ -83,7 +85,7 @@ Library保存没有开始API写入：当前/usr/bin/python3不支持官方helper
 - 来源与许可证：根目录 `LICENSE`、`SOURCE-NOTICES.md`、`THIRD_PARTY_NOTICES.md`；`engine-build/vendor/kookit/LICENSE`、`engine-build/licenses/`、`engine-build/test-licenses/` 与四份 `*BUNDLE-INPUTS.json`；`PDFnoReaders/Resources/{EPUB,Comics,DOCX,TextFormats,Ebooks}/Notices.txt`；`PDFnoComicCodecs/SOURCE.json`、`PDFnoComicCodecs/Licenses/` 和 `PDFnoServices/Resources/ComicCodecs/{SOURCE.json,NOTICES.txt}`。路径相对本 worktree 的 `apple/Packages/PDFnoKit/Sources`。
 - 既有审计交接范围：[UNIFIED-VALIDATION-AND-AUDIT-HANDOFF.md](UNIFIED-VALIDATION-AND-AUDIT-HANDOFF.md)。它是审阅索引，历史测试数字不替代本候选证据，也不授权安装依赖、公开发布或重试受阻安全专项。
 
-## 四 UI 前置修正（未实际复测）
+## 四 UI 前置修正阶段
 
 收到继续本轮验收的指令后，单次只读执行连接成功，仍在原独立树工作。对照原 `NativeUITests` 已有 `enterSearch` / `webText` 与保存的原创 AX 树，新增段落入口存在两个明确遗漏：直接 typeText 会经过用户输入法组合态，而原路径通过原生粘贴输入；只查 StaticText 的 label，遗漏原路径对任意 AX 角色 label 及字符串 value 的兼容。它们与已有失败日志吻合，但只能确认测试前置缺陷，不能在实际复测前宣称产品最终根因已排除。
 
@@ -91,4 +93,21 @@ Library保存没有开始API写入：当前/usr/bin/python3不支持官方helper
 
 前置验证：`paragraph-ui-preflight-swift-command.json` 退出0，22 tests / 2 suites PASS（21段落方法＋真实 DOM 同词重选）；`paragraph-ui-preflight-build-command.json` 退出0，专用 App/runner TEST BUILD SUCCEEDED，60项UI已编译，没有运行App。`paragraph-ui-preflight-protection.json` 确认原56方法逐字节保留、新4项原断言保留、生产代码没有修改。专用 App executable SHA256仍为 `285f3c83cffb1c365d46b9b7e44f3d442b72e7f161695f881e32923091608fc3`，与失败那次相同。原 xcodebuild/runner/EPUB App 三个精确PID27858/27861/27908的后续只读ps检查均不存在，未终止其他进程；原退出码仍UNKNOWN。
 
-下一次隔离复测方案已准备但未派发：独立 `ParagraphPreflight.xctestrun`，同一经核验 App/runner ID与路径，runner环境 `PDFNO_ISOLATED_UI_APPLICATION_ID` 指向专用 App；每方法 helper 自动新 UUID Library、offline scenario，UI附件 keepNever。共享 heavy lock 内串行 only-testing 原新增4方法、180/240秒预算，结果写入全新 `ParagraphUIPreflight.xcresult`，不覆盖第一次日志/结果包。开始前再核实际连接/产品身份/锁；断连则只保全现有日志，不能把失联当成功或自动重派发。具体未执行命令、产品/测试bundle SHA、边界见 `paragraph-ui-retest-plan.json`。当前实际 UI 状态仍为第一次的4失败，完整段落GUI闭环仍NOT-VERIFIED；npm批准未到、两项ebook Node仍NOT-RUN，没有开展全仓审计或公共发布。
+该阶段准备隔离复测方案但未派发：独立 `ParagraphPreflight.xctestrun`，同一经核验 App/runner ID与路径，runner环境 `PDFNO_ISOLATED_UI_APPLICATION_ID` 指向专用 App；每方法 helper 自动新 UUID Library、offline scenario，UI附件 keepNever。共享 heavy lock 内串行 only-testing 原新增4方法、180/240秒预算，结果写入全新 `ParagraphUIPreflight.xcresult`，不覆盖第一次日志/结果包。开始前再核实际连接/产品身份/锁；断连则只保全现有日志，不能把失联当成功或自动重派发。具体方案、产品/测试bundle SHA、边界见 `paragraph-ui-retest-plan.json`。这一前置阶段仍保留首次4失败状态；随后收到一次隔离复测授权，执行结果如下。
+
+## 新增四 UI 隔离复测实际结果
+
+在5fa3843干净树单次只读执行连接成功；App、runner、测试bundle、测试源码及xctestrun全部哈希与已编译方案相同，独立App入口UUID/offline守卫保持，45.4GiB可用空间，共享锁检查空闲。随后只派发一次已授权复测，08:48UTC进入测试，08:52UTC收尾；没有改系统输入法、权限或用户App/Library，没有安装npm。
+
+| 实际方法 | 结果 | 方法秒数 |
+| --- | --- | --- |
+| testMacParagraphCancelDoesNotPublishOrSave | PASS | 42.384 |
+| testMacParagraphEPUBCitationReturnsToCanonicalRange | PASS | 37.751 |
+| testMacParagraphInsufficientAndInvalidResponsesCannotSave | PASS，覆盖insufficient/invalid/truncated三个独立App场景 | 115.237 |
+| testMacParagraphTypedEvidenceConsentManualSaveAndSource | PASS，保留原断言并通过严格来源window/用户正文等值检查 | 58.451 |
+
+总计 **4 tests、0 failures、0 unexpected、0 skipped**；suite 253.822秒。`paragraph-ui-retest-command.json` 实际退出码 **0**，日志 `TEST EXECUTE SUCCEEDED`；新 `ParagraphUIPreflight.xcresult/Info.plist` 存在，正式 `xcresulttool get test-results summary` 返回 Passed / passedTests4 / failedTests0 / skippedTests0 / totalTestCount4。首次默认沙箱读摘要因TestReport缓存保存权限退出64；只对该自有结果路径获批读取后退出0，没有修改权限或重新启动测试。结果包已收尾、摘要可解析；首次未收尾的ParagraphUI.xcresult不被修写或代替。
+
+证据：`paragraph-ui-retest-execution-identity.json`、`paragraph-ui-retest-command.json` / `.log`、`paragraph-ui-retest-outcome.json`、`paragraph-ui-retest-xcresult-summary-approved-command.json` / `.log`。首次日志SHA与既有失败收据相同，全部专用产品哈希复测后仍相同；生产App二进制没有改变，而两项前置修正后真实流程均越过首次阻塞，支持测试驱动遗漏的诊断。没有把该结果包装为人工或真实模型语言质量验收。
+
+当前本轮新增段落GUI闭环4项已通过；原56项只保留/编译，没有在此候选重跑。本任务自制PDF/EPUB实际体验及小修截图仍为19张，仅本地交付，未新增导出自动截图。两项ebook Node仍NOT-RUN（npm待批准），Library官方上传仍在导入前受Python版本阻塞；真实服务/解释质量/usage、VoiceOver/输入法人工流程、移动实际UI/Intel runtime/损坏库加载错误等仍未验收，安全专项UNVERIFIED/platform-blocked不重试。当前最终HEAD见FINAL-RECEIPT，后续文档提交只更新本报告；尚未开展全仓审计、push/dispatch/merge或公开发布。
