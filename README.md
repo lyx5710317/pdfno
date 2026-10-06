@@ -51,6 +51,8 @@ Mac EPUB 首片接受非加密重排内容。限额为 20 MiB 归档、1000 条�
 
 ## 构建与验证
 
+2026-10-06 本地整合候选已接入有限 Reading Skills、PDF/EPUB 导航返回及临时分类设置/工具目录；范围、原行为保护和本轮验证见 [本地整合记录](docs/READING-LOCAL-INTEGRATION-2026-10-06.md)。公共推送/CI/合并尚未执行。
+
 EPUB 资源已经随源码保存，直接在 Xcode 运行无需 Node。需要重建资源时使用 Node 22+：
 
 ```sh

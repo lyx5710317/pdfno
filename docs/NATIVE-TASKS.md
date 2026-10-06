@@ -1,5 +1,9 @@
 # Native implementation status
 
+## 2026-10-06 local reading integration
+
+Accepted baseline `ab6695c7bb9de25a9230b2e79053577c33aeaee2` plus delivered Reading Skills contracts/selection hosts, actual PDF/EPUB navigation wiring and temporary categorized AI settings/tools. Current implementation and validation are in [the local integration record](READING-LOCAL-INTEGRATION-2026-10-06.md). The 52 accepted UI methods, PDF accessibility/immediate-save, recovery write gate, English source fence and draft protection are preserved. This batch is local-only; public push/merge/CI dispatch needs separate authorization. Security remains UNVERIFIED / platform-blocked. The documentation-only authorization below is the earlier dated scope.
+
 ## 2026-10-05 reading Skills documentation plan
 
 User authorization is to document how to implement these abilities for gradual future work. [ADR 0010](ADR-0010-READING-SKILLS.md) and the [P0–P3 roadmap](READING-SKILLS-ROADMAP.md) define a typed/versioned registry, bounded existing-entry adapters, original explanation/argument/study-card results, local single-book retrieval and personal templates, then separately gated external research/MCP Client and MCP Server. This is **documentation only / NOT-IMPLEMENTED**, based on published `main` `7bea8ec89ea7273b3b52ee714fbf1180b3d51c73`; it does not authorize immediate implementation, push/merge, installation, model/tool calls or real-data migration.

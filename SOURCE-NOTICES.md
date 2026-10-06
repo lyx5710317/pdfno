@@ -61,3 +61,7 @@ Official fixed libarchive3.8.9 and XZ5.8.4 selected sources are now vendored fol
 ## Temporary AI/settings presentation (2026-10-05)
 
 `PDFnoTemporarySettingsLayout.swift`, `ReadingToolsWorkspace.swift` and `TemporaryAILayoutTests.swift` are original PDFno SwiftUI code and original temporary-fixture tests under AGPL-3.0-or-later. The modified settings/learning surfaces retain their existing SPDX headers. Three authorized, sanitized Shannian screenshots inform category/card organization only; no proprietary source, logo, image, icon, font, paid membership asset or screenshot is included in the repository. Colors, fonts and symbols reuse the existing PDFno tokens and Apple system frameworks. No new dependency, model, runtime, license inventory or bundled asset is introduced. The evidence and capability limits are recorded in `docs/TEMP-AI-SETTINGS-LAYOUT-2026-10-05.md`.
+
+## Bounded reading integration (2026-10-06)
+
+The six compiled Skill contracts, immutable plans, typed ephemeral envelopes, selection forwarding adapters, reader navigation guards/return controls/shortcuts and integration tests are original PDFno-authored AGPL-3.0-or-later source. The temporary settings/tool layout reuses existing PDFno tokens and SF Symbols. No new third-party dependency, private template, font, copied screenshot or remote service is included. Fixtures use existing inventoried original PDF/EPUB samples, synthetic credentials and intercepted transports. Existing source/license notices remain unchanged; this provenance check is not the blocked independent security audit.

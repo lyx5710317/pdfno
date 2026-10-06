@@ -1,5 +1,7 @@
 # 阅读导航与位置恢复：独立本地候选
 
+2026-10-06 更新：本候选已在 [统一本地整合](READING-LOCAL-INTEGRATION-2026-10-06.md) 中实际接入当前 UI；以下“补丁尚未应用”仅描述原独立切片。整合树无需再次应用该补丁，精确验证以新报告/收据为准。
+
 日期：2026-10-05。分支 `feature/reading-navigation-20261005`，固定基线 `82585b1053b8a000f337274fec8ae597255c9135`。所有编辑仅在本任务独立 worktree；没有 push、merge、真实 API/key、私人书籍、桌面 App/UI、模拟器启动或签名/权限配置变化。已读 CONTRIBUTING、v0.3 相关规格、NATIVE-TASKS、VALIDATION、UI foundation/refinement 和现有目录/搜索交接；本仓库与祖先未发现适用 AGENTS.md 或仓库 skills。
 
 ## 实现盘点与实际缺口
