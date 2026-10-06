@@ -154,3 +154,5 @@ Library保存没有开始API写入：当前/usr/bin/python3不支持官方helper
 两个优先日语AX probe已各执行一次：0 PASS/2 FAIL/0 SKIP；第一项被新增runner诊断写文件中断，未发请求；第二项单次截获请求后读取组件来源AX value仍发生专用App label递归SIGSEGV。未重跑或扩展GUI，原700断言/60方法保持，详见[两项AX probe实际报告](MAC-UI-AX-PROBES-2026-10-06.md)。
 
 最新日语AX静态定位：6关键文件与6a67逐字节相同，三份专用App栈指针在Stack Guard中，确认role/label重入与栈耗尽；具体节点闭环仍未证实。纯内存10方法/2 suites PASS（新增unavailable发布原文1方法2分支），没有生产修改/GUI，详见[静态定位与最小缺口](MAC-UI-JAPANESE-AX-STATIC-2026-10-06.md)。
+
+随后获准仅6a67与当前51a8f35两个最小组件对照。两份精确Git包、相同内存日语fixture/harness及编译设置构建成功，独立bundle/新UUID/offline、共享锁各启动一次；本进程公开NSHostingView identifier=nil、children count0，未定位原句，role/label/value各0次。两进程正常结束不能算“不复现”或AX通过；结论INCONCLUSIVE，仍不能区分基线复现与整合宿主触发，也不能用静态文件相同排除回归。没有新增权限、fallback、第三次GUI或生产修复。原700断言、历史失败、产物/19截图/main metadata保全，详见[两次受控基线对照](MAC-UI-AX-COMPARISON-2026-10-06.md)。
