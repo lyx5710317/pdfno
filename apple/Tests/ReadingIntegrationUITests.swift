@@ -5,7 +5,7 @@ import XCTest
 /// Original fixtures and UUID stores only. Local execution additionally requires
 /// the distinct application ID supplied by the isolated project/test receipt.
 final class ReadingIntegrationUITests: XCTestCase {
-    @MainActor private func app() -> XCUIApplication {
+    @MainActor private func app(paragraphScenario: String? = nil) -> XCUIApplication {
         let app: XCUIApplication
         if let id = ProcessInfo.processInfo.environment["PDFNO_ISOLATED_UI_APPLICATION_ID"] {
             precondition(id.hasPrefix("org.pdfno.integration."))
@@ -13,6 +13,7 @@ final class ReadingIntegrationUITests: XCTestCase {
         } else { app = XCUIApplication() } // Dedicated CI/VM/OS-user only.
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        if let paragraphScenario { app.launchEnvironment["PDFNO_UI_TEST_PARAGRAPH_RESPONSE"] = paragraphScenario }
         app.launch(); app.activate()
         return app
     }
@@ -131,5 +132,83 @@ final class ReadingIntegrationUITests: XCTestCase {
         try click(element("ai-settings", in: app))
         XCTAssertNotEqual(element("ai-provider-label", in: app).value as? String, "Original pending label")
     }
+
+    @MainActor private func paragraphClick(_ target: XCUIElement, in app: XCUIApplication) throws {
+        XCTAssertTrue(target.waitForExistence(timeout: 10))
+        let scroll = app.scrollViews["ai-notes-list"].firstMatch
+        if scroll.exists {
+            for _ in 0..<12 {
+                let viewport = scroll.frame.insetBy(dx: 4, dy: 8)
+                if target.isHittable && viewport.contains(target.frame) { break }
+                if target.frame.minY < viewport.minY { scroll.scroll(byDeltaX: 0, deltaY: 240) }
+                else { scroll.scroll(byDeltaX: 0, deltaY: -240) }
+            }
+        }
+        try click(target)
+    }
+    @MainActor private func prepareParagraph(_ app: XCUIApplication, epub: Bool = false) throws {
+        try click(element("ai-settings", in: app)); try click(element("ai-use-deepseek", in: app))
+        let key = element("ai-session-key", in: app); try click(key); key.typeText("synthetic-reading-ui-credential")
+        try click(element("ai-settings-save", in: app))
+        if epub {
+            try click(element("open-epub-sample", in: app)); value(element("epub-position", in: app), contains: "第 1 章")
+            let text = app.webViews.descendants(matching: .staticText).matching(NSPredicate(format: "label BEGINSWITH %@", "window")).firstMatch
+            XCTAssertTrue(text.waitForExistence(timeout: 15))
+            text.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
+            try click(element("epub-ai-tools", in: app))
+        } else { try click(element("open-sample", in: app)); try search("window", in: app); try click(element("reader-ai-tools", in: app)) }
+        try click(element("ai-tool-explain", in: app))
+        value(element("ai-source-quote", in: app), contains: "window")
+        XCTAssertFalse(element("ai-start", in: app).isEnabled)
+        value(element("ai-provider-status", in: app), contains: "接收方")
+    }
+    @MainActor private func sendParagraph(_ app: XCUIApplication) throws {
+        try paragraphClick(element("ai-scope-consent", in: app), in: app); try paragraphClick(element("ai-start", in: app), in: app)
+    }
+    @MainActor func testMacParagraphTypedEvidenceConsentManualSaveAndSource() throws {
+        let app = app(paragraphScenario: "typed"); defer { app.terminate() }
+        try prepareParagraph(app)
+        XCTAssertFalse(element("paragraph-result", in: app).exists)
+        try sendParagraph(app)
+        value(element("paragraph-kind-i1", in: app), contains: "释义")
+        value(element("paragraph-kind-i2", in: app), contains: "术语")
+        value(element("paragraph-kind-i3", in: app), contains: "模型推断 · 待核对")
+        value(element("paragraph-quote-c1", in: app), contains: "w")
+        value(element("ai-result-save-state", in: app), contains: "尚未保存")
+        let draft = element("ai-user-note", in: app); try paragraphClick(draft, in: app); draft.typeText("Original paragraph user body")
+        try paragraphClick(element("ai-save-note", in: app), in: app); value(element("ai-result-save-state", in: app), contains: "已保存")
+        try paragraphClick(element("paragraph-source-c1", in: app), in: app); value(element("page-position", in: app), contains: "1 / 2")
+    }
+    @MainActor func testMacParagraphInsufficientAndInvalidResponsesCannotSave() throws {
+        for scenario in ["insufficient", "invalid", "truncated"] {
+            let app = app(paragraphScenario: scenario)
+            defer { app.terminate() }
+            try prepareParagraph(app); try sendParagraph(app)
+            if scenario == "insufficient" {
+                value(element("paragraph-insufficient", in: app), contains: "没有足够依据")
+                XCTAssertFalse(element("ai-save-note", in: app).isEnabled)
+            } else {
+                value(element("ai-error", in: app), contains: scenario == "invalid" ? "结构或来源" : "截断")
+                XCTAssertFalse(element("ai-save-note", in: app).exists)
+                XCTAssertFalse(element("paragraph-result", in: app).exists)
+            }
+            app.terminate()
+        }
+    }
+    @MainActor func testMacParagraphCancelDoesNotPublishOrSave() throws {
+        let app = app(paragraphScenario: "slow"); defer { app.terminate() }
+        try prepareParagraph(app); try sendParagraph(app)
+        try paragraphClick(element("ai-cancel", in: app), in: app); value(element("ai-error", in: app), contains: "取消")
+        XCTAssertFalse(element("paragraph-result", in: app).exists)
+        XCTAssertFalse(element("ai-save-note", in: app).exists)
+    }
+    @MainActor func testMacParagraphEPUBCitationReturnsToCanonicalRange() throws {
+        let app = app(paragraphScenario: "typed"); defer { app.terminate() }
+        try prepareParagraph(app, epub: true); try sendParagraph(app)
+        value(element("paragraph-quote-c1", in: app), contains: "w")
+        try paragraphClick(element("paragraph-source-c1", in: app), in: app); value(element("epub-position", in: app), contains: "第 1 章")
+        XCTAssertFalse(element("epub-error", in: app).exists)
+    }
+
 }
 #endif

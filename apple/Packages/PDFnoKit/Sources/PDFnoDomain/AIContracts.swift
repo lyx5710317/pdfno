@@ -59,12 +59,14 @@ public struct AIRequest: Sendable {
     public let provider: AIProviderConfig
     public let kind: AILearningKind
     public let timeoutSeconds: Double
-    public init(id: UUID = UUID(), source: AISourceSnapshot, provider: AIProviderConfig, kind: AILearningKind, timeoutSeconds: Double = 30) {
-        self.id = id; self.source = source; self.provider = provider; self.kind = kind; self.timeoutSeconds = timeoutSeconds
+    public let profile: AISelectionProfile
+    public init(id: UUID = UUID(), source: AISourceSnapshot, provider: AIProviderConfig, kind: AILearningKind, timeoutSeconds: Double = 30, profile: AISelectionProfile = .legacy) {
+        self.id = id; self.source = source; self.provider = provider; self.kind = kind; self.timeoutSeconds = timeoutSeconds; self.profile = profile
     }
 }
 extension AIRequest {
     public var promptVersion: String {
+        if profile == .paragraphExplanation { return ParagraphExplanationPolicy.promptVersion }
         if case .pdfPage = source.anchor { return PDFPageTranslationPolicy.promptVersion }
         if case .epubChapter = source.anchor { return EPUBChapterTranslationPolicy.promptVersion }
         return DeepSeekSelectionPolicy.supports(provider) ? DeepSeekSelectionPolicy.promptVersion : "selection-1"

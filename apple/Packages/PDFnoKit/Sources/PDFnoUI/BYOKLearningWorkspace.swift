@@ -53,16 +53,19 @@ struct BYOKLearningWorkspace: View {
                         Button("配置HTTPS BYOK") { settings = true }.accessibilityIdentifier("byok-selection-settings")
                         Picker("选文任务", selection: $kind) {
                             Text("翻译").tag(AILearningKind.translate)
-                            Text("解释").tag(AILearningKind.explain)
+                            Text("段落解释").tag(AILearningKind.explain)
                         }.pickerStyle(.segmented).accessibilityIdentifier("byok-kind").disabled(model.busy || saving)
                         BYOKSelectionConsentView(model: model, sourceIsCurrent: library.isCurrentBYOKSource)
                         if let result = model.result {
+                            if let explanation = result.paragraphExplanation {
+                                ParagraphExplanationResultView(explanation: explanation, source: result.source, library: library, current: library.isCurrentBYOKSource(result.source), summaryIdentifier: "byok-result") { dismiss() }
+                            }
                             TextField("你的笔记（与模型结果独立）", text: $library.byokUserText, axis: .vertical).lineLimit(3...8)
                                 .accessibilityIdentifier("byok-user-note")
                             Button("保存BYOK学习笔记") {
                                 saving = true
                                 Task { _ = await library.saveBYOKResult(); saving = false }
-                            }.buttonStyle(PDFnoActionStyle(role: .primary)).disabled(saving || result.provider != model.draft || !library.isCurrentBYOKSource(result.source)
+                            }.buttonStyle(PDFnoActionStyle(role: .primary)).disabled(!result.canSaveSelectionResult || saving || result.provider != model.draft || !library.isCurrentBYOKSource(result.source)
                                 || library.learning.notes.contains { $0.result.requestID == result.requestID })
                                 .accessibilityIdentifier("byok-save-note")
                             Button("引用 · 回到原文") {

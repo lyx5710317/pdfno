@@ -62,6 +62,24 @@ actor OfflineSelectionUITestTransport: AIHTTPTransport {
                 "finish_reason": "stop", "message": ["role": "assistant", "tool_calls": NSNull(), "content": String(decoding: content, as: UTF8.self)]
             ]]]))
         }
+        if payload["task"] == ParagraphExplanationPolicy.skillID {
+            let citation = String(quote.prefix(1))
+            let scenario = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_PARAGRAPH_RESPONSE"]
+            if scenario == "slow" { try await Task.sleep(for: .seconds(30)) }
+            var output: [String: Any] = ["resultSchemaVersion": 1, "skillID": ParagraphExplanationPolicy.skillID,
+                "scope": "selection", "targetLanguage": "zh-Hans", "status": "complete", "insufficiencyReason": NSNull(),
+                "citations": [["id": "c1", "sourceRefID": "source-1", "startScalar": 0, "endScalar": citation.unicodeScalars.count, "quote": citation]],
+                "payload": ["items": [["id": "i1", "kind": "paraphrase", "text": "[离线 DeepSeek UI 替身] 段落解释 · 只验证来源与笔记，不代表真实解释质量。", "evidenceRefs": ["c1"], "uncertainty": "none"]]]]
+            if scenario == "typed" { output["payload"] = ["items": [
+                ["id": "i1", "kind": "paraphrase", "text": "[离线 DeepSeek UI 替身] 原创合成段落释义，不代表真实质量。", "evidenceRefs": ["c1"], "uncertainty": "none"],
+                ["id": "i2", "kind": "term", "text": "原创合成术语说明，仅验证标签与依据。", "evidenceRefs": ["c1"], "uncertainty": "none"],
+                ["id": "i3", "kind": "inference", "text": "原创合成推断，待人工核对。", "evidenceRefs": ["c1"], "uncertainty": "tentative"]]] }
+            if scenario == "insufficient" { output["status"] = "insufficient_evidence"; output["insufficiencyReason"] = "no_supported_explanation"; output["citations"] = []; output["payload"] = ["items": []] }
+            let content = scenario == "invalid" ? "invalid synthetic paragraph response" : String(decoding: try JSONSerialization.data(withJSONObject: output), as: UTF8.self)
+            return AIHTTPResponse(status: 200, body: try JSONSerialization.data(withJSONObject: ["choices": [[
+                "finish_reason": scenario == "truncated" ? "length" : "stop", "message": ["role": "assistant", "content": content]
+            ]]]))
+        }
         let output = try JSONSerialization.data(withJSONObject: ["schemaVersion": 1, "sourceQuote": quote,
             "text": "[离线 DeepSeek UI 替身] " + (payload["task"] == "translate" ? "翻译" : "解释") + " · 只验证来源与笔记，不代表真实语言质量。"])
         return AIHTTPResponse(status: 200, body: try JSONSerialization.data(withJSONObject: ["choices": [[

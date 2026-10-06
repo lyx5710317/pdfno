@@ -30,6 +30,7 @@ public final class AILearningModel: ObservableObject {
     let storageRoot: URL
     @Published var userText = ""
     @Published var busy = false
+    @Published private(set) var saving = false
     @Published var status = "未配置 · 未发送请求"
     @Published var error: String?
     @Published private(set) var hasSessionCredential = false
@@ -47,6 +48,8 @@ public final class AILearningModel: ObservableObject {
     private var temporaryCredentialReference: UUID?
     private var task: Task<Void, Never>?
     private var generation = UUID()
+    @Published private(set) var paragraphSourceIsStale = false
+    private var paragraphCommitFence: EnglishLearningSourceCommitFence?
     private var drafts: [String: String] = [:]
     private func draftKey(_ source: AISourceSnapshot) -> String? {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
@@ -95,19 +98,24 @@ public final class AILearningModel: ObservableObject {
         } catch { self.error = AIJobCoordinator.safeError(error).localizedDescription; return false }
     }
     func clearSessionCredential() async {
-        cancel()
+        invalidateParagraphSource(); cancel()
         if let reference = temporaryCredentialReference { await sessionCredentials.remove(reference) }
         temporaryCredentialReference = nil; hasSessionCredential = false; status = "会话密钥已清除 · 已有结果与笔记保留"
     }
     func prepare(_ source: AISourceSnapshot?) {
-        if self.source == source { return } // Reopening the same selection retains its visible outcome.
+        if ReadingSkillIdentity.matches(self.source, source) && !paragraphSourceIsStale { return } // Reopening the same selection retains its visible outcome.
         if let old = self.source, let key = draftKey(old) { drafts[key] = userText }
         if let source, let key = draftKey(source) { userText = drafts[key] ?? "" }
         else { userText = "" }
-        cancel(); self.source = source; result = nil; error = nil
+        cancel(); self.source = source; result = nil; error = nil; paragraphSourceIsStale = false
         status = source == nil ? "请先在原文中选择文字" : "来源已固定 · 确认范围后开始"
     }
+    func invalidateParagraphSource() {
+        guard kind == .explain, source != nil else { return }
+        paragraphSourceIsStale = true; cancel()
+    }
     func cancel() {
+        paragraphCommitFence?.invalidate(); paragraphCommitFence = nil
         japaneseScopeDidInvalidate?()
         generation = UUID(); task?.cancel(); task = nil
         if busy {
@@ -144,6 +152,8 @@ public final class AILearningModel: ObservableObject {
     }
     func start(confirmed: Bool, sourceIsCurrent: @escaping @MainActor (AISourceSnapshot) -> Bool) {
         guard let source, source.isValid else { error = AIFailure.inputLimit.localizedDescription; return }
+        if kind == .explain, paragraphSourceIsStale { error = AIFailure.stale.localizedDescription; return }
+        if kind == .explain, source.anchor.quote.utf16.count > 500 { error = AIFailure.remoteInputLimit.localizedDescription; return }
         guard confirmed else { error = AIFailure.consent.localizedDescription; return }
         guard sourceIsCurrent(source) else { error = AIFailure.stale.localizedDescription; return }
         guard config.mode != .unconfigured else { error = AIFailure.unconfigured.localizedDescription; return }
@@ -156,8 +166,8 @@ public final class AILearningModel: ObservableObject {
             guard remoteAttemptsUsed < DeepSeekSelectionPolicy.maxAttempts else { error = AIFailure.attemptLimit.localizedDescription; return }
             provider = DeepSeekSelectionProvider(transport: transport, credentials: sessionCredentials, credentialReference: reference, budget: remoteBudget)
         }
-        guard !busy else { return }
-        cancel(); let token = generation, request = AIRequest(source: source, provider: config, kind: kind, timeoutSeconds: timeoutSeconds)
+        guard !busy, !saving else { return }
+        cancel(); let token = generation, request = AIRequest(source: source, provider: config, kind: kind, timeoutSeconds: timeoutSeconds, profile: kind == .explain ? .paragraphExplanation : .legacy)
         attempts.append(AILearningAttempt(id: request.id, source: source, provider: config, kind: kind, outcome: .requesting))
         if attempts.count > 10 { attempts.removeFirst(attempts.count - 10) }
         result = nil; error = nil; busy = true
@@ -177,13 +187,14 @@ public final class AILearningModel: ObservableObject {
                             return ReadingSkillIdentity.matches(self.config, config) && sourceIsCurrent(source)
                         }
                     })
-                guard case .text(let result) = envelope.payload else { throw AIFailure.output }
+                let result: AIResult
+                switch envelope.payload { case .text(let value), .paragraph(let value, _): result = value; default: throw AIFailure.output }
                 guard generation == token else { return }
-                guard config == request.provider, sourceIsCurrent(source), result.requestID == request.id else { throw AIFailure.stale }
+                guard ReadingSkillIdentity.matches(config, request.provider), sourceIsCurrent(source), result.requestID == request.id else { throw AIFailure.stale }
                 self.result = result; readingSkillResult = envelope
                 if let index = attempts.firstIndex(where: { $0.id == request.id }) { attempts[index].outcome = .completed(result) }
                 status = result.fromCache ? "本次来自已校验内存缓存 · 没有发送网络请求" :
-                    result.provider.mode == .mock ? "本地 mock 结果 · 不代表真实翻译或解释质量" : "收到 DeepSeek 结果并核验原文 · 未自动保存学习笔记"
+                    result.provider.mode == .mock ? "本地 mock 结果 · 不代表真实翻译或解释质量" : result.paragraphExplanation != nil ? "段落解释结构与引文已核验 · 解释与推断待人工审阅 · 未自动保存" : "收到 DeepSeek 结果并核验原文 · 未自动保存学习笔记"
             } catch {
                 guard generation == token else { return }
                 let failure = ReadingSkillSelectionAdapter.hostFailure(error)
@@ -216,14 +227,26 @@ public final class AILearningModel: ObservableObject {
             notes = try await repository.load().notes; return true
         } catch { self.error = AIJobCoordinator.safeError(error).localizedDescription; return false }
     }
-    func save(sourceIsCurrent: (AISourceSnapshot) -> Bool) async -> Bool {
+    func save(sourceIsCurrent: (AISourceSnapshot) -> Bool, validateSource: ((AISourceSnapshot) async -> Bool)? = nil, makeCommitFence: ((AISourceSnapshot) throws -> EnglishLearningSourceCommitFence)? = nil) async -> Bool {
+        guard !saving else { return false }
+        saving = true; defer { saving = false }
         guard let operation = try? LocalStoreWriteGate.shared(root: storageRoot).beginWrite() else { return false }
         defer { operation.finish() }
-        guard let result, sourceIsCurrent(result.source), result.provider == config else { error = AIFailure.stale.localizedDescription; return false }
+        guard let result, result.canSaveSelectionResult, (result.paragraphExplanation == nil || !paragraphSourceIsStale), sourceIsCurrent(result.source), ReadingSkillIdentity.matches(result.provider, config) else { error = AIFailure.stale.localizedDescription; return false }
         guard !notes.contains(where: { $0.result.requestID == result.requestID }) else { return true }
+        let token = generation, body = userText
         do {
-            try await repository.saveNote(AILearningNote(result: result, userText: userText))
+            var fence: EnglishLearningSourceCommitFence?
+            if result.paragraphExplanation != nil {
+                guard !paragraphSourceIsStale else { throw AIFailure.stale }
+                if let validateSource { guard await validateSource(result.source) else { throw AIFailure.stale } }
+                guard generation == token, self.result?.requestID == result.requestID, sourceIsCurrent(result.source), ReadingSkillIdentity.matches(result.provider, config) else { throw AIFailure.stale }
+                fence = try makeCommitFence?(result.source); paragraphCommitFence = fence
+            }
+            defer { fence?.invalidate(); if paragraphCommitFence === fence { paragraphCommitFence = nil } }
+            try await repository.saveNote(AILearningNote(result: result, userText: body), commitFence: fence)
+            guard generation == token else { return true }
             notes = try await repository.load().notes; status = "学习笔记已保存到本地 · 用户正文与 AI 结果分别保留"; return true
-        } catch { self.error = AIJobCoordinator.safeError(error).localizedDescription; return false }
+        } catch { if generation == token { self.error = AIJobCoordinator.safeError(error).localizedDescription }; return false }
     }
 }

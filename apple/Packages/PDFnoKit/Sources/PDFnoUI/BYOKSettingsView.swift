@@ -126,6 +126,7 @@ public struct BYOKSelectionConsentView: View {
                 Text("将发送的完整选文（\(preview.sourceText.utf16.count)/500 UTF-16）：")
                 PDFnoTextViewport(text: preview.sourceText, identifier: "byok-consent-source")
                 #endif
+                if preview.request.profile == .paragraphExplanation { Text("段落解释 · 简体中文 · 释义／术语／模型推断与原文依据分开；真实质量待人工审阅。只发送上述原文及固定段落解释指令，无额外上下文。") }
                 Text(preview.capability.explanation).font(.caption)
                 Text("最多1024输出token、30秒、应用会话共3次阅读请求；失败和取消也计数，不自动重试。服务可能收费。")
                 Toggle("我确认上述域名、模型、完整选文和费用范围，允许发送一次", isOn: $confirmed)
@@ -141,7 +142,7 @@ public struct BYOKSelectionConsentView: View {
             Text("本应用会话已用阅读请求：\(model.attemptsUsed)/3")
             PDFnoStatusMessage(text: model.status, kind: model.busy ? .busy : .information)
             if let error = model.error { PDFnoStatusMessage(text: error, kind: .error) }
-            if let result = model.result { PDFnoTextViewport(text: result.text, identifier: "byok-result", height: 220) }
+            if let result = model.result, result.paragraphExplanation == nil { PDFnoTextViewport(text: result.displayText, identifier: "byok-result", height: 220) }
         }
         .onChange(of: model.preview) { _, _ in confirmed = false }
         .onDisappear { model.invalidate() }

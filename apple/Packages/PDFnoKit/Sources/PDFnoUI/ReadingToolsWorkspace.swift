@@ -10,7 +10,7 @@ enum PDFnoReadingTool: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .translate: "选文翻译"
-        case .explain: "选文解释"
+        case .explain: "段落解释"
         case .japanese: "日语假名与语法"
         case .english: "英语结构与语法"
         case .page: "当前 PDF 物理页翻译"
@@ -22,7 +22,7 @@ enum PDFnoReadingTool: String, CaseIterable, Identifiable {
     var detail: String {
         switch self {
         case .translate: "翻译固定选文；先预览接收方和范围。"
-        case .explain: "解释固定选文；不附加隐藏上下文。"
+        case .explain: "固定选文的释义、术语与模型推断分开；显示原文依据，手动保存。"
         case .japanese: "区分作者 ruby、生成建议与用户修正。"
         case .english: "结构分色与语法候选；真实语言质量尚未验收。"
         case .page: "预览当前物理页完整文字与分段预算。"
@@ -115,7 +115,7 @@ struct ReadingToolsWorkspace: View {
                     PDFnoSettingsCard("知识与模板", symbol: "note.text") {
                         toolRow(.savedSearch)
                         if !existingOnly {
-                            DisclosureGroup("规划中 · 段落解释扩展、论证结构、引用学习卡、单书问答、个人模板") {
+                            DisclosureGroup("规划中 · 论证结构、引用学习卡、单书问答、个人模板") {
                                 Text("上述能力尚未实现；本片只保留规划说明，没有生成或模板编辑入口。")
                                     .foregroundStyle(.secondary).padding(.top, PDFnoDesign.Space.small)
                             }.accessibilityIdentifier("ai-tools-knowledge-planned")

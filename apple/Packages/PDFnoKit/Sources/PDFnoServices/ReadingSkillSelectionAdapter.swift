@@ -13,12 +13,20 @@ public enum ReadingSkillSelectionAdapter {
     public typealias CurrentSourceCheck = @Sendable (AISourceSnapshot, AIProviderConfig) async -> Bool
     public static func runText(_ plan: ReadingSkillInputPlan, consent: ReadingSkillConsent, hostConsent: AIConsent,
                                coordinator: AIJobCoordinator, provider: any AIProvider,
-                               sourceAndConfigurationAreCurrent: CurrentSourceCheck) async throws -> ReadingSkillResultEnvelope {
+                               sourceAndConfigurationAreCurrent: @escaping CurrentSourceCheck) async throws -> ReadingSkillResultEnvelope {
         try await preflight(plan, consent: consent, current: sourceAndConfigurationAreCurrent)
         guard case .text(let request) = plan.request else { throw ReadingSkillFailure.scope }
         // Host consent is never synthesized or broadened by this adapter.
-        let result = try await coordinator.run(request, consent: hostConsent, provider: provider)
+        let result: AIResult
+        do {
+            result = try await coordinator.run(request, consent: hostConsent, provider: provider,
+                resultIsCurrent: { await sourceAndConfigurationAreCurrent(request.source, request.provider) })
+        } catch AIFailure.stale { throw ReadingSkillFailure.staleSource }
         try await postflight(plan, current: sourceAndConfigurationAreCurrent)
+        if request.profile == .paragraphExplanation {
+            guard let explanation = result.paragraphExplanation else { throw ReadingSkillFailure.result }
+            return try ReadingSkillResultEnvelope(plan: plan, payload: .paragraph(result, explanation))
+        }
         return try ReadingSkillResultEnvelope(plan: plan, payload: .text(result))
     }
     public static func runJapanese(_ plan: ReadingSkillInputPlan, consent: ReadingSkillConsent, hostConsent: AIConsent,

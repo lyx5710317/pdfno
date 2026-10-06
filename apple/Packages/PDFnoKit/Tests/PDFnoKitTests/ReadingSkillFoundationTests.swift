@@ -81,7 +81,7 @@ private func skillManifestCopy(_ original: ReadingSkillManifest, skillID: String
 struct ReadingSkillFoundationTests {
     @Test func compiledCatalogKeepsSixHonestScopesAndAllHostLimits() throws {
         let registry = ReadingSkillRegistry.builtin
-        #expect(registry.entries.count == 6 && registry.entries.allSatisfy(\.isEnabled))
+        #expect(registry.entries.count == 7 && registry.entries.allSatisfy(\.isEnabled))
         for id in ReadingSkillID.allCases {
             let manifest = try registry.manifest(for: id)
             #expect(manifest.skillVersion == (manifest.scope == .selection ? "1.0.1" : "1.0.0") && manifest.runtimeVersion == ReadingSkillRegistry.runtimeVersion && manifest.manifestSchemaVersion == (id == .translateSelection || id == .explainSelection ? 2 : 1))

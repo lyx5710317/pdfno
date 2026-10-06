@@ -48,6 +48,9 @@ public actor AILearningRepository {
         if case .epubChapter = result.source.anchor {
             return result.promptVersion == EPUBChapterTranslationPolicy.promptVersion && result.kind == .translate && DeepSeekSelectionPolicy.supports(result.provider)
         }
+        if result.promptVersion == ParagraphExplanationPolicy.promptVersion {
+            return (result.provider.mode == .mock || (try? BYOKSelectionPolicy.finalURL(result.provider)) != nil) && result.paragraphExplanation?.canSave == true
+        }
         return ["selection-1", DeepSeekSelectionPolicy.promptVersion].contains(result.promptVersion)
     }
     private static func valid(_ note: AILearningNote) -> Bool {
@@ -88,13 +91,15 @@ public actor AILearningRepository {
         let next = AILearningNote(id: old.id, result: old.result, userText: text)
         state.notes[index] = next; try commit(state); return next
     }
-    public func saveNote(_ note: AILearningNote) throws {
+    public func saveNote(_ note: AILearningNote, commitFence: EnglishLearningSourceCommitFence? = nil) throws {
         let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
         defer { storeWrite.finish() }
 
         guard Self.valid(note) else { throw AIFailure.output }
         var state = try load()
         guard !state.notes.contains(where: { $0.id == note.id || $0.result.requestID == note.result.requestID }) else { throw AIFailure.stale }
-        state.notes.append(note); try commit(state)
+        state.notes.append(note)
+        if let commitFence { try commitFence.withValidatedCommit(root: root, source: note.result.source) { try commit(state) } }
+        else { try commit(state) }
     }
 }

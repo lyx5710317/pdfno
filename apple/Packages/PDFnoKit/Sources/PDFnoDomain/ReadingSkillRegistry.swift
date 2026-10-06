@@ -3,6 +3,7 @@ import Foundation
 
 public enum ReadingSkillID: String, Codable, Sendable, CaseIterable {
     case translateSelection = "pdfno.reading.translate-selection"
+    case paragraphExplanation = "pdfno.reading.paragraph-explanation"
     case explainSelection = "pdfno.reading.explain-selection"
     case japaneseSelection = "pdfno.reading.japanese-selection"
     case englishSelection = "pdfno.reading.english-selection"
@@ -18,7 +19,7 @@ public enum ReadingSkillFormat: String, Codable, Sendable { case pdf, epub }
 /// A declared task language, not automatic language detection or quality verification.
 public enum ReadingSkillLanguage: String, Codable, Sendable, CaseIterable { case unspecified = "und", zh, zhHans = "zh-Hans", ja, en }
 public enum ReadingSkillRouting: String, Codable, Sendable { case selectionAdapter, existingBatchHostOnly }
-public enum ReadingSkillResultKind: String, Codable, Sendable { case selectionText, japaneseReview, englishReview }
+public enum ReadingSkillResultKind: String, Codable, Sendable { case selectionText, japaneseReview, englishReview, paragraphExplanation }
 public enum ReadingSkillBudgetPool: String, Codable, Sendable { case selection, pdfPage, epubSpine }
 public struct ReadingSkillBudget: Codable, Sendable, Equatable {
     public let pool: ReadingSkillBudgetPool
@@ -159,7 +160,7 @@ public struct ReadingSkillRegistry: Sendable {
         guard provider.isValid else { return .unavailable(.configuration) }
         if provider.mode == .unconfigured { return .unavailable(.unconfigured) }
         if provider.mode == .mock { return manifest.routing == .selectionAdapter ? .localSynthetic : .unavailable(.configuration) }
-        if id == .translateSelection || id == .explainSelection {
+        if id == .translateSelection || id == .explainSelection || id == .paragraphExplanation {
             return (try? BYOKSelectionPolicy.finalURL(provider)) != nil ? .boundedRemote : .unavailable(.configuration)
         }
         return DeepSeekSelectionPolicy.supports(provider) ? .boundedRemote : .unavailable(.configuration)
@@ -174,6 +175,9 @@ public struct ReadingSkillRegistry: Sendable {
                 scope = .selection; formats = [.pdf, .epub]; languages = ReadingSkillLanguage.allCases; pool = .selection
                 title = id == .translateSelection ? "选文翻译" : "选文简短解释"
                 result = .init(kind: .selectionText, validatorID: "legacy-selection-text-1", promptVersions: ["selection-1", DeepSeekSelectionPolicy.promptVersion])
+            case .paragraphExplanation:
+                scope = .selection; formats = [.pdf, .epub]; languages = ReadingSkillLanguage.allCases; pool = .selection; title = "段落解释"
+                result = .init(kind: .paragraphExplanation, validatorID: "paragraph-explanation-1", promptVersions: [ParagraphExplanationPolicy.promptVersion])
             case .japaneseSelection:
                 scope = .selection; formats = [.pdf, .epub]; languages = [.ja]; pool = .selection; title = "日语选文学习"
                 result = .init(kind: .japaneseReview, validatorID: "japanese-learning-2", promptVersions: [JapaneseLearningPolicy.promptVersion], validationVersion: 2)

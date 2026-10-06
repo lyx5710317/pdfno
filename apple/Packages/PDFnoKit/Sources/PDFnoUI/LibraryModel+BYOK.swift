@@ -27,15 +27,25 @@ extension LibraryModel {
         return (try? encoder.encode(captured)) == (try? encoder.encode(source))
     }
     func saveBYOKResult() async -> Bool {
+        guard !byok.saving else { return false }
+        byok.saving = true; defer { byok.saving = false }
         guard let operation = try? storeWriteGate.beginWrite() else { return false }
         defer { operation.finish() }
-        guard let result = byok.result, result.promptVersion == "selection-1",
-              result.provider == byok.draft, isCurrentBYOKSource(result.source) else {
+        guard let result = byok.result, ["selection-1", ParagraphExplanationPolicy.promptVersion].contains(result.promptVersion), result.canSaveSelectionResult,
+              ReadingSkillIdentity.matches(result.provider, byok.draft), isCurrentBYOKSource(result.source) else {
             byokSaveStatus = AIFailure.stale.localizedDescription; return false
         }
         guard !learning.notes.contains(where: { $0.result.requestID == result.requestID }) else { return true }
+        let body = byokUserText
         do {
-            try await learning.repository.saveNote(AILearningNote(result: result, userText: byokUserText))
+            var fence: EnglishLearningSourceCommitFence?
+            if result.paragraphExplanation != nil {
+                guard await validateParagraphSourceForSave(result.source), isCurrentBYOKSource(result.source),
+                      byok.result?.requestID == result.requestID, ReadingSkillIdentity.matches(result.provider, byok.draft) else { throw AIFailure.stale }
+                fence = try makeParagraphCommitFence(result.source); byok.paragraphCommitFence = fence
+            }
+            defer { fence?.invalidate(); if byok.paragraphCommitFence === fence { byok.paragraphCommitFence = nil } }
+            try await learning.repository.saveNote(AILearningNote(result: result, userText: body), commitFence: fence)
             learning.notes = try await learning.repository.load().notes
             byokSaveStatus = "BYOK学习笔记已保存 · 原结果与用户正文独立保留"; return true
         } catch {

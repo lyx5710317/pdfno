@@ -22,6 +22,14 @@ private actor SelectionStub: AIHTTPTransport {
         let json = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: Any]
         let messages = json["messages"] as! [[String: String]]
         let selection = try JSONSerialization.jsonObject(with: Data(messages[1]["content"]!.utf8)) as! [String: String]
+        if selection["task"] == ParagraphExplanationPolicy.skillID {
+            let quote = selection["sourceText"]!
+            let source = AISourceSnapshot(bookID: UUID(), readerSessionID: UUID(), documentVersion: 0,
+                anchor: .pdf(.init(editionID: UUID(), fileSHA256: String(repeating: "a", count: 64), quote: quote,
+                    regions: [.init(pageIndex: 0, x: 1, y: 1, width: 10, height: 10, quote: quote)])))
+            let content = try ParagraphExplanationPrompt.mockPayload(source: source)
+            return AIHTTPResponse(status: status, body: try JSONSerialization.data(withJSONObject: ["choices": [["finish_reason": "stop", "message": ["role": "assistant", "content": String(decoding: content, as: UTF8.self)]]]]))
+        }
         return AIHTTPResponse(status: status, body: try selectionEnvelope(quote: selection["sourceText"]!))
     }
 }
@@ -105,7 +113,7 @@ struct DeepSeekSelectionTests {
             let limit = Date().addingTimeInterval(5)
             while model.busy, Date() < limit { try await Task.sleep(for: .milliseconds(10)) }
             try #require(!model.busy)
-            #expect(model.result?.source == selected && model.result?.promptVersion == DeepSeekSelectionPolicy.promptVersion)
+            #expect(model.result?.source == selected && model.result?.promptVersion == (epub ? ParagraphExplanationPolicy.promptVersion : DeepSeekSelectionPolicy.promptVersion))
             #expect(model.notes.count == (epub ? 1 : 0)) // No auto-save.
             let retained = model.result; model.cancel(); model.prepare(selected)
             #expect(model.result == retained && model.userText == "Independent original user note")

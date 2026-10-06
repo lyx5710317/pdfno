@@ -4,7 +4,7 @@ import PDFnoDomain
 
 /// No arbitrary JSON payload and no decoding path that can assert host validation.
 public enum ReadingSkillPayload: Sendable {
-    case text(AIResult), japanese(JapaneseLearningReview), english(EnglishLearningReview)
+    case text(AIResult), paragraph(AIResult, ParagraphExplanation), japanese(JapaneseLearningReview), english(EnglishLearningReview)
 }
 public enum ReadingSkillValidation: String, Sendable { case sourceAndStructure, candidatesNeedReview, trustedSourceOnly }
 public enum ReadingSkillUsage: String, Sendable { case unknown, localSynthetic, cacheWithoutNetwork }
@@ -26,9 +26,15 @@ public struct ReadingSkillResultEnvelope: Sendable {
         let source: AISourceSnapshot, provider: AIProviderConfig, prompt: String, requestID: UUID
         let validation: ReadingSkillValidation, fromCache: Bool
         switch (plan.request, payload) {
+        case (.text(let request), .paragraph(let result, let explanation)):
+            guard request.profile == .paragraphExplanation,
+                  let validated = result.paragraphExplanation,
+                  ReadingSkillIdentity.matches(validated, explanation) else { throw ReadingSkillFailure.result }
+            source = result.source; provider = result.provider; prompt = result.promptVersion; requestID = result.requestID
+            validation = .candidatesNeedReview; fromCache = result.fromCache
         case (.text, .text(let result)):
             guard !result.text.isEmpty, result.text.utf16.count <= 16000,
-                  case .text(let request) = plan.request, result.kind == request.kind else { throw ReadingSkillFailure.result }
+                  case .text(let request) = plan.request, request.profile == .legacy, result.kind == request.kind else { throw ReadingSkillFailure.result }
             source = result.source; provider = result.provider; prompt = result.promptVersion; requestID = result.requestID
             validation = .sourceAndStructure; fromCache = result.fromCache
         case (.japanese(let request), .japanese(let result)):

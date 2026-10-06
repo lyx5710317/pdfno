@@ -199,9 +199,10 @@ struct AILearningWorkspace: View {
                         if let source = learning.source, source.anchor.quote.utf16.count > DeepSeekSelectionPolicy.maxSourceUTF16 { Text(AIFailure.remoteInputLimit.localizedDescription).foregroundStyle(.red) }
                     }
                     if learning.offlineTransport { Text("自动测试离线替身 · 不联网 · 虚构凭据").accessibilityIdentifier("ai-offline-fixture") }
+                    if learning.kind == .explain { Text("段落解释 Skill 1.0.1 / schema 1：仅简体中文、最多500 UTF-16；释义／术语／模型推断分开，原文依据可核对。证据不足或结构错误不保存。真实解释质量待人工审阅。") }
                     Toggle("确认上方选文、任务、接收方及费用范围", isOn: $confirmed).accessibilityIdentifier("ai-scope-consent")
                     Button("开始") { learning.start(confirmed: confirmed, sourceIsCurrent: library.isCurrentAISource); confirmed = false }
-                        .disabled(!confirmed || learning.source == nil || learning.busy ||
+                        .disabled(!confirmed || learning.source == nil || learning.busy || learning.saving || (learning.kind == .explain && (learning.source?.anchor.quote.utf16.count ?? 0) > 500) ||
                             (DeepSeekSelectionPolicy.supports(learning.config) && (!learning.hasSessionCredential || learning.remoteAttemptsUsed >= DeepSeekSelectionPolicy.maxAttempts || (learning.source?.anchor.quote.utf16.count ?? 0) > DeepSeekSelectionPolicy.maxSourceUTF16)))
                         .buttonStyle(PDFnoActionStyle(role: .primary)).accessibilityIdentifier("ai-start")
                     if learning.busy { Button("取消请求") { learning.cancel() }.accessibilityIdentifier("ai-cancel") }
@@ -211,12 +212,14 @@ struct AILearningWorkspace: View {
                 }.id("ai-task-state")
                 if let result = learning.result {
                     PDFnoSettingsCard("结果 · \(result.provider.mode == .mock ? "本地 mock" : "模型生成")") {
-                        PDFnoTextViewport(text: result.text, identifier: "ai-result", height: 220)
-                        Button("引用 · 回到原文") { Task { learning.cancel(); if await library.returnToAISource(result.source) { dismiss() } } }
+                        if let explanation = result.paragraphExplanation {
+                            ParagraphExplanationResultView(explanation: explanation, source: result.source, library: library) { dismiss() }
+                        } else { PDFnoTextViewport(text: result.displayText, identifier: "ai-result", height: 220) }
+                        Button("引用 · 回到原文") { Task { if result.paragraphExplanation != nil && !library.isCurrentParagraphSource(result.source) { learning.error = AIFailure.stale.localizedDescription; return }; learning.cancel(); if await library.returnToAISource(result.source) { dismiss() } } }
                             .accessibilityIdentifier("ai-result-source")
                         TextField("你的笔记（独立保存）", text: $learning.userText, axis: .vertical).lineLimit(3...8).accessibilityIdentifier("ai-user-note")
-                        Button("保存学习笔记") { Task { _ = await learning.save(sourceIsCurrent: library.isCurrentAISource) } }
-                            .buttonStyle(PDFnoActionStyle(role: .primary)).disabled(learning.notes.contains { $0.result.requestID == result.requestID }).accessibilityIdentifier("ai-save-note")
+                        Button("保存学习笔记") { Task { _ = await learning.save(sourceIsCurrent: library.isCurrentAISource, validateSource: library.validateParagraphSourceForSave, makeCommitFence: library.makeParagraphCommitFence) } }
+                            .buttonStyle(PDFnoActionStyle(role: .primary)).disabled(learning.saving || !result.canSaveSelectionResult || (result.paragraphExplanation != nil && !library.isCurrentParagraphSource(result.source)) || !library.isCurrentAISource(result.source) || result.provider != learning.config || learning.notes.contains { $0.result.requestID == result.requestID }).accessibilityIdentifier("ai-save-note")
                         let savedNote = learning.notes.first { $0.result.requestID == result.requestID }
                         let changed = savedNote.map { $0.userText != learning.userText } ?? false
                         PDFnoStatusMessage(text: savedNote == nil ? "结果与笔记尚未保存 · 点击保存才写入本地" : changed
@@ -234,7 +237,7 @@ struct AILearningWorkspace: View {
                             Text(attempt.source.anchor.locationLabel + " · " + (attempt.kind == .translate ? "翻译" : "解释"))
                             switch attempt.outcome {
                             case .requesting: PDFnoStatusMessage(text: "正在等待", kind: .busy)
-                            case .completed(let result): Text(verbatim: result.text).textSelection(.enabled).accessibilityIdentifier("ai-history-result")
+                            case .completed(let result): Text(verbatim: result.displayText).textSelection(.enabled).accessibilityIdentifier("ai-history-result")
                             case .failed(let failure): PDFnoStatusMessage(text: failure.localizedDescription, kind: .error, identifier: "ai-history-error")
                             }
                         }
@@ -247,12 +250,14 @@ struct AILearningWorkspace: View {
                     ForEach(savedNotes) { note in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(verbatim: note.result.source.anchor.quote).accessibilityIdentifier("ai-saved-quote")
-                            Text(verbatim: note.result.text).foregroundStyle(.secondary).accessibilityIdentifier("ai-saved-result")
+                            if let explanation = note.result.paragraphExplanation {
+                                ParagraphExplanationResultView(explanation: explanation, source: note.result.source, library: library, saved: true, summaryIdentifier: "ai-saved-result") { dismiss() }
+                            } else { Text(verbatim: note.result.displayText).foregroundStyle(.secondary).accessibilityIdentifier("ai-saved-result") }
                             if !note.userText.isEmpty { Text(verbatim: note.userText).accessibilityIdentifier("ai-saved-user-note") }
                             NoteBodyEditor(editor: library.noteEditing, note: .learning(note), identifier: "ai-note") {
                                 await library.saveEditedNote(.learning(note))
                             } reload: { await library.reloadEditedNote(.learning(note)) }
-                            Button("引用 · 回到原文") { Task { learning.cancel(); if await library.returnToAISource(note.result.source) { dismiss() } } }
+                            Button("引用 · 回到原文") { Task { if note.result.paragraphExplanation != nil && !library.canReturnToSavedParagraphSource(note.result.source) { learning.error = AIFailure.stale.localizedDescription; return }; learning.cancel(); if await library.returnToAISource(note.result.source) { dismiss() } } }
                                 .accessibilityIdentifier("ai-saved-source")
                         }
                     }
@@ -268,13 +273,14 @@ struct AILearningWorkspace: View {
             }
         }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: PDFnoDesign.Metric.sheetIdeal, minHeight: 600)
         .onChange(of: learning.kind) { _, _ in learning.cancel(); learning.result = nil; confirmed = false }
-        .onChange(of: learning.config) { _, _ in learning.cancel(); learning.result = nil; confirmed = false }
-        .onChange(of: learning.source) { _, _ in confirmed = false }
+        .onChange(of: try? ReadingSkillIdentity.data(learning.config)) { _, _ in learning.cancel(); learning.result = nil; confirmed = false }
+        .onChange(of: try? ReadingSkillIdentity.data(learning.source)) { _, _ in confirmed = false }
         .onDisappear { learning.cancel() }
     }
     private var startUnavailableReason: String? {
         if learning.source == nil { return "请先选择原文。" }
         if learning.busy { return "请求进行中，可以取消请求。" }
+        if learning.kind == .explain && (learning.source?.anchor.quote.utf16.count ?? 0) > 500 { return "段落解释最多500 UTF-16 单位，请缩小选文。" }
         if DeepSeekSelectionPolicy.supports(learning.config) {
             if !learning.hasSessionCredential { return "请先在模型设置中输入会话密钥。" }
             if learning.remoteAttemptsUsed >= DeepSeekSelectionPolicy.maxAttempts { return "本次会话阅读请求次数已用完。" }

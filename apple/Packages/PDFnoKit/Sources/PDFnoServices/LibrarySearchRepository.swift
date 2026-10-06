@@ -120,7 +120,7 @@ public actor LibrarySearchRepository {
             let identity = LocalBookIdentity(format: format, bookID: source.bookID, editionID: source.anchor.editionID, fileSHA256: source.anchor.fileSHA256)
             let candidate = book(format, source.bookID)
             let b = candidate?.identity == identity ? candidate! : LibrarySearchBook(identity: identity, title: "来源书籍不在书库", sourceAvailable: false)
-            entries.append(LibrarySearchEntry(book: b, kind: .learning, noteID: n.id, userText: n.userText, quote: source.anchor.quote, generatedText: n.result.text, location: source.anchor.locationLabel))
+            entries.append(LibrarySearchEntry(book: b, kind: .learning, noteID: n.id, userText: n.userText, quote: source.anchor.quote, generatedText: n.result.displayText, location: source.anchor.locationLabel))
         }
         return try LibrarySearchIndex.search(query, books: books, entries: entries)
     }

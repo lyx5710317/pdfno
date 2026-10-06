@@ -8,9 +8,9 @@ import PDFnoServices
 @MainActor public final class BYOKSettingsModel: ObservableObject {
     @Published public var draft = DeepSeekSelectionPolicy.configuration() {
         didSet {
-            guard !synchronizing, draft != oldValue else { return }
+            guard !synchronizing, !ReadingSkillIdentity.matches(draft, oldValue) else { return }
             invalidate()
-            if draft.endpoint != oldValue.endpoint {
+            if !ReadingSkillIdentity.matches(draft.endpoint, oldValue.endpoint) {
                 temporarySecret = ""; hasSessionCredential = false
                 let previous = credentialClearTask, session = session
                 credentialClearTask = Task { await previous?.value; await session.clearCredential() }
@@ -27,6 +27,7 @@ import PDFnoServices
     public private(set) var readingSkillPlan: ReadingSkillInputPlan?
     public private(set) var readingSkillResult: ReadingSkillResultEnvelope?
     @Published public private(set) var busy = false
+    @Published var saving = false
     @Published public private(set) var status = "官方 DeepSeek 默认配置 · 尚未发送"
     @Published public private(set) var error: String?
     @Published public private(set) var attemptsUsed = 0
@@ -37,6 +38,7 @@ import PDFnoServices
     private var credentialClearTask: Task<Void, Never>?
     private var task: Task<Void, Never>?
     private var generation = UUID()
+    var paragraphCommitFence: EnglishLearningSourceCommitFence?
     private var synchronizing = false
     public init(session: BYOKProviderSession = BYOKProviderSession(),
                 transport: any AIHTTPTransport = URLSessionAITransport(), aiSession: AppAISession = .shared) {
@@ -60,7 +62,7 @@ import PDFnoServices
         temporarySecret = ""
         do {
             let snapshot = try await session.configure(candidate, temporarySecret: value)
-            guard generation == token, draft == candidate else { await session.clearCredential(); throw AIFailure.stale }
+            guard generation == token, ReadingSkillIdentity.matches(draft, candidate) else { await session.clearCredential(); throw AIFailure.stale }
             draft = snapshot.configuration; hasSessionCredential = snapshot.hasSessionCredential; error = nil
             status = "配置仅在本次会话生效 · " + (hasSessionCredential ? "需要逐次确认后发送" : "需要重新输入会话密钥")
             return true
@@ -82,23 +84,23 @@ import PDFnoServices
         do {
             let snapshot = await session.snapshot()
             guard generation == token else { return }
-            guard draft == snapshot.configuration else { throw AIFailure.stale }
-            preview = try BYOKSelectionPreview(request: AIRequest(source: source, provider: snapshot.configuration, kind: kind))
+            guard ReadingSkillIdentity.matches(draft, snapshot.configuration) else { throw AIFailure.stale }
+            preview = try BYOKSelectionPreview(request: AIRequest(source: source, provider: snapshot.configuration, kind: kind, profile: kind == .explain ? .paragraphExplanation : .legacy))
             hasSessionCredential = snapshot.hasSessionCredential; result = nil; error = nil
             status = "核对实际域名与下方完整选文 · 不会自动发送"
         } catch { self.error = Self.message(error) }
     }
     public func start(confirmed: Bool, sourceIsCurrent: @escaping @MainActor (AISourceSnapshot) -> Bool) {
-        guard !busy else { return }
+        guard !busy, !saving else { return }
         guard confirmed, let preview else { error = Self.message(AIFailure.consent); return }
-        guard sourceIsCurrent(preview.request.source), draft == preview.request.provider else { error = Self.message(AIFailure.stale); return }
+        guard sourceIsCurrent(preview.request.source), ReadingSkillIdentity.matches(draft, preview.request.provider) else { error = Self.message(AIFailure.stale); return }
         let token = UUID(); generation = token; busy = true; error = nil; result = nil
         task = Task { [weak self] in
             guard let self else { return }
             do {
                 await credentialClearTask?.value
                 let snapshot = await session.snapshot()
-                guard generation == token, snapshot.configuration == preview.request.provider,
+                guard generation == token, ReadingSkillIdentity.matches(snapshot.configuration, preview.request.provider),
                       sourceIsCurrent(preview.request.source) else { throw AIFailure.stale }
                 let provider = try BYOKProviderFactory.selection(snapshot: snapshot, session: session, transport: transport, aiSession: aiSession)
                 let plan = try ReadingSkillInputPlan(request: .text(preview.request))
@@ -114,9 +116,10 @@ import PDFnoServices
                             return ReadingSkillIdentity.matches(self.draft, config) && sourceIsCurrent(source)
                         }
                     })
-                guard case .text(let output) = envelope.payload else { throw AIFailure.output }
+                let output: AIResult
+                switch envelope.payload { case .text(let value), .paragraph(let value, _): output = value; default: throw AIFailure.output }
                 guard generation == token else { return }
-                guard draft == preview.request.provider, sourceIsCurrent(output.source) else { throw AIFailure.stale }
+                guard ReadingSkillIdentity.matches(draft, preview.request.provider), sourceIsCurrent(output.source) else { throw AIFailure.stale }
                 result = output; readingSkillResult = envelope; status = output.fromCache ? "已校验内存缓存 · 未发送新请求" : "收到结果并核验原文 · 未自动保存笔记"
             } catch {
                 guard generation == token else { return }
@@ -129,6 +132,7 @@ import PDFnoServices
     }
     /// Host calls on selection/book/session change or component dismissal.
     public func invalidate() {
+        paragraphCommitFence?.invalidate(); paragraphCommitFence = nil
         if busy { error = AIFailure.cancelled.localizedDescription; status = "请求已取消 · 不会保存迟到结果或自动重发" }
         generation = UUID(); task?.cancel(); task = nil; busy = false; preview = nil
         let budget = aiSession.selection

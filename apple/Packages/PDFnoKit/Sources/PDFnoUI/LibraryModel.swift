@@ -149,15 +149,15 @@ public final class LibraryModel: ObservableObject {
         // Forward asynchronous load/restart changes as well as routed imports.
         ebookChanges = ebook.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         learning.japaneseScopeDidInvalidate = { [weak self] in self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
-        epub.translationScopeDidChange = { [weak self] in self?.chapterTranslation.cancel(); self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
-        japanesePDFSessionChanges = reader.$readerSessionID.dropFirst().sink { [weak self] _ in self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
+        epub.translationScopeDidChange = { [weak self] in self?.learning.invalidateParagraphSource(); self?.chapterTranslation.cancel(); self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
+        japanesePDFSessionChanges = reader.$readerSessionID.dropFirst().sink { [weak self] _ in self?.learning.invalidateParagraphSource(); self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
         japanesePDFSelectionChanges = reader.$capturedSelection.dropFirst().sink { [weak self] anchor in
             self?.japaneseSelectionDidChange(anchor.map(AISelectionAnchor.pdf)); self?.byokSelectionDidChange(anchor.map(AISelectionAnchor.pdf))
-            self?.englishSelectionDidChange(anchor.map(AISelectionAnchor.pdf))
+            self?.englishSelectionDidChange(anchor.map(AISelectionAnchor.pdf)); self?.paragraphSelectionDidChange(anchor.map(AISelectionAnchor.pdf))
         }
         japaneseEPUBSelectionChanges = epub.$selection.dropFirst().sink { [weak self] anchor in
             self?.japaneseSelectionDidChange(anchor.map(AISelectionAnchor.epub)); self?.byokSelectionDidChange(anchor.map(AISelectionAnchor.epub))
-            self?.englishSelectionDidChange(anchor.map(AISelectionAnchor.epub))
+            self?.englishSelectionDidChange(anchor.map(AISelectionAnchor.epub)); self?.paragraphSelectionDidChange(anchor.map(AISelectionAnchor.epub))
         }
         docxChanges = docx.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         textChanges = textFormats.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }

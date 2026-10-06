@@ -20,7 +20,8 @@ private func hostSkillResponse(_ request: URLRequest) throws -> AIHTTPResponse {
     let input = try #require(JSONSerialization.jsonObject(with: Data(content.utf8)) as? [String: String])
     let quote = try #require(input["sourceText"]), task = try #require(input["task"])
     let payload: Data
-    if task == "english-selection-learning" { payload = try EnglishLearningMockCorpus.payload(for: quote) }
+    if task == ParagraphExplanationPolicy.skillID { payload = try ParagraphExplanationPrompt.mockPayload(source: hostSkillSource(quote)) }
+    else if task == "english-selection-learning" { payload = try EnglishLearningMockCorpus.payload(for: quote) }
     else if task == "japanese-selection-learning" {
         payload = try JSONSerialization.data(withJSONObject: ["schemaVersion": 1, "language": "ja", "sourceQuote": quote,
             "offsetUnit": "unicode-code-point", "translationZh": NSNull(), "readings": [], "grammar": [], "components": [],
@@ -112,7 +113,7 @@ struct ReadingSkillHostIntegrationTests {
         #expect(await learning.saveConfig(mock, temporarySecret: ""))
         let source = hostSkillSource(), fence = HostSkillFence(source: source, config: learning.config)
         learning.prepare(source)
-        for (kind, id) in [(AILearningKind.translate, ReadingSkillID.translateSelection), (.explain, .explainSelection)] {
+        for (kind, id) in [(AILearningKind.translate, ReadingSkillID.translateSelection), (.explain, .paragraphExplanation)] {
             learning.kind = kind; learning.start(confirmed: false, sourceIsCurrent: fence.sourceIsCurrent)
             #expect(!learning.busy && learning.readingSkillPlan == nil)
             learning.start(confirmed: true, sourceIsCurrent: fence.sourceIsCurrent); try await hostSkillWait { learning.busy }
@@ -208,7 +209,7 @@ struct ReadingSkillHostIntegrationTests {
         var config = byok.draft; config.endpoint = "https://original-fixture.invalid/v1"; config.model = "original-synthetic-model"
         byok.draft = config; byok.temporarySecret = "original-synthetic-host-credential"; #expect(await byok.apply())
         let source = hostSkillSource("cafe\u{301} 👩🏽‍💻"), fence = HostSkillFence(source: source, config: byok.draft)
-        for (kind, id) in [(AILearningKind.translate, ReadingSkillID.translateSelection), (.explain, .explainSelection)] {
+        for (kind, id) in [(AILearningKind.translate, ReadingSkillID.translateSelection), (.explain, .paragraphExplanation)] {
             await byok.prepareSelection(source, kind: kind)
             let before = await transport.requests.count
             byok.start(confirmed: false, sourceIsCurrent: fence.sourceIsCurrent); #expect(!byok.busy)
@@ -221,7 +222,7 @@ struct ReadingSkillHostIntegrationTests {
             #expect(wire["stream"] as? Bool == false && wire["max_tokens"] as? Int == 1024)
             let messages = try #require(wire["messages"] as? [[String: String]]), content = try #require(messages.last?["content"])
             let input = try #require(JSONSerialization.jsonObject(with: Data(content.utf8)) as? [String: String])
-            #expect(Set(input.keys) == ["sourceText", "task", "targetLanguage"])
+            #expect(Set(input.keys) == (kind == .explain ? ["sourceText", "sourceRefID", "task", "targetLanguage"] : ["sourceText", "task", "targetLanguage"]))
             #expect(input["sourceText"]?.utf8.elementsEqual(source.anchor.quote.utf8) == true)
         }
         await byok.clearCredential(); await byok.prepareSelection(source, kind: .explain)
