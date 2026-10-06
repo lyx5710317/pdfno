@@ -62,13 +62,23 @@
 | guards/再生 | source guard685、codec96+原创fixture6、账本8项通过，Xcode工程/原PDF再生无diff；原56方法正文逐字节未改，新总60。 |
 | 可用 Node | loader/rangy/comics/docx 14/14 PASS、0 skipped。两个电子书Node文件缺 jsdom@26.1.0，在加载前退出，NOT-RUN。 |
 | 新4 UI单次 | 实际执行4项，4失败、0通过，共8 failure (3 unexpected)、206.36秒；三个PDF方法在search-result exists/enabled/hittable等待超时，未开始段落请求；EPUB未找到WebView下window StaticText。没有重派发。 |
-| 进程与结果包 | 连接断开/ executor key changed 后原session不能恢复。只读新命令确认全部4方法失败日志，但wrapper未写最终exit，xcresult缺Info.plist；进程退出码与结果包完整性UNKNOWN。 |
+| 进程与结果包 | 连接断开/ executor key changed 后原session不能恢复。后续有界实际执行只读检查成功；原 xcodebuild PID27858 和 EPUB App PID27908 已不存在，全部4方法失败日志完整。wrapper仍未写最终exit，xcresult仍缺Info.plist；进程退出码与结果包完整性UNKNOWN。 |
 | 后续段落CUA | 整合harness BUILD SUCCEEDED；真实CUA定位调用返回Transport closed，没有重复尝试或更改权限。 |
 
-上述UI失败根因尚未定位，不能排除产品可访问性/布局回归，也不能把选择器失败作为段落功能通过。新typed展示/确认/保存/引用、insufficient/invalid/truncated/slow、EPUB引用的实际GUI闭环仍NOT-VERIFIED；542离线回归不替代它们。自动与自定义附件均keepNever，只交付此前查看过的19张自制窗口图，未读取/导出自动截图。
+首个 PDF 失败的前置干扰已定位到日志：147行输入 `window`，输入值断言未失败；163–168行点击 search-submit 时出现来自目标 App 的 Dialog，232行起含 `window` / `win` 和中文输入候选；538–540行记录 interruption 未被处理，随后 search-result 等待超时。输入法候选弹窗是直接观察证据；输入尚未提交导致搜索绑定不同只是待验证推断，不能据此排除产品问题。没有切换系统输入法、处理权限弹窗或更改原56方法。EPUB 在源码156行等待 WebView 下 `window` StaticText 失败，日志743–748行另记 AXHeading 的 automation type mismatch；原创 fixture 确实含以 window 开头的段落，仍不能确定是加载、AX投影或选择器问题。没有为猜测根因修改产品或削弱断言。
+
+上述UI失败的最终根因尚未确认，不能排除产品可访问性/布局回归，也不能把选择器失败作为段落功能通过。新typed展示/确认/保存/引用、insufficient/invalid/truncated/slow、EPUB引用的实际GUI闭环仍NOT-VERIFIED；542离线回归不替代它们。自动与自定义附件均keepNever，只交付此前查看过的19张自制窗口图，未读取/导出自动截图。只读复核记录见 `ui-readonly-diagnosis.json`；没有重新派发UI测试。
 
 自动审批拒绝在本独立tree按现有package-lock补齐npm开发依赖（jsdom26.1.0、registry.npmjs.org、ignore-scripts、独立cache/空配置），理由为超出“不安装组件/不依赖外部安装”约束。安装没有执行，也未换路线。主任务已收到具体命令向用户请求新增授权，当前仍暂停；两项NOT-RUN不能称完整Node全绿。
 
 证据为 evidence 下各 command.json/log、isolated-uitest-execution-identity.json、integrated-original-ui-protection.json、paragraph-ui-once.log、ParagraphUI.xcresult（未收尾）。末次实际源码候选为ef203f3；后续报告提交只改文档。未push/dispatch/merge，公开发布另批。
 
 Library保存没有开始API写入：当前/usr/bin/python3不支持官方helper的`str | None`类型标注，helper在导入时退出；现有环境依赖查询也返回Transport closed。没有改helper、安装Python或换直接写入路线，没有有效library_file_id；图片与报告仅按本地路径交付。
+
+## 后续独立审计索引
+
+本阶段不提前扩展全仓审计。冻结源码候选为 `ef203f3229596d9c2c800e68de2e7b66987173ba`；后续本任务提交只更新本报告，最终完整 HEAD 和逐项实际命令/日志哈希见 `evidence/FINAL-RECEIPT.json`。验收仍有上列阻塞，不能当作已满足后续审计的启动前提或发布门槛。
+
+- 格式有限子集矩阵：[ALL-FORMATS-INTEGRATION-2026-10-04.md](ALL-FORMATS-INTEGRATION-2026-10-04.md#当前能力与明确边界) 28–37行；旧/新格式边界并读 [WEB-ARCHIVE-FORMATS.md](WEB-ARCHIVE-FORMATS.md)、[TEXT-FORMATS-SLICE.md](TEXT-FORMATS-SLICE.md) 和 [ADR-COMIC-ARCHIVE-FORMATS.md](ADR-COMIC-ARCHIVE-FORMATS.md)。本次实际窗口检查仅 PDF/EPUB。
+- 来源与许可证：根目录 `LICENSE`、`SOURCE-NOTICES.md`、`THIRD_PARTY_NOTICES.md`；`engine-build/vendor/kookit/LICENSE`、`engine-build/licenses/`、`engine-build/test-licenses/` 与四份 `*BUNDLE-INPUTS.json`；`PDFnoReaders/Resources/{EPUB,Comics,DOCX,TextFormats,Ebooks}/Notices.txt`；`PDFnoComicCodecs/SOURCE.json`、`PDFnoComicCodecs/Licenses/` 和 `PDFnoServices/Resources/ComicCodecs/{SOURCE.json,NOTICES.txt}`。路径相对本 worktree 的 `apple/Packages/PDFnoKit/Sources`。
+- 既有审计交接范围：[UNIFIED-VALIDATION-AND-AUDIT-HANDOFF.md](UNIFIED-VALIDATION-AND-AUDIT-HANDOFF.md)。它是审阅索引，历史测试数字不替代本候选证据，也不授权安装依赖、公开发布或重试受阻安全专项。
