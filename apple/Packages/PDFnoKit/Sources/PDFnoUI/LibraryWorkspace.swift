@@ -133,7 +133,7 @@ public struct LibraryWorkspace: View {
                         }.disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-ebook-sample")
                         #endif
                         #if os(macOS)
-                        Button { aiTools = true } label: { Label("AI工具", systemImage: "square.grid.2x2") }
+                        Button { model.reader.captureSelection(); aiTools = true } label: { Label("AI工具", systemImage: "square.grid.2x2") }
                             .accessibilityIdentifier("ai-tools-open").disabled(model.isBusy || model.storageMaintenance)
                         #endif
                         Text("仅在设备本地处理").font(.caption).foregroundStyle(.secondary)
@@ -352,7 +352,7 @@ struct ReaderWorkspace: View {
                         PDFReturnToPreviousLocationButton(session: session)
                         Button { openNotes() } label: { Label("高亮与笔记", systemImage: "highlighter") }
                             .accessibilityIdentifier("reader-notes").accessibilityValue(notesVisible ? "已展开" : "已收起").help("显示或收起高亮与笔记，保留草稿和选区")
-                        Button("AI工具") { aiTools = true }.accessibilityIdentifier("reader-ai-tools")
+                        Button("AI工具") { session.captureSelection(); aiTools = true }.accessibilityIdentifier("reader-ai-tools")
                         JapaneseLearningEntry(identifier: "reader-japanese-learning") {
                             model.prepareJapaneseLearning(); japaneseLearning = true
                         }

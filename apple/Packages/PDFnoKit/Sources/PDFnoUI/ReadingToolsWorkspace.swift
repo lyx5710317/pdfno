@@ -171,6 +171,7 @@ struct ReadingToolsWorkspace: View {
                     Image(systemName: "chevron.right").accessibilityHidden(true)
                 }
             }.padding(.vertical, PDFnoDesign.Space.small).frame(minHeight: 44)
+                .contentShape(Rectangle())
         }.buttonStyle(.plain).disabled(!status.canOpen || library.isBusy || library.storageMaintenance)
             .accessibilityIdentifier("ai-tool-" + tool.rawValue).accessibilityValue(status.rawValue)
     }

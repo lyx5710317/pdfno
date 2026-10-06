@@ -1,0 +1,28 @@
+# Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
+name: Isolated reading integration UI checks
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/reading-local-integration-20261006]
+permissions:
+  contents: read
+jobs:
+  reading-integration:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Guard committed sources and reproduce application project
+        run: |
+          python3 scripts/check-native-source.py
+          python3 scripts/generate-apple-project.py
+          git diff --exit-code -- apple
+      - name: Actual PDF navigation, EPUB return, tools consent and settings drafts
+        run: xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/Mac -resultBundlePath .build/ReadingIntegration.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 240 -only-testing:PDFnoMacUITests/ReadingIntegrationUITests test
+      - name: Archive isolated synthetic UI result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: reading-integration-${{ github.sha }}
+          path: .build/ReadingIntegration.xcresult
+          retention-days: 7

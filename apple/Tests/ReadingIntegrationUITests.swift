@@ -40,9 +40,12 @@ final class ReadingIntegrationUITests: XCTestCase {
         }
     }
     @MainActor private func search(_ query: String, in app: XCUIApplication) throws {
-        try click(element("reader-navigation", in: app))
+        let navigation = element("reader-navigation", in: app)
+        if navigation.value as? String != "已展开" { try click(navigation) }
+        value(navigation, contains: "已展开")
         let input = element("search-input", in: app)
-        try click(input); input.typeText(query)
+        try click(input); input.typeKey("a", modifierFlags: .command); input.typeText(query)
+        XCTAssertEqual(input.value as? String, query)
         try click(element("search-submit", in: app))
         try click(element("search-result", in: app))
     }
@@ -98,8 +101,11 @@ final class ReadingIntegrationUITests: XCTestCase {
         try click(element("ai-settings-save", in: app))
         try click(element("open-sample", in: app)); try search("window", in: app)
         try click(element("reader-ai-tools", in: app))
+        value(element("ai-tool-explain", in: app), contains: "可进入")
         try click(element("ai-tool-explain", in: app))
         let start = element("ai-start", in: app)
+        XCTAssertTrue(element("ai-close", in: app).waitForExistence(timeout: 10))
+        value(element("ai-source-quote", in: app), contains: "window")
         XCTAssertTrue(start.waitForExistence(timeout: 10)); XCTAssertFalse(start.isEnabled)
         XCTAssertFalse(element("ai-result", in: app).exists)
         try click(element("ai-scope-consent", in: app)); try click(start)
