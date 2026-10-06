@@ -1,6 +1,7 @@
 // Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
 #if os(macOS)
 import XCTest
+import AppKit
 
 /// Original fixtures and UUID stores only. Local execution additionally requires
 /// the distinct application ID supplied by the isolated project/test receipt.
@@ -146,19 +147,69 @@ final class ReadingIntegrationUITests: XCTestCase {
         }
         try click(target)
     }
+    @MainActor private func paragraphPaste(_ text: String, into input: XCUIElement, replacing: Bool = false) throws {
+        try click(input)
+        if replacing { input.typeKey("a", modifierFlags: .command) }
+        // Match the original NativeUITests input path: typeText can leave a
+        // user-selected IME candidate window open even when AX value is exact.
+        // Keep prior clipboard bytes only in memory, and do not replace a new
+        // clipboard value copied by the user while the paste is in flight.
+        let board = NSPasteboard.general
+        let previous = (board.pasteboardItems ?? []).map { item in
+            let copy = NSPasteboardItem()
+            for type in item.types { if let data = item.data(forType: type) { copy.setData(data, forType: type) } }
+            return copy
+        }
+        board.clearContents(); XCTAssertTrue(board.setString(text, forType: .string))
+        let change = board.changeCount
+        defer { if board.changeCount == change { board.clearContents(); board.writeObjects(previous) } }
+        input.typeKey("v", modifierFlags: .command)
+    }
+    @MainActor private func paragraphSearch(_ query: String, in app: XCUIApplication) throws {
+        let navigation = element("reader-navigation", in: app)
+        if navigation.value as? String != "已展开" { try click(navigation) }
+        value(navigation, contains: "已展开")
+        let input = element("search-input", in: app)
+        try paragraphPaste(query, into: input, replacing: true)
+        XCTAssertEqual(input.value as? String, query)
+        try click(element("search-submit", in: app))
+        try click(element("search-result", in: app))
+    }
+    @MainActor private func paragraphWebText(in app: XCUIApplication) throws -> XCUIElement {
+        // Use the original native suite's WebKit label/value lookup. A real
+        // text node may be exposed as Other or have its text only in AXValue.
+        var found: XCUIElement?
+        let ready = expectation(for: NSPredicate { _, _ in
+            let web = app.webViews.firstMatch
+            let labelMatch = web.descendants(matching: .any).matching(
+                NSPredicate(format: "label BEGINSWITH %@", "window")
+            ).firstMatch
+            if labelMatch.exists { found = labelMatch; return true }
+            found = web.staticTexts.allElementsBoundByIndex.first {
+                guard let value = $0.value as? String else { return false }
+                return value.hasPrefix("window")
+            }
+            return found != nil
+        }, evaluatedWith: app)
+        wait(for: [ready], timeout: 15)
+        if found == nil { print("PDFno original paragraph EPUB accessibility: \(app.webViews.firstMatch.debugDescription)") }
+        return try XCTUnwrap(found, "Actual WebKit original paragraph must be exposed for user selection")
+    }
     @MainActor private func prepareParagraph(_ app: XCUIApplication, epub: Bool = false) throws {
         try click(element("ai-settings", in: app)); try click(element("ai-use-deepseek", in: app))
-        let key = element("ai-session-key", in: app); try click(key); key.typeText("synthetic-reading-ui-credential")
+        let key = element("ai-session-key", in: app); try paragraphPaste("synthetic-reading-ui-credential", into: key)
         try click(element("ai-settings-save", in: app))
         if epub {
             try click(element("open-epub-sample", in: app)); value(element("epub-position", in: app), contains: "第 1 章")
-            let text = app.webViews.descendants(matching: .staticText).matching(NSPredicate(format: "label BEGINSWITH %@", "window")).firstMatch
-            XCTAssertTrue(text.waitForExistence(timeout: 15))
+            let text = try paragraphWebText(in: app)
+            XCTAssertTrue(text.isHittable)
             text.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
             try click(element("epub-ai-tools", in: app))
-        } else { try click(element("open-sample", in: app)); try search("window", in: app); try click(element("reader-ai-tools", in: app)) }
+        } else { try click(element("open-sample", in: app)); try paragraphSearch("window", in: app); try click(element("reader-ai-tools", in: app)) }
         try click(element("ai-tool-explain", in: app))
         value(element("ai-source-quote", in: app), contains: "window")
+        let source = element("ai-source-quote", in: app)
+        XCTAssertEqual((source.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? source.label, "window")
         XCTAssertFalse(element("ai-start", in: app).isEnabled)
         value(element("ai-provider-status", in: app), contains: "接收方")
     }
@@ -175,7 +226,8 @@ final class ReadingIntegrationUITests: XCTestCase {
         value(element("paragraph-kind-i3", in: app), contains: "模型推断 · 待核对")
         value(element("paragraph-quote-c1", in: app), contains: "w")
         value(element("ai-result-save-state", in: app), contains: "尚未保存")
-        let draft = element("ai-user-note", in: app); try paragraphClick(draft, in: app); draft.typeText("Original paragraph user body")
+        let draft = element("ai-user-note", in: app); try paragraphClick(draft, in: app); try paragraphPaste("Original paragraph user body", into: draft)
+        XCTAssertEqual(draft.value as? String, "Original paragraph user body")
         try paragraphClick(element("ai-save-note", in: app), in: app); value(element("ai-result-save-state", in: app), contains: "已保存")
         try paragraphClick(element("paragraph-source-c1", in: app), in: app); value(element("page-position", in: app), contains: "1 / 2")
     }

@@ -77,8 +77,18 @@ Library保存没有开始API写入：当前/usr/bin/python3不支持官方helper
 
 ## 后续独立审计索引
 
-本阶段不提前扩展全仓审计。冻结源码候选为 `ef203f3229596d9c2c800e68de2e7b66987173ba`；后续本任务提交只更新本报告，最终完整 HEAD 和逐项实际命令/日志哈希见 `evidence/FINAL-RECEIPT.json`。验收仍有上列阻塞，不能当作已满足后续审计的启动前提或发布门槛。
+本阶段不提前扩展全仓审计。完整套件已验证的源码候选为 `ef203f3229596d9c2c800e68de2e7b66987173ba`；`75e83aa` / `a0d15fe` 只更新本报告。后续新增测试入口修正见下一节，生产代码仍等于 ef203f3，最终完整 HEAD 和逐项实际命令/日志哈希见 `evidence/FINAL-RECEIPT.json`。验收仍有上列阻塞，不能当作已满足后续审计的启动前提或发布门槛。
 
 - 格式有限子集矩阵：[ALL-FORMATS-INTEGRATION-2026-10-04.md](ALL-FORMATS-INTEGRATION-2026-10-04.md#当前能力与明确边界) 28–37行；旧/新格式边界并读 [WEB-ARCHIVE-FORMATS.md](WEB-ARCHIVE-FORMATS.md)、[TEXT-FORMATS-SLICE.md](TEXT-FORMATS-SLICE.md) 和 [ADR-COMIC-ARCHIVE-FORMATS.md](ADR-COMIC-ARCHIVE-FORMATS.md)。本次实际窗口检查仅 PDF/EPUB。
 - 来源与许可证：根目录 `LICENSE`、`SOURCE-NOTICES.md`、`THIRD_PARTY_NOTICES.md`；`engine-build/vendor/kookit/LICENSE`、`engine-build/licenses/`、`engine-build/test-licenses/` 与四份 `*BUNDLE-INPUTS.json`；`PDFnoReaders/Resources/{EPUB,Comics,DOCX,TextFormats,Ebooks}/Notices.txt`；`PDFnoComicCodecs/SOURCE.json`、`PDFnoComicCodecs/Licenses/` 和 `PDFnoServices/Resources/ComicCodecs/{SOURCE.json,NOTICES.txt}`。路径相对本 worktree 的 `apple/Packages/PDFnoKit/Sources`。
 - 既有审计交接范围：[UNIFIED-VALIDATION-AND-AUDIT-HANDOFF.md](UNIFIED-VALIDATION-AND-AUDIT-HANDOFF.md)。它是审阅索引，历史测试数字不替代本候选证据，也不授权安装依赖、公开发布或重试受阻安全专项。
+
+## 四 UI 前置修正（未实际复测）
+
+收到继续本轮验收的指令后，单次只读执行连接成功，仍在原独立树工作。对照原 `NativeUITests` 已有 `enterSearch` / `webText` 与保存的原创 AX 树，新增段落入口存在两个明确遗漏：直接 typeText 会经过用户输入法组合态，而原路径通过原生粘贴输入；只查 StaticText 的 label，遗漏原路径对任意 AX 角色 label 及字符串 value 的兼容。它们与已有失败日志吻合，但只能确认测试前置缺陷，不能在实际复测前宣称产品最终根因已排除。
+
+仅修改 `ReadingIntegrationUITests.swift` 新段落 helpers/typed 方法并导入 AppKit；原 `search` helper 和原56方法不动。新 `paragraphPaste` 仅粘贴原创查询、虚构凭据、原创用户正文，旧剪贴板各类型数据只在内存保留，changeCount 未被其他写入改变时恢复，不输出剪贴板内容、不切系统输入法。新 `paragraphWebText` 使用原生 suite 的 label/value 查询，仍通过真实 WebKit 坐标双击选文，没有 JS 构造选区。原4项所有断言保留，另外增加固定来源必须严格等于 `window`、用户草稿必须严格等于输入正文的检查。
+
+前置验证：`paragraph-ui-preflight-swift-command.json` 退出0，22 tests / 2 suites PASS（21段落方法＋真实 DOM 同词重选）；`paragraph-ui-preflight-build-command.json` 退出0，专用 App/runner TEST BUILD SUCCEEDED，60项UI已编译，没有运行App。`paragraph-ui-preflight-protection.json` 确认原56方法逐字节保留、新4项原断言保留、生产代码没有修改。专用 App executable SHA256仍为 `285f3c83cffb1c365d46b9b7e44f3d442b72e7f161695f881e32923091608fc3`，与失败那次相同。原 xcodebuild/runner/EPUB App 三个精确PID27858/27861/27908的后续只读ps检查均不存在，未终止其他进程；原退出码仍UNKNOWN。
+
+下一次隔离复测方案已准备但未派发：独立 `ParagraphPreflight.xctestrun`，同一经核验 App/runner ID与路径，runner环境 `PDFNO_ISOLATED_UI_APPLICATION_ID` 指向专用 App；每方法 helper 自动新 UUID Library、offline scenario，UI附件 keepNever。共享 heavy lock 内串行 only-testing 原新增4方法、180/240秒预算，结果写入全新 `ParagraphUIPreflight.xcresult`，不覆盖第一次日志/结果包。开始前再核实际连接/产品身份/锁；断连则只保全现有日志，不能把失联当成功或自动重派发。具体未执行命令、产品/测试bundle SHA、边界见 `paragraph-ui-retest-plan.json`。当前实际 UI 状态仍为第一次的4失败，完整段落GUI闭环仍NOT-VERIFIED；npm批准未到、两项ebook Node仍NOT-RUN，没有开展全仓审计或公共发布。
