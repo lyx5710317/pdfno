@@ -123,7 +123,7 @@ final class ReadingIntegrationUITests: XCTestCase {
         try click(element("ai-settings", in: app))
         try click(element("ai-use-deepseek", in: app))
         let label = element("ai-provider-label", in: app)
-        try click(label); label.typeKey("a", modifierFlags: .command); label.typeText("Original pending label")
+        try paragraphPaste("Original pending label", into: label, replacing: true)
         try category("AI工具", id: "tools", in: app)
         XCTAssertFalse(element("ai-settings-save", in: app).isEnabled)
         XCTAssertTrue(element("planned-semantic", in: app).exists)
@@ -152,17 +152,9 @@ final class ReadingIntegrationUITests: XCTestCase {
         if replacing { input.typeKey("a", modifierFlags: .command) }
         // Match the original NativeUITests input path: typeText can leave a
         // user-selected IME candidate window open even when AX value is exact.
-        // Keep prior clipboard bytes only in memory, and do not replace a new
-        // clipboard value copied by the user while the paste is in flight.
+        // Write only synthetic fixture data; never read or back up the system clipboard.
         let board = NSPasteboard.general
-        let previous = (board.pasteboardItems ?? []).map { item in
-            let copy = NSPasteboardItem()
-            for type in item.types { if let data = item.data(forType: type) { copy.setData(data, forType: type) } }
-            return copy
-        }
         board.clearContents(); XCTAssertTrue(board.setString(text, forType: .string))
-        let change = board.changeCount
-        defer { if board.changeCount == change { board.clearContents(); board.writeObjects(previous) } }
         input.typeKey("v", modifierFlags: .command)
     }
     @MainActor private func paragraphSearch(_ query: String, in app: XCUIApplication) throws {

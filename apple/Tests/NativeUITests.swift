@@ -170,7 +170,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(endpoint.waitForExistence(timeout: 5)); enterSearch("https://joint-ui.example/v1", into: endpoint, replacing: true)
         enterSearch("original-ui-model", into: app.textFields["byok-model"].firstMatch, replacing: true)
         let key = japaneseElement("byok-session-key", in: app)
-        XCTAssertTrue(key.waitForExistence(timeout: 5)); press(key); key.typeText("synthetic-reading-ui-credential")
+        XCTAssertTrue(key.waitForExistence(timeout: 5)); enterSearch("synthetic-reading-ui-credential", into: key, replacing: true)
         press(app.buttons["byok-apply"].firstMatch)
         waitForText(["仅在本次会话生效"], in: japaneseElement("byok-settings-status", in: app), timeout: 5)
         let settingsClose = app.buttons["byok-settings-close"].firstMatch
@@ -2133,17 +2133,10 @@ final class NativeUITests: XCTestCase {
         #if os(macOS)
         if replacing { input.typeKey("a", modifierFlags: .command) }
         // A user-selected input method can turn typeText into composition text.
-        // Paste only the original fixture query and restore clipboard data in memory.
+        // Write only synthetic fixture data; never read or back up the system clipboard.
         let board = NSPasteboard.general
-        let previous = (board.pasteboardItems ?? []).map { item in
-            let copy = NSPasteboardItem()
-            for type in item.types { if let data = item.data(forType: type) { copy.setData(data, forType: type) } }
-            return copy
-        }
         board.clearContents(); board.setString(text, forType: .string)
-        let change = board.changeCount
         input.typeKey("v", modifierFlags: .command)
-        if board.changeCount == change { board.clearContents(); board.writeObjects(previous) }
         #else
         input.typeText(text)
         #endif
