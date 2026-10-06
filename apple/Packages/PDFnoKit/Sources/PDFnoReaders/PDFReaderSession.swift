@@ -97,10 +97,19 @@ public final class PDFReaderSession: ObservableObject {
         let index = document.index(for: page)
         if (0..<document.pageCount).contains(index) { pageIndex = index }
     }
+    /// Explicit navigation can precede SwiftUI's next canvas update after reopening
+    /// a saved source. Install the verified current document in the retained host;
+    /// passive notifications and captureSelection still reject the old document.
+    private func currentNavigationView() -> PDFView? {
+        guard let view, document != nil else { return nil }
+        if view.document !== document { attach(view) }
+        cancelRestoration()
+        return view
+    }
     @discardableResult public func go(to index: Int) -> Bool {
         guard let document, let page = document.page(at: index) else { return false }
         cancelRestoration()
-        if let view, view.document === document { view.go(to: page) }
+        currentNavigationView()?.go(to: page)
         pageIndex = index
         return true
     }
@@ -138,7 +147,7 @@ public final class PDFReaderSession: ObservableObject {
               let first = selection.pages.first else { return false }
         let target = document.index(for: first), origin = pageIndex
         cancelRestoration()
-        if let view, view.document === document {
+        if let view = currentNavigationView() {
             view.setCurrentSelection(selection, animate: true); view.go(to: selection)
         }
         pageIndex = target; recordJump(from: origin, to: target)
@@ -197,7 +206,7 @@ public final class PDFReaderSession: ObservableObject {
         guard result == .exact, let first = anchor.regions.first, let page = document?.page(at: first.pageIndex) else { return result }
         let origin = pageIndex
         cancelRestoration()
-        if let view, view.document === document {
+        if let view = currentNavigationView() {
             view.go(to: CGRect(x: first.x, y: first.y, width: first.width, height: first.height), on: page)
             if let selection = page.selection(for: CGRect(x: first.x, y: first.y, width: first.width, height: first.height)) {
                 view.setCurrentSelection(selection, animate: true)

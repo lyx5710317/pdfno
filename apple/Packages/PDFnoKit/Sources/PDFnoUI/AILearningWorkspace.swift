@@ -100,7 +100,7 @@ struct AISettingsView: View {
             }
         case .shortcuts:
             PDFnoSettingsCard("现有应用内快捷键", symbol: "keyboard") {
-                Text("PDF 导航与搜索：⌘F\n书库与已保存笔记搜索：⌘⇧F\n原生菜单与面板关闭沿用系统行为。")
+                Text("PDF 导航与搜索：⌘F\n书库与已保存笔记搜索：⌘⇧F\nPDF 阅读区翻页：⌘⌥← / ⌘⌥→\nPDF 返回跳转前页面：⌘⌥↑\n翻页与返回仅在 PDF 阅读区获得焦点时生效；文本输入、输入法和面板保持系统行为。")
                 Text("本片未新增全局快捷键、快捷键录制或系统权限申请。").foregroundStyle(.secondary)
             }
         case .diagnostics:

@@ -349,6 +349,7 @@ struct ReaderWorkspace: View {
                             .disabled(session.pageIndex == 0).accessibilityIdentifier("previous-page").help("阅读上一页")
                         Button { session.go(to: session.pageIndex + 1) } label: { Label("下一页", systemImage: "chevron.right") }
                             .disabled(session.pageIndex >= book.pageCount - 1).accessibilityIdentifier("next-page").help("阅读下一页")
+                        PDFReturnToPreviousLocationButton(session: session)
                         Button { openNotes() } label: { Label("高亮与笔记", systemImage: "highlighter") }
                             .accessibilityIdentifier("reader-notes").accessibilityValue(notesVisible ? "已展开" : "已收起").help("显示或收起高亮与笔记，保留草稿和选区")
                         Button("AI工具") { aiTools = true }.accessibilityIdentifier("reader-ai-tools")
@@ -370,6 +371,7 @@ struct ReaderWorkspace: View {
                     #if os(macOS)
                     PDFnoReaderShell(panels: panels) {
                         PDFCanvas(session: session).background(PDFnoDesign.Palette.canvas)
+                            .background { PDFReaderNavigationShortcuts(session: session) }
                     } navigation: {
                         PDFnoPanel(title: "导航与搜索", icon: "list.bullet", closeIdentifier: "close-navigation", close: { panels.navigation = false }) { navigationContent }
                     } notes: {
@@ -401,6 +403,7 @@ struct ReaderWorkspace: View {
                             .disabled(session.pageIndex == 0).accessibilityIdentifier("previous-page").help("阅读上一页")
                         Button { session.go(to: session.pageIndex + 1) } label: { Label("下一页", systemImage: "chevron.right") }
                             .disabled(session.pageIndex >= book.pageCount - 1).accessibilityIdentifier("next-page").help("阅读下一页")
+                        PDFReturnToPreviousLocationButton(session: session)
                         Button { openNotes() } label: { Label("高亮与笔记", systemImage: "highlighter") }
                             .accessibilityIdentifier("reader-notes").accessibilityValue(notesVisible ? "已展开" : "已收起").help("显示或收起高亮与笔记，保留草稿和选区")
                     }
@@ -469,7 +472,8 @@ struct ReaderWorkspace: View {
         }.frame(minWidth: 300, minHeight: 400)
     }
     private var navigationContent: some View {
-        List {
+        let navigationSessionID = session.readerSessionID
+        return List {
             Section("查找文本") {
                 TextField("输入关键词", text: $searchText).accessibilityIdentifier("search-input")
                     .onSubmit { session.search(searchText); searched = true }
@@ -479,18 +483,18 @@ struct ReaderWorkspace: View {
                         .accessibilityIdentifier("search-status")
                 }
                 ForEach(session.searchMatches, id: \.self) { match in
-                    Button(match.string ?? "匹配结果") { session.show(match); closeNavigation() }
+                    Button(match.string ?? "匹配结果") { if session.show(match) { closeNavigation() } }
                         .accessibilityIdentifier("search-result")
                 }
                 if searched && session.searchMatches.isEmpty { PDFnoEmptyState(title: "没有匹配文本", detail: "扫描页可能没有可选文字。请更换关键词或检查文字层。", icon: "magnifyingglass") }
             }
             Section("目录") {
                 if session.outline.isEmpty { PDFnoEmptyState(title: "此 PDF 没有内置目录", detail: "可以从下方页码或文本搜索定位。") }
-                ForEach(session.outline) { item in Button(item.title) { session.go(to: item.pageIndex); closeNavigation() } }
+                ForEach(session.outline) { item in Button(item.title) { if session.jump(to: item) { closeNavigation() } } }
             }
             Section("页面") {
                 ForEach(0..<(session.document?.pageCount ?? 0), id: \.self) { index in
-                    Button("第 \(index + 1) 页") { session.go(to: index); closeNavigation() }
+                    Button("第 \(index + 1) 页") { if session.jump(to: index, in: navigationSessionID) { closeNavigation() } }
                 }
             }
         }.buttonStyle(.borderless).font(PDFnoDesign.TypeStyle.body)

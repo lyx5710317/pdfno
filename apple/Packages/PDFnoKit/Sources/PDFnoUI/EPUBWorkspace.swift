@@ -20,6 +20,7 @@ struct EPUBWorkspace: View {
     var body: some View {
         VStack(spacing: 0) {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: PDFnoDesign.Space.small)], alignment: .leading, spacing: PDFnoDesign.Space.small) {
+                EPUBReturnToPreviousLocationButton(session: session)
                 Button("AI工具") { aiTools = true }.disabled(session.busy).accessibilityIdentifier("epub-ai-tools")
                 JapaneseLearningEntry(identifier: "epub-japanese-learning", disabled: session.busy) {
                     model.prepareJapaneseLearning(); japaneseLearning = true
@@ -49,11 +50,11 @@ struct EPUBWorkspace: View {
         .overlay { if session.busy { PDFnoStatusMessage(text: "正在排版…", kind: .busy).frame(maxWidth: 320).pdfnoCard() } }
         .toolbar {
             ToolbarItemGroup {
-                Button("目录") { contents = true }.accessibilityIdentifier("epub-contents").accessibilityValue(contents ? "已展开" : "已收起").help("显示 EPUB 目录，保留阅读位置")
+                Button("目录") { contents = true }.disabled(session.book == nil || session.busy).accessibilityIdentifier("epub-contents").accessibilityValue(contents ? "已展开" : "已收起").help("显示 EPUB 目录，保留阅读位置")
                 Button { Task { _ = await session.command("previous") } } label: { Label("上一页", systemImage: "chevron.left") }
-                    .accessibilityIdentifier("epub-previous")
+                    .disabled(session.book == nil || session.busy).accessibilityIdentifier("epub-previous")
                 Button { Task { _ = await session.command("next") } } label: { Label("下一页", systemImage: "chevron.right") }
-                    .accessibilityIdentifier("epub-next")
+                    .disabled(session.book == nil || session.busy).accessibilityIdentifier("epub-next")
                 Button(session.vertical ? "横排" : "竖排") { Task { _ = await session.command("vertical") } }
                     .accessibilityIdentifier("epub-orientation")
                 Button("高亮与笔记") { notes = true }.accessibilityIdentifier("epub-notes").accessibilityValue(notes ? "已展开" : "已收起").help("显示高亮与笔记，保留选文和草稿")
@@ -66,7 +67,7 @@ struct EPUBWorkspace: View {
                 List {
                     if session.outline.isEmpty { PDFnoEmptyState(title: "此 EPUB 没有内置目录", detail: "仍可使用上一页和下一页继续阅读。") }
                     ForEach(session.outline) { item in
-                        Button(item.title) { Task { if await session.command("chapter", index: item.index) { contents = false } } }
+                        Button(item.title) { Task { if await session.jump(to: item) { contents = false } } }
                             .accessibilityIdentifier("epub-chapter-\(item.index)")
                     }
                 }.font(PDFnoDesign.TypeStyle.body).navigationTitle("目录").toolbar { ToolbarItem { Button("完成") { contents = false } } }
