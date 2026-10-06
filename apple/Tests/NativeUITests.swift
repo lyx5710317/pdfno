@@ -1591,13 +1591,10 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(location.waitForExistence(timeout: 5))
         enterSearch(url.path, into: location, replacing: true)
         XCTAssertEqual(location.value as? String, url.path)
-        // Commit through the real Go action. The isolated crash attachment
-        // records an NSTextStorage exception in the input-method Return path;
-        // clicking the panel action keeps the active input method unchanged.
+        // Return may first commit a path completion. Send again only while the same overlay remains active.
         for _ in 0..<2 {
             if !location.exists || !location.isHittable { return }
-            let go = try modalButton(app, titles: ["Go", "前往"])
-            waitUntilEnabled(go); press(go)
+            app.typeKey(.return, modifierFlags: [])
             let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
                 !location.exists || !location.isHittable
             }, object: app)
