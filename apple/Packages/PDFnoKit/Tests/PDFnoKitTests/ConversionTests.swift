@@ -300,6 +300,28 @@ struct ConversionTests {
     }
 
     #if os(macOS)
+    // This exercises publication by the actual local model, with no view,
+    // NSHostingView, window, AX client or file panel.
+    @MainActor @Test func MacModelPublishesBrokenOriginalFixtureWithoutOutput() async throws {
+        let root = try ConversionFixture.temporaryRoot(); defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appendingPathComponent("Broken Body.docx"), output = root.appendingPathComponent("Failed Output.txt")
+        let bytes = Data("Original invalid DOCX fixture".utf8)
+        try bytes.write(to: source)
+        let model = ConversionModel(); defer { model.cancel() }
+        model.select(source); model.start(source: source, destination: output, output: .plainText)
+        let clock = ContinuousClock(), deadline = clock.now.advanced(by: .seconds(5))
+        while model.isRunning, clock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(!model.isRunning); #expect(!model.isBusy); #expect(model.result == nil)
+        #expect(model.status.contains("归档损坏"))
+        #expect(!FileManager.default.fileExists(atPath: output.path))
+        #expect(try Data(contentsOf: source) == bytes)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: root.path) == ["Broken Body.docx"])
+        let observation: [String: Any] = ["status": model.status, "containsExpected": model.status.contains("归档损坏"),
+            "workerStopped": !model.isRunning, "isBusy": model.isBusy, "resultPresent": model.result != nil,
+            "outputExists": FileManager.default.fileExists(atPath: output.path), "sourceUnchanged": try Data(contentsOf: source) == bytes]
+        let data = try JSONSerialization.data(withJSONObject: observation, options: [.sortedKeys])
+        print("PDFNO_DOCX_MODEL_OFFLINE", String(decoding: data, as: UTF8.self))
+    }
     @MainActor @Test func MacModelReturnsToReadyAfterFailureAndSuccessfulRetry() async throws {
         let root = try ConversionFixture.temporaryRoot(); defer { try? FileManager.default.removeItem(at: root) }
         let source = root.appendingPathComponent("original.docx"), output = root.appendingPathComponent("copy.txt")

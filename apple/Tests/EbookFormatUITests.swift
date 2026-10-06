@@ -2,6 +2,7 @@
 #if os(macOS)
 import XCTest
 import Foundation
+import AppKit
 
 /// Execute only on an isolated CI host/OS user. Never launch against the owner's app session.
 final class EbookFormatUITests: XCTestCase {
@@ -28,7 +29,10 @@ final class EbookFormatUITests: XCTestCase {
         let quote = (selected.value as? String) ?? selected.label
         XCTAssertFalse(quote.isEmpty)
         let draft = app.descendants(matching: .any).matching(identifier: "ebook-user-note").firstMatch
-        XCTAssertTrue(draft.waitForExistence(timeout: 5)); draft.click(); draft.typeText("Original ebook observation")
+        XCTAssertTrue(draft.waitForExistence(timeout: 5)); enterSyntheticNote("Original ebook observation", into: draft)
+        let entered = (draft.value as? String) ?? draft.label
+        _ = try XCTUnwrap(entered.utf8.elementsEqual("Original ebook observation".utf8) ? entered : nil,
+                          "The original synthetic body must be entered exactly before saving")
         app.buttons["ebook-save-note"].firstMatch.click()
         XCTAssertTrue(app.staticTexts["ebook-saved-user-note"].firstMatch.waitForExistence(timeout: 8))
         app.buttons["ebook-return"].firstMatch.click()
@@ -67,6 +71,15 @@ final class EbookFormatUITests: XCTestCase {
         app.buttons["open-sample"].firstMatch.click()
         XCTAssertTrue(app.staticTexts["page-position"].firstMatch.waitForExistence(timeout: 15))
         XCTAssertFalse(app.buttons["ebook-navigation"].exists)
+    }
+    @MainActor private func enterSyntheticNote(_ text: String, into input: XCUIElement) {
+        input.click()
+        // The isolated MOBI probe saved "regional eBook" after typeText.
+        // Use the same native synthetic paste as the proven input drivers;
+        // never read or back up the owner's clipboard or change input methods.
+        let board = NSPasteboard.general
+        board.clearContents(); board.setString(text, forType: .string)
+        input.typeKey("v", modifierFlags: .command)
     }
     @MainActor private func waitEnabled(_ element: XCUIElement) {
         let ready = expectation(for: NSPredicate { _, _ in element.exists && element.isEnabled }, evaluatedWith: element)
