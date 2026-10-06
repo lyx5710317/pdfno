@@ -2,7 +2,7 @@
 
 基线 `6a67d1fd883f79737d0e3e12c756b683a662f230`。独立分支 `feature/mac-ui-experience-20261006`，持久 checkout 位于主仓库 `.build/MacUIExperience/2026-10-06/tree`。这是工具驱动的实际 Mac App 像素、原生辅助功能树及键鼠检查，不是人工体验验收；隐藏组件渲染不计入本表。
 
-本轮新增段落 UI 的最终隔离复测在 `5fa38439ef5c43a1fbc53a8da36f36cefd9ef555` 实际通过 **4/4、零失败、零跳过**，命令退出0，xcresult已收尾且正式摘要可解析。首次4失败与断连证据保留。生产代码仍等于完整542项Swift验证的ef203f3；新驱动的22项离线/DOM回归与专用build通过。两项电子书Node因安装未获批准仍NOT-RUN，真实服务、移动实际UI、安全专项等边界未因此改变。逐项结果见末节。
+最终单次完整 UI 在 `95f6e4b3d2f5a3ff0c19756a56ef6878282a4978` 实测 **60项：33通过、27失败、0跳过，命令退出65**；正式xcresult摘要、方法树、日志与静态清单逐项一致，**完整UI验收失败**。新增段落4项全部通过，原56为29通过、27失败。逐项首个断言及保存面板服务崩溃证据见 [完整60项矩阵](MAC-UI-FULL60-2026-10-06.md)，根因尚未全部确认，没有自动重跑。此前4项隔离复测成功与首次4失败/断连记录均保留。生产代码仍等于完整542项Swift验证的ef203f3；新驱动的22项离线/DOM回归与专用build通过。两项电子书Node因安装未获批准仍NOT-RUN，真实服务、移动实际UI、安全专项等边界未因此改变。
 
 ## 执行与隔离
 
@@ -110,4 +110,27 @@ Library保存没有开始API写入：当前/usr/bin/python3不支持官方helper
 
 证据：`paragraph-ui-retest-execution-identity.json`、`paragraph-ui-retest-command.json` / `.log`、`paragraph-ui-retest-outcome.json`、`paragraph-ui-retest-xcresult-summary-approved-command.json` / `.log`。首次日志SHA与既有失败收据相同，全部专用产品哈希复测后仍相同；生产App二进制没有改变，而两项前置修正后真实流程均越过首次阻塞，支持测试驱动遗漏的诊断。没有把该结果包装为人工或真实模型语言质量验收。
 
-当前本轮新增段落GUI闭环4项已通过；原56项只保留/编译，没有在此候选重跑。本任务自制PDF/EPUB实际体验及小修截图仍为19张，仅本地交付，未新增导出自动截图。两项ebook Node仍NOT-RUN（npm待批准），Library官方上传仍在导入前受Python版本阻塞；真实服务/解释质量/usage、VoiceOver/输入法人工流程、移动实际UI/Intel runtime/损坏库加载错误等仍未验收，安全专项UNVERIFIED/platform-blocked不重试。当前最终HEAD见FINAL-RECEIPT，后续文档提交只更新本报告；尚未开展全仓审计、push/dispatch/merge或公开发布。
+上述4项复测阶段，原56项只保留/编译，随后另获完整60项单次执行授权，实际结果如下。本任务自制PDF/EPUB实际体验及小修截图仍为19张，仅本地交付，未新增导出自动截图。两项ebook Node仍NOT-RUN（npm待批准），Library官方上传仍在导入前受Python版本阻塞；真实服务/解释质量/usage、VoiceOver/输入法人工流程、移动实际UI/Intel runtime/损坏库加载错误等仍未验收，安全专项UNVERIFIED/platform-blocked不重试。最终HEAD见FINAL-RECEIPT；尚未开展全仓审计、push/dispatch/merge或公开发布。
+
+## 最终单次完整60项UI
+
+在95f6e4干净候选上重新核对专用App、runner、测试bundle、xctestrun和测试源码哈希，原56正文保持，新增4原断言与精确来源/正文断言保持。复用5fa3843同源码产品；两提交之间只有文档差异。旧复测xcodebuild/runner精确PID不存在，锁空闲，45.4GiB可用后才派发。环境继续是独立bundle、每方法新UUID隔离Library、App初始化前强制offline、自制fixture、串行、keepNever附件；未改系统主题、输入法或权限。
+
+第一次命令多余设置 `-test-iterations 1`，Xcode要求值大于1，在任何UI方法开始前退出64；当时结果包目录及Info已经被初始化，不能用Info存在推断执行成功。保留 `full60-ui-once-command.json` / `.log` 和 `Full60UIOnce.xcresult`，去掉参数后按默认单次在全新结果路径启动以下一次完整UI，没有过滤、跳过、自动重试或重复方法。
+
+| 完整套件实测 | 结果 |
+| --- | --- |
+| 候选 / 实际命令UTC | 95f6e4；2026-10-06 09:11:50.105120至09:58:21.293950。 |
+| 原56 | 29 PASS、27 FAIL。 |
+| 新段落4 | 4 PASS：取消41.699秒、EPUB引用37.295秒、异常响应116.509秒、typed确认/保存/回源58.500秒。 |
+| 全部60 | 33 PASS、27 FAIL、0 SKIP；79 failure记录（2 unexpected），suite2780.805秒；xcodebuild/wrapper退出65、TEST EXECUTE FAILED。 |
+| 正式结果包 | Full60UIComplete.xcresult已收尾；正式summary与tests树读取退出0，60个唯一方法及每项结果与日志/静态清单相同，result Failed。 |
+| 完成后状态 | 实际xcodebuild PID36360、runner36363不存在；共享锁空闲且未删除/改写；App/runner/test bundle二进制哈希未变。main仍6a67d1f，未跟踪project.xcworkspace保持。 |
+
+失败涉及电子书持久化谓词、BYOK/DeepSeek与日语学习结果、整页/整章结果与取消、封面/转换、CBT/CB7/CBR、MHTML、原搜索/设置入口。[逐方法矩阵](MAC-UI-FULL60-2026-10-06.md)记录每项首个失败文件/行、完整日志行和消息；`full60-ui-outcome.json`还保留全部后续断言与正式方法节点。这里是观察结果，尚未判定全部属于产品、测试驱动或环境，不把它们全部归咎于输入法，也未修改旧测试来获得通过。
+
+正式结果包为7个方法记录 `com.apple.appkit.xpc.openAndSavePanelService crashed in main`：CB7、CBR、CBT、封面、DOCX转换保存面板、DOCX阅读PDF入口和MHTML。它解释存在服务崩溃这一实际现象，不能排除其他产品问题。还有main-thread/QoS及SwiftUI view update中发布状态的runtime warning，尚未确认调用点。设置断言实际输入与原创预期不同，原PDF/工具搜索等待失败；输入法干扰只是已有日志支持的局部现象，不是27项统一根因。
+
+证据：`full60-ui-complete-plan.json`、`full60-ui-complete-command.json` / `.log`、`full60-ui-outcome.json`、`full60-ui-first-failures-final.json`、`full60-ui-xcresult-{summary,tests}-command.json` / `.log`、`full60-ui-post-run-state.json`。新文档提交只记录结果，不改测试或生产代码。没有继续派发UI、安装npm、开始独立全仓审计或公开发布；完整验收仍受27项失败阻塞。
+
+交接时另修正19张截图收据的元数据：实际像素文件为JPEG，历史文件名后缀为`.png`；此前按PNG固定偏移读取尺寸不正确，现依据JPEG SOF读取真实尺寸并补充`image/jpeg`。图片SHA/字节与原清单逐项相同，未重命名、转码或编辑。原错误清单保留为`screenshot-inventory-original-metadata.json`，修正见`screenshot-inventory.json` / `screenshot-metadata-correction.json`。仍只有本地路径交付，library_file_id为空，不能当作已上传附件。
