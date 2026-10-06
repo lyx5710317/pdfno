@@ -1594,7 +1594,10 @@ final class NativeUITests: XCTestCase {
         // Return may first commit a path completion. Send again only while the same overlay remains active.
         for _ in 0..<2 {
             if !location.exists || !location.isHittable { return }
-            app.typeKey(.return, modifierFlags: [])
+            // The Go-to editor belongs to the panel's remote view. Target its
+            // finite field rather than the app root: the isolated full run
+            // routed app-root Return at (inf, inf) just before seven panel crashes.
+            location.typeKey(.return, modifierFlags: [])
             let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
                 !location.exists || !location.isHittable
             }, object: app)
