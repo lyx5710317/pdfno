@@ -1,5 +1,7 @@
 # 专用App崩溃与测试驱动取证 · 2026-10-06
 
+该文记录单元/编译阶段；后续已批准两个限定GUI probe，实际均FAIL，结果与新崩溃见[两项AX probe报告](MAC-UI-AX-PROBES-2026-10-06.md)。下文未GUI结论保留其阶段边界。
+
 本轮只读取InputGroupsOnce.xcresult里两项日语App和对应runner的3个具名.ips附件，实施有证据的测试驱动修改，运行Foundation契约单元测试并编译。**没有启动App/GUI复测，没有将4项失败改为通过；生产代码未改。** 最新实际GUI仍13项9 PASS/4 FAIL/0 SKIP，历史完整60仍33/27/0。
 
 ## 崩溃机制与隔离身份

@@ -150,3 +150,5 @@ Library保存没有开始API写入：当前/usr/bin/python3不支持官方helper
 ## 专用崩溃栈与驱动最小缓解
 
 再获取证授权，仅读取本次两App和对应runner三个具名.ips，header/body bundle与App代码UUID核验。App同为XCT identifiers/title求值触发SwiftUI/AppKit accessibilityLabel重复链及Stack Guard SIGSEGV；runner独立XCTestCore等待崩溃日志SIGTRAP。递归节点/平台与产品修饰符贡献仍未确认，生产未改。测试精确identifier查询和DeepSeek viewport最小缓解、DOCX前后状态读取及ebook三谓词诊断已实施，所有旧断言/三AND保持。Foundation3方法4分支PASS、Mac隔离编译PASS；没有GUI复测，不改判原4失败。具体机制、未执行的小probe和证据见[取证报告](MAC-UI-CRASH-AND-DRIVER-DIAGNOSIS-2026-10-06.md)。
+
+两个优先日语AX probe已各执行一次：0 PASS/2 FAIL/0 SKIP；第一项被新增runner诊断写文件中断，未发请求；第二项单次截获请求后读取组件来源AX value仍发生专用App label递归SIGSEGV。未重跑或扩展GUI，原700断言/60方法保持，详见[两项AX probe实际报告](MAC-UI-AX-PROBES-2026-10-06.md)。
