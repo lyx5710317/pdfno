@@ -36,12 +36,21 @@ final class EbookFormatUITests: XCTestCase {
         XCTAssertTrue(heading.waitForExistence(timeout: 5)); heading.click()
         let manifest = URL(fileURLWithPath: "/tmp").appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent("ebook-kookit-v1.json")
         var savedAnchor: NSDictionary?, savedProgress: NSDictionary?
+        var lastDiagnostic: [String?]?
         let stored = expectation(for: NSPredicate { _, _ in
             guard let data = try? Data(contentsOf: manifest), let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let book = (state["books"] as? [[String: Any]])?.first, let note = (state["notes"] as? [[String: Any]])?.first,
                   let progress = book["progress"] as? NSDictionary, let anchor = note["anchor"] as? NSDictionary else { return false }
             savedAnchor = anchor; savedProgress = progress
-            return book["format"] as? String == format && note["userText"] as? String == "Original ebook observation" && progress["quote"] as? String == String(second.prefix(1))
+            let formatMatches = book["format"] as? String == format
+            let bodyMatches = note["userText"] as? String == "Original ebook observation"
+            let progressMatches = progress["quote"] as? String == String(second.prefix(1))
+            let actual = [book["format"] as? String, note["userText"] as? String, progress["quote"] as? String]
+            if lastDiagnostic != actual {
+                lastDiagnostic = actual
+                print("PDFNO_EBOOK_PREDICATE_DIAGNOSTIC format=", actual[0] ?? "<nil>", "body=", actual[1] ?? "<nil>", "progressQuote=", actual[2] ?? "<nil>", "matches=", formatMatches, bodyMatches, progressMatches)
+            }
+            return formatMatches && bodyMatches && progressMatches
         }, evaluatedWith: app); wait(for: [stored], timeout: 10)
         XCTAssertNotNil(savedAnchor); XCTAssertNotNil(savedProgress)
         app.terminate(); app.launch(); app.activate()

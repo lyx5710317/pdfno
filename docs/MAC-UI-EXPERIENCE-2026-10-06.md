@@ -146,3 +146,7 @@ Library保存没有开始API写入：当前/usr/bin/python3不支持官方helper
 ## 输入/凭据其余13项单批复测
 
 后续授权仅其余3输入+10凭据一批，扩展相同合成输入驱动，原628及NextBatch48断言保持、生产源码未改。正式13项9 PASS/4 FAIL/0 SKIP、exit65，唯一13方法各开始一次；runner恢复一次，无失败方法重复。输入组最新4 PASS，凭据7 PASS/4 FAIL；四失败涉及DeepSeek EPUB确认/视口、两日语App崩溃、日语Component准备搜索及runner恢复，不能统一归为凭据。面板7/ebook4/DOCX1未复验；新读取的DOCX旧AX错误含预期词但等待仍失败，ebook三谓词实际值未记录。详见[分组复测报告](MAC-UI-INPUT-GROUPS-2026-10-06.md)。原完整60仍33/27/0，完整验收未通过，未安装npm、循环面板、全仓审计或公开操作。
+
+## 专用崩溃栈与驱动最小缓解
+
+再获取证授权，仅读取本次两App和对应runner三个具名.ips，header/body bundle与App代码UUID核验。App同为XCT identifiers/title求值触发SwiftUI/AppKit accessibilityLabel重复链及Stack Guard SIGSEGV；runner独立XCTestCore等待崩溃日志SIGTRAP。递归节点/平台与产品修饰符贡献仍未确认，生产未改。测试精确identifier查询和DeepSeek viewport最小缓解、DOCX前后状态读取及ebook三谓词诊断已实施，所有旧断言/三AND保持。Foundation3方法4分支PASS、Mac隔离编译PASS；没有GUI复测，不改判原4失败。具体机制、未执行的小probe和证据见[取证报告](MAC-UI-CRASH-AND-DRIVER-DIAGNOSIS-2026-10-06.md)。

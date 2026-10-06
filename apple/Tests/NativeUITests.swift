@@ -284,7 +284,8 @@ final class NativeUITests: XCTestCase {
     // execute only on the authorized isolated CI host, using UUID stores and an intercepted
     // transport. Confirm the visible offline marker BEFORE entering a synthetic credential.
     @MainActor private func japaneseElement(_ id: String, in app: XCUIApplication) -> XCUIElement {
-        app.descendants(matching: .any).matching(identifier: id).firstMatch
+        // Exact AX identifier avoids title/label alias resolution during broad snapshot queries.
+        app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", id)).firstMatch
     }
     @MainActor private func scrollJapaneseElement(_ element: XCUIElement, in app: XCUIApplication) {
         XCTAssertTrue(element.waitForExistence(timeout: 8))
@@ -1269,7 +1270,11 @@ final class NativeUITests: XCTestCase {
         try chooseInput(broken, trigger: app.buttons["conversion-source"].firstMatch, app: app)
         let failed = root.appendingPathComponent("Failed Output.txt")
         try chooseOutput(failed, defaultName: "Broken Body-converted.txt", trigger: export, app: app)
+        let statusRawValue = status.value
+        print("PDFNO_DOCX_STATUS_DIAGNOSTIC exists=", status.exists, "valueType=", statusRawValue.map { String(reflecting: type(of: $0)) } ?? "nil", "valueString=", statusRawValue as? String ?? "<not String>", "label=", status.label)
         waitForText(["归档损坏"], in: status, timeout: 15)
+        let completedStatusRawValue = status.value
+        print("PDFNO_DOCX_STATUS_DIAGNOSTIC after_wait exists=", status.exists, "valueType=", completedStatusRawValue.map { String(reflecting: type(of: $0)) } ?? "nil", "valueString=", completedStatusRawValue as? String ?? "<not String>", "label=", status.label)
         XCTAssertFalse(FileManager.default.fileExists(atPath: failed.path)); waitUntilEnabled(export)
         try chooseInput(source, trigger: app.buttons["conversion-source"].firstMatch, app: app)
         let htmlChoice = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "简化 HTML")).firstMatch
@@ -1903,8 +1908,10 @@ final class NativeUITests: XCTestCase {
         let start = app.buttons["ai-start"].firstMatch
         XCTAssertTrue(start.waitForExistence(timeout: 5)); XCTAssertFalse(start.isEnabled)
         XCTAssertEqual(textValue(app.staticTexts["ai-source-quote"].firstMatch), "window")
-        let consent = app.descendants(matching: .any).matching(identifier: "ai-scope-consent").firstMatch
-        press(consent); XCTAssertTrue(start.isEnabled); press(start)
+        let consent = japaneseElement("ai-scope-consent", in: app)
+        scrollRecordElement(consent, listID: "ai-notes-list", app: app)
+        press(consent); XCTAssertTrue(start.isEnabled)
+        scrollRecordElement(start, listID: "ai-notes-list", app: app); press(start)
         let result = app.staticTexts["ai-result"].firstMatch
         XCTAssertTrue(result.waitForExistence(timeout: 8)); XCTAssertTrue(textValue(result).contains("离线 DeepSeek UI 替身"))
         XCTAssertTrue(textValue(result).contains("翻译"))
@@ -1924,7 +1931,8 @@ final class NativeUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["ai-saved-user-note"].firstMatch.exists)
         let kind = app.popUpButtons["ai-kind"].firstMatch
         XCTAssertTrue(kind.waitForExistence(timeout: 5)); press(kind); press(app.menuItems["选文解释"].firstMatch)
-        press(consent); press(start)
+        scrollRecordElement(consent, listID: "ai-notes-list", app: app); press(consent)
+        scrollRecordElement(start, listID: "ai-notes-list", app: app); waitUntilEnabled(start); press(start)
         XCTAssertTrue(result.waitForExistence(timeout: 8)); XCTAssertTrue(textValue(result).contains("解释"))
         press(app.buttons["ai-save-note"].firstMatch)
         XCTAssertTrue(app.staticTexts["ai-saved-result"].firstMatch.waitForExistence(timeout: 8))
