@@ -2133,12 +2133,32 @@ final class NativeUITests: XCTestCase {
     @MainActor private func enterSearch(_ text: String, into input: XCUIElement, replacing: Bool = false) {
         press(input)
         #if os(macOS)
+        let literalField = input.identifier == "library-search-input" || input.identifier.hasPrefix("chapter-user-note-")
+        let previousValue = literalField && !replacing ? (input.value as? String ?? "") : ""
         if replacing { input.typeKey("a", modifierFlags: .command) }
         // A user-selected input method can turn typeText into composition text.
         // Write only synthetic fixture data; never read or back up the system clipboard.
         let board = NSPasteboard.general
         board.clearContents(); board.setString(text, forType: .string)
         input.typeKey("v", modifierFlags: .command)
+        if literalField {
+            // macOS can publish a transient InputSource dialog after paste.
+            // Read the real field and let that indicator disappear before the
+            // next click/scroll; do not change input sources or dismiss alerts.
+            let app = XCUIApplication(), expected = previousValue + text
+            var quietSince: TimeInterval?
+            let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                guard input.exists, (input.value as? String) == expected,
+                      !app.buttons["InputSource"].firstMatch.exists else {
+                    quietSince = nil; return false
+                }
+                let now = ProcessInfo.processInfo.systemUptime
+                if quietSince == nil { quietSince = now }
+                return now - (quietSince ?? now) >= 1
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 8), .completed,
+                           "Literal fixture value and input indicator must settle before the next action")
+        }
         #else
         input.typeText(text)
         #endif
