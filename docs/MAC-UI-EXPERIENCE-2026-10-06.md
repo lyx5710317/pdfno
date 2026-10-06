@@ -142,3 +142,7 @@ Library保存没有开始API写入：当前/usr/bin/python3不支持官方helper
 ## 两个代表输入有界实验
 
 随后获准仅设置输入和BYOK credentials两个原失败代表，保持typeText各执行一次，再仅修测试驱动各复验一次。应用内合成凭据初测匹配false，请求auth false/payload true/attempt1；设置在分类切换前即不等值，返回后仍regional棚顶。修复原生合成粘贴后，同App二进制两代表实际2 PASS、0失败、0跳过，suite76.624秒、exit0，正式summary与方法树确认各一次。生产源码未改，628条XCTest断言表达式保持；两处原56输入语句及两共享helper剪贴板读取被修正，原60方法数不变。新4段落方法仅重新编译，本轮没有再运行。完整60原证据仍33 PASS/27 FAIL，其余25历史失败本轮未复验，不能把凭据组11项全部标为修复。独立bundle/新UUID/offline/共享锁/旧进程结束后派发及准备时符号链接恢复证据见[输入实验报告](MAC-UI-INPUT-PROBE-2026-10-06.md)。没有npm安装、面板循环、全60重跑、全仓审计或公开操作；收尾时进程已结束、锁空闲、main及19截图不变。
+
+## 输入/凭据其余13项单批复测
+
+后续授权仅其余3输入+10凭据一批，扩展相同合成输入驱动，原628及NextBatch48断言保持、生产源码未改。正式13项9 PASS/4 FAIL/0 SKIP、exit65，唯一13方法各开始一次；runner恢复一次，无失败方法重复。输入组最新4 PASS，凭据7 PASS/4 FAIL；四失败涉及DeepSeek EPUB确认/视口、两日语App崩溃、日语Component准备搜索及runner恢复，不能统一归为凭据。面板7/ebook4/DOCX1未复验；新读取的DOCX旧AX错误含预期词但等待仍失败，ebook三谓词实际值未记录。详见[分组复测报告](MAC-UI-INPUT-GROUPS-2026-10-06.md)。原完整60仍33/27/0，完整验收未通过，未安装npm、循环面板、全仓审计或公开操作。

@@ -35,16 +35,10 @@ final class NativeUITests: XCTestCase {
         input.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.15)).click()
         input.typeKey("a", modifierFlags: .command)
         let board = NSPasteboard.general
-        let previous = (board.pasteboardItems ?? []).map { item in
-            let copy = NSPasteboardItem()
-            for type in item.types { if let data = item.data(forType: type) { copy.setData(data, forType: type) } }
-            return copy
-        }
-        board.clearContents(); board.setString(text, forType: .string); let change = board.changeCount
+        board.clearContents(); board.setString(text, forType: .string)
         input.typeKey("v", modifierFlags: .command)
         waitForEditingValue(text, in: input)
         waitForText(["正文未保存"], in: japaneseElement(prefix + "-edit-status", in: app), timeout: 5)
-        if board.changeCount == change { board.clearContents(); board.writeObjects(previous) }
     }
     @MainActor private func runSavedRecordParityUI(ebook: Bool) throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Record-UI-" + UUID().uuidString)
@@ -342,7 +336,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(app.buttons["ai-use-deepseek"].firstMatch.waitForExistence(timeout: 5))
         press(app.buttons["ai-use-deepseek"].firstMatch)
         let key = japaneseElement("ai-session-key", in: app)
-        XCTAssertTrue(key.waitForExistence(timeout: 5)); press(key); key.typeText("synthetic-reading-ui-credential")
+        XCTAssertTrue(key.waitForExistence(timeout: 5)); enterSearch("synthetic-reading-ui-credential", into: key, replacing: true)
         press(app.buttons["ai-settings-save"].firstMatch)
         pressJapaneseEntry(app.buttons["reader-japanese-learning"].firstMatch, in: app)
         XCTAssertTrue(japaneseElement("japanese-learning-source", in: app).waitForExistence(timeout: 5))
@@ -1655,7 +1649,7 @@ final class NativeUITests: XCTestCase {
         let start = app.buttons["page-start"].firstMatch
         XCTAssertFalse(start.isEnabled)
         let key = app.descendants(matching: .any).matching(identifier: "page-session-key").firstMatch
-        press(key); key.typeText("synthetic-reading-ui-credential")
+        enterSearch("synthetic-reading-ui-credential", into: key, replacing: true)
         XCTAssertFalse(start.isEnabled, "Key entry never sends or implicitly consents")
         press(app.descendants(matching: .any).matching(identifier: "page-scope-consent").firstMatch)
         XCTAssertTrue(start.isEnabled); press(start)
@@ -1730,7 +1724,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(original.exists); XCTAssertTrue(textValue(original).contains("日本語")); XCTAssertFalse(textValue(original).contains("にほんご"))
         XCTAssertFalse(app.staticTexts["chapter-result-0"].firstMatch.exists)
         let key = app.descendants(matching: .any).matching(identifier: "chapter-session-key").firstMatch
-        scrollChapterElement(key, in: app); press(key); key.typeText("synthetic-reading-ui-credential")
+        scrollChapterElement(key, in: app); enterSearch("synthetic-reading-ui-credential", into: key, replacing: true)
         XCTAssertFalse(app.buttons["chapter-start"].firstMatch.isEnabled)
         let consent = app.descendants(matching: .any).matching(identifier: "chapter-scope-consent").firstMatch
         scrollChapterElement(consent, in: app); press(consent)
@@ -1826,7 +1820,7 @@ final class NativeUITests: XCTestCase {
             XCTFail("Fully intercepted transport required before synthetic key entry"); return
         }
         let key = app.descendants(matching: .any).matching(identifier: "chapter-session-key").firstMatch
-        scrollChapterElement(key, in: app); press(key); key.typeText("synthetic-reading-ui-credential")
+        scrollChapterElement(key, in: app); enterSearch("synthetic-reading-ui-credential", into: key, replacing: true)
         let consent = app.descendants(matching: .any).matching(identifier: "chapter-scope-consent").firstMatch
         scrollChapterElement(consent, in: app); press(consent)
         let start = app.buttons["chapter-start"].firstMatch
@@ -1867,7 +1861,7 @@ final class NativeUITests: XCTestCase {
             XCTFail("Fully intercepted transport required before synthetic key entry"); app.terminate(); return
         }
         let key = app.descendants(matching: .any).matching(identifier: "page-session-key").firstMatch
-        press(key); key.typeText("synthetic-reading-ui-credential")
+        enterSearch("synthetic-reading-ui-credential", into: key, replacing: true)
         press(app.descendants(matching: .any).matching(identifier: "page-scope-consent").firstMatch); press(app.buttons["page-start"].firstMatch)
         waitForText(["正在处理第 1 / 3 段"], in: app.staticTexts["page-status"].firstMatch, timeout: 5)
         let cancel = app.buttons["page-cancel"].firstMatch
@@ -1903,7 +1897,7 @@ final class NativeUITests: XCTestCase {
         let preset = app.buttons["ai-use-deepseek"].firstMatch
         XCTAssertTrue(preset.waitForExistence(timeout: 5)); press(preset)
         let key = app.descendants(matching: .any).matching(identifier: "ai-session-key").firstMatch
-        XCTAssertTrue(key.waitForExistence(timeout: 5)); press(key); key.typeText("synthetic-reading-ui-credential")
+        XCTAssertTrue(key.waitForExistence(timeout: 5)); enterSearch("synthetic-reading-ui-credential", into: key, replacing: true)
         press(app.buttons["ai-settings-save"].firstMatch)
         press(app.buttons["reader-ai"].firstMatch)
         let start = app.buttons["ai-start"].firstMatch

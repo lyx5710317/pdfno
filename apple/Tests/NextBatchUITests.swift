@@ -45,6 +45,12 @@ final class NextBatchUITests: XCTestCase {
         do { try FileManager.default.removeItem(at: url) }
         catch { print("Synthetic UI cleanup retained \(url.lastPathComponent): \(error.localizedDescription)") }
     }
+    @MainActor private func pasteFixture(_ value: String, into field: XCUIElement) {
+        // The caller keeps the original focus/viewport checks. Write fixture data only.
+        let board = NSPasteboard.general
+        board.clearContents(); board.setString(value, forType: .string)
+        field.typeKey("a", modifierFlags: .command); field.typeKey("v", modifierFlags: .command)
+    }
     @MainActor private func pastePath(_ value: String, into field: XCUIElement) {
         let board = NSPasteboard.general
         let previous = (board.pasteboardItems ?? []).map { item in
@@ -111,7 +117,7 @@ final class NextBatchUITests: XCTestCase {
         let root = URL(fileURLWithPath: "/tmp/PDFno-UITests-" + token)
         fixture(app, token: token); defer { app.terminate(); cleanup(root) }
         click(app.buttons["reader-navigation"].firstMatch)
-        let search = app.textFields["search-input"].firstMatch; click(search); search.typeText("window")
+        let search = app.textFields["search-input"].firstMatch; click(search); pasteFixture("window", into: search)
         click(app.buttons["search-submit"].firstMatch); click(app.buttons["search-result"].firstMatch)
         click(app.buttons["reader-english-learning"].firstMatch)
         XCTAssertTrue(element("english-offline-fixture", app).waitForExistence(timeout: 10))
@@ -119,7 +125,7 @@ final class NextBatchUITests: XCTestCase {
         click(app.buttons["english-learning-close"].firstMatch)
         click(app.buttons["ai-settings"].firstMatch); click(app.buttons["ai-use-deepseek"].firstMatch)
         let key = app.secureTextFields["ai-session-key"].firstMatch
-        reveal(key, form: "ai-settings-form", app: app); click(key); key.typeText("synthetic-reading-ui-credential")
+        reveal(key, form: "ai-settings-form", app: app); click(key); pasteFixture("synthetic-reading-ui-credential", into: key)
         click(app.buttons["ai-settings-save"].firstMatch)
         click(app.buttons["reader-english-learning"].firstMatch)
         text(element("english-learning-fixed-source", app), contains: "window")
@@ -133,7 +139,7 @@ final class NextBatchUITests: XCTestCase {
         // Native macOS TextView does not report button-like AX enabled state.
         // Keep viewport/hit checks and prove the actual editor value and stored body.
         input.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.15)).click()
-        input.typeText("Original English UI saved marker")
+        pasteFixture("Original English UI saved marker", into: input)
         XCTAssertEqual(input.value as? String, "Original English UI saved marker")
         let save = app.buttons["english-learning-save"].firstMatch
         reveal(save, form: "english-learning-form", app: app); click(save)
@@ -143,7 +149,7 @@ final class NextBatchUITests: XCTestCase {
         XCTAssertEqual(saved["userText"] as? String, "Original English UI saved marker")
         XCTAssertFalse(String(decoding: bytes, as: UTF8.self).contains("synthetic-reading-ui-credential"))
         click(app.buttons["english-learning-close"].firstMatch); click(app.buttons["library-search"].firstMatch)
-        let global = app.textFields["library-search-input"].firstMatch; click(global); global.typeText("Original English UI saved marker")
+        let global = app.textFields["library-search-input"].firstMatch; click(global); pasteFixture("Original English UI saved marker", into: global)
         text(element("library-search-status", app), contains: "找到 1 项")
         click(app.buttons["record-search-source"].firstMatch)
         text(element("page-position", app), contains: "1 / 2")
@@ -151,7 +157,7 @@ final class NextBatchUITests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent("english-learning-v1.json")), bytes)
         click(element("library-book", app))
         click(app.buttons["reader-navigation"].firstMatch)
-        let repeatSearch = app.textFields["search-input"].firstMatch; click(repeatSearch); repeatSearch.typeText("window")
+        let repeatSearch = app.textFields["search-input"].firstMatch; click(repeatSearch); pasteFixture("window", into: repeatSearch)
         click(app.buttons["search-submit"].firstMatch); click(app.buttons["search-result"].firstMatch)
         click(app.buttons["reader-english-learning"].firstMatch)
         text(element("english-learning-fixed-source", app), contains: "window")

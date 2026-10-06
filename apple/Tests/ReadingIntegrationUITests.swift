@@ -46,8 +46,7 @@ final class ReadingIntegrationUITests: XCTestCase {
         if navigation.value as? String != "已展开" { try click(navigation) }
         value(navigation, contains: "已展开")
         let input = element("search-input", in: app)
-        try click(input)
-        input.typeKey("a", modifierFlags: .command); input.typeText(query)
+        try paragraphPaste(query, into: input, replacing: true)
         XCTAssertEqual(input.value as? String, query)
         try click(element("search-submit", in: app))
         try click(element("search-result", in: app))
@@ -69,7 +68,7 @@ final class ReadingIntegrationUITests: XCTestCase {
         try search("window", in: app)
         try click(element("reader-notes", in: app))
         let draft = element("note-input", in: app)
-        try click(draft); draft.typeText("Original navigation draft")
+        try paragraphPaste("Original navigation draft", into: draft)
         draft.typeKey(.rightArrow, modifierFlags: [.command, .option])
         value(position, contains: "1 / 2")
         XCTAssertEqual(draft.value as? String, "Original navigation draft")
