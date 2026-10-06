@@ -6,7 +6,7 @@
 
 环境：arm64 macOS 27.0.1 (26A434)、Xcode 27.0 (27A266a)、Swift 6.4。专用 bundle 为 `org.pdfno.ui.experience20261006.PDFnoMac`，忽略目录内复制工程在 App 初始化前强制绑定 UUID `5125DAB3-0972-4882-9C05-DBE37DD0DEEB`，Library 为 `/tmp/PDFno-UITests-5125DAB3-0972-4882-9C05-DBE37DD0DEEB`，transport 为 offline。App-only 外观/窗口菜单只存在于测试副本；系统主题、权限和受版本管理的 App 入口未改。原书为仓库自制 PDF/EPUB，导入后的两个 Originals 已与仓库 fixture 逐字节比较相同。
 
-首次 CUA 选择专用构建路径时工具自动启动，启动环境尚未注入，因而读取默认 Library 元数据；立即退出该开发进程，未打开书籍/笔记、未截图。随后暂停 GUI，以固定路径 stat 检查默认 Library 的文件大小/时间，没有读取私有文件正文、书名、引文或 ID。已观察时间均早于本次启动，但没有启动前快照，瞬时写入/迁移不能绝对排除，结论为 **UNKNOWN**。没有清理、回滚默认 Library。后续先在复制入口硬绑定隔离，再确认构建路径/bundle/PID、初始空书库和 UUID store，才恢复 GUI。用户正式 App 未关闭、替换或重置。
+首次 CUA 选择专用构建路径时工具自动启动，启动环境尚未注入，进入默认 Library 路径；立即退出该开发进程，未打开书籍/笔记、未截图。启动代码可能自动读取默认 manifest/记录，不能宣称全过程未加载默认数据。随后暂停 GUI，以固定路径 stat 检查默认 Library 的文件大小/时间，没有用工具读取私有文件正文、书名、引文或 ID。已观察时间均早于本次启动，但没有启动前快照，瞬时写入/迁移不能绝对排除，结论为 **UNKNOWN**。隔离 GUI 后同一固定路径 metadata 与暂停检查时相同（`default-library-stat-after-gui.json`）。没有清理、回滚默认 Library。后续先在复制入口硬绑定隔离，再确认构建路径/bundle/PID、初始空书库和 UUID store，才恢复 GUI。用户正式 App 未关闭、替换或重置。
 
 证据根位于主仓库 `.build/MacUIExperience/2026-10-06/evidence`。`session.json`、`isolation-receipt.json`、`running-app-metadata.txt`、`library-metadata-check.json` 记录上述边界。每个检查保存实际命令、退出码、日志 SHA；所有重型操作使用原 `run-heavy-check.py` 和同一 `PDFnoNativeHeavyChecks.lock`，最多两 jobs。
 
@@ -17,6 +17,7 @@
 | 空书库、列表/网格、重开 | 初始空状态可见；自制 PDF/EPUB 导入、列表/网格切换、重启后两本书与已保存笔记保留。图 01、13，`library-grid-narrow-restart.ax.txt`。 |
 | PDF 搜索、目录、返回 | `useful` 搜索跳到第 2 页，返回第 1 页；再次将查询准确替换为 `window`；原生输入焦点保留。修复后行中部点击可跳转。图 02、14，`pdf-row-center-fixed.ax.txt`。 |
 | PDF 选文与笔记 | 原生搜索选区 `window`；Unicode 用户笔记草稿关闭再开原样保留，保存后清空输入，已保存正文独立保留。编辑中 Command-Option-Right 不翻页。图 03、05，`fixture-store-verification.json`。 |
+| 阅读键盘 | PDF 画布焦点下 Command-Option-左右键实际翻页，Command-F 展开导航；Command-Shift-F 打开书库搜索。编辑器/设置 Tab/Escape 流程如相应行。`pdf-canvas-keyboard-next.ax.txt`、`pdf-canvas-keyboard-previous.ax.txt`、`pdf-command-f-opens-navigation.ax.txt`。 |
 | EPUB 目录、来源、ruby、竖排 | 英文章节跳到日本语章节后返回；原书 ruby 保留；切竖排后返回原章节恢复横排。目录右侧空白点击修复已实测。图 07、15、16。 |
 | EPUB 笔记、同词重选 | Unicode 草稿关闭恢复、保存成功。修复后保存仍确认真实 DOM `window`，关闭、同词重选可再次固定 AI 来源 UTF-16 22–28。图 08、17，`ai-same-word-fixed-source.ax.txt`。 |
 | AI 预览、确认、mock、保存 | 空来源时开始禁用；独立核对来源、接收方与费用并手动同意后开始本地 mock；结果先未保存，手动保存用户正文后显示已保存；保存来源按钮返回 EPUB。没有真实 API/key。图 09、11。 |
@@ -46,4 +47,28 @@
 
 ## 未验收
 
-真实服务/语言质量/费用与 usage、真实密钥、VoiceOver/输入法人工流程、Intel runtime、移动 App 实机/实际 UI、损坏 Library/导入错误与加载过渡均未由本次实际 GUI 验收。Command-Option 翻页只确认编辑器中不误触，尚未确认 canvas 焦点下实际快捷键。已有安全专项保持 **UNVERIFIED / platform-blocked**，未重试。未 push、dispatch 或 merge；新公开发布另行获得授权。
+真实服务/语言质量/费用与 usage、真实密钥、VoiceOver/输入法人工流程、Intel runtime、移动 App 实机/实际 UI、损坏 Library/导入错误与加载过渡均未由本次实际 GUI 验收。已有安全专项保持 **UNVERIFIED / platform-blocked**，未重试。未 push、dispatch 或 merge；新公开发布另行获得授权。
+
+## 段落解释单一整合结果
+
+已审阅段落提交 `0950727f8c1f1b8a3cb70905365d292f08e4b079`、完整交接及 LibraryModel 四处 callback patch。它没有修改本任务 reader.js/EPUBReaderSession/EPUBWebKitTests/导航布局，无冲突合入为 `ef203f3229596d9c2c800e68de2e7b66987173ba`，完整保留 `b4c2b87` 小修。
+
+| 整合候选检查 | 实际结果 |
+| --- | --- |
+| 完整 Swift | 542 tests / 66 suites PASS，--no-parallel、2 jobs、共享 heavy lock。 |
+| Mac build-for-testing | TEST BUILD SUCCEEDED，arm64+x86_64、未签名；60 UI方法全部编译，常规 bundle 不启动。 |
+| iOS Simulator build-for-testing | TEST BUILD SUCCEEDED，arm64+x86_64；未启动 Simulator。 |
+| 专用 App/runner | TEST BUILD SUCCEEDED，实际产品 Info/xctestrun 核对独立 org.pdfno.integration.experience20261006.PDFnoMac 与 runner，合法测试UUID或硬绑定备用UUID、强制offline。 |
+| guards/再生 | source guard685、codec96+原创fixture6、账本8项通过，Xcode工程/原PDF再生无diff；原56方法正文逐字节未改，新总60。 |
+| 可用 Node | loader/rangy/comics/docx 14/14 PASS、0 skipped。两个电子书Node文件缺 jsdom@26.1.0，在加载前退出，NOT-RUN。 |
+| 新4 UI单次 | 实际执行4项，4失败、0通过，共8 failure (3 unexpected)、206.36秒；三个PDF方法在search-result exists/enabled/hittable等待超时，未开始段落请求；EPUB未找到WebView下window StaticText。没有重派发。 |
+| 进程与结果包 | 连接断开/ executor key changed 后原session不能恢复。只读新命令确认全部4方法失败日志，但wrapper未写最终exit，xcresult缺Info.plist；进程退出码与结果包完整性UNKNOWN。 |
+| 后续段落CUA | 整合harness BUILD SUCCEEDED；真实CUA定位调用返回Transport closed，没有重复尝试或更改权限。 |
+
+上述UI失败根因尚未定位，不能排除产品可访问性/布局回归，也不能把选择器失败作为段落功能通过。新typed展示/确认/保存/引用、insufficient/invalid/truncated/slow、EPUB引用的实际GUI闭环仍NOT-VERIFIED；542离线回归不替代它们。自动与自定义附件均keepNever，只交付此前查看过的19张自制窗口图，未读取/导出自动截图。
+
+自动审批拒绝在本独立tree按现有package-lock补齐npm开发依赖（jsdom26.1.0、registry.npmjs.org、ignore-scripts、独立cache/空配置），理由为超出“不安装组件/不依赖外部安装”约束。安装没有执行，也未换路线。主任务已收到具体命令向用户请求新增授权，当前仍暂停；两项NOT-RUN不能称完整Node全绿。
+
+证据为 evidence 下各 command.json/log、isolated-uitest-execution-identity.json、integrated-original-ui-protection.json、paragraph-ui-once.log、ParagraphUI.xcresult（未收尾）。末次实际源码候选为ef203f3；后续报告提交只改文档。未push/dispatch/merge，公开发布另批。
+
+Library保存没有开始API写入：当前/usr/bin/python3不支持官方helper的`str | None`类型标注，helper在导入时退出；现有环境依赖查询也返回Transport closed。没有改helper、安装Python或换直接写入路线，没有有效library_file_id；图片与报告仅按本地路径交付。
