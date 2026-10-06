@@ -1,6 +1,9 @@
 // Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
 import SwiftUI
 import PDFnoDomain
+#if os(macOS)
+import AppKit
+#endif
 
 /// Display-only source projection. Internal links select a candidate locally, never open a URL,
 /// send a request, create a highlight or change the reader's canonical document.
@@ -42,8 +45,35 @@ public struct JapaneseSentenceComponentsView: View {
         }
         return result
     }
+    #if os(macOS)
+    private var nativeAttributedSource: NSAttributedString {
+        let result = NSMutableAttributedString(string: "")
+        for segment in JapaneseSentenceProjection.runs(source: review.source.anchor.quote, components: review.components, selectedID: selectedID) {
+            var attributes: [NSAttributedString.Key: Any] = [.font: NSFont.preferredFont(forTextStyle: .body), .foregroundColor: NSColor.labelColor]
+            if let role = segment.role, let id = segment.componentID,
+               let index = review.components.firstIndex(where: { $0.id == id }) {
+                attributes[.foregroundColor] = NSColor(color(role))
+                attributes[.link] = URL(string: "pdfno-japanese-component://candidate/\(index)")
+                if id == selectedID { attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue }
+            }
+            result.append(NSAttributedString(string: segment.text, attributes: attributes))
+        }
+        return result
+    }
+    #endif
+    private func selectCandidateLink(_ url: URL) {
+        guard url.scheme == "pdfno-japanese-component", url.host == "candidate",
+              let index = Int(url.path.dropFirst()), review.components.indices.contains(index),
+              !review.components[index].omitted else { return }
+        selectedID = review.components[index].id
+    }
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            #if os(macOS)
+            NativeJapaneseSourceText(content: nativeAttributedSource, quote: review.source.anchor.quote,
+                                     onCandidateLink: selectCandidateLink)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            #else
             Text(attributedSource).font(.body).textSelection(.enabled)
                 .accessibilityIdentifier("japanese-components-source")
                 .accessibilityLabel(review.source.anchor.quote)
@@ -54,6 +84,7 @@ public struct JapaneseSentenceComponentsView: View {
                           !review.components[index].omitted else { return .discarded }
                     selectedID = review.components[index].id; return .handled
                 })
+            #endif
             Text("句子成分均为待核对候选；主题与主语分开。点击有色片段或下方文字标签查看中文解释。")
             ScrollView(.horizontal) {
                 HStack(spacing: 14) {
