@@ -123,6 +123,7 @@ struct ConversionWorkspace: View {
                     Text("按转换阶段显示进度").font(.caption).foregroundStyle(.secondary)
                 }
                 Text(model.status).textSelection(.enabled).accessibilityIdentifier("conversion-status")
+                    .id(model.status)
                 if let result = model.result {
                     Text(result.destination.path).font(.caption).textSelection(.enabled)
                     Button("在 Finder 中显示") { NSWorkspace.shared.activateFileViewerSelecting([result.destination]) }

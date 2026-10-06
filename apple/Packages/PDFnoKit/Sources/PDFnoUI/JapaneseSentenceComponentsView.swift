@@ -120,6 +120,7 @@ public struct JapaneseSentenceComponentsView: View {
                 Text(item.role.labelZh + (item.omitted ? " · 省略（推测）" : " · 成分候选") + (item.ambiguous ? " · 不确定" : ""))
                     .font(.headline).accessibilityIdentifier("japanese-component-selected-label")
                 Text(verbatim: item.explanationZh).textSelection(.enabled).accessibilityIdentifier("japanese-component-explanation")
+                    .id(item.id)
                 if let span = item.span { Text(verbatim: "原文 code point [\(span.start), \(span.end))").foregroundStyle(.secondary) }
             }
         }.onChange(of: review.requestID) { _, _ in selectedID = nil }

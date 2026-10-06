@@ -1557,7 +1557,7 @@ final class NativeUITests: XCTestCase {
         let open = filePanelButton(app, titles: ["Open", "打开"])
         XCTAssertTrue(open.waitForExistence(timeout: 5))
         try goToFixtureLocation(url, app: app)
-        // A file-path Return can also accept the selected file. The caller still requires actual import/output state.
+        // Choosing a file completion can also accept the selected file. Require actual import/output state below.
         if open.exists { waitUntilEnabled(open); press(open) }
     }
     @MainActor private func filePanelButton(_ app: XCUIApplication, titles: [String]) -> XCUIElement {
@@ -1591,19 +1591,19 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(location.waitForExistence(timeout: 5))
         enterSearch(url.path, into: location, replacing: true)
         XCTAssertEqual(location.value as? String, url.path)
-        // Return may first commit a path completion. Send again only while the same overlay remains active.
-        for _ in 0..<2 {
-            if !location.exists || !location.isHittable { return }
-            app.typeKey(.return, modifierFlags: [])
-            let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-                !location.exists || !location.isHittable
-            }, object: app)
-            if XCTWaiter.wait(for: [dismissed], timeout: 5) == .completed { return }
-        }
+        // The completion label is not hittable on macOS; select its actual row/cell by mouse.
+        // A keyboard Return here can crash the system panel's input-context service.
+        let fixture = NSPredicate(format: "label == %@ OR value == %@", url.lastPathComponent, url.lastPathComponent)
+        let rows: [XCUIElement.ElementType] = [.cell, .tableRow, .outlineRow]
+        let candidates = rows.flatMap { app.descendants(matching: $0).containing(fixture).allElementsBoundByIndex }
+        let completion = try XCTUnwrap(candidates.first { $0.isHittable && !$0.frame.isEmpty
+            && $0.frame.minX.isFinite && $0.frame.minY.isFinite }, "The actual fixture completion must be hittable")
+        completion.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).doubleClick()
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            !location.exists || !location.isHittable
+        }, object: app)
+        if XCTWaiter.wait(for: [dismissed], timeout: 5) == .completed { return }
         if !location.exists || !location.isHittable { return }
-        print("PDFno original file-panel buttons: " + app.buttons.allElementsBoundByIndex.prefix(40).map {
-            "id=\($0.identifier) label=\($0.label) enabled=\($0.isEnabled) hittable=\($0.isHittable)"
-        }.joined(separator: "; "))
         XCTFail("The original fixture Go-to overlay must close before using the file-panel action")
         throw NSError(domain: "PDFnoOriginalFixturePanel", code: 1)
     }
