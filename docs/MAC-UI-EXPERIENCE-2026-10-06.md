@@ -134,3 +134,7 @@ Library保存没有开始API写入：当前/usr/bin/python3不支持官方helper
 证据：`full60-ui-complete-plan.json`、`full60-ui-complete-command.json` / `.log`、`full60-ui-outcome.json`、`full60-ui-first-failures-final.json`、`full60-ui-xcresult-{summary,tests}-command.json` / `.log`、`full60-ui-post-run-state.json`。新文档提交只记录结果，不改测试或生产代码。没有继续派发UI、安装npm、开始独立全仓审计或公开发布；完整验收仍受27项失败阻塞。
 
 交接时另修正19张截图收据的元数据：实际像素文件为JPEG，历史文件名后缀为`.png`；此前按PNG固定偏移读取尺寸不正确，现依据JPEG SOF读取真实尺寸并补充`image/jpeg`。图片SHA/字节与原清单逐项相同，未重命名、转码或编辑。原错误清单保留为`screenshot-inventory-original-metadata.json`，修正见`screenshot-inventory.json` / `screenshot-metadata-correction.json`。仍只有本地路径交付，library_file_id为空，不能当作已上传附件。
+
+## 失败分组后续诊断
+
+按后续指令保留d2c52a7及完整60原证据，读取现有自制fixture的活动/辅助功能文本并对照6a67，27方法已分成原输入4、严格离线凭据11、面板服务7、电子书组合谓词4、DOCX错误状态1。尚无已确认真实产品回归，也未排除产品问题；没有再次启动GUI或重跑60。新增严格离线transport诊断3测试方法/6参数分支PASS、sourceguard687 PASS，仅新增测试与文档，生产代码及全部60 UI未改。各组最早失败、实际证据、harness差异与有界下一步见[失败诊断报告](MAC-UI-FAILURE-DIAGNOSIS-2026-10-06.md)，完整验收仍FAILED。
