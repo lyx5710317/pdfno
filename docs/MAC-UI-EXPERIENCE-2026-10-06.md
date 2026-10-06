@@ -160,3 +160,5 @@ Library保存没有开始API写入：当前/usr/bin/python3不支持官方helper
 日语AX路线暂停后，仅DOCX零面板诊断和原MOBI各执行一次，0 PASS/2 FAIL/0 SKIP、均exit65。MOBI三条件实际mobi/“regional eBook”/O，true/false/true；已修测试原生合成粘贴并加保存前UTF-8精确正文检查，原三AND/来源保持，修正后未GUI复验。DOCX新诊断辅助label为空导致原status读取未达，失败保留；同原损坏fixture的纯真实模型错误/无输出验证及既有恢复2方法PASS，不能代替AX/完整旧方法。诊断候选已纠正读取顺序/value回退并类型检查，未重派发。Mac arm64编译PASS，原700断言保留/新增1条，生产不改，16个原失败门槛仍未清除；详见[限定保存/错误诊断与修正](MAC-UI-PERSISTENCE-FAILURES-2026-10-06.md)。
 
 随后新授权仅MOBI修正后原方法与同DOCX修正诊断各一次：正式2 PASS/0 FAIL/0 SKIP、均exit0；MOBI保存前UTF-8严格等值，三AND全true，重启/回源完整原断言通过，仅清除MOBI一项。DOCX实际value类型__NSCFString/完整预期错误，label为空、原helper取value且等待通过，单worker/result空/无输出/源未变通过；不能替代含面板和HTML恢复的原完整方法。剩余15原方法及其他验收边界、用户须决定的有限批次/平台/依赖/交付范围见[最后有界复验交接](MAC-UI-BOUNDED-RETEST-HANDOFF-2026-10-06.md)。原历史失败保留，无额外probe/全量/安装/权限/公开/审计动作；本轮停止自主派发。
+
+父任务随后确认原本地开发授权覆盖固定AZW/AZW3/FB2/DeepSeek原方法验证，本轮各一次串行实际4 PASS/0 FAIL/0 SKIP、零重试：33.544841/32.767589/32.739531/56.399725秒。三个电子书各自严格UTF-8/三比较AND/重启/真实回源通过；DeepSeek原PDF/EPUB/确认/手动保存/回源/重启不保留key完整通过。剩余11原方法（日语AX3、保存面板7、DOCX完整1）继续未验收，完整60未通过，保持现场不再探针。见[四个剩余原方法单次验收](MAC-UI-REMAINING-FOUR-2026-10-06.md)。用户已要求验收后全仓审计，当前是验收条件未达，未启动；公开发布/npm/新环境许可状态保持。
