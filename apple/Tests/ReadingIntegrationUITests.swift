@@ -19,11 +19,11 @@ final class ReadingIntegrationUITests: XCTestCase {
     @MainActor private func element(_ id: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
-    @MainActor private func click(_ item: XCUIElement, editing: Bool = false) throws {
+    @MainActor private func click(_ item: XCUIElement) throws {
         let ready = expectation(for: NSPredicate { _, _ in item.exists && item.isEnabled && item.isHittable }, evaluatedWith: item)
         wait(for: [ready], timeout: 15)
         guard item.exists && item.isEnabled && item.isHittable else { throw NSError(domain: "OriginalUI", code: 1) }
-        if editing { item.doubleClick() } else { item.click() }
+        item.click()
     }
     @MainActor private func value(_ item: XCUIElement, contains text: String) {
         let ready = expectation(for: NSPredicate { _, _ in
@@ -44,10 +44,8 @@ final class ReadingIntegrationUITests: XCTestCase {
         if navigation.value as? String != "已展开" { try click(navigation) }
         value(navigation, contains: "已展开")
         let input = element("search-input", in: app)
-        // macOS List cells use a shared field editor; enter editing explicitly
-        // and send keys to that active editor. The exact value proves the target.
-        try click(input, editing: true)
-        app.typeKey("a", modifierFlags: .command); app.typeText(query)
+        try click(input)
+        input.typeKey("a", modifierFlags: .command); input.typeText(query)
         XCTAssertEqual(input.value as? String, query)
         try click(element("search-submit", in: app))
         try click(element("search-result", in: app))

@@ -473,28 +473,36 @@ struct ReaderWorkspace: View {
     }
     private var navigationContent: some View {
         let navigationSessionID = session.readerSessionID
-        return List {
-            Section("查找文本") {
-                TextField("输入关键词", text: $searchText).accessibilityIdentifier("search-input")
-                    .onSubmit { session.search(searchText); searched = true }
-                Button("查找") { session.search(searchText); searched = true }.accessibilityIdentifier("search-submit")
-                if searched {
-                    Text("找到 \(session.searchMatches.count) 项（最多显示 100 项）").font(.caption)
-                        .accessibilityIdentifier("search-status")
+        return VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("查找文本").font(.headline)
+                HStack {
+                    TextField("输入关键词", text: $searchText).accessibilityIdentifier("search-input")
+                        .onSubmit { session.search(searchText); searched = true }
+                    Button("查找") { session.search(searchText); searched = true }.accessibilityIdentifier("search-submit")
                 }
-                ForEach(session.searchMatches, id: \.self) { match in
-                    Button(match.string ?? "匹配结果") { if session.show(match) { closeNavigation() } }
-                        .accessibilityIdentifier("search-result")
+            }.padding()
+            Divider()
+            List {
+                Section("搜索结果") {
+                    if searched {
+                        Text("找到 \(session.searchMatches.count) 项（最多显示 100 项）").font(.caption)
+                            .accessibilityIdentifier("search-status")
+                    }
+                    ForEach(session.searchMatches, id: \.self) { match in
+                        Button(match.string ?? "匹配结果") { if session.show(match) { closeNavigation() } }
+                            .accessibilityIdentifier("search-result")
+                    }
+                    if searched && session.searchMatches.isEmpty { PDFnoEmptyState(title: "没有匹配文本", detail: "扫描页可能没有可选文字。请更换关键词或检查文字层。", icon: "magnifyingglass") }
                 }
-                if searched && session.searchMatches.isEmpty { PDFnoEmptyState(title: "没有匹配文本", detail: "扫描页可能没有可选文字。请更换关键词或检查文字层。", icon: "magnifyingglass") }
-            }
-            Section("目录") {
-                if session.outline.isEmpty { PDFnoEmptyState(title: "此 PDF 没有内置目录", detail: "可以从下方页码或文本搜索定位。") }
-                ForEach(session.outline) { item in Button(item.title) { if session.jump(to: item) { closeNavigation() } } }
-            }
-            Section("页面") {
-                ForEach(0..<(session.document?.pageCount ?? 0), id: \.self) { index in
-                    Button("第 \(index + 1) 页") { if session.jump(to: index, in: navigationSessionID) { closeNavigation() } }
+                Section("目录") {
+                    if session.outline.isEmpty { PDFnoEmptyState(title: "此 PDF 没有内置目录", detail: "可以从下方页码或文本搜索定位。") }
+                    ForEach(session.outline) { item in Button(item.title) { if session.jump(to: item) { closeNavigation() } } }
+                }
+                Section("页面") {
+                    ForEach(0..<(session.document?.pageCount ?? 0), id: \.self) { index in
+                        Button("第 \(index + 1) 页") { if session.jump(to: index, in: navigationSessionID) { closeNavigation() } }
+                    }
                 }
             }
         }.buttonStyle(.borderless).font(PDFnoDesign.TypeStyle.body)
