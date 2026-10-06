@@ -490,18 +490,27 @@ struct ReaderWorkspace: View {
                             .accessibilityIdentifier("search-status")
                     }
                     ForEach(session.searchMatches, id: \.self) { match in
-                        Button(match.string ?? "匹配结果") { if session.show(match) { closeNavigation() } }
+                        Button { if session.show(match) { closeNavigation() } } label: {
+                            Text(match.string ?? "匹配结果")
+                                .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                        }
                             .accessibilityIdentifier("search-result")
                     }
                     if searched && session.searchMatches.isEmpty { PDFnoEmptyState(title: "没有匹配文本", detail: "扫描页可能没有可选文字。请更换关键词或检查文字层。", icon: "magnifyingglass") }
                 }
                 Section("目录") {
                     if session.outline.isEmpty { PDFnoEmptyState(title: "此 PDF 没有内置目录", detail: "可以从下方页码或文本搜索定位。") }
-                    ForEach(session.outline) { item in Button(item.title) { if session.jump(to: item) { closeNavigation() } } }
+                    ForEach(session.outline) { item in
+                        Button { if session.jump(to: item) { closeNavigation() } } label: {
+                            Text(item.title).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                        }
+                    }
                 }
                 Section("页面") {
                     ForEach(0..<(session.document?.pageCount ?? 0), id: \.self) { index in
-                        Button("第 \(index + 1) 页") { if session.jump(to: index, in: navigationSessionID) { closeNavigation() } }
+                        Button { if session.jump(to: index, in: navigationSessionID) { closeNavigation() } } label: {
+                            Text("第 \(index + 1) 页").frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                        }
                     }
                 }
             }

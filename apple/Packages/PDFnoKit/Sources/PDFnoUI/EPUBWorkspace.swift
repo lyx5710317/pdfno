@@ -67,7 +67,9 @@ struct EPUBWorkspace: View {
                 List {
                     if session.outline.isEmpty { PDFnoEmptyState(title: "此 EPUB 没有内置目录", detail: "仍可使用上一页和下一页继续阅读。") }
                     ForEach(session.outline) { item in
-                        Button(item.title) { Task { if await session.jump(to: item) { contents = false } } }
+                        Button { Task { if await session.jump(to: item) { contents = false } } } label: {
+                            Text(item.title).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                        }
                             .accessibilityIdentifier("epub-chapter-\(item.index)")
                     }
                 }.font(PDFnoDesign.TypeStyle.body).navigationTitle("目录").toolbar { ToolbarItem { Button("完成") { contents = false } } }

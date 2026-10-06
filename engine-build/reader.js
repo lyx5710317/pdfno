@@ -169,6 +169,7 @@ window.PDFno = {async command(message) {
   // A selection event may arrive while the native command is busy and then be
   // deduplicated. Acknowledge the actual DOM range in this verified reply too.
   if(message.command==='navigate') response.navigationSelection=selectedAnchor();
+  if(message.command==='notes') response.noteSelection=selectedAnchor();
   return JSON.stringify(envelope(response,message.requestID));
 }};
 post({v:1,payload:{kind:'ready'}});

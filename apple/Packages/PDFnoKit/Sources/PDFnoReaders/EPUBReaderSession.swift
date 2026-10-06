@@ -231,6 +231,16 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
                 // checks in request(), independently of asynchronous selection notifications.
                 selection = selected
             }
+            if name == "notes" {
+                // Projection does not invalidate a still-selected DOM range. Consume
+                // its verified reply; a cached native anchor could be stale after focus changes.
+                if let value = state["noteSelection"] as? [String: Any] {
+                    let selected = try anchorValue(value)
+                    guard selected.spineIndex == spineIndex,
+                          selected.resourceHref == progress?.resourceHref else { throw EPUBError.sourceMismatch }
+                    selection = selected
+                } else if !(state["noteSelection"] is NSNull) { throw EPUBError.sourceMismatch }
+            }
             if recordsJump, let origin, let destination = progress, book?.accepts(origin) == true {
                 navigationHistory.record(origin, destination: destination)
                 canReturnToPreviousLocation = navigationHistory.previous != nil

@@ -18281,6 +18281,7 @@
     project();
     const response = state();
     if (message.command === "navigate") response.navigationSelection = selectedAnchor();
+    if (message.command === "notes") response.noteSelection = selectedAnchor();
     return JSON.stringify(envelope(response, message.requestID));
   } };
   post({ v: 1, payload: { kind: "ready" } });

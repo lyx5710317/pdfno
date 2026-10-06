@@ -126,6 +126,31 @@ struct EPUBWebKitTests {
         #expect(stale == "rejected")
         session.close(); #expect(!(await session.command("next")))
     }
+    @Test @MainActor func noteProjectionAcknowledgesOnlyTheActualDOMSelectionIncludingSameWordReselection() async throws {
+        let (session, window) = try await opened("study-sample")
+        defer { session.close(); window.close() }
+        let selectWindow = "const d=document.querySelector('iframe').contentDocument;const p=d.querySelector('p');const r=d.createRange();r.setStart(p.firstChild,0);r.setEnd(p.firstChild,6);d.getSelection().removeAllRanges();d.getSelection().addRange(r);return 'selected';"
+        _ = try await probe(session, selectWindow)
+        let deadline = Date().addingTimeInterval(3)
+        while session.selection == nil && Date() < deadline { try await Task.sleep(for: .milliseconds(50)) }
+        let original = try #require(session.selection), book = try #require(session.book)
+        #expect(original.quote == "window")
+        let notes = [EPUBNote(bookID: book.id, anchor: original, userText: "Original same-word regression / 日本語 / é.")]
+        #expect(await session.command("notes", notes: notes))
+        #expect(session.selection == original)
+        _ = try await probe(session, "const d=document.querySelector('iframe').contentDocument;d.getSelection().removeAllRanges();return 'cleared';")
+        #expect(await session.command("notes", notes: notes))
+        #expect(session.selection == nil)
+        // The identical word is still in the engine's event-deduplication history.
+        // A new projection must acknowledge the actual range without waiting for a new event.
+        _ = try await probe(session, selectWindow)
+        #expect(await session.command("notes", notes: notes))
+        #expect(session.selection == original)
+        #expect(await session.validateChapterAnchor(original))
+        #expect(await session.command("chapter", index: 1))
+        #expect(session.selection == nil)
+        #expect(!window.isVisible)
+    }
     @Test @MainActor func hostileOriginalContentIsStrippedAndNetworkBlocked() async throws {
         let (session, window) = try await opened("security-sample")
         defer { session.close(); window.close() }
