@@ -47,6 +47,6 @@
 
 仍有16个原失败方法没有实际清除：此前凭据/日语/DeepSeek4、保存面板7、电子书4、DOCX错误1。日语AX路线已暂停，不追加权限或空读probe；保存面板7保留系统服务崩溃阻塞。完整60历史仍33 PASS/27 FAIL/0 SKIP，13项历史9/4/0、两日语probe0/2/0及基线组件对照INCONCLUSIVE均保持，不将不同候选的小范围结果合并成全量通过。下一最小缺口为修正后电子书代表的实际输入/三AND闭环，以及DOCX原status的字段读取；本次授权次数已用完。
 
-全部已记录旧PID及本次App90824/90880/90900、runner90819/90877、xcode90816/90874已退出，锁空闲；main仍6a67，未跟踪Xcode metadata、原full60日志/产物、19自制截图、原两次AX对照与本次失败GUI产物哈希保持。没有新截图或有效library_file_id。npm仍等待批准、两ebook Node仍NOT-RUN；没有安装、真实API/用户数据、系统权限更改、安全专项重试、全suite、发布或全仓审计。
+全部已记录旧PID及本次App90824/90880/90900、runner90819/90879、xcode90816/90874已退出，锁空闲；main仍6a67，未跟踪Xcode metadata、原full60日志/产物、19自制截图、原两次AX对照与本次失败GUI产物哈希保持。没有新截图或有效library_file_id。npm仍等待批准、两ebook Node仍NOT-RUN；没有安装、真实API/用户数据、系统权限更改、安全专项重试、全suite、发布或全仓审计。runner原误记90877已按执行收据更正，收据未改；后续两项新授权单次复验见[最终有界交接](MAC-UI-BOUNDED-RETEST-HANDOFF-2026-10-06.md)，本报告0/2/0保留为修正前阶段结果。
 
 证据位于主仓库 `.build/MacUIExperience/2026-10-06/evidence`：persistence-probes-plan.json；persistence-{docx,mobi}-once-command.json / .log及对应summary/tests/test-details/activities；persistence-probes-pre-fix-protection.json；persistence-mobi-own-manifest.json；persistence-fix-assertion-protection.json；persistence-fix-model-unit-command.json / .log；persistence-fix-mac-compile-command.json / .log；persistence-docx-diagnostic-correction.patch及typecheck两份原始收据；persistence-fix-outcome.json、PARENT-STATUS-PERSISTENCE.json、FINAL-RECEIPT.json。完整既有门槛见[体验/整合报告](MAC-UI-EXPERIENCE-2026-10-06.md)和[失败分组](MAC-UI-INPUT-GROUPS-2026-10-06.md)。

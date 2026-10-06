@@ -158,3 +158,5 @@ Library保存没有开始API写入：当前/usr/bin/python3不支持官方helper
 随后获准仅6a67与当前51a8f35两个最小组件对照。两份精确Git包、相同内存日语fixture/harness及编译设置构建成功，独立bundle/新UUID/offline、共享锁各启动一次；本进程公开NSHostingView identifier=nil、children count0，未定位原句，role/label/value各0次。两进程正常结束不能算“不复现”或AX通过；结论INCONCLUSIVE，仍不能区分基线复现与整合宿主触发，也不能用静态文件相同排除回归。没有新增权限、fallback、第三次GUI或生产修复。原700断言、历史失败、产物/19截图/main metadata保全，详见[两次受控基线对照](MAC-UI-AX-COMPARISON-2026-10-06.md)。
 
 日语AX路线暂停后，仅DOCX零面板诊断和原MOBI各执行一次，0 PASS/2 FAIL/0 SKIP、均exit65。MOBI三条件实际mobi/“regional eBook”/O，true/false/true；已修测试原生合成粘贴并加保存前UTF-8精确正文检查，原三AND/来源保持，修正后未GUI复验。DOCX新诊断辅助label为空导致原status读取未达，失败保留；同原损坏fixture的纯真实模型错误/无输出验证及既有恢复2方法PASS，不能代替AX/完整旧方法。诊断候选已纠正读取顺序/value回退并类型检查，未重派发。Mac arm64编译PASS，原700断言保留/新增1条，生产不改，16个原失败门槛仍未清除；详见[限定保存/错误诊断与修正](MAC-UI-PERSISTENCE-FAILURES-2026-10-06.md)。
+
+随后新授权仅MOBI修正后原方法与同DOCX修正诊断各一次：正式2 PASS/0 FAIL/0 SKIP、均exit0；MOBI保存前UTF-8严格等值，三AND全true，重启/回源完整原断言通过，仅清除MOBI一项。DOCX实际value类型__NSCFString/完整预期错误，label为空、原helper取value且等待通过，单worker/result空/无输出/源未变通过；不能替代含面板和HTML恢复的原完整方法。剩余15原方法及其他验收边界、用户须决定的有限批次/平台/依赖/交付范围见[最后有界复验交接](MAC-UI-BOUNDED-RETEST-HANDOFF-2026-10-06.md)。原历史失败保留，无额外probe/全量/安装/权限/公开/审计动作；本轮停止自主派发。
