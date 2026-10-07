@@ -1,6 +1,6 @@
 # Mac 阅读页 A 专业工具方案实装 · 2026-10-07
 
-当前代码候选在 `feature/mac-reader-professional-a-20261007`，基线是 `0030bf57f126ba57dc6e9e08690aa1b579b2e4c1`。持久工作树为 `.build/ReaderProfessionalA/2026-10-07/tree`；编译产物和原始验证记录在其相邻 `Mac`、`Swift`、`Evidence`、`QA` 目录。main 和原 Mac 验收工作树没有替换。仅本地开发和提交，无 push、merge 或发布。
+当前代码候选在 `feature/mac-reader-professional-a-20261007`，基线是 `0030bf57f126ba57dc6e9e08690aa1b579b2e4c1`。产品布局提交为 `eae36e9`，隔离验收工具编译输入为 `50b14bc`；后续报告提交不改产品源码。持久工作树为 `.build/ReaderProfessionalA/2026-10-07/tree`；编译产物和原始验证记录在其相邻 `Mac`、`Swift`、`Evidence`、`QA2` 目录。main 和原 Mac 验收工作树没有替换。仅本地开发和提交，无 push、merge 或发布。
 
 ## 实际行为
 
@@ -23,10 +23,12 @@ PDF 与 EPUB 阅读页采用 A 的文档标题栏、分组纵向工具栏、可�
 | Release 检查器回归 | 5 PASS | `Evidence/release-checker-final.log` |
 | 需求台账回归 | 8 PASS | `Evidence/requirements-final.log` |
 | codec／原始 fixture 守卫 | 96 codec 哈希和 6 原格式 fixture PASS | `Evidence/codecs-final.log` |
-| A 隔离 GUI 工程 | 准备工具和新增四方法已编写；编译状态由相邻 QA 收据记录 | `qa/reader-professional/README.md` |
+| A 隔离 GUI 工程 | arm64 TEST BUILD SUCCEEDED；App／runner／tests 签名通过，App entitlement 为空，全部 64 方法符号存在；**仅编译** | `Evidence/qa64-build.log`、`QA2/COMPILE-VERIFICATION.json`、`QA2/RUN-PLAN.json` |
 | 当前产品实际 GUI 60＋4 | **NOT RUN：等待桌面独占交接** | 尚无当前 A 的 xcresult 或截图 |
 
 新增五项 Swift 布局测试使用不可见的独立原生窗口，验证真实 PDFView／文档／会话／精确选区身份、草稿和查询在 1280／720 宽度及浅深色切换中保持，以及实际阅读页和嵌入 AI 面板的最小宽度与零发送／零保存。它们不操作系统键盘鼠标，不能代替 GUI 验收。
+
+首个 QA 准备器将报告多个表中的 79 次方法提及都计入清单，因此在构建前严格拒绝；失败快照和 `QA/PREPARATION-FAILED.json` 保留。修正为只读最终 `Passed` 表的恰好 60 方法后，创建全新 `QA2` 并完成编译、字节与符号核验。没有过滤方法或修改原断言。
 
 首轮新测试在 PDFView 挂载前读取视图，导致四项断言失败，原记录 `Evidence/swift-initial.log` 保留；修正测试挂载等待顺序后完整 576 项通过，增加密度边界测试后完整 577 项通过。最后一次受限沙箱构建因 SwiftUI macro server 的嵌套 sandbox 限制未编译成功，记录 `Evidence/swift-exact-final.log`；经允许的正常编译环境重跑后得到上表精确源码通过结果。没有删断言或把失败记录计为通过。
 
