@@ -105,6 +105,7 @@ final class NativeUITests: XCTestCase {
         enterRecordBody("Original uncommitted draft 日本語", prefix: prefix + "-note", listID: listID, app: app)
         XCTAssertEqual(try originalSavedNote(token, manifest: manifest)["userText"] as? String, "Original committed parity body")
         app.terminate(); app.launch(); app.activate()
+        navigateWorkspace(ebook ? "library-ebook-mobi" : "library-textformat", in: app)
         let row = japaneseElement(ebook ? "library-ebook-mobi" : "library-textformat", in: app)
         XCTAssertTrue(row.waitForExistence(timeout: 15)); press(row)
         XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
@@ -1099,6 +1100,9 @@ final class NativeUITests: XCTestCase {
         }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 8), .completed)
         waitUntilEnabled(app.buttons["cover-editor-done"].firstMatch); press(app.buttons["cover-editor-done"].firstMatch)
+        // Library controls have their own screen. Resume the preserved reader
+        // before checking the original page and note-source assertions.
+        press(app.buttons["workspace-resume-reader"].firstMatch)
         press(app.buttons["next-page"].firstMatch)
         waitForText(["2 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 5)
         press(app.buttons["library-search"].firstMatch)
@@ -1159,6 +1163,7 @@ final class NativeUITests: XCTestCase {
         navigateWorkspace("library-list-layout", in: app)
         press(app.buttons["library-list-layout"].firstMatch)
         XCTAssertTrue(textRow.waitForExistence(timeout: 5)); XCTAssertTrue(textRow.isHittable)
+        press(app.buttons["workspace-resume-reader"].firstMatch)
         XCTAssertFalse(app.buttons["reader-ai"].firstMatch.exists)
         XCTAssertFalse(app.buttons["epub-ai"].firstMatch.exists)
         XCTAssertFalse(app.buttons["reader-page-translation"].firstMatch.exists)

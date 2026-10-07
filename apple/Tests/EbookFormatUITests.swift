@@ -40,7 +40,9 @@ final class EbookFormatUITests: XCTestCase {
         navigateWorkspace("open-ebook-sample", in: app)
         let menu = app.descendants(matching: .any).matching(identifier: "open-ebook-sample").firstMatch
         XCTAssertTrue(menu.waitForExistence(timeout: 15)); menu.click()
-        navigateWorkspace("open-ebook-sample-", in: app)
+        // The format menu is already open. Use its exact item identifier so
+        // navigation does not dismiss it while looking for a prefix-only ID.
+        navigateWorkspace("open-ebook-sample-" + format, in: app)
         let item = app.descendants(matching: .any).matching(identifier: "open-ebook-sample-" + format).firstMatch
         XCTAssertTrue(item.waitForExistence(timeout: 5)); item.click()
         let nav = app.buttons["ebook-navigation"].firstMatch
@@ -83,6 +85,7 @@ final class EbookFormatUITests: XCTestCase {
         }, evaluatedWith: app); wait(for: [stored], timeout: 10)
         XCTAssertNotNil(savedAnchor); XCTAssertNotNil(savedProgress)
         app.terminate(); app.launch(); app.activate()
+        navigateWorkspace("library-ebook-" + format, in: app)
         let row = app.descendants(matching: .any).matching(identifier: "library-ebook-" + format).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 15)); row.click()
         XCTAssertTrue(nav.waitForExistence(timeout: 25)); waitEnabled(nav)
