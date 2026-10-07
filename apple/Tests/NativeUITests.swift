@@ -1623,6 +1623,8 @@ final class NativeUITests: XCTestCase {
         app.launch(); app.activate(); defer { app.terminate() }
         navigateWorkspace("open-sample", in: app)
         XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15))
+        // CB7, CBR and CBT share this driver and the same help popover.
+        app.typeKey(.escape, modifierFlags: [])
         navigateWorkspace("import-pdf", in: app)
         try chooseInput(archive, trigger: app.buttons["import-pdf"].firstMatch, app: app)
         let position = app.staticTexts["comic-position"].firstMatch
