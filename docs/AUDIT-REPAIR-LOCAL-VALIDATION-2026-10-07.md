@@ -2,7 +2,7 @@
 
 产品候选：`7c766decd7e7631a30279a31865bf42b4e89fb43`；基线：`0fdcbc58c0b4af28412d2edcbf7a727cefde7d74`。工作树位于 `/Users/artsmartluo/pdfno/pdfno/.build/MacUIExperience/2026-10-06/tree`，分支 `feature/mac-ui-experience-20261006`。本轮只做本地开发与验证，未 push、dispatch、合并 main 或发布。
 
-三项修复已经实现，完整 Swift、Node 与 Mac 双架构编译通过。独立审计复核允许在单进程代码和合成证据范围内关闭三项。**本候选完整 60 项 GUI 尚未验收：唯一一次运行在 runner 初始化阶段超时，零方法开始、零 App 启动。** 历史候选的 60 项通过不能代替本候选结果。
+三项修复已经实现，完整 Swift、Node 与 Mac 双架构编译通过。独立审计复核允许在单进程代码和合成证据范围内关闭三项。**本候选完整 60 项 GUI 尚未验收：初次运行及用户确认解锁后的授权恢复运行均在 runner 初始化阶段超时，每次都是零方法开始、零 App 启动。** 历史候选的 60 项通过不能代替本候选结果。恢复期间产品代码、原测试和编译产物未变，没有重复 Swift、Node 或双架构编译。
 
 ## 修改与证据范围
 
@@ -29,6 +29,7 @@
 | 原 P1 探针 | A/B 草稿均保留；EPUB 24/24、错误 0、missing 0 | `post-fix-original-p1-probe-final-command.json`、`PostFixAuditOutputFinal/result.json` |
 | 旧日语代码负对照 | 预期 exit 1：3 方法，四个旧行为分支、8 个断言 issue；直接观察错误值 | `pre-fix-japanese-negative-control-direct-values-command.json` 及同名 log |
 | 本候选完整 60 UI 单次尝试 | **BLOCKED**，exit 65；0 方法开始/完成，0 App 启动；正式 xcresult 是 1 条 runner 系统失败 | `repair60-once-command.json`、`repair60-once.log`、`repair60-outcome.json`、`Repair60Once.xcresult` |
+| 用户确认解锁后的完整 60 UI 恢复 | **BLOCKED**，exit 65；0 方法开始/完成，0 App 启动；正式 xcresult 仍为 1 条 runner 系统失败 | `unlocked60-once-command.json`、`unlocked60-once.log`、`unlocked60-outcome.json`、`Unlocked60Once.xcresult` |
 
 负对照在冻结旧 package 中只追加新测试，旧生产源码保持字节一致；测试与新候选对应。8 个 issue 是四分支各有直接值与复合状态断言，不是 8 个产品缺陷；不是新候选失败，也没有把预期失败藏入通过计数。前期相关 78/8 suites、草稿 47/3 suites 等日志另留 E，不与完整 572 相加。
 
@@ -40,9 +41,13 @@
 
 启动前发现历史 `org.pdfno.integration.inputprobe20261006.PDFnoMac`、PID 89684 仍运行。只读核验不同 bundle/路径后保留不动，未关闭、替换或发送信号；本轮 App 没有启动。启动记录完整保留在 `repair60-blocked-admission.json`、`existing-input-probe-identity.json` 和 `repair60-admission.json`。
 
-runner 的明确错误为 `Timed out while enabling automation mode`。正式 summary/tree 与 log 相符；summary 的 1 个 failed test 是 System Failures 节点，不能称一个原方法失败，更不能把未执行 60 方法记为 skipped。结束后只读选定 session 布尔值观测到 `CGSSessionScreenIsLocked=true`，与初始化阻塞一致，但没有证明唯一根因。当前 runner/xcode PID 已退出，共享锁空闲，没有排队 GUI，也没有自动重试、更改 TCC、权限、系统主题、输入法或自行解锁。
+runner 的明确错误为 `Timed out while enabling automation mode`。两次运行各自的正式 summary/tree 与 log 相符；各自 summary 的 1 个 failed test 是 System Failures 节点，不能称一个原方法失败，更不能把未执行 60 方法记为 skipped。初次结束后只读选定 session 布尔值观测到 `CGSSessionScreenIsLocked=true`，没有证明唯一根因。用户于 2026-10-07 10:40 中国时间确认“已经解锁”，明确授权同候选恢复。恢复前后均未出现锁定字段，login done 为 true，但恢复仍超时，不能再把当前阻塞直接归因于锁屏。没有整个初始化期间连续状态证据，也没有具体权限拒绝证据，准确根因仍 UNKNOWN。
 
-桌面可用性已请求确认。全 60 GUI 要在桌面可用、环境重新核验后另行完成；本收据未批准或执行第二次。旧 19 张自制 fixture 截图保留原路径与 SHA，没有新增截图，也不作为本候选 GUI 证据或 Library 附件。
+恢复使用同一个经过签名/双架构/SHA 核验的专用 bundle、新 UUID `DA53A5D7-C0A8-4AD3-9AEE-F5A35CF453C4`、新 xctestrun/result 目录，原 60 方法/断言无过滤无改动，原重型锁覆盖整个运行。初次检查曾把缺失的锁定字段过严地当成仍锁定，纠正门禁后才启动；错误检查期间没有 dispatch。原读数和纠正说明分别保存在 `unlocked60-readiness.json`、`unlocked60-readiness-interpretation.json`，没有伪造一个 false 布尔值。
+
+恢复实际 xcodebuild PID 71504、runner PID 71509；02:43:19 UTC runner 开始，02:44:19 UTC 初始化超时，02:44:27 UTC 测试 action 停止，命令于 02:44:27 UTC 结束。`unlocked60-action-log.json` 仅重述初始化超时，未给出更具体原因；本次 console log 不可用，查询 exit 1 与 `No console log available` 如实保留。没有导出截图附件或读取全局系统日志。结束后本次 PID 已退出、重型锁空闲；历史 InputProbe 保留不动，无信号，无排队 GUI，也没有自动重试、第三次运行、更改 TCC、权限、主题、输入法或自行解锁。
+
+全 60 GUI 仍需要在初始化阻塞解决的环境中完成；本轮没有可据此修复的产品错误，也不通过改变权限或反复重跑绕过。旧 19 张自制 fixture 截图保留原路径与 SHA，没有新增截图，也不作为本候选 GUI 证据或 Library 附件。初次本地收据与 handoff 保存为 `FINAL-RECEIPT-before-unlock.json`、`FINAL-HANDOFF-before-unlock.json` 后再更新当前收据，两次原始 log/xcresult/命令收据均保留。
 
 ## 独立复核与剩余边界
 
