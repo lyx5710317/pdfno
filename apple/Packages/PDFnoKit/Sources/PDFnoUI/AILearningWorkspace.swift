@@ -169,11 +169,26 @@ struct AISettingsView: View {
 struct AILearningWorkspace: View {
     @ObservedObject var library: LibraryModel
     @ObservedObject var learning: AILearningModel
+    var embedded = false
+    var close: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var confirmed = false
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
+            VStack(spacing: 0) {
+            if embedded {
+                HStack(spacing: 6) {
+                    Label("选文学习", systemImage: "sparkles").font(PDFnoDesign.TypeStyle.section)
+                    Spacer(minLength: 0)
+                    Button { proxy.scrollTo(learning.result == nil ? "ai-task-state" : "ai-current-result", anchor: .top) } label: { Image(systemName: "text.viewfinder") }
+                        .help("查看结果／错误").accessibilityLabel("查看结果／错误")
+                    Button { learning.cancel(); finish() } label: { Image(systemName: "xmark") }
+                        .accessibilityLabel("完成（取消未完成请求）").accessibilityIdentifier("ai-close")
+                        .help("关闭面板，保留已生成结果与笔记草稿")
+                }.buttonStyle(PDFnoActionStyle(role: .quiet)).padding(8)
+                Divider()
+            }
             ScrollView {
             VStack(alignment: .leading, spacing: PDFnoDesign.Space.regular) {
                 PDFnoSettingsCard("本次固定选文") {
@@ -213,9 +228,9 @@ struct AILearningWorkspace: View {
                 if let result = learning.result {
                     PDFnoSettingsCard("结果 · \(result.provider.mode == .mock ? "本地 mock" : "模型生成")") {
                         if let explanation = result.paragraphExplanation {
-                            ParagraphExplanationResultView(explanation: explanation, source: result.source, library: library) { dismiss() }
+                            ParagraphExplanationResultView(explanation: explanation, source: result.source, library: library) { finish() }
                         } else { PDFnoTextViewport(text: result.displayText, identifier: "ai-result", height: 220) }
-                        Button("引用 · 回到原文") { Task { if result.paragraphExplanation != nil && !library.isCurrentParagraphSource(result.source) { learning.error = AIFailure.stale.localizedDescription; return }; learning.cancel(); if await library.returnToAISource(result.source) { dismiss() } } }
+                        Button("引用 · 回到原文") { Task { if result.paragraphExplanation != nil && !library.isCurrentParagraphSource(result.source) { learning.error = AIFailure.stale.localizedDescription; return }; learning.cancel(); if await library.returnToAISource(result.source) { finish() } } }
                             .accessibilityIdentifier("ai-result-source")
                         TextField("你的笔记（独立保存）", text: $learning.userText, axis: .vertical).lineLimit(3...8).accessibilityIdentifier("ai-user-note")
                         Button("保存学习笔记") { Task { _ = await learning.save(sourceIsCurrent: library.isCurrentAISource, validateSource: library.validateParagraphSourceForSave, makeCommitFence: library.makeParagraphCommitFence) } }
@@ -251,13 +266,13 @@ struct AILearningWorkspace: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(verbatim: note.result.source.anchor.quote).accessibilityIdentifier("ai-saved-quote")
                             if let explanation = note.result.paragraphExplanation {
-                                ParagraphExplanationResultView(explanation: explanation, source: note.result.source, library: library, saved: true, summaryIdentifier: "ai-saved-result") { dismiss() }
+                                ParagraphExplanationResultView(explanation: explanation, source: note.result.source, library: library, saved: true, summaryIdentifier: "ai-saved-result") { finish() }
                             } else { Text(verbatim: note.result.displayText).foregroundStyle(.secondary).accessibilityIdentifier("ai-saved-result") }
                             if !note.userText.isEmpty { Text(verbatim: note.userText).accessibilityIdentifier("ai-saved-user-note") }
                             NoteBodyEditor(editor: library.noteEditing, note: .learning(note), identifier: "ai-note") {
                                 await library.saveEditedNote(.learning(note))
                             } reload: { await library.reloadEditedNote(.learning(note)) }
-                            Button("引用 · 回到原文") { Task { if note.result.paragraphExplanation != nil && !library.canReturnToSavedParagraphSource(note.result.source) { learning.error = AIFailure.stale.localizedDescription; return }; learning.cancel(); if await library.returnToAISource(note.result.source) { dismiss() } } }
+                            Button("引用 · 回到原文") { Task { if note.result.paragraphExplanation != nil && !library.canReturnToSavedParagraphSource(note.result.source) { learning.error = AIFailure.stale.localizedDescription; return }; learning.cancel(); if await library.returnToAISource(note.result.source) { finish() } } }
                                 .accessibilityIdentifier("ai-saved-source")
                         }
                     }
@@ -265,18 +280,22 @@ struct AILearningWorkspace: View {
             }.padding(PDFnoDesign.Space.section)
             }.background(PDFnoDesign.Palette.chrome).font(PDFnoDesign.TypeStyle.body).accessibilityIdentifier("ai-notes-list").navigationTitle("选文学习")
             .toolbar {
-                ToolbarItem { Button("查看结果／错误") { proxy.scrollTo(learning.result == nil ? "ai-task-state" : "ai-current-result", anchor: .top) } }
-                ToolbarItem { Button("完成（取消未完成请求）") { learning.cancel(); dismiss() }.accessibilityIdentifier("ai-close") }
+                if !embedded {
+                    ToolbarItem { Button("查看结果／错误") { proxy.scrollTo(learning.result == nil ? "ai-task-state" : "ai-current-result", anchor: .top) } }
+                    ToolbarItem { Button("完成（取消未完成请求）") { learning.cancel(); finish() }.accessibilityIdentifier("ai-close") }
+                }
             }
             .onChange(of: learning.result?.requestID) { _, result in if result != nil { withAnimation { proxy.scrollTo("ai-current-result", anchor: .top) } } }
             .onChange(of: learning.error) { _, error in if error != nil { withAnimation { proxy.scrollTo("ai-task-state", anchor: .top) } } }
             }
-        }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: PDFnoDesign.Metric.sheetIdeal, minHeight: 600)
+            }
+        }.frame(minWidth: embedded ? 0 : PDFnoDesign.Metric.sheetMinimum, idealWidth: embedded ? PDFnoDesign.Metric.notesWidth : PDFnoDesign.Metric.sheetIdeal, minHeight: embedded ? 0 : 600)
         .onChange(of: learning.kind) { _, _ in learning.cancel(); learning.result = nil; confirmed = false }
         .onChange(of: try? ReadingSkillIdentity.data(learning.config)) { _, _ in learning.cancel(); learning.result = nil; confirmed = false }
         .onChange(of: try? ReadingSkillIdentity.data(learning.source)) { _, _ in confirmed = false }
         .onDisappear { learning.cancel() }
     }
+    private func finish() { if let close { close() } else { dismiss() } }
     private var startUnavailableReason: String? {
         if learning.source == nil { return "请先选择原文。" }
         if learning.busy { return "请求进行中，可以取消请求。" }

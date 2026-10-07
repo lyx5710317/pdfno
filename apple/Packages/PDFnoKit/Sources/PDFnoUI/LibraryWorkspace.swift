@@ -330,7 +330,12 @@ struct ReaderWorkspace: View {
     @State private var searchText = ""
     @State private var searched = false
     @State private var draft = ""
-    @State private var ai = false
+    #if os(macOS)
+    @State private var inspector = PDFnoReaderInspector.notes
+    @State private var navigationTab = PDFnoReaderNavigationTab.contents
+    @State private var readerSettings = false
+    @FocusState private var searchFocused: Bool
+    #endif
     @State private var pageTranslation = false
     @State private var japaneseLearning = false
     @State private var englishLearning = false
@@ -342,45 +347,30 @@ struct ReaderWorkspace: View {
             if let book = session.book {
                 VStack(spacing: 0) {
                     #if os(macOS)
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: PDFnoDesign.Space.small)], alignment: .leading, spacing: PDFnoDesign.Space.small) {
-                        Button { openNavigation() } label: { Label("导航与搜索", systemImage: "list.bullet") }
-                            .accessibilityIdentifier("reader-navigation").keyboardShortcut("f", modifiers: .command).accessibilityValue(navigationVisible ? "已展开" : "已收起").help("显示或收起 PDF 目录与文本搜索")
+                    PDFnoProfessionalReaderChrome(title: book.title, format: "PDF") {
                         Button { session.go(to: session.pageIndex - 1) } label: { Label("上一页", systemImage: "chevron.left") }
                             .disabled(session.pageIndex == 0).accessibilityIdentifier("previous-page").help("阅读上一页")
                         Button { session.go(to: session.pageIndex + 1) } label: { Label("下一页", systemImage: "chevron.right") }
                             .disabled(session.pageIndex >= book.pageCount - 1).accessibilityIdentifier("next-page").help("阅读下一页")
                         PDFReturnToPreviousLocationButton(session: session)
-                        Button { openNotes() } label: { Label("高亮与笔记", systemImage: "highlighter") }
-                            .accessibilityIdentifier("reader-notes").accessibilityValue(notesVisible ? "已展开" : "已收起").help("显示或收起高亮与笔记，保留草稿和选区")
-                        Button("AI工具") { session.captureSelection(); aiTools = true }.accessibilityIdentifier("reader-ai-tools")
-                        JapaneseLearningEntry(identifier: "reader-japanese-learning") {
-                            model.prepareJapaneseLearning(); japaneseLearning = true
+                    } actions: { professionalActions } content: {
+                        PDFnoReaderShell(panels: panels, profile: .professional) {
+                            PDFCanvas(session: session).background(PDFnoDesign.Palette.canvas)
+                                .background { PDFReaderNavigationShortcuts(session: session) }
+                        } navigation: {
+                            PDFnoPanel(title: "导航与搜索", icon: "list.bullet", closeIdentifier: "close-navigation", close: closeNavigation) { navigationContent }
+                        } notes: {
+                            if inspector == .learning {
+                                AILearningWorkspace(library: model, learning: model.learning, embedded: true) { panels.notes = false }
+                            } else {
+                                PDFnoPanel(title: "高亮与笔记", icon: "highlighter", closeIdentifier: "close-notes", close: closeNotes) { notesContent }
+                            }
                         }
-                        Button("英语结构与语法") { model.prepareEnglishLearning(); englishLearning = true }
-                            .accessibilityIdentifier("reader-english-learning").help("固定当前选文，确认后生成英语结构候选")
-                        BYOKSelectionEntry(library: model, identifier: "reader-byok") { byokLearning = true }
-                        Button("翻译当前页") { model.preparePageTranslation(); pageTranslation = true }
-                            .accessibilityIdentifier("reader-page-translation").help("预览当前页翻译范围，确认后手动发送")
-                        Button("选文 AI") { model.learning.prepare(model.captureAISource()); ai = true }
-                            .accessibilityIdentifier("reader-ai").help("预览已捕获选文的 AI 任务")
-                    }.buttonStyle(PDFnoActionStyle(role: .quiet))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, PDFnoDesign.Space.regular).padding(.vertical, PDFnoDesign.Space.tight)
-                        .background(PDFnoDesign.Palette.chrome)
-                    #endif
-                    #if os(macOS)
-                    PDFnoReaderShell(panels: panels) {
-                        PDFCanvas(session: session).background(PDFnoDesign.Palette.canvas)
-                            .background { PDFReaderNavigationShortcuts(session: session) }
-                    } navigation: {
-                        PDFnoPanel(title: "导航与搜索", icon: "list.bullet", closeIdentifier: "close-navigation", close: { panels.navigation = false }) { navigationContent }
-                    } notes: {
-                        PDFnoPanel(title: "高亮与笔记", icon: "highlighter", closeIdentifier: "close-notes", close: { panels.notes = false }) { notesContent }
-                    }
-                    .background {
-                        GeometryReader { geometry in
-                            Color.clear.onAppear { readerWidth = geometry.size.width }
-                                .onChange(of: geometry.size.width) { _, width in readerWidth = width }
+                        .background {
+                            GeometryReader { geometry in
+                                Color.clear.onAppear { readerWidth = geometry.size.width }
+                                    .onChange(of: geometry.size.width) { _, width in readerWidth = width }
+                            }
                         }
                     }
                     #else
@@ -429,7 +419,7 @@ struct ReaderWorkspace: View {
         .onDisappear { model.recordVisibleDraft(owner: draftOwner, dirty: false) }
         .sheet(isPresented: $englishLearning) { EnglishLearningSheet(library: model) }
         .sheet(isPresented: $japaneseLearning) { JapaneseLearningSheet(library: model) }
-        .sheet(isPresented: $ai) { AILearningWorkspace(library: model, learning: model.learning) }
+        .sheet(isPresented: $readerSettings) { AISettingsView(learning: model.learning, byok: model.byok, library: model) }
         .sheet(isPresented: $pageTranslation) { PDFPageTranslationWorkspace(library: model, translation: model.pageTranslation, learning: model.learning) }
         .sheet(isPresented: $byokLearning) { BYOKLearningWorkspace(library: model, model: model.byok) }
         .sheet(isPresented: $aiTools) { ReadingToolsWorkspace(library: model) }
@@ -437,33 +427,40 @@ struct ReaderWorkspace: View {
     }
     private var navigationVisible: Bool {
         #if os(macOS)
-        panels.placement(width: readerWidth).showNavigation
+        panels.placement(width: readerWidth, profile: .professional).showNavigation
         #else
         navigation
         #endif
     }
     private var notesVisible: Bool {
         #if os(macOS)
-        panels.placement(width: readerWidth).showNotes
+        panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .notes
         #else
         notesPanel
         #endif
     }
     private func openNavigation() {
         #if os(macOS)
-        panels.toggle(.navigation, width: readerWidth)
+        navigationTab = .contents
+        panels.toggle(.navigation, width: readerWidth, profile: .professional)
         #else
         navigation = true
         #endif
     }
     private func openNotes() {
         #if os(macOS)
-        panels.toggle(.notes, width: readerWidth)
+        if inspector == .notes { panels.toggle(.notes, width: readerWidth, profile: .professional) }
+        else { inspector = .notes; panels.show(.notes) }
         #else
         notesPanel = true
         #endif
     }
-    private func closeNavigation() { navigation = false; panels.navigation = false }
+    private func closeNavigation() {
+        navigation = false; panels.navigation = false
+        #if os(macOS)
+        navigationTab = .contents; searchFocused = false
+        #endif
+    }
     private func closeNotes() { notesPanel = false; panels.notes = false }
     private var navigationSheet: some View {
         NavigationStack {
@@ -472,6 +469,40 @@ struct ReaderWorkspace: View {
         }.frame(minWidth: 300, minHeight: 400)
     }
     private var navigationContent: some View {
+        #if os(macOS)
+        let navigationSessionID = session.readerSessionID
+        return VStack(spacing: 0) {
+            #if os(macOS)
+            PDFnoReaderNavigationPicker(tab: $navigationTab)
+            #endif
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
+                TextField("输入关键词", text: $searchText).accessibilityIdentifier("search-input")
+                    .onSubmit(performSearch)
+                    #if os(macOS)
+                    .focused($searchFocused).autocorrectionDisabled()
+                    #endif
+                Button("查找", action: performSearch).accessibilityIdentifier("search-submit")
+            }.textFieldStyle(.plain).padding(10)
+                .background(PDFnoDesign.Palette.canvas, in: RoundedRectangle(cornerRadius: 8))
+                .padding(.horizontal, 12).padding(.bottom, 10)
+            Divider()
+            List {
+                #if os(macOS)
+                if navigationTab == .search { searchResults }
+                else { contentsResults(navigationSessionID: navigationSessionID) }
+                #else
+                searchResults
+                contentsResults(navigationSessionID: navigationSessionID)
+                #endif
+            }.listStyle(.sidebar)
+        }.buttonStyle(.borderless).font(PDFnoDesign.TypeStyle.body)
+        #else
+        return mobileNavigationContent
+        #endif
+    }
+    #if !os(macOS)
+    private var mobileNavigationContent: some View {
         let navigationSessionID = session.readerSessionID
         return VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
@@ -516,6 +547,69 @@ struct ReaderWorkspace: View {
             }
         }.buttonStyle(.borderless).font(PDFnoDesign.TypeStyle.body)
     }
+    #endif
+    private func performSearch() {
+        session.search(searchText); searched = true
+        #if os(macOS)
+        navigationTab = .search
+        #endif
+    }
+    private var searchResults: some View {
+        Section("搜索结果") {
+            if searched {
+                Text("找到 \(session.searchMatches.count) 项（最多显示 100 项）").font(.caption)
+                    .accessibilityIdentifier("search-status")
+            }
+            ForEach(session.searchMatches, id: \.self) { match in
+                Button { if session.show(match) { closeNavigation() } } label: {
+                    Text(match.string ?? "匹配结果")
+                        .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                }.accessibilityIdentifier("search-result")
+            }
+            if searched && session.searchMatches.isEmpty { PDFnoEmptyState(title: "没有匹配文本", detail: "扫描页可能没有可选文字。请更换关键词或检查文字层。", icon: "magnifyingglass") }
+        }
+    }
+    @ViewBuilder private func contentsResults(navigationSessionID: UUID) -> some View {
+        Section("目录") {
+            if session.outline.isEmpty { PDFnoEmptyState(title: "此 PDF 没有内置目录", detail: "可以从下方页码或文本搜索定位。") }
+            ForEach(session.outline) { item in
+                Button { if session.jump(to: item) { closeNavigation() } } label: {
+                    Text(item.title).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                }
+            }
+        }
+        Section("页面") {
+            ForEach(0..<(session.document?.pageCount ?? 0), id: \.self) { index in
+                Button { if session.jump(to: index, in: navigationSessionID) { closeNavigation() } } label: {
+                    Text("第 \(index + 1) 页").frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                }
+            }
+        }
+    }
+    #if os(macOS)
+    private var professionalActions: some View {
+        Group {
+            PDFnoReaderRailButton(title: "目录", symbol: "list.bullet", identifier: "reader-navigation", accessibilityTitle: "导航与搜索", active: navigationVisible && navigationTab == .contents, hint: "显示或收起目录与页码", action: openNavigation)
+                .accessibilityValue(navigationVisible ? "已展开" : "已收起")
+            PDFnoReaderRailButton(title: "查找", symbol: "magnifyingglass", identifier: "reader-search", active: navigationVisible && navigationTab == .search, hint: "查找 PDF 文本 · ⌘F") {
+                navigationTab = .search; panels.show(.navigation); searchFocused = true
+            }.keyboardShortcut("f", modifiers: .command)
+            PDFnoReaderRailButton(title: "笔记", symbol: "highlighter", identifier: "reader-notes", accessibilityTitle: "高亮与笔记", active: notesVisible, hint: "显示或收起高亮与笔记，保留草稿和选区", action: openNotes)
+            PDFnoReaderRailButton(title: "AI", symbol: "sparkles", identifier: "reader-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, hint: "固定当前选文，预览接收方与任务") {
+                if panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning { panels.notes = false }
+                else { model.learning.prepare(model.captureAISource()); inspector = .learning; panels.show(.notes) }
+            }
+            Divider().padding(.horizontal, 12).padding(.vertical, 4)
+            PDFnoReaderRailButton(title: "工具", symbol: "square.grid.2x2", identifier: "reader-ai-tools", accessibilityTitle: "AI工具", hint: "打开已有阅读工具") { session.captureSelection(); aiTools = true }
+            PDFnoReaderRailButton(title: "日语", symbol: "character.ja", identifier: "reader-japanese-learning", accessibilityTitle: "日语选文学习") { model.prepareJapaneseLearning(); japaneseLearning = true }
+            PDFnoReaderRailButton(title: "英语", symbol: "textformat.abc", identifier: "reader-english-learning", accessibilityTitle: "英语结构与语法") { model.prepareEnglishLearning(); englishLearning = true }
+            PDFnoReaderRailButton(title: "整页", symbol: "doc.badge.ellipsis", identifier: "reader-page-translation", accessibilityTitle: "翻译当前页", hint: "预览当前物理页完整文字，确认后发送") { model.preparePageTranslation(); pageTranslation = true }
+            PDFnoReaderRailButton(title: "BYOK", symbol: "network", identifier: "reader-byok", accessibilityTitle: "BYOK选文 · 翻译/解释") { Task { await model.prepareBYOKSelection(); byokLearning = true } }
+            Divider().padding(.horizontal, 12).padding(.vertical, 4)
+            PDFnoReaderRailButton(title: "设置", symbol: "slider.horizontal.3", identifier: "reader-settings", accessibilityTitle: "模型与 BYOK 设置") { readerSettings = true }
+        }
+    }
+    #endif
     private var notesSheet: some View {
         NavigationStack {
             notesContent.navigationTitle("高亮与笔记")

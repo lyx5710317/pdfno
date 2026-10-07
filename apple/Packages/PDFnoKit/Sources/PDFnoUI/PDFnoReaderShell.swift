@@ -2,14 +2,19 @@
 import SwiftUI
 
 enum PDFnoReaderPanel: Equatable { case navigation, notes }
+enum PDFnoReaderLayoutProfile { case standard, professional }
 
 /// Presentation state only: hidden panels retain search/draft/source in their owner.
 struct PDFnoReaderPanels: Equatable {
     var navigation = false
     var notes = false
     private(set) var lastOpened: PDFnoReaderPanel = .navigation
-    mutating func toggle(_ panel: PDFnoReaderPanel, width: CGFloat) {
-        let layout = placement(width: width)
+    mutating func show(_ panel: PDFnoReaderPanel) {
+        if panel == .navigation { navigation = true } else { notes = true }
+        lastOpened = panel
+    }
+    mutating func toggle(_ panel: PDFnoReaderPanel, width: CGFloat, profile: PDFnoReaderLayoutProfile = .standard) {
+        let layout = placement(width: width, profile: profile)
         switch panel {
         case .navigation:
             navigation = !layout.showNavigation
@@ -18,8 +23,8 @@ struct PDFnoReaderPanels: Equatable {
         }
         lastOpened = panel
     }
-    func placement(width: CGFloat) -> PDFnoReaderPlacement {
-        PDFnoReaderPlacement(width: width, navigation: navigation, notes: notes, preferred: lastOpened)
+    func placement(width: CGFloat, profile: PDFnoReaderLayoutProfile = .standard) -> PDFnoReaderPlacement {
+        PDFnoReaderPlacement(width: width, navigation: navigation, notes: notes, preferred: lastOpened, profile: profile)
     }
 }
 
@@ -35,16 +40,18 @@ struct PDFnoReaderPlacement: Equatable {
     var canvasWidth: CGFloat { max(0, width - leading - trailing) }
     var notesOffset: CGFloat { max(0, width - notesWidth) }
 
-    init(width: CGFloat, navigation: Bool, notes: Bool, preferred: PDFnoReaderPanel) {
+    init(width: CGFloat, navigation: Bool, notes: Bool, preferred: PDFnoReaderPanel, profile: PDFnoReaderLayoutProfile = .standard) {
         self.width = max(0, width.isFinite ? width : 0)
         let m = PDFnoDesign.Metric.self
-        let bothFit = self.width >= m.readerMinimum + m.navigationWidth + m.notesWidth
+        let navigationSize: CGFloat = profile == .professional ? 210 : m.navigationWidth
+        let notesSize: CGFloat = profile == .professional ? 300 : m.notesWidth
+        let bothFit = self.width >= m.readerMinimum + navigationSize + notesSize
         showNavigation = navigation && (!notes || bothFit || preferred == .navigation)
         showNotes = notes && (!navigation || bothFit || preferred == .notes)
-        let requestedWidth = showNavigation ? m.navigationWidth : (showNotes ? m.notesWidth : 0)
+        let requestedWidth = showNavigation ? navigationSize : (showNotes ? notesSize : 0)
         overlay = requestedWidth > 0 && self.width < m.readerMinimum + requestedWidth
-        navigationWidth = min(m.navigationWidth, max(0, self.width - (overlay ? m.overlayInset : 0)))
-        notesWidth = min(m.notesWidth, max(0, self.width - (overlay ? m.overlayInset : 0)))
+        navigationWidth = min(navigationSize, max(0, self.width - (overlay ? m.overlayInset : 0)))
+        notesWidth = min(notesSize, max(0, self.width - (overlay ? m.overlayInset : 0)))
         leading = showNavigation && !overlay ? navigationWidth : 0
         trailing = showNotes && !overlay ? notesWidth : 0
     }
@@ -53,12 +60,13 @@ struct PDFnoReaderPlacement: Equatable {
 /// The reader is always the first, stable child; panel/width changes never rehost it.
 struct PDFnoReaderShell<Reader: View, Navigation: View, Notes: View>: View {
     let panels: PDFnoReaderPanels
+    var profile = PDFnoReaderLayoutProfile.standard
     @ViewBuilder let reader: () -> Reader
     @ViewBuilder let navigation: () -> Navigation
     @ViewBuilder let notes: () -> Notes
     var body: some View {
         GeometryReader { geometry in
-            let layout = panels.placement(width: geometry.size.width)
+            let layout = panels.placement(width: geometry.size.width, profile: profile)
             ZStack(alignment: .topLeading) {
                 reader()
                     .padding(.leading, layout.leading)
