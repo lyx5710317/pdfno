@@ -39,7 +39,7 @@ Mac 的“格式转换”入口可将普通 DOCX 正文导出为 UTF-8 TXT／简
 
 打开 `apple/PDFno.xcworkspace`。选择 **PDFnoMac** 并运行于本机；选择 **PDFnoMobile** 并运行于 iPhone 或 iPad Simulator。两者是独立 application targets，移动 target 同时支持 iPhone/iPad；Mac 使用 AppKit，未采用 Catalyst。共享 `PDFnoKit` 包含 Domain、Services、Readers、UI 四个Swift模块与私有系统zlib C target `PDFnoDOCXZIP`，没有外部 Swift 包依赖。
 
-临时开发基线为 **macOS 14 / iOS 17 / iPadOS 17，Swift 6，Xcode 16.4+**。这些版本适合当前 SwiftUI API，并为候选 CKSyncEngine 留出兼容范围；CloudKit 尚未启用。最终发行设备范围可以调整。工程只使用本机 ad hoc 签名 `-`，未设置开发者 team、证书、账号、entitlements 或云容器；Simulator 不需要开发者账号。真机安装和发行需要另行配置与验证。
+临时开发基线为 **macOS 14 / iOS 17 / iPadOS 17，Swift 6，Xcode 16.4+**。这些版本适合当前 SwiftUI API，并为候选 CKSyncEngine 留出兼容范围；CloudKit 尚未启用。最终发行设备范围可以调整。开发配置使用本机 ad hoc 签名 `-`，未设置开发者 team、证书、账号或云容器；Simulator 不需要开发者账号。Mac Release 默认无签名，启用 Hardened Runtime 配置并使用空 entitlements。真机安装和正式发行需要另行授权、配置与验证，参见 [Mac Release 准备](docs/MAC-RELEASE-PREPARATION.md)。
 
 打开应用后，点击「打开示例 PDF」即可试读自制两页样例，Mac 也可点击「打开示例 EPUB／DOCX」；「导入书籍 / 文本」使用系统文件选择器。移动端目前只开放 PDF。未解锁的加密 PDF 会明确拒绝；当前文件上限为 200 MiB。PDF 没有文字层时不能选字和搜索。选中文字后打开「高亮与笔记」，可以保存引文和自己的笔记。
 

@@ -23,6 +23,8 @@ python3 scripts/build-mac-release.py \
 
 检查器是无签名准备验收，拒绝正式签名包，不能替代正式发布检查。arm64 链接器可能生成本地 ad hoc linker signature；它不是 Developer ID 签名，也不能由此证明 Hardened Runtime 实际生效。`ENABLE_HARDENED_RUNTIME=YES` 的配置证明与签名 `runtime` flag 的运行证明分开记录。
 
+本轮实际发现：Xcode `build-for-testing` 会给被测 App 自动添加临时 filesystem／mach-lookup 测试 entitlements，即使请求的 App entitlement 文件为空且关闭 base 注入。该测试产物在启动前被拒绝；普通 Release build 重建隔离 QA App 后，两个架构实际 entitlement 均为空、runtime flag 均存在，随后六条原阅读 UI 实际通过。测试构建不能直接充当分发 App，必须读回实际权限；详细证据见 [2026-10-07 本地结果](MAC-RELEASE-PREPARATION-RESULTS-2026-10-07.md)。无签名 archive 流程不执行 `build-for-testing`，没有将这些测试权限带入分发候选。
+
 ## 正式下载前仍须验收
 
 1. 由用户指定开发者账户／团队的公开 Team ID、所用 Developer ID Application 公开身份名称、确认 bundle ID／版本／最低系统，以及有权限执行签名的环境。无需向聊天提供密码、私钥、证书导出、Keychain 内容或公证凭据。本阶段不请求、不读取这些秘密。
