@@ -98,7 +98,12 @@ final class ProfessionalReaderUITests: XCTestCase {
         try click(item("reader-notes", app))
         let draft = item("note-input", app), body = "A original uncommitted draft 日本語 cafe\u{301}"
         try click(draft); pasteOriginal(body, app: app); value(draft, equals: body)
-        draft.typeKey(.rightArrow, modifierFlags: [.command, .option]); contains(item("page-position", app), "1 / 2")
+        // Reacquire and focus the actual editor after its Unicode value update;
+        // a field-bound AX snapshot can expire during a transient input popup.
+        try click(item("note-input", app))
+        app.typeKey(.rightArrow, modifierFlags: [.command, .option])
+        contains(item("page-position", app), "1 / 2")
+        value(item("note-input", app), equals: body)
         try capture("A-product-03-narrow-notes-light", app: app)
         try click(item("close-notes", app)); try click(item("reader-notes", app)); value(draft, equals: body)
         XCTAssertFalse(item("saved-note-user-text", app).exists)
