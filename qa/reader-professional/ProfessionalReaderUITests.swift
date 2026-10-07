@@ -257,7 +257,7 @@ final class ProfessionalReaderUITests: XCTestCase {
         XCTAssertLessThanOrEqual(app.windows.firstMatch.frame.width, 760)
         try capture("A-shell-05-library-empty-narrow-light", app: app)
         navigateWorkspace("open-sample", in: app); try click(item("open-sample", app)); contains(item("page-position", app), "1 / 2")
-        app.typeKey(.rightArrow, modifierFlags: [.command, .option]); contains(item("page-position", app), "2 / 2")
+        try click(item("next-page", app)); contains(item("page-position", app), "2 / 2")
         try click(item("workspace-back-library", app)); try click(item("workspace-resume-reader", app)); contains(item("page-position", app), "2 / 2")
         XCTAssertFalse(item("professional-library-workspace", app).exists)
         try capture("A-shell-06-reader-page2-narrow-light", app: app)

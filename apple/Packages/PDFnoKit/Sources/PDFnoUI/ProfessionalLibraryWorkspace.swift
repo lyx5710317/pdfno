@@ -103,7 +103,7 @@ struct ProfessionalLibraryWorkspace: View {
                                         ForEach(filtered) { row($0) }
                                     }
                                 } else { LazyVStack(spacing: 8) { ForEach(filtered) { row($0) } } }
-                            }.accessibilityIdentifier("professional-library-books")
+                            }.accessibilityElement(children: .contain).accessibilityIdentifier("professional-library-books")
                         }
                         HStack {
                             Image(systemName: "externaldrive").foregroundStyle(.secondary)
@@ -114,7 +114,7 @@ struct ProfessionalLibraryWorkspace: View {
                         }
                     }.padding(geometry.size.width < 900 ? 18 : 28)
                 }
-            }.background(PDFnoDesign.Palette.canvas).accessibilityIdentifier("professional-library-workspace")
+            }.background(PDFnoDesign.Palette.canvas).accessibilityElement(children: .contain).accessibilityIdentifier("professional-library-workspace")
                 .buttonStyle(ProfessionalLibraryActionStyle())
         }
     }
@@ -160,12 +160,12 @@ struct ProfessionalLibraryWorkspace: View {
                         Image(systemName: "book.closed").font(.system(size: grid ? 32 : 22)).foregroundStyle(.blue).frame(width: grid ? 60 : 44, height: grid ? 90 : 50)
                         VStack(alignment: .leading, spacing: 5) { Text(item.title).font(.system(size: 13, weight: .semibold)).lineLimit(2); Text(item.subtitle).font(.system(size: 11)).foregroundStyle(.secondary) }
                         if !grid { Spacer() }
-                    }.accessibilityIdentifier(item.accessibilityID)
+                    }.accessibilityElement(children: .contain).accessibilityIdentifier(item.accessibilityID)
                 }
             }.frame(maxWidth: .infinity, alignment: grid ? .center : .leading).padding(grid ? 14 : 12)
                 .background(PDFnoDesign.Palette.surface, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(selectedBookID == item.id ? Color.blue.opacity(0.35) : Color.primary.opacity(0.08)))
-        }.buttonStyle(.plain).accessibilityIdentifier("library-open-" + item.id.uuidString)
+        }.buttonStyle(.plain)
     }
     private var emptyState: some View {
         VStack(spacing: 12) {
