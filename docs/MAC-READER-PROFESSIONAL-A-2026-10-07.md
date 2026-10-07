@@ -22,7 +22,7 @@ AI 面板复用正式 `AILearningWorkspace`，展示选文、任务、接收方�
 | 真实 GUI 门禁 | 5 通过、0 失败、0 跳过；6 次 App 启动的路径、源码、执行文件与 debug dylib SHA 匹配 | `Evidence/QA13-FIVE-METHOD-OUTCOME.json` |
 | 精确候选完整 GUI | 64 通过／0 失败／0 跳过，退出 0；原 60＋A 4 全通过；102 次真实 App 启动身份匹配 | `Evidence/QA13-A64-OUTCOME.json`、`Evidence/qa13-full64-command.json`、`Evidence/qa13-full64.log`、正式 xcresult |
 | 原 60 项断言保护 | 60 项完整方法体字节相同；3 份原 UI 文件整体相同；NextBatch 的两个测试方法、verifyPackage 和 confirmInitialDirectory 字节相同 | `Evidence/protection-7b7c556.json` |
-| source/provenance | 722 份 source guard 通过；423 份 Apple 输入逐一 SHA 核对 | `QA13/PREPARATION.json`、`QA13/COMPILE-VERIFICATION.json` |
+| source/provenance | 722 份 source guard 通过；423 份 Apple 输入逐一 SHA 核对 | `QA13/PREPARATION.json`、`QA13/RUN-PLAN.json`、`Evidence/qa13-build.log`、`Evidence/qa13-full64-command.json`、`Evidence/sourceguard-7b7c556-delivery.log` |
 | Release／台账／codec | 原检查器 5、台账 8、96 codec 哈希及 6 fixture 通过；相关输入未改 | `Evidence/release-checker-final.log`、`Evidence/requirements-final.log`、`Evidence/codecs-final.log` |
 | 窗口截图 | 最终全量运行 5 张原窗口 PNG，逐张原像素人工检查完成 | `QA13/SCREENSHOT-MANIFEST.json`、`Evidence/QA13-FULL-VISUAL-REVIEW.json` |
 
