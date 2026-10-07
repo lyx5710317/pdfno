@@ -151,7 +151,7 @@ struct ProfessionalLibraryWorkspace: View {
         }.buttonStyle(.plain).padding(3).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
     }
     private func row(_ item: ProfessionalLibraryItem) -> some View {
-        Button { openBook(item.id) } label: {
+        Group {
             Group {
                 if let cover = item.cover {
                     LibraryCoverRow(covers: model.covers, item: cover, grid: grid) { editCover(cover) }
@@ -165,7 +165,12 @@ struct ProfessionalLibraryWorkspace: View {
             }.frame(maxWidth: .infinity, alignment: grid ? .center : .leading).padding(grid ? 14 : 12)
                 .background(PDFnoDesign.Palette.surface, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(selectedBookID == item.id ? Color.blue.opacity(0.35) : Color.primary.opacity(0.08)))
-        }.buttonStyle(.plain)
+        }.contentShape(Rectangle())
+            .onTapGesture { openBook(item.id) }
+            .accessibilityAction { openBook(item.id) }
+            .focusable()
+            .onKeyPress(.return) { openBook(item.id); return .handled }
+            .onKeyPress(.space) { openBook(item.id); return .handled }
     }
     private var emptyState: some View {
         VStack(spacing: 12) {
