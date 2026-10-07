@@ -38,14 +38,15 @@ final class SavedBodyEditingModel<Snapshot: SavedBodySnapshot>: ObservableObject
         if reconcile(note) { return }
         if drafts[note.key] != nil { return } // Retain a real conflict and its baseline.
         drafts[note.key] = SavedBodyDraft<Snapshot>(baseline: note, text: note.userText)
-        tokens[note.key] = UUID(); feedback[note.key] = nil; checkpoint()
+        tokens[note.key] = UUID(); feedback[note.key] = nil; checkpoint(note.key)
     }
     @discardableResult
     func reconcile(_ note: Snapshot) -> Bool {
         guard !saving.contains(note.key), let old = drafts[note.key], !sameStoredSnapshot(old.baseline, note),
               old.text.utf8.elementsEqual(note.userText.utf8) else { return false }
         // Recover a crash between the note commit and draft checkpoint removal.
-        drafts[note.key] = nil; conflicts.remove(note.key); checkpoint()
+        guard checkpoint(note.key, deleting: true) else { return false }
+        drafts[note.key] = nil; conflicts.remove(note.key)
         feedback[note.key] = "正文已保存到本地"; return true
     }
     private func sameStoredSnapshot(_ a: Snapshot, _ b: Snapshot) -> Bool {
@@ -57,30 +58,45 @@ final class SavedBodyEditingModel<Snapshot: SavedBodySnapshot>: ObservableObject
     func setText(_ text: String, for note: Snapshot) {
         guard !maintenanceReview.contains(note.key) else { return }
         guard !saving.contains(note.key), var draft = drafts[note.key] else { return }
-        draft.text = text; drafts[note.key] = draft; feedback[note.key] = "正文未保存"; checkpoint()
+        draft.text = text; drafts[note.key] = draft; feedback[note.key] = "正文未保存"; checkpoint(note.key)
     }
     func cancel(_ note: Snapshot) {
         guard !saving.contains(note.key) else { return }
+        guard checkpoint(note.key, deleting: true) else { return }
         maintenanceReview.remove(note.key)
         drafts[note.key] = nil; tokens[note.key] = UUID()
         conflicts.remove(note.key)
-        feedback[note.key] = "已取消编辑 · 已保存正文保留"; checkpoint()
+        feedback[note.key] = "已取消编辑 · 已保存正文保留"
     }
     /// Explicit conflict resolution changes the baseline while retaining the
     /// draft text. No automatic merge or overwrite happens on reload.
     func rebase(_ fresh: Snapshot) {
-        maintenanceReview.remove(fresh.key)
         guard !saving.contains(fresh.key), let old = drafts[fresh.key] else { return }
+        do { try journal.reloadBaseline(for: fresh.key) }
+        catch {
+            journalError = NoteBodyEditError.draftStore.localizedDescription
+            reportReloadFailure(fresh); return
+        }
         drafts[fresh.key] = SavedBodyDraft<Snapshot>(baseline: fresh, text: old.text)
-        conflicts.remove(fresh.key); checkpoint()
+        guard checkpoint(fresh.key) else { return }
+        maintenanceReview.remove(fresh.key); conflicts.remove(fresh.key)
         feedback[fresh.key] = "已载入最新笔记 · 草稿正文保留，请核对后保存"
     }
     func reportReloadFailure(_ note: Snapshot) {
         feedback[note.key] = "重新载入失败 · 草稿与已保存正文保留"
     }
-    private func checkpoint() {
-        do { try journal.save(Array(drafts.values)); journalError = nil }
-        catch { journalError = NoteBodyEditError.draftStore.localizedDescription }
+    @discardableResult
+    private func checkpoint(_ key: String, deleting: Bool = false) -> Bool {
+        do {
+            try journal.checkpoint(deleting ? nil : drafts[key], for: key)
+            journalError = nil; return true
+        } catch NoteBodyEditError.conflict {
+            conflicts.insert(key)
+            journalError = "草稿已被其他编辑器修改；当前正文保留，请重新载入基线核对。"
+            feedback[key] = journalError; return false
+        } catch {
+            journalError = NoteBodyEditError.draftStore.localizedDescription; return false
+        }
     }
     func save(_ note: Snapshot) async -> Snapshot? {
         guard !maintenanceReview.contains(note.key) else { feedback[note.key] = "请先重新载入并核对恢复后的笔记。"; return nil }
@@ -88,6 +104,7 @@ final class SavedBodyEditingModel<Snapshot: SavedBodySnapshot>: ObservableObject
         guard draft.baseline.accepts(draft.text) else {
             feedback[note.key] = NoteBodyEditError.tooLong.localizedDescription; return nil
         }
+        guard checkpoint(note.key) else { return nil }
         let token = UUID(); tokens[note.key] = token; saving.insert(note.key)
         feedback[note.key] = "正在保存正文…"
         defer { if tokens[note.key] == token { saving.remove(note.key) } }
@@ -96,7 +113,11 @@ final class SavedBodyEditingModel<Snapshot: SavedBodySnapshot>: ObservableObject
             // switch cannot redirect the write or clear another note's draft.
             let saved = try await saveBody(draft.baseline, draft.text)
             guard tokens[note.key] == token, saved.key == note.key else { return nil }
-            drafts[note.key] = nil; conflicts.remove(note.key); checkpoint(); feedback[note.key] = "正文已保存到本地"
+            if checkpoint(note.key, deleting: true) {
+                drafts[note.key] = nil; conflicts.remove(note.key); feedback[note.key] = "正文已保存到本地"
+            } else {
+                feedback[note.key] = "正文已保存到本地 · 草稿未清除，请重新载入基线核对。"
+            }
             return saved
         } catch {
             guard tokens[note.key] == token else { return nil }

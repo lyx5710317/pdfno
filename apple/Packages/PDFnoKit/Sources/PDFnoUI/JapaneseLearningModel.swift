@@ -144,6 +144,7 @@ public final class JapaneseLearningModel: ObservableObject {
     public func save() async -> Bool {
         guard canSave, let review, let saveNote else { return false }
         guard isCurrent(review.source, review.provider) else { error = AIFailure.stale.localizedDescription; return false }
+        let token = generation
         do {
             let corrections = review.readings.compactMap { item -> JapaneseReadingCorrection? in
                 guard let reading = readingCorrections[item.span.correctionKey], !reading.isEmpty else { return nil }
@@ -154,12 +155,14 @@ public final class JapaneseLearningModel: ObservableObject {
             }
             let note = try JapaneseLearningNote(id: noteIDs[review.requestID] ?? UUID(), review: review,
                 userText: userText, corrections: corrections)
-            let token = generation
             saving = true; defer { saving = false }
             try await saveNote(note) // Integration must create a new note atomically/idempotently.
             guard generation == token else { return true } // Never replace a new source's draft/status.
             saved = true; error = nil; retainDraft(); status = "已保存独立学习记录 · 用户正文与生成建议分开"
             return true
-        } catch { self.error = AIFailure.store.localizedDescription; return false }
+        } catch {
+            guard generation == token else { return false }
+            self.error = AIFailure.store.localizedDescription; return false
+        }
     }
 }

@@ -17,9 +17,23 @@ public struct SavedBodyDraft<Snapshot: SavedBodySnapshot>: Codable, Sendable {
 /// or future journal is refused and never replaced. Saved-note schemas are v1.
 public struct SavedBodyDraftJournal<Snapshot: SavedBodySnapshot>: Sendable {
     private let url: URL
+    private let file: SavedBodyDraftFile
+    private let view = SavedBodyDraftView()
     private struct State: Codable { let schemaVersion: Int; let drafts: [SavedBodyDraft<Snapshot>] }
-    public init(root: URL, filename: String? = nil) { url = root.appendingPathComponent(filename ?? Snapshot.draftFilename) }
+    public init(root: URL, filename: String? = nil) {
+        url = root.appendingPathComponent(filename ?? Snapshot.draftFilename).standardizedFileURL.resolvingSymlinksInPath()
+        file = SavedBodyDraftFile.shared(url)
+    }
     public func load() throws -> [SavedBodyDraft<Snapshot>] {
+        file.lock.lock(); defer { file.lock.unlock() }
+        let drafts = try readCurrent(), images = try Self.images(drafts)
+        file.observe(images)
+        if !view.initialized {
+            view.images = images; view.revisions = file.revisions; view.initialized = true
+        }
+        return drafts
+    }
+    private func readCurrent() throws -> [SavedBodyDraft<Snapshot>] {
         guard FileManager.default.fileExists(atPath: url.path) else { return [] }
         return try Self.decode(BoundedFileReader.read(url, limit: 10 * 1024 * 1024))
     }
@@ -47,15 +61,106 @@ public struct SavedBodyDraftJournal<Snapshot: SavedBodySnapshot>: Sendable {
         guard sameKeys(object, roundTrip) else { throw NoteBodyEditError.draftStore }
         return state.drafts
     }
+    /// Compatibility batch checkpoint: apply only changes since this instance's
+    /// initial load/save. Later observation does not resolve a stale version;
+    /// use reloadBaseline for an explicit resolution. Foreign keys are retained.
     public func save(_ drafts: [SavedBodyDraft<Snapshot>]) throws {
         let storeWrite = try LocalStoreWriteGate.shared(root: url.deletingLastPathComponent()).beginWrite()
         defer { storeWrite.finish() }
+        file.lock.lock(); defer { file.lock.unlock() }
 
-        _ = try load()
+        _ = try Self.bytes(drafts)
+        let desired = try Self.images(drafts)
+        let current = try readCurrent(), images = try Self.images(current)
+        file.observe(images)
+        let changed = Set(view.images.keys).union(desired.keys).filter { view.images[$0] != desired[$0] }
+        for key in changed { try checkCurrent(key, images: images) }
+        var merged = Dictionary(uniqueKeysWithValues: current.map { ($0.baseline.key, $0) })
+        let requested = Dictionary(uniqueKeysWithValues: drafts.map { ($0.baseline.key, $0) })
+        for key in changed { merged[key] = requested[key] }
+        try commit(Array(merged.values), previousImages: images)
+        // Keep the caller's view, not the merged foreign state: the next old
+        // snapshot must not mistake externally updated rows for its own edits.
+        view.images = desired
+        for key in changed { view.revisions[key] = file.revisions[key] }
+        view.initialized = true
+    }
+    /// One editor operation, including an explicit deletion, uses this owner's
+    /// expected file revision. A stale cancel cannot remove a newer draft.
+    public func checkpoint(_ draft: SavedBodyDraft<Snapshot>?, for key: String) throws {
+        let storeWrite = try LocalStoreWriteGate.shared(root: url.deletingLastPathComponent()).beginWrite()
+        defer { storeWrite.finish() }
+        file.lock.lock(); defer { file.lock.unlock() }
+        guard draft == nil || draft?.baseline.key == key else { throw NoteBodyEditError.draftStore }
+        let current = try readCurrent(), images = try Self.images(current)
+        file.observe(images); try checkCurrent(key, images: images)
+        var merged = Dictionary(uniqueKeysWithValues: current.map { ($0.baseline.key, $0) })
+        merged[key] = draft
+        try commit(Array(merged.values), previousImages: images)
+        view.images[key] = file.images[key]; view.revisions[key] = file.revisions[key]
+        view.initialized = true
+    }
+    /// Explicit user conflict resolution reloads only this key's expected
+    /// version. It neither writes text nor adopts other editors' snapshots.
+    public func reloadBaseline(for key: String) throws {
+        file.lock.lock(); defer { file.lock.unlock() }
+        file.observe(try Self.images(readCurrent()))
+        view.images[key] = file.images[key]; view.revisions[key] = file.revisions[key]
+        view.initialized = true
+    }
+    private func checkCurrent(_ key: String, images: [String: Data]) throws {
+        guard view.images[key] == images[key], view.revisions[key] == file.revisions[key] else {
+            throw NoteBodyEditError.conflict
+        }
+    }
+    private static func images(_ drafts: [SavedBodyDraft<Snapshot>]) throws -> [String: Data] {
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        return try Dictionary(uniqueKeysWithValues: drafts.map { ($0.baseline.key, try encoder.encode($0)) })
+    }
+    private static func bytes(_ drafts: [SavedBodyDraft<Snapshot>]) throws -> Data {
         let data = try JSONEncoder().encode(State(schemaVersion: 1, drafts: drafts.sorted { $0.baseline.key < $1.baseline.key }))
         guard data.count <= 10 * 1024 * 1024 else { throw NoteBodyEditError.draftStore }
         _ = try Self.decode(data)
+        return data
+    }
+    private func commit(_ drafts: [SavedBodyDraft<Snapshot>], previousImages: [String: Data]) throws {
+        let data = try Self.bytes(drafts), images = try Self.images(drafts)
+        guard images != previousImages else { return }
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try data.write(to: url, options: .atomic)
+        file.observe(images)
+    }
+}
+
+/// Per-journal caller view; all access is under its shared file's lock. Struct
+/// copies are the same owner, while separate initializers create separate views.
+private final class SavedBodyDraftView: @unchecked Sendable {
+    var initialized = false
+    var images: [String: Data] = [:]
+    var revisions: [String: UUID] = [:]
+}
+
+/// Same-process coordination, not cross-process isolation. Revisions stay out
+/// of schema 1 and detect delete/recreate ABA while live owners still exist.
+private final class SavedBodyDraftFile: @unchecked Sendable {
+    private final class Registry: @unchecked Sendable {
+        let lock = NSLock()
+        var files: [String: SavedBodyDraftFile] = [:]
+    }
+    private static let registry = Registry()
+    static func shared(_ url: URL) -> SavedBodyDraftFile {
+        let path = url.standardizedFileURL.resolvingSymlinksInPath().path
+        registry.lock.lock(); defer { registry.lock.unlock() }
+        if let file = registry.files[path] { return file }
+        let file = SavedBodyDraftFile(); registry.files[path] = file; return file
+    }
+    let lock = NSLock()
+    private(set) var images: [String: Data] = [:]
+    private(set) var revisions: [String: UUID] = [:]
+    func observe(_ next: [String: Data]) {
+        for key in Set(images.keys).union(next.keys) where images[key] != next[key] {
+            revisions[key] = next[key] == nil ? nil : UUID()
+        }
+        images = next
     }
 }

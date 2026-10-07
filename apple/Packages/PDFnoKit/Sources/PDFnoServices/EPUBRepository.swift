@@ -61,6 +61,8 @@ public actor EPUBRepository {
     public func importBook(_ data: Data, filename: String) throws -> EPUBBook {
         let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
         defer { storeWrite.finish() }
+        let transaction = EPUBManifestTransactions.shared.lock(for: root)
+        transaction.lock(); defer { transaction.unlock() }
 
         _ = try EPUBArchive.validate(data)
         var state = try load(); let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
@@ -79,6 +81,8 @@ public actor EPUBRepository {
     public func saveProgress(_ anchor: EPUBAnchor, bookID: UUID) throws {
         let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
         defer { storeWrite.finish() }
+        let transaction = EPUBManifestTransactions.shared.lock(for: root)
+        transaction.lock(); defer { transaction.unlock() }
 
         var state = try load()
         guard let index = state.books.firstIndex(where: { $0.id == bookID && $0.accepts(anchor) }) else { throw EPUBError.sourceMismatch }
@@ -90,6 +94,8 @@ public actor EPUBRepository {
     public func updateNoteBody(expected: EPUBNote, text: String) throws -> EPUBNote {
         let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
         defer { storeWrite.finish() }
+        let transaction = EPUBManifestTransactions.shared.lock(for: root)
+        transaction.lock(); defer { transaction.unlock() }
 
         guard NoteBodySnapshot.epub(expected).accepts(text) else { throw NoteBodyEditError.tooLong }
         var state = try load()
@@ -104,10 +110,26 @@ public actor EPUBRepository {
     public func saveNote(_ note: EPUBNote) throws {
         let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
         defer { storeWrite.finish() }
+        let transaction = EPUBManifestTransactions.shared.lock(for: root)
+        transaction.lock(); defer { transaction.unlock() }
 
         var state = try load()
         guard note.userText.utf8.count <= 16000, !state.notes.contains(where: { $0.id == note.id }),
               state.books.contains(where: { $0.id == note.bookID && $0.accepts(note.anchor) }) else { throw EPUBError.sourceMismatch }
         state.notes.append(note); try commit(state)
+    }
+}
+
+/// Same-process read/check/write transactions, separate from maintenance admission.
+/// Every EPUB manifest mutation holds this synchronous lock through its commit.
+private final class EPUBManifestTransactions: @unchecked Sendable {
+    static let shared = EPUBManifestTransactions()
+    private let registry = NSLock()
+    private var locks: [String: NSRecursiveLock] = [:]
+    func lock(for root: URL) -> NSRecursiveLock {
+        let path = root.standardizedFileURL.resolvingSymlinksInPath().path
+        registry.lock(); defer { registry.unlock() }
+        if let lock = locks[path] { return lock }
+        let lock = NSRecursiveLock(); locks[path] = lock; return lock
     }
 }
