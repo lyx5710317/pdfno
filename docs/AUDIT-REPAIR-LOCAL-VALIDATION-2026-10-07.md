@@ -1,6 +1,6 @@
 # 三项审计修复与本地验证
 
-产品候选：`7c766decd7e7631a30279a31865bf42b4e89fb43`；基线：`0fdcbc58c0b4af28412d2edcbf7a727cefde7d74`。工作树位于 `/Users/artsmartluo/pdfno/pdfno/.build/MacUIExperience/2026-10-06/tree`，分支 `feature/mac-ui-experience-20261006`。本轮只做本地开发与验证，未 push、dispatch、合并 main 或发布。
+产品候选：`7c766decd7e7631a30279a31865bf42b4e89fb43`；基线：`0fdcbc58c0b4af28412d2edcbf7a727cefde7d74`。工作树位于 `.build/MacUIExperience/2026-10-06/tree`，分支 `feature/mac-ui-experience-20261006`。本轮只做本地开发与验证，未 push、dispatch、合并 main 或发布。
 
 三项修复已经实现，完整 Swift、Node 与 Mac 双架构编译通过。独立审计复核允许在单进程代码和合成证据范围内关闭三项。**本候选完整 60 项实际隔离 GUI 已验收：60 PASS、0 FAIL、0 SKIP，exit 0；原 56 项与段落 4 项全部通过，每个方法在这轮完整复验中唯一开始和完成一次。** 初次及解锁恢复的两次零方法初始化失败完整保留；随后通过成功/失败任务对比修正测试 destination，先取得一个原设置方法的启动验证，再完整复验。期间产品代码、原测试和二进制未变，没有重复 Swift、Node 或双架构编译。
 
@@ -18,7 +18,7 @@
 
 ## 实际本地检查
 
-所有原始证据位于 `/Users/artsmartluo/pdfno/pdfno/.build/MacUIExperience/2026-10-07-repair/evidence`（下称 E）。重型检查使用原共享锁 `.build/PDFnoNativeHeavyChecks.lock`，jobs 2，不安装依赖、不使用真实 key/API/书库。
+所有原始证据位于 `.build/MacUIExperience/2026-10-07-repair/evidence`（下称 E）。重型检查使用原共享锁 `.build/PDFnoNativeHeavyChecks.lock`，jobs 2，不安装依赖、不使用真实 key/API/书库。
 
 | 检查 | 实际结果 | E 内原始收据/日志 |
 | --- | --- | --- |
@@ -57,7 +57,7 @@ runner 的明确错误为 `Timed out while enabling automation mode`。两次运
 
 ## 独立复核与剩余边界
 
-独立报告：`/Users/artsmartluo/pdfno/pdfno/.build/IndependentAudit/2026-10-07-7c766dec/REPAIR-REVIEW.zh-CN.md`。审阅者核验冻结源码、探针正文、负对照和原始日志/收据，**未重跑测试或 GUI**；其三项限定关闭结论不等同于本候选 GUI 签收。本轮后来完成的 Mac 编译、两次 GUI 阻塞、配置诊断和完整 60 通过由实施收据记录，不改写独立报告，也不把它称作审阅者再次执行或签收。
+独立报告：`.build/IndependentAudit/2026-10-07-7c766dec/REPAIR-REVIEW.zh-CN.md`。审阅者核验冻结源码、探针正文、负对照和原始日志/收据，**未重跑测试或 GUI**；其三项限定关闭结论不等同于本候选 GUI 签收。本轮后来完成的 Mac 编译、两次 GUI 阻塞、配置诊断和完整 60 通过由实施收据记录，不改写独立报告，也不把它称作审阅者再次执行或签收。
 
 其他仓库同类事务风险、V01 旧 EPUB callback 身份、V02、D01/D02、V03 保持原状态。当前完整 60 正式 metadata 再次记录 15 条 runtime warning：14 条 QoS priority inversion、1 条 DOCX SwiftUI 更新期发布；逐方法消息在 `defaultdest-full60-outcome.json`，没有完整根因堆栈，本轮未扩展修复或声称消除。真实模型/解释质量、真实 API、VoiceOver、Intel runtime、最旧系统与广泛书籍兼容未测。安全专项仍 UNVERIFIED / platform-blocked；iOS/mobile 后置，均未执行或重试。历史默认 Library metadata 启动偏差 UNKNOWN、CUA 迟到锁窗口 UNVERIFIED 保留。
 

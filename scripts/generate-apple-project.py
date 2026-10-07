@@ -52,7 +52,7 @@ def add(name, isa, body):
     objects[oid] = f'isa = {isa}; {body}'
     return oid
 
-def config_list(name, settings):
+def config_list(name, settings, release_overrides=None):
     ids = []
     for mode in ['Debug', 'Release']:
         settings_for_mode = dict(settings)
@@ -60,6 +60,7 @@ def config_list(name, settings):
         settings_for_mode['DEBUG_INFORMATION_FORMAT'] = 'dwarf' if mode == 'Debug' else 'dwarf-with-dsym'
         settings_for_mode['ONLY_ACTIVE_ARCH'] = 'YES' if mode == 'Debug' else 'NO'
         if mode == 'Debug': settings_for_mode['SWIFT_ACTIVE_COMPILATION_CONDITIONS'] = 'DEBUG'
+        if mode == 'Release': settings_for_mode.update(release_overrides or {})
         body = 'buildSettings = { ' + ' '.join(f'{k} = {quote(v)};' for k,v in sorted(settings_for_mode.items())) + ' }; name = '+quote(mode)+';'
         ids.append(add(name+mode, 'XCBuildConfiguration', body))
     return add(name+'configs', 'XCConfigurationList', 'buildConfigurations = ('+','.join(ids)+'); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;')
@@ -83,6 +84,8 @@ test_source = file_ref('TestSource','Tests/NativeUITests.swift','sourcecode.swif
 ebook_test_source = file_ref('EbookTestSource','Tests/EbookFormatUITests.swift','sourcecode.swift')
 next_test_source = file_ref('NextTestSource','Tests/NextBatchUITests.swift','sourcecode.swift')
 reading_test_source = file_ref('ReadingTestSource','Tests/ReadingIntegrationUITests.swift','sourcecode.swift')
+mac_notices = [file_ref('MacNotice'+name, '../'+name, 'text')
+               for name in ['LICENSE', 'SOURCE-NOTICES.md', 'THIRD_PARTY_NOTICES.md']]
 
 def phase(name, isa, file_ids):
     return add(name, isa, 'buildActionMask = 2147483647; files = ('+','.join(file_ids)+'); runOnlyForDeploymentPostprocessing = 0;')
@@ -93,13 +96,20 @@ for name, source, platform in [('PDFnoMac', mac_source, 'mac'), ('PDFnoMobile', 
     source_build = add(name+'sourceBuild','PBXBuildFile',f'fileRef = {source};')
     dependency = add(name+'packageProduct','XCSwiftPackageProductDependency',f'package = {package}; productName = PDFnoUI;')
     package_build = add(name+'packageBuild','PBXBuildFile',f'productRef = {dependency};')
-    phases = [phase(name+'sources','PBXSourcesBuildPhase',[source_build]),phase(name+'frameworks','PBXFrameworksBuildPhase',[package_build]),phase(name+'resources','PBXResourcesBuildPhase',[])]
+    resources = [add(name+'notice'+str(index), 'PBXBuildFile', f'fileRef = {ref};')
+                 for index, ref in enumerate(mac_notices)] if platform == 'mac' else []
+    phases = [phase(name+'sources','PBXSourcesBuildPhase',[source_build]),phase(name+'frameworks','PBXFrameworksBuildPhase',[package_build]),phase(name+'resources','PBXResourcesBuildPhase',resources)]
     settings = {'PRODUCT_NAME':'$(TARGET_NAME)','PRODUCT_BUNDLE_IDENTIFIER':'org.pdfno.'+name,'GENERATE_INFOPLIST_FILE':'YES', 'INFOPLIST_KEY_CFBundleDisplayName':'PDFno','MARKETING_VERSION':'0.3.0','CURRENT_PROJECT_VERSION':'1', 'CODE_SIGN_STYLE':'Manual','CODE_SIGN_IDENTITY':'-','DEVELOPMENT_TEAM':'','SWIFT_VERSION':'6.0','ENABLE_PREVIEWS':'YES'}
     if platform == 'mac':
         settings.update({'SDKROOT':'macosx', 'SUPPORTED_PLATFORMS':'macosx','MACOSX_DEPLOYMENT_TARGET':'14.0','INFOPLIST_KEY_NSPrincipalClass':'NSApplication','INFOPLIST_KEY_LSApplicationCategoryType':'public.app-category.education'})
     else:
         settings.update({'SDKROOT':'iphoneos','SUPPORTED_PLATFORMS':'iphoneos iphonesimulator','IPHONEOS_DEPLOYMENT_TARGET':'17.0','TARGETED_DEVICE_FAMILY':'1,2','SUPPORTS_MACCATALYST':'NO','SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD':'NO','INFOPLIST_KEY_UILaunchScreen_Generation':'YES','INFOPLIST_KEY_UIApplicationSceneManifest_Generation':'YES','INFOPLIST_KEY_UISupportedInterfaceOrientations':'UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight'})
-    configs = config_list(name,settings)
+    # Outside-App-Store preparation: no account, sandbox or runtime exceptions.
+    # Formal signing requires an explicitly supplied identity in a later stage.
+    release = {'ENABLE_HARDENED_RUNTIME':'YES', 'CODE_SIGN_ENTITLEMENTS':'Configs/PDFnoMacRelease.entitlements',
+               'CODE_SIGN_INJECT_BASE_ENTITLEMENTS':'NO', 'ENABLE_TESTABILITY':'NO',
+               'ENABLE_PREVIEWS':'NO', 'CODE_SIGNING_ALLOWED':'NO', 'CODE_SIGN_IDENTITY':''} if platform == 'mac' else None
+    configs = config_list(name,settings,release)
     target = add(name+'target','PBXNativeTarget',f'buildConfigurationList = {configs}; buildPhases = ({",".join(phases)}); buildRules = (); dependencies = (); name = {name}; packageProductDependencies = ({dependency}); productName = {name}; productReference = {product}; productType = "com.apple.product-type.application";')
     targets.append(target); app_targets[name] = (target,product,platform)
 
