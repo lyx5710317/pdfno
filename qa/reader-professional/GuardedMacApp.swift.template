@@ -3,16 +3,21 @@
 import SwiftUI
 import AppKit
 import Darwin
+import CryptoKit
 import PDFnoUI
 
 @main struct PDFnoMacApp: App {
     init() {
-        let expected = "org.pdfno.integration.professionala20261007.PDFnoMac"
+        let expected = "__QA_BUNDLE__"
         guard Bundle.main.bundleIdentifier == expected else { exit(2) }
         let env = ProcessInfo.processInfo.environment
         guard let uuid = UUID(uuidString: env["PDFNO_UI_TEST_SESSION"] ?? "__PREVIEW_UUID__") else { exit(2) }
         let session = uuid.uuidString, scope = env["PDFNO_A_QA_SCOPE"] ?? "preview"
         guard ["preview", "a-regression", "full64"].contains(scope) else { exit(2) }
+        let appPath = Bundle.main.bundleURL.standardizedFileURL.path
+        // UUID bundle identifiers prevent Launch Services from selecting another
+        // old QA snapshot. Formal runs additionally require the exact built path.
+        guard scope == "preview" || appPath == "__QA_APP_PATH__" else { exit(2) }
         setenv("PDFNO_UI_TEST_SESSION", session, 1)
         setenv("PDFNO_UI_TEST_DEEPSEEK", "offline", 1)
         setenv("PDFNO_A_QA_AUTOSAMPLE", scope == "preview" ? "1" : "0", 1)
@@ -33,7 +38,12 @@ import PDFnoUI
                 try manager.createDirectory(at: root, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
                 try JSONSerialization.data(withJSONObject: ["bundle": expected, "session": session], options: [.sortedKeys]).write(to: marker, options: .atomic)
             }
-            let record: [String: Any] = ["pid": ProcessInfo.processInfo.processIdentifier, "bundle": expected, "session": session, "scope": scope, "root": root.path, "offline": true]
+            let digest: (URL) throws -> String = { url in
+                SHA256.hash(data: try Data(contentsOf: url)).map { String(format: "%02x", $0) }.joined()
+            }
+            let executable = Bundle.main.executableURL!
+            let debugDylib = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/PDFnoMac.debug.dylib")
+            let record: [String: Any] = ["app_path": appPath, "source_head": "__SOURCE_HEAD__", "binary_sha256": try digest(executable), "debug_dylib_sha256": try digest(debugDylib), "launched_at_utc": ISO8601DateFormatter().string(from: Date()), "pid": ProcessInfo.processInfo.processIdentifier, "bundle": expected, "session": session, "scope": scope, "root": root.path, "offline": true]
             try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]).write(to: registry.appendingPathComponent("process-\(ProcessInfo.processInfo.processIdentifier)-\(session).json"), options: .atomic)
         } catch { exit(2) }
     }

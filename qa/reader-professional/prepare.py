@@ -20,8 +20,11 @@ sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
 inputs = {str(p.relative_to(ROOT)): sha(p) for p in (ROOT / 'apple').rglob('*') if p.is_file() and not any(x in p.relative_to(ROOT).parts for x in ['.build','xcuserdata','project.xcworkspace'])}
 assert len(inputs) > 300, 'The full Apple source input manifest must never be empty.'
 preview = str(uuid.uuid4()).upper()
+prefix = 'org.pdfno.integration.professionala20261007.qa' + uuid.uuid4().hex[:12]
+bundle = prefix + '.PDFnoMac'
+head = subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
 registry = out / 'Registry'
-app = (ROOT / 'qa/reader-professional/GuardedMacApp.swift.template').read_text().replace('__PREVIEW_UUID__', preview).replace('__REGISTRY_ROOT__', str(registry))
+app = (ROOT / 'qa/reader-professional/GuardedMacApp.swift.template').read_text().replace('__PREVIEW_UUID__', preview).replace('__REGISTRY_ROOT__', str(registry)).replace('__QA_BUNDLE__', bundle).replace('__QA_APP_PATH__', str(out / 'DerivedData/Build/Products/Debug/PDFnoMac.app')).replace('__SOURCE_HEAD__', head)
 (snapshot / 'apple/Apps/Mac/PDFnoMacApp.swift').write_text(app)
 changes = ['apple/Apps/Mac/PDFnoMacApp.swift']
 # Reject all live network and Keychain operations in this snapshot only.
@@ -45,7 +48,7 @@ p.write_text(s); changes.append(str(p.relative_to(snapshot)))
 extra = snapshot / 'apple/Tests/ProfessionalReaderUITests.swift'
 shutil.copy2(ROOT / 'qa/reader-professional/ProfessionalReaderUITests.swift', extra)
 # Add only the extra test file to the QA project; production project/Release config remain exact.
-p = snapshot / 'apple/PDFno.xcodeproj/project.pbxproj'; s = p.read_text().replace('org.pdfno.', 'org.pdfno.integration.professionala20261007.')
+p = snapshot / 'apple/PDFno.xcodeproj/project.pbxproj'; s = p.read_text().replace('org.pdfno.', prefix + '.')
 reference, build = 'A7A7A7A7A7A7A7A7A7A7A701', 'A7A7A7A7A7A7A7A7A7A7A702'
 s = s.replace('objects = {', f'''objects = {{
 {reference} = {{ isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tests/ProfessionalReaderUITests.swift; sourceTree = "<group>"; }};
@@ -60,6 +63,6 @@ import re
 legacy = re.findall(r'^\| `(\w+UITests/test\w+)` \| Passed \|', (ROOT/'docs/MAC-UI-FINAL-ACCEPTANCE-2026-10-06.md').read_text(), re.M)
 extra_methods = ['ProfessionalReaderUITests/'+name for name in re.findall(r'func (test\w+)\(',extra.read_text())]
 assert len(legacy)==60 and len(set(legacy))==60 and len(extra_methods)==4
-receipt = {'source_head': subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(), 'branch': subprocess.check_output(['git','branch','--show-current'],cwd=ROOT,text=True).strip(), 'bundle':'org.pdfno.integration.professionala20261007.PDFnoMac','source':str(snapshot),'preview_uuid':preview,'preview_root':'/tmp/PDFno-UITests-'+preview,'registry':str(registry),'production_inputs':inputs,'qa_only_deviations':changes,'extra_ui_file_sha256':sha(extra),'production_original_four_ui_sha256':{p.name:sha(p) for p in (ROOT/'apple/Tests').glob('*.swift')},'gui_started':False,'new_ui_methods':4,'expected_methods':sorted(legacy+extra_methods),'new_accounts_or_packages':False}
+receipt = {'source_head': head, 'branch': subprocess.check_output(['git','branch','--show-current'],cwd=ROOT,text=True).strip(), 'bundle':bundle,'bundle_prefix':prefix,'source':str(snapshot),'preview_uuid':preview,'preview_root':'/tmp/PDFno-UITests-'+preview,'registry':str(registry),'production_inputs':inputs,'qa_only_deviations':changes,'extra_ui_file_sha256':sha(extra),'production_original_four_ui_sha256':{p.name:sha(p) for p in (ROOT/'apple/Tests').glob('*.swift')},'gui_started':False,'new_ui_methods':4,'expected_methods':sorted(legacy+extra_methods),'new_accounts_or_packages':False}
 (out/'PREPARATION.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2))
 print(json.dumps({'bundle':receipt['bundle'],'source':str(snapshot),'gui_started':False,'extra_ui_methods':4}))

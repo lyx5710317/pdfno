@@ -23,7 +23,7 @@ for name, path in [
     ('tests', products / 'Debug/PDFnoMacUITests-Runner.app/Contents/PlugIns/PDFnoMacUITests.xctest'),
 ]:
     info = plistlib.loads((path / 'Contents/Info.plist').read_bytes())
-    assert info['CFBundleIdentifier'].startswith('org.pdfno.integration.professionala20261007.')
+    assert info['CFBundleIdentifier'].startswith(receipt['bundle_prefix'] + '.')
     binary = path / 'Contents/MacOS' / info['CFBundleExecutable']
     subprocess.run(['/usr/bin/codesign', '--verify', '--strict', str(path)], check=True, capture_output=True)
     architectures = subprocess.check_output(['/usr/bin/lipo', '-archs', str(binary)], text=True).strip()
@@ -66,6 +66,7 @@ environment = {
     'PDFNO_UI_TEST_DEEPSEEK': 'offline',
     'PDFNO_A_QA_SCOPE': 'full64',
     'PDFNO_ISOLATED_UI_APPLICATION_ID': receipt['bundle'],
+    'PDFNO_A_QA_EXPECTED_BUNDLE': receipt['bundle'],
     'PDFNO_A_QA_SHOT_TOKEN': token,
 }
 configuration.setdefault('EnvironmentVariables', {}).update(environment)

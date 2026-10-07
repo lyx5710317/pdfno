@@ -7,7 +7,10 @@ import AppKit
 final class ProfessionalReaderUITests: XCTestCase {
     @MainActor private func originalApp(width: Int, dark: Bool) throws -> XCUIApplication {
         let identifier = try XCTUnwrap(ProcessInfo.processInfo.environment["PDFNO_ISOLATED_UI_APPLICATION_ID"])
-        XCTAssertEqual(identifier, "org.pdfno.integration.professionala20261007.PDFnoMac")
+        let expected = try XCTUnwrap(ProcessInfo.processInfo.environment["PDFNO_A_QA_EXPECTED_BUNDLE"])
+        XCTAssertEqual(identifier, expected)
+        XCTAssertTrue(identifier.hasPrefix("org.pdfno.integration.professionala20261007.qa"))
+        XCTAssertTrue(identifier.hasSuffix(".PDFnoMac"))
         let app = XCUIApplication(bundleIdentifier: identifier)
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
