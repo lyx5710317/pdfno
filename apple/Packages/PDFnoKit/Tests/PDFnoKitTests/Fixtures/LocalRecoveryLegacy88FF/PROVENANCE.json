@@ -1,0 +1,333 @@
+{
+  "legacyCommit": "88ff6d6ce3471b9191b521dca6261fc8dde775e3",
+  "oldTrackedPackageFilesUnchanged": 411,
+  "oldModifiedFiles": [
+    "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/LocalRecoveryTests.swift"
+  ],
+  "onlyChange": "Appended LegacyRecoveryFixtureExporter test; production decoder/exporter and original storage fixture helpers unchanged.",
+  "oldExportExitCode": 0,
+  "fixtures": [
+    {
+      "path": "standard/Payload/LocalRecovery/Assets/d4c46d7bf1d8f739033ef9a0577d3ab729dbf436d679db17308928d1563d73e8.fb2",
+      "byteLength": 35,
+      "sha256": "d4c46d7bf1d8f739033ef9a0577d3ab729dbf436d679db17308928d1563d73e8"
+    },
+    {
+      "path": "standard/Payload/Originals/16a1f3346b2934b00652a17179187b56dc6f3f31ea58da547e035b70f33ada01.html",
+      "byteLength": 36,
+      "sha256": "16a1f3346b2934b00652a17179187b56dc6f3f31ea58da547e035b70f33ada01"
+    },
+    {
+      "path": "standard/Payload/Originals/2f6a9999f53f1c38e4f3a32c1425308d44c1a2c6c40a2aa16dff313855e1a4e5.xhtml",
+      "byteLength": 37,
+      "sha256": "2f6a9999f53f1c38e4f3a32c1425308d44c1a2c6c40a2aa16dff313855e1a4e5"
+    },
+    {
+      "path": "standard/Payload/Originals/463e77a3281801647e84af2fa99f3cffe213b61bd81dba56b6e8b6acae711cf4.azw",
+      "byteLength": 35,
+      "sha256": "463e77a3281801647e84af2fa99f3cffe213b61bd81dba56b6e8b6acae711cf4"
+    },
+    {
+      "path": "standard/Payload/Originals/50961a47d93438c0725397cdcc9444be3bab9f1a43dddb3dab6cd2db49e8a656.epub",
+      "byteLength": 36,
+      "sha256": "50961a47d93438c0725397cdcc9444be3bab9f1a43dddb3dab6cd2db49e8a656"
+    },
+    {
+      "path": "standard/Payload/Originals/5a99468b02373c6fe6fead595dc4e3a6c4ecb07c8ec0ca1b5806878736761569.cbt",
+      "byteLength": 35,
+      "sha256": "5a99468b02373c6fe6fead595dc4e3a6c4ecb07c8ec0ca1b5806878736761569"
+    },
+    {
+      "path": "standard/Payload/Originals/62362e3a3e430860d13a3f7bef15f6233c26e241b8b780d676bd0ae1d37295ec.docx",
+      "byteLength": 36,
+      "sha256": "62362e3a3e430860d13a3f7bef15f6233c26e241b8b780d676bd0ae1d37295ec"
+    },
+    {
+      "path": "standard/Payload/Originals/68abd9e3830d2ecb7e7df0c63c0a8092443c64a7e6f3b46d0945822a8ae421db.txt",
+      "byteLength": 35,
+      "sha256": "68abd9e3830d2ecb7e7df0c63c0a8092443c64a7e6f3b46d0945822a8ae421db"
+    },
+    {
+      "path": "standard/Payload/Originals/6bc2e2e050dfa64ee0b1344bbe792a1b46a5d7daad3dd93469fbf45df20d809b.cbz",
+      "byteLength": 35,
+      "sha256": "6bc2e2e050dfa64ee0b1344bbe792a1b46a5d7daad3dd93469fbf45df20d809b"
+    },
+    {
+      "path": "standard/Payload/Originals/73c92c3752aecc87937b3f0c14f88bc63df39e1f3e05db49945b10914af953fb.cbr",
+      "byteLength": 35,
+      "sha256": "73c92c3752aecc87937b3f0c14f88bc63df39e1f3e05db49945b10914af953fb"
+    },
+    {
+      "path": "standard/Payload/Originals/8557ac97908c0f586e942931ec0ad3f78a0b464ad5d736598709c7e00f7f0da6.mhtml",
+      "byteLength": 37,
+      "sha256": "8557ac97908c0f586e942931ec0ad3f78a0b464ad5d736598709c7e00f7f0da6"
+    },
+    {
+      "path": "standard/Payload/Originals/9762f0878c93d8c19c3cc1b8c202012972e64c83e405ea797aa9904f68886aa9.azw3",
+      "byteLength": 36,
+      "sha256": "9762f0878c93d8c19c3cc1b8c202012972e64c83e405ea797aa9904f68886aa9"
+    },
+    {
+      "path": "standard/Payload/Originals/cacca444ec6b98ae51201c347636440176a17adf4a9667a6fc5d4827b2364957.markdown",
+      "byteLength": 40,
+      "sha256": "cacca444ec6b98ae51201c347636440176a17adf4a9667a6fc5d4827b2364957"
+    },
+    {
+      "path": "standard/Payload/Originals/d4c46d7bf1d8f739033ef9a0577d3ab729dbf436d679db17308928d1563d73e8.fb2",
+      "byteLength": 35,
+      "sha256": "d4c46d7bf1d8f739033ef9a0577d3ab729dbf436d679db17308928d1563d73e8"
+    },
+    {
+      "path": "standard/Payload/Originals/e5309130e38b140449bff009b141132b120074943bb75dc2aa0b2e4d92de4107.mobi",
+      "byteLength": 36,
+      "sha256": "e5309130e38b140449bff009b141132b120074943bb75dc2aa0b2e4d92de4107"
+    },
+    {
+      "path": "standard/Payload/Originals/ef1b04e5bc5f840b570af542d3f6728bfaccb677d780b4817cb1c70a9cad12f3.pdf",
+      "byteLength": 35,
+      "sha256": "ef1b04e5bc5f840b570af542d3f6728bfaccb677d780b4817cb1c70a9cad12f3"
+    },
+    {
+      "path": "standard/Payload/Originals/f50477632480ee96156ba541eba06ea06206e3f75a38599035fca3f543f2cc49.xml",
+      "byteLength": 35,
+      "sha256": "f50477632480ee96156ba541eba06ea06206e3f75a38599035fca3f543f2cc49"
+    },
+    {
+      "path": "standard/Payload/Originals/fccb2fe67bca6f291f476a65e059040548e80a73842d454319ffd5d75f02a6b9.cb7",
+      "byteLength": 35,
+      "sha256": "fccb2fe67bca6f291f476a65e059040548e80a73842d454319ffd5d75f02a6b9"
+    },
+    {
+      "path": "standard/Payload/book-metadata-v1.json",
+      "byteLength": 302,
+      "sha256": "bf202cc2080b492d7c1ac94d7f8c0e46c6a7ec0d1791ad0104197efa4e5e57fc"
+    },
+    {
+      "path": "standard/Payload/comics-cb7-v1.json",
+      "byteLength": 554,
+      "sha256": "af259493f2ba4a359032e2eec78f8da5c37477cec00b66cb2d8138f0fe340017"
+    },
+    {
+      "path": "standard/Payload/comics-cbr-v1.json",
+      "byteLength": 554,
+      "sha256": "0ac64e73a9eaad39983612afd5c76339cece8bd6f0561f76172bca8d11f60ab0"
+    },
+    {
+      "path": "standard/Payload/comics-cbt-v1.json",
+      "byteLength": 554,
+      "sha256": "a8b47500d8e484a9fe6cf7847601aefc2e55b8416cc00633dafb66d4c7d4bff0"
+    },
+    {
+      "path": "standard/Payload/comics-v1.json",
+      "byteLength": 554,
+      "sha256": "9d3926e3aa69d5f27c9ec8ff40584a6575d6d0996cafc2b61b33a261e6947038"
+    },
+    {
+      "path": "standard/Payload/docx-mammoth-v1.json",
+      "byteLength": 1016,
+      "sha256": "49c3e848eb731920a60875f604f702f74963d44ce10dad66c8042314b856e838"
+    },
+    {
+      "path": "standard/Payload/ebook-kookit-v1.json",
+      "byteLength": 3377,
+      "sha256": "1d95a3c547fe6f98bedccd7cea4dfd8271386cd05e8b9922f7ec3eadfe6a60d1"
+    },
+    {
+      "path": "standard/Payload/epub-v1.json",
+      "byteLength": 1124,
+      "sha256": "ad2ace29836363b44d0d66ad652917055343279bf4f4012ed65bf0c5833daa2b"
+    },
+    {
+      "path": "standard/Payload/japanese-learning-v1.json",
+      "byteLength": 1109,
+      "sha256": "62befce2263e14323405a3d2fd21af231d26ad1cbf295afe8c9abdd90d6caeb0"
+    },
+    {
+      "path": "standard/Payload/learning-v1.json",
+      "byteLength": 1052,
+      "sha256": "32e66b81459fee504298cb93e4c178b42855c86bdc7e1b70601b50de39d8213f"
+    },
+    {
+      "path": "standard/Payload/library-v1.json",
+      "byteLength": 897,
+      "sha256": "8ff31bfaaa1939564af7c29bf58ec48a74e88771ab9a187e0387068130bfc953"
+    },
+    {
+      "path": "standard/Payload/local-recovery-v1.json",
+      "byteLength": 2347,
+      "sha256": "67805739fb8a522057f2a198175f94de1a85420f3e20021528f6ab681541aa1a"
+    },
+    {
+      "path": "standard/Payload/text-formats-v1.json",
+      "byteLength": 6095,
+      "sha256": "83f1e03ccd62db19e3c3848094dd6a8b0c26a874c3eb7da460734432330d4229"
+    },
+    {
+      "path": "standard/inventory-v1.json",
+      "byteLength": 5392,
+      "sha256": "96a7dd254c74b934c8c0e68619ce7652868d8c85f6e737f9bb943d3f045a70af"
+    },
+    {
+      "path": "with-english/Payload/LocalRecovery/Assets/d4c46d7bf1d8f739033ef9a0577d3ab729dbf436d679db17308928d1563d73e8.fb2",
+      "byteLength": 35,
+      "sha256": "d4c46d7bf1d8f739033ef9a0577d3ab729dbf436d679db17308928d1563d73e8"
+    },
+    {
+      "path": "with-english/Payload/Originals/16a1f3346b2934b00652a17179187b56dc6f3f31ea58da547e035b70f33ada01.html",
+      "byteLength": 36,
+      "sha256": "16a1f3346b2934b00652a17179187b56dc6f3f31ea58da547e035b70f33ada01"
+    },
+    {
+      "path": "with-english/Payload/Originals/2f6a9999f53f1c38e4f3a32c1425308d44c1a2c6c40a2aa16dff313855e1a4e5.xhtml",
+      "byteLength": 37,
+      "sha256": "2f6a9999f53f1c38e4f3a32c1425308d44c1a2c6c40a2aa16dff313855e1a4e5"
+    },
+    {
+      "path": "with-english/Payload/Originals/463e77a3281801647e84af2fa99f3cffe213b61bd81dba56b6e8b6acae711cf4.azw",
+      "byteLength": 35,
+      "sha256": "463e77a3281801647e84af2fa99f3cffe213b61bd81dba56b6e8b6acae711cf4"
+    },
+    {
+      "path": "with-english/Payload/Originals/50961a47d93438c0725397cdcc9444be3bab9f1a43dddb3dab6cd2db49e8a656.epub",
+      "byteLength": 36,
+      "sha256": "50961a47d93438c0725397cdcc9444be3bab9f1a43dddb3dab6cd2db49e8a656"
+    },
+    {
+      "path": "with-english/Payload/Originals/5a99468b02373c6fe6fead595dc4e3a6c4ecb07c8ec0ca1b5806878736761569.cbt",
+      "byteLength": 35,
+      "sha256": "5a99468b02373c6fe6fead595dc4e3a6c4ecb07c8ec0ca1b5806878736761569"
+    },
+    {
+      "path": "with-english/Payload/Originals/62362e3a3e430860d13a3f7bef15f6233c26e241b8b780d676bd0ae1d37295ec.docx",
+      "byteLength": 36,
+      "sha256": "62362e3a3e430860d13a3f7bef15f6233c26e241b8b780d676bd0ae1d37295ec"
+    },
+    {
+      "path": "with-english/Payload/Originals/68abd9e3830d2ecb7e7df0c63c0a8092443c64a7e6f3b46d0945822a8ae421db.txt",
+      "byteLength": 35,
+      "sha256": "68abd9e3830d2ecb7e7df0c63c0a8092443c64a7e6f3b46d0945822a8ae421db"
+    },
+    {
+      "path": "with-english/Payload/Originals/6bc2e2e050dfa64ee0b1344bbe792a1b46a5d7daad3dd93469fbf45df20d809b.cbz",
+      "byteLength": 35,
+      "sha256": "6bc2e2e050dfa64ee0b1344bbe792a1b46a5d7daad3dd93469fbf45df20d809b"
+    },
+    {
+      "path": "with-english/Payload/Originals/73c92c3752aecc87937b3f0c14f88bc63df39e1f3e05db49945b10914af953fb.cbr",
+      "byteLength": 35,
+      "sha256": "73c92c3752aecc87937b3f0c14f88bc63df39e1f3e05db49945b10914af953fb"
+    },
+    {
+      "path": "with-english/Payload/Originals/8557ac97908c0f586e942931ec0ad3f78a0b464ad5d736598709c7e00f7f0da6.mhtml",
+      "byteLength": 37,
+      "sha256": "8557ac97908c0f586e942931ec0ad3f78a0b464ad5d736598709c7e00f7f0da6"
+    },
+    {
+      "path": "with-english/Payload/Originals/9762f0878c93d8c19c3cc1b8c202012972e64c83e405ea797aa9904f68886aa9.azw3",
+      "byteLength": 36,
+      "sha256": "9762f0878c93d8c19c3cc1b8c202012972e64c83e405ea797aa9904f68886aa9"
+    },
+    {
+      "path": "with-english/Payload/Originals/cacca444ec6b98ae51201c347636440176a17adf4a9667a6fc5d4827b2364957.markdown",
+      "byteLength": 40,
+      "sha256": "cacca444ec6b98ae51201c347636440176a17adf4a9667a6fc5d4827b2364957"
+    },
+    {
+      "path": "with-english/Payload/Originals/d4c46d7bf1d8f739033ef9a0577d3ab729dbf436d679db17308928d1563d73e8.fb2",
+      "byteLength": 35,
+      "sha256": "d4c46d7bf1d8f739033ef9a0577d3ab729dbf436d679db17308928d1563d73e8"
+    },
+    {
+      "path": "with-english/Payload/Originals/e5309130e38b140449bff009b141132b120074943bb75dc2aa0b2e4d92de4107.mobi",
+      "byteLength": 36,
+      "sha256": "e5309130e38b140449bff009b141132b120074943bb75dc2aa0b2e4d92de4107"
+    },
+    {
+      "path": "with-english/Payload/Originals/ef1b04e5bc5f840b570af542d3f6728bfaccb677d780b4817cb1c70a9cad12f3.pdf",
+      "byteLength": 35,
+      "sha256": "ef1b04e5bc5f840b570af542d3f6728bfaccb677d780b4817cb1c70a9cad12f3"
+    },
+    {
+      "path": "with-english/Payload/Originals/f50477632480ee96156ba541eba06ea06206e3f75a38599035fca3f543f2cc49.xml",
+      "byteLength": 35,
+      "sha256": "f50477632480ee96156ba541eba06ea06206e3f75a38599035fca3f543f2cc49"
+    },
+    {
+      "path": "with-english/Payload/Originals/fccb2fe67bca6f291f476a65e059040548e80a73842d454319ffd5d75f02a6b9.cb7",
+      "byteLength": 35,
+      "sha256": "fccb2fe67bca6f291f476a65e059040548e80a73842d454319ffd5d75f02a6b9"
+    },
+    {
+      "path": "with-english/Payload/book-metadata-v1.json",
+      "byteLength": 302,
+      "sha256": "894d23a241cc5ebf8b329b8351bdf10166ff9b34c5763e89d596a8bb578fe9b7"
+    },
+    {
+      "path": "with-english/Payload/comics-cb7-v1.json",
+      "byteLength": 554,
+      "sha256": "99e7cb3a1fb8ab47b81daaae2149734a743c2508ae122cb91240a30922856a40"
+    },
+    {
+      "path": "with-english/Payload/comics-cbr-v1.json",
+      "byteLength": 554,
+      "sha256": "18e6e6129979cbcaa6dda73456118cbbc76a241dfcdc1e0d29a3ef58912c6534"
+    },
+    {
+      "path": "with-english/Payload/comics-cbt-v1.json",
+      "byteLength": 554,
+      "sha256": "d45a9d397e6fa00446790498eb3ac6e0324c1fc68a7839f9f322a1ef12fe0011"
+    },
+    {
+      "path": "with-english/Payload/comics-v1.json",
+      "byteLength": 554,
+      "sha256": "05481fd4b369625207ab146ec29367af9e32df24f53a789cc2485b494d8bf83b"
+    },
+    {
+      "path": "with-english/Payload/docx-mammoth-v1.json",
+      "byteLength": 1016,
+      "sha256": "9fef6914eb7f788234b8c21a604de17908ebd51305489ac33267cfd037763b81"
+    },
+    {
+      "path": "with-english/Payload/ebook-kookit-v1.json",
+      "byteLength": 3377,
+      "sha256": "d68f8ed9b509c5850e33a479f99249e19e0a0c218aeca9f77677e88c6bf6ac1f"
+    },
+    {
+      "path": "with-english/Payload/epub-v1.json",
+      "byteLength": 1124,
+      "sha256": "4d6be2d32907c66c12665bc58298e8b388edd329032c1e9aa33c79f789722d14"
+    },
+    {
+      "path": "with-english/Payload/japanese-learning-v1.json",
+      "byteLength": 1109,
+      "sha256": "d4a1a760ba9254a68ad98f1a4706d156634af271dca328d6b8e01630436c9889"
+    },
+    {
+      "path": "with-english/Payload/learning-v1.json",
+      "byteLength": 1052,
+      "sha256": "fa6ae335b3d7b3dcf7006c21f952c8d39dda8ed83c968d2c99bb3a4e275af456"
+    },
+    {
+      "path": "with-english/Payload/library-v1.json",
+      "byteLength": 899,
+      "sha256": "a59205a8dbd7f6d5c733d2c4f54872e248a34460f5a374f1a4b710ea43f402d8"
+    },
+    {
+      "path": "with-english/Payload/local-recovery-v1.json",
+      "byteLength": 2347,
+      "sha256": "cf1b6c2ccf2c60d98ffaaadfedd5243b37146c0ac8b5de9dcbc976628649f802"
+    },
+    {
+      "path": "with-english/Payload/text-formats-v1.json",
+      "byteLength": 6095,
+      "sha256": "9967951b47b42d2aae1f5e1767bb0874c16e1631e7dad2ad69a6b0f98b5325f3"
+    },
+    {
+      "path": "with-english/inventory-v1.json",
+      "byteLength": 5419,
+      "sha256": "2325ce0c3e63327b8ba17bab6eb6a1760f8ee2bb548fb534c7720dcc48c4855b"
+    }
+  ],
+  "privateData": false,
+  "nativeRenderingClaim": false
+}

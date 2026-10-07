@@ -63,6 +63,27 @@ struct RecoveryRegistry: Sendable {
             adapters[item.filename] = RecoveryAdapter(item.filename, collections: ["notes"], validate: item.validate, extraAssociations: item.associations)
         }
     }
+    /// Admit only the current complete profile or the complete pre-provenance v1
+    /// profile exported by 88ff6d6, with the same English-adapter configuration.
+    /// A legacy payload is decoded by its own profile: it cannot hide a new
+    /// sidecar, .backup or tombstone fragment behind an old inventory declaration.
+    func backupRegistry(forDeclaredAdapters names: [String]) throws -> Self {
+        let declared = Set(names), current = Set(adapters.keys)
+        guard declared.count == names.count else { throw LocalRecoveryError.invalidPackage }
+        if declared == current { return self }
+        var legacy: Set<String> = ["library-v1.json", "epub-v1.json", "comics-v1.json", "comics-cbt-v1.json",
+            "comics-cb7-v1.json", "comics-cbr-v1.json", "docx-mammoth-v1.json", "text-formats-v1.json",
+            "ebook-kookit-v1.json", "learning-v1.json", "japanese-learning-v1.json", "book-metadata-v1.json", "covers-v1.json"]
+        if adapters["english-learning-v1.json"] != nil { legacy.insert("english-learning-v1.json") }
+        // Future registry growth must define a new audited compatibility rule,
+        // rather than implicitly accepting every subset of its current adapters.
+        guard current == legacy.union(["bundled-examples-v1.json"]), declared == legacy else {
+            throw LocalRecoveryError.invalidPackage
+        }
+        var previous = self
+        previous.adapters.removeValue(forKey: "bundled-examples-v1.json")
+        return previous
+    }
     static func object(_ data: Data) throws -> [String: Any] {
         guard data.count <= LocalRecoveryLimits.manifestBytes, JapaneseLearningJSON.hasUniqueKeysForStore(data),
               let value = try JSONSerialization.jsonObject(with: data) as? [String: Any],

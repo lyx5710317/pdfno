@@ -176,8 +176,8 @@ public actor LocalRecoveryService {
         guard Set(object.keys) == ["schemaVersion", "format", "id", "createdAt", "adapters", "entries", "totalBytes", "omittedDrafts"],
               let rows = object["entries"] as? [[String: Any]], rows.allSatisfy({ Set($0.keys) == ["path", "byteLength", "sha256"] }) else { throw LocalRecoveryError.invalidPackage }
         let inventory = try JSONDecoder().decode(LocalRecoveryInventory.self, from: bytes)
+        let packageRegistry = try registry.backupRegistry(forDeclaredAdapters: inventory.adapters)
         guard inventory.format == "pdfno-directory-backup-1", inventory.createdAt.timeIntervalSince1970.isFinite,
-              Set(inventory.adapters) == Set(registry.adapters.keys), inventory.adapters.count == registry.adapters.count,
               inventory.omittedDrafts.allSatisfy({ RecoveryFiles.drafts.contains($0) || RecoveryFiles.drafts.map({ $0 + ".backup" }).contains($0) }),
               Set(inventory.omittedDrafts).count == inventory.omittedDrafts.count,
               inventory.entries.count <= LocalRecoveryLimits.entries, inventory.totalBytes >= 0,
@@ -192,7 +192,7 @@ public actor LocalRecoveryService {
         }
         guard total == inventory.totalBytes else { throw LocalRecoveryError.integrity }
         let payload = try RecoveryFiles.checked(package, "Payload")
-        let actual = try RecoveryFiles.capture(payload, registry: registry)
+        let actual = try RecoveryFiles.capture(payload, registry: packageRegistry)
         guard actual.files == files, actual.omittedDrafts.isEmpty else { throw LocalRecoveryError.invalidPackage }
         return (inventory, bytes, actual)
     }
