@@ -49,7 +49,17 @@ final class EbookFormatUITests: XCTestCase {
         XCTAssertTrue(nav.waitForExistence(timeout: 25)); waitEnabled(nav)
         XCTAssertFalse(app.buttons["reader-ai"].exists); XCTAssertFalse(app.buttons["reader-page-translation"].exists)
         let text = try webText(app, prefix: paragraph)
-        text.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
+        // DOM readiness can precede its first accessible layout. Select within
+        // the actual first text line, whose center remains inside the glyphs
+        // when the paragraph wraps in the wider reader-only workspace.
+        let selectable = expectation(for: NSPredicate { _, _ in
+            text.exists && !text.frame.isEmpty && text.isHittable
+        }, evaluatedWith: text)
+        wait(for: [selectable], timeout: 15)
+        let textFrame = text.frame
+        let firstWord = CGVector(dx: min(12, textFrame.width / 2), dy: min(12, textFrame.height / 2))
+        print("PDFNO_EBOOK_TEXT_POINT format=\(format) frame=\(textFrame) offset=\(firstWord)")
+        text.coordinate(withNormalizedOffset: .zero).withOffset(firstWord).doubleClick()
         app.buttons["ebook-notes"].firstMatch.click()
         let selected = app.descendants(matching: .any).matching(identifier: "ebook-selection").firstMatch
         XCTAssertTrue(selected.waitForExistence(timeout: 8))
