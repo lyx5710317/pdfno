@@ -149,6 +149,10 @@ final class ProfessionalReaderUITests: XCTestCase {
     @MainActor func testARegularLightPanelsRestoreReadingArea() throws {
         let app = try originalApp(width: 1280, dark: false); defer { app.terminate() }
         try click(item("open-sample", app))
+        // Opening the fixture is asynchronous. A window screenshot alone can
+        // capture the Library loading sheet, so require actual reader state.
+        contains(item("page-position", app), "1 / 2")
+        XCTAssertTrue(item("professional-reader-tool-rail", app).exists)
         try capture("A-product-01-default-light", app: app)
         try click(item("reader-navigation", app)); try click(item("reader-notes", app))
         let navigation = item("reader-navigation-panel", app), notes = item("reader-notes-panel", app)
