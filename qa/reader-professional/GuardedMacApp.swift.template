@@ -49,7 +49,33 @@ import PDFnoUI
     var body: some Scene {
         WindowGroup("PDFno A · Isolated original-fixture QA", id: "library") {
             LibraryWorkspace().frame(minWidth: 720, minHeight: 520).preferredColorScheme(appearance)
+                .background(QAWindowSize(width: width, height: height))
         }.defaultSize(width: width, height: height).defaultPosition(.center)
             .commands { CommandGroup(replacing: .newItem) {} }
+    }
+}
+
+// SwiftUI defaultSize does not override the frame restored for this QA bundle.
+// Size only the window hosting this guarded fixture, never another app's window.
+private struct QAWindowSize: NSViewRepresentable {
+    let width: CGFloat
+    let height: CGFloat
+    func makeNSView(context: Context) -> QAWindowView {
+        let view = QAWindowView()
+        view.requestedSize = NSSize(width: width, height: height)
+        return view
+    }
+    func updateNSView(_ view: QAWindowView, context: Context) {}
+}
+private final class QAWindowView: NSView {
+    var requestedSize = NSSize(width: 1280, height: 800)
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let window else { return }
+        DispatchQueue.main.async { [weak self, weak window] in
+            guard let self, let window, self.window === window else { return }
+            window.setContentSize(self.requestedSize)
+            window.center()
+        }
     }
 }

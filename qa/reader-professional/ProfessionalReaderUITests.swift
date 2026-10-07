@@ -36,6 +36,22 @@ final class ProfessionalReaderUITests: XCTestCase {
         let ready = expectation(for: NSPredicate { _, _ in element.exists && (element.label + " " + (element.value as? String ?? "")).contains(text) }, evaluatedWith: element)
         wait(for: [ready], timeout: 15)
     }
+    @MainActor private func originalWebText(_ text: String, app: XCUIApplication) throws -> XCUIElement {
+        // Same real WebKit roles/value handling as the original EPUB regressions.
+        // macOS 15 may expose ruby as a group and text through value, not label.
+        var found: XCUIElement?
+        let ready = expectation(for: NSPredicate { _, _ in
+            let label = app.webViews.firstMatch.descendants(matching: .any).matching(
+                NSPredicate(format: "label BEGINSWITH %@", text)).firstMatch
+            if label.exists { found = label; return true }
+            found = app.webViews.firstMatch.staticTexts.allElementsBoundByIndex.first {
+                ($0.value as? String)?.hasPrefix(text) == true
+            }
+            return found != nil
+        }, evaluatedWith: app)
+        wait(for: [ready], timeout: 20)
+        return try XCTUnwrap(found, "Actual original EPUB text must exist for real user selection")
+    }
     @MainActor private func pasteOriginal(_ text: String, app: XCUIApplication) {
         // Write fixture text only; do not read the user's clipboard.
         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
@@ -113,7 +129,7 @@ final class ProfessionalReaderUITests: XCTestCase {
     @MainActor func testANarrowEPUBPanelsKeepCanonicalSourceAndDraft() throws {
         let app = try originalApp(width: 720, dark: true); defer { app.terminate() }
         try click(item("open-epub-sample", app))
-        let paragraph = app.webViews.firstMatch.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "window")).firstMatch
+        let paragraph = try originalWebText("window", app: app)
         XCTAssertTrue(paragraph.waitForExistence(timeout: 20)); XCTAssertTrue(paragraph.isHittable)
         paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.5)).doubleClick()
         try click(item("epub-notes", app)); contains(item("epub-selection", app), "window")

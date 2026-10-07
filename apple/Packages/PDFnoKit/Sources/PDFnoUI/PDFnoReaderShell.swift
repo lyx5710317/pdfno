@@ -61,6 +61,9 @@ struct PDFnoReaderPlacement: Equatable {
 struct PDFnoReaderShell<Reader: View, Navigation: View, Notes: View>: View {
     let panels: PDFnoReaderPanels
     var profile = PDFnoReaderLayoutProfile.standard
+    // Reflowable readers must not invalidate a fixed selection merely because
+    // its inspector opens. Panels cover their viewport instead of resizing it.
+    var overlayPanels = false
     @ViewBuilder let reader: () -> Reader
     @ViewBuilder let navigation: () -> Navigation
     @ViewBuilder let notes: () -> Notes
@@ -69,8 +72,8 @@ struct PDFnoReaderShell<Reader: View, Navigation: View, Notes: View>: View {
             let layout = panels.placement(width: geometry.size.width, profile: profile)
             ZStack(alignment: .topLeading) {
                 reader()
-                    .padding(.leading, layout.leading)
-                    .padding(.trailing, layout.trailing)
+                    .padding(.leading, overlayPanels ? 0 : layout.leading)
+                    .padding(.trailing, overlayPanels ? 0 : layout.trailing)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .zIndex(0)
                 if layout.showNavigation {
