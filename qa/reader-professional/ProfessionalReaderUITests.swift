@@ -84,6 +84,10 @@ final class ProfessionalReaderUITests: XCTestCase {
         app.typeKey("v", modifierFlags: .command)
     }
     @MainActor private func searchOriginal(_ app: XCUIApplication) throws {
+        // Example import is asynchronous. Begin the keyboard check only after
+        // the real PDF reader has appeared, then focus this fixture window.
+        contains(item("page-position", app), "1 / 2")
+        app.activate()
         app.typeKey("f", modifierFlags: .command)
         let input = item("search-input", app)
         XCTAssertTrue(input.waitForExistence(timeout: 10))

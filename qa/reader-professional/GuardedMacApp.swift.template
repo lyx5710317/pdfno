@@ -84,6 +84,7 @@ private final class QAWindowView: NSView {
         guard let window else { return }
         DispatchQueue.main.async { [weak self, weak window] in
             guard let self, let window, self.window === window else { return }
+            window.subtitle = "设计原型 · 自制离线示例"
             window.setContentSize(self.requestedSize)
             window.center()
         }
