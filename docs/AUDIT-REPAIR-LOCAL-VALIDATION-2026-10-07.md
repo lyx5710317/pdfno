@@ -2,7 +2,7 @@
 
 产品候选：`7c766decd7e7631a30279a31865bf42b4e89fb43`；基线：`0fdcbc58c0b4af28412d2edcbf7a727cefde7d74`。工作树位于 `/Users/artsmartluo/pdfno/pdfno/.build/MacUIExperience/2026-10-06/tree`，分支 `feature/mac-ui-experience-20261006`。本轮只做本地开发与验证，未 push、dispatch、合并 main 或发布。
 
-三项修复已经实现，完整 Swift、Node 与 Mac 双架构编译通过。独立审计复核允许在单进程代码和合成证据范围内关闭三项。**本候选完整 60 项 GUI 尚未验收：初次运行及用户确认解锁后的授权恢复运行均在 runner 初始化阶段超时，每次都是零方法开始、零 App 启动。** 历史候选的 60 项通过不能代替本候选结果。恢复期间产品代码、原测试和编译产物未变，没有重复 Swift、Node 或双架构编译。
+三项修复已经实现，完整 Swift、Node 与 Mac 双架构编译通过。独立审计复核允许在单进程代码和合成证据范围内关闭三项。**本候选完整 60 项实际隔离 GUI 已验收：60 PASS、0 FAIL、0 SKIP，exit 0；原 56 项与段落 4 项全部通过，每个方法在这轮完整复验中唯一开始和完成一次。** 初次及解锁恢复的两次零方法初始化失败完整保留；随后通过成功/失败任务对比修正测试 destination，先取得一个原设置方法的启动验证，再完整复验。期间产品代码、原测试和二进制未变，没有重复 Swift、Node 或双架构编译。
 
 ## 修改与证据范围
 
@@ -30,12 +30,14 @@
 | 旧日语代码负对照 | 预期 exit 1：3 方法，四个旧行为分支、8 个断言 issue；直接观察错误值 | `pre-fix-japanese-negative-control-direct-values-command.json` 及同名 log |
 | 本候选完整 60 UI 单次尝试 | **BLOCKED**，exit 65；0 方法开始/完成，0 App 启动；正式 xcresult 是 1 条 runner 系统失败 | `repair60-once-command.json`、`repair60-once.log`、`repair60-outcome.json`、`Repair60Once.xcresult` |
 | 用户确认解锁后的完整 60 UI 恢复 | **BLOCKED**，exit 65；0 方法开始/完成，0 App 启动；正式 xcresult 仍为 1 条 runner 系统失败 | `unlocked60-once-command.json`、`unlocked60-once.log`、`unlocked60-outcome.json`、`Unlocked60Once.xcresult` |
+| 默认 destination 针对性启动门禁 | 原设置方法 1 PASS、0 FAIL/SKIP，exit 0；实际启动 App，同二进制和 bundle | `defaultdest-probe-outcome.json`、`defaultdest-probe-once-command.json`、`DefaultDestinationProbeOnce.xcresult` |
+| 默认 destination 完整 60 UI | **PASS**，60/0/0，exit 0；正式 summary、方法树、原始 log 一致；约 2839.697 秒 | `defaultdest-full60-outcome.json`、`defaultdest-full60-once-command.json`、`DefaultDestinationFull60Once.xcresult` |
 
 负对照在冻结旧 package 中只追加新测试，旧生产源码保持字节一致；测试与新候选对应。8 个 issue 是四分支各有直接值与复合状态断言，不是 8 个产品缺陷；不是新候选失败，也没有把预期失败藏入通过计数。前期相关 78/8 suites、草稿 47/3 suites 等日志另留 E，不与完整 572 相加。
 
 第一次 Mac 编译的执行 session 消失，原日志停在编译中，收据缺 exit/end，保留为 **UNKNOWN**。随后确认该 DerivedData 无打开文件、无编译器进程、重型锁空闲，才用新 `MacBuildRecovery` 完成一次连接恢复；没有覆盖原日志/产物或伪造原退出码。
 
-## GUI 阻塞与隔离
+## GUI 初始化诊断、恢复与隔离
 
 本轮专用 bundle 为 `org.pdfno.integration.auditrepair20261007.PDFnoMac`。隔离入口必须在 Scene 前验证 bundle、UUID session、offline 与 full60 scope，否则退出；书库在 `/tmp/PDFno-UITests-<UUID>`，进程记录仅放在 Library 外。测试 helper 每次新 UUID，使用合成 fixture 和拦截 transport，没有网络 fallback。专用 bundle 有独立偏好域；PDFnoKit 无 UserDefaults 调用，不宣称 UUID session 是一个另建的 defaults suite。
 
@@ -45,14 +47,18 @@ runner 的明确错误为 `Timed out while enabling automation mode`。两次运
 
 恢复使用同一个经过签名/双架构/SHA 核验的专用 bundle、新 UUID `DA53A5D7-C0A8-4AD3-9AEE-F5A35CF453C4`、新 xctestrun/result 目录，原 60 方法/断言无过滤无改动，原重型锁覆盖整个运行。初次检查曾把缺失的锁定字段过严地当成仍锁定，纠正门禁后才启动；错误检查期间没有 dispatch。原读数和纠正说明分别保存在 `unlocked60-readiness.json`、`unlocked60-readiness-interpretation.json`，没有伪造一个 false 布尔值。
 
-恢复实际 xcodebuild PID 71504、runner PID 71509；02:43:19 UTC runner 开始，02:44:19 UTC 初始化超时，02:44:27 UTC 测试 action 停止，命令于 02:44:27 UTC 结束。`unlocked60-action-log.json` 仅重述初始化超时，未给出更具体原因；本次 console log 不可用，查询 exit 1 与 `No console log available` 如实保留。没有导出截图附件或读取全局系统日志。结束后本次 PID 已退出、重型锁空闲；历史 InputProbe 保留不动，无信号，无排队 GUI，也没有自动重试、第三次运行、更改 TCC、权限、主题、输入法或自行解锁。
+解锁恢复实际 xcodebuild PID 71504、runner PID 71509；02:43:19 UTC runner 开始，02:44:19 UTC 初始化超时，02:44:27 UTC 测试 action 停止，命令于 02:44:27 UTC 结束。`unlocked60-action-log.json` 仅重述初始化超时，未给出更具体原因；本次 console log 不可用，查询 exit 1 与 `No console log available` 如实保留。此时没有盲目第三次运行、更改 TCC、权限、主题、输入法或自行解锁。
 
-全 60 GUI 仍需要在初始化阻塞解决的环境中完成；本轮没有可据此修复的产品错误，也不通过改变权限或反复重跑绕过。旧 19 张自制 fixture 截图保留原路径与 SHA，没有新增截图，也不作为本候选 GUI 证据或 Library 附件。初次本地收据与 handoff 保存为 `FINAL-RECEIPT-before-unlock.json`、`FINAL-HANDOFF-before-unlock.json` 后再更新当前收据，两次原始 log/xcresult/命令收据均保留。
+用户随后明确要求继续限定诊断，允许修复测试配置并先启动验证再完整 60。读取同机成功与失败 xcresult 的本任务 runner 日志后，确认两者 PID 授权均为 1/null，daemon session 均完成，同一 XCTAutomationSupport 25228；差异在 automation-mode 回调：成功轮 0.007 秒完成，失败轮等待 60.037 秒超时。归一化隔离 bundle、DerivedData 与 UUID 后 xctestrun 内容完全一致，entitlements 内容也相同；命令的具体差异是成功轮 `platform=macOS`（正式设备 arm64e），失败轮 `platform=macOS,arch=arm64`（正式设备 arm64）。对比证据在 `automation-init-comparison.json`、`runner-signature-info-comparison.json`。
+
+仅恢复默认 `platform=macOS`，保持同一已编译候选、bundle、签名、断言及权限，先运行一个原设置方法：实际 UI 1/1 通过，设备 arm64e，进程正常退出。然后以新 UUID、新结果目录无过滤串行执行完整 60：60 个唯一方法全部通过，原 56/段落 4 分组也匹配正式 metadata。完整复验 xcodebuild PID 74078，98 次本轮 App launch、64 个隔离 session；registry 已排除单方法门禁的旧记录，各 root 无进程 metadata。结束后本轮及门禁所有 owned PID 均退出，重型锁空闲；历史 InputProbe 保留不动，没有修改系统权限或结束用户/未知进程。此次配置恢复得到实际启动与完整通过证据，未反向再次触发显式 arch 失败，不能称已证明 Apple 内部唯一根因。
+
+诊断只使用已有本任务 xcresult 的 runner/session/testmanager 日志，未查询全局系统日志或内部数据库。Xcode 自带诊断导出还包含原已收集的 session systemlog archive，未解码/读取该 archive；未新增收集其他应用日志或导出截图附件。旧 19 张自制 fixture 截图保留原路径与 SHA，没有新增截图，也不作为本候选 GUI 证据或 Library 附件。每次运行及最初门禁错误都保留原始收据；不是自动 retry，也没有用零方法结果充当通过。前版最终收据/patch 依次保存为 `*-before-unlock.*`、`*-before-default-destination.*` 后再更新当前结果。
 
 ## 独立复核与剩余边界
 
-独立报告：`/Users/artsmartluo/pdfno/pdfno/.build/IndependentAudit/2026-10-07-7c766dec/REPAIR-REVIEW.zh-CN.md`。审阅者核验冻结源码、探针正文、负对照和原始日志/收据，**未重跑测试或 GUI**；其三项限定关闭结论不等同于本候选 GUI 签收。本轮后来完成的 Mac 编译和 GUI 阻塞由实施收据记录，不改写独立报告。
+独立报告：`/Users/artsmartluo/pdfno/pdfno/.build/IndependentAudit/2026-10-07-7c766dec/REPAIR-REVIEW.zh-CN.md`。审阅者核验冻结源码、探针正文、负对照和原始日志/收据，**未重跑测试或 GUI**；其三项限定关闭结论不等同于本候选 GUI 签收。本轮后来完成的 Mac 编译、两次 GUI 阻塞、配置诊断和完整 60 通过由实施收据记录，不改写独立报告，也不把它称作审阅者再次执行或签收。
 
-其他仓库同类事务风险、V01 旧 EPUB callback 身份、V02、D01/D02、V03、旧 15 条 runtime warning 保持原状态；本轮没有 GUI 方法执行，不能声称警告已消除。真实模型/解释质量、真实 API、VoiceOver、Intel runtime、最旧系统与广泛书籍兼容未测。安全专项仍 UNVERIFIED / platform-blocked；iOS/mobile 后置，均未执行或重试。历史默认 Library metadata 启动偏差 UNKNOWN、CUA 迟到锁窗口 UNVERIFIED 保留。
+其他仓库同类事务风险、V01 旧 EPUB callback 身份、V02、D01/D02、V03 保持原状态。当前完整 60 正式 metadata 再次记录 15 条 runtime warning：14 条 QoS priority inversion、1 条 DOCX SwiftUI 更新期发布；逐方法消息在 `defaultdest-full60-outcome.json`，没有完整根因堆栈，本轮未扩展修复或声称消除。真实模型/解释质量、真实 API、VoiceOver、Intel runtime、最旧系统与广泛书籍兼容未测。安全专项仍 UNVERIFIED / platform-blocked；iOS/mobile 后置，均未执行或重试。历史默认 Library metadata 启动偏差 UNKNOWN、CUA 迟到锁窗口 UNVERIFIED 保留。
 
 main 保持 `6a67d1fd883f79737d0e3e12c756b683a662f230`，既有未跟踪 `apple/PDFno.xcodeproj/project.xcworkspace/` 保留。旧日志、编译产物和截图只读保全。新本地 `FINAL-RECEIPT.json`、`FINAL-HANDOFF.json`、`audit-repair-local.patch` 由 E 保存最终文档 commit、逐文件 SHA、执行收据与未验收项；没有有效 `library_file_id`，不冒称附件交付或发布完成。
