@@ -39,7 +39,9 @@ struct PDFnoProfessionalReaderChrome<Actions: View, Controls: View, Content: Vie
             }
         }.background(PDFnoDesign.Palette.chrome).tint(.blue)
             .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("professional-reader-workspace")
+        // An identifier on this composite root can replace the identifiers of
+        // native reader controls and panel containers on macOS. Name the real
+        // title, rail, buttons and panels individually instead.
     }
 }
 
