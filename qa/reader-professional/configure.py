@@ -9,6 +9,7 @@ parser.add_argument('--output', type=Path, required=True)
 args = parser.parse_args()
 out = args.output.resolve()
 receipt = json.loads((out / 'PREPARATION.json').read_text())
+assert len(receipt['production_inputs']) > 300, 'Reject an incomplete source-provenance manifest.'
 products = out / 'DerivedData/Build/Products'
 generated = list(products.glob('PDFnoMac_*.xctestrun'))
 assert len(generated) == 1

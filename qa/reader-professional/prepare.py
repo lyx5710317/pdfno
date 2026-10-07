@@ -17,7 +17,8 @@ shutil.copytree(ROOT / 'apple', snapshot / 'apple', ignore=shutil.ignore_pattern
 for name in ['LICENSE', 'SOURCE-NOTICES.md', 'THIRD_PARTY_NOTICES.md']:
     shutil.copy2(ROOT / name, snapshot / name)
 sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
-inputs = {str(p.relative_to(ROOT)): sha(p) for p in (ROOT / 'apple').rglob('*') if p.is_file() and not any(x in p.parts for x in ['.build','xcuserdata','project.xcworkspace'])}
+inputs = {str(p.relative_to(ROOT)): sha(p) for p in (ROOT / 'apple').rglob('*') if p.is_file() and not any(x in p.relative_to(ROOT).parts for x in ['.build','xcuserdata','project.xcworkspace'])}
+assert len(inputs) > 300, 'The full Apple source input manifest must never be empty.'
 preview = str(uuid.uuid4()).upper()
 registry = out / 'Registry'
 app = (ROOT / 'qa/reader-professional/GuardedMacApp.swift.template').read_text().replace('__PREVIEW_UUID__', preview).replace('__REGISTRY_ROOT__', str(registry))
