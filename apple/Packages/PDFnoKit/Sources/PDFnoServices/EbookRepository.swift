@@ -69,13 +69,19 @@ public actor EbookRepository {
         return try importBook(Self.boundedRead(url), filename: url.lastPathComponent)
     }
     public func importBook(_ data: Data, filename: String, candidate: EbookBook? = nil) throws -> EbookBook {
+        try importBookWithStatus(data, filename: filename, candidate: candidate).book
+    }
+    public func importBookWithStatus(_ data: Data, filename: String, candidate: EbookBook? = nil) throws -> LocalImportResult<EbookBook> {
         let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
         defer { storeWrite.finish() }
+
+        let transaction = LocalImportTransactions.shared.lock(root)
+        transaction.lock(); defer { transaction.unlock() }
 
         guard let format = EbookFormat(rawValue: URL(fileURLWithPath: filename).pathExtension.lowercased()) else { throw EbookError.unsupportedContent }
         let kind = try EbookPreflight.validate(data, format: format)
         var state = try load(); let hash = Self.hash(data)
-        if let book = state.books.first(where: { $0.fileSHA256 == hash && $0.format == format }) { _ = try read(book); return book }
+        if let book = state.books.first(where: { $0.fileSHA256 == hash && $0.format == format }) { _ = try read(book); return .init(book: book, created: false) }
         let name = URL(fileURLWithPath: filename).lastPathComponent
         let title = URL(fileURLWithPath: name).deletingPathExtension().lastPathComponent
         let book = candidate ?? EbookBook(fileSHA256: hash, format: format, contentKind: kind, title: title.isEmpty ? "Ebook" : title, originalFilename: name)
@@ -86,7 +92,7 @@ public actor EbookRepository {
         if FileManager.default.fileExists(atPath: url.path) {
             guard Self.hash(try Self.boundedRead(url)) == hash else { throw EbookError.sourceMismatch }
         } else { try data.write(to: url, options: .atomic) }
-        try commit(state); return book
+        try commit(state); return .init(book: book, created: true)
     }
     public func read(_ book: EbookBook) throws -> Data {
         guard EbookBook.validHash(book.fileSHA256), (try load()).books.contains(where: {

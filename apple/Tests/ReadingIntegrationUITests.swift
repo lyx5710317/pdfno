@@ -6,6 +6,29 @@ import AppKit
 /// Original fixtures and UUID stores only. Local execution additionally requires
 /// the distinct application ID supplied by the isolated project/test receipt.
 final class ReadingIntegrationUITests: XCTestCase {
+    // Navigation driver only: existing behavior assertions remain in the methods.
+    @MainActor private func navigateWorkspace(_ id: String, in app: XCUIApplication) {
+        #if os(macOS)
+        func target(_ name: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: name).firstMatch }
+        if target(id).exists { return }
+        let example = id.hasPrefix("open-") && id.contains("sample")
+        let tools = ["ai-settings", "ai-tools-open", "bookno-preview-open", "document-conversion", "library-local-recovery"].contains(id)
+        if example || tools {
+            app.typeKey(.escape, modifierFlags: [])
+            let launcher = target(example ? "workspace-help" : "workspace-tools")
+            XCTAssertTrue(launcher.waitForExistence(timeout: 15)); launcher.click()
+        } else {
+            if target("workspace-back-library").exists { target("workspace-back-library").click() }
+            XCTAssertTrue(target("professional-library-workspace").waitForExistence(timeout: 15))
+            if id.hasPrefix("library-") || id.hasPrefix("cover-image-") {
+                if !target(id).waitForExistence(timeout: 2), target("library-category-examples").exists {
+                    target("library-category-examples").click()
+                }
+            }
+        }
+        #endif
+    }
+
     @MainActor private func app(paragraphScenario: String? = nil) -> XCUIApplication {
         let app: XCUIApplication
         if let id = ProcessInfo.processInfo.environment["PDFNO_ISOLATED_UI_APPLICATION_ID"] {
@@ -54,6 +77,7 @@ final class ReadingIntegrationUITests: XCTestCase {
 
     @MainActor func testMacPDFSearchTOCReturnAndTextInputProtection() throws {
         let app = app(); defer { app.terminate() }
+        navigateWorkspace("open-sample", in: app)
         try click(element("open-sample", in: app))
         let position = element("page-position", in: app), back = element("reader-return-location", in: app)
         value(position, contains: "1 / 2")
@@ -80,6 +104,7 @@ final class ReadingIntegrationUITests: XCTestCase {
 
     @MainActor func testMacEPUBTOCAndCanonicalReturnUseActualRuntime() throws {
         let app = app(); defer { app.terminate() }
+        navigateWorkspace("open-epub-sample", in: app)
         try click(element("open-epub-sample", in: app))
         let position = element("epub-position", in: app), back = element("epub-return-location", in: app)
         value(position, contains: "第 1 章")
@@ -98,9 +123,11 @@ final class ReadingIntegrationUITests: XCTestCase {
 
     @MainActor func testMacToolsRouteRequiresConsentAndManualSave() throws {
         let app = app(); defer { app.terminate() }
+        navigateWorkspace("ai-settings", in: app)
         try click(element("ai-settings", in: app))
         try click(element("ai-use-mock", in: app))
         try click(element("ai-settings-save", in: app))
+        navigateWorkspace("open-sample", in: app)
         try click(element("open-sample", in: app)); try search("window", in: app)
         try click(element("reader-ai-tools", in: app))
         value(element("ai-tool-explain", in: app), contains: "可进入")
@@ -119,6 +146,7 @@ final class ReadingIntegrationUITests: XCTestCase {
 
     @MainActor func testMacSettingsCategoriesPreserveUnappliedConfiguration() throws {
         let app = app(); defer { app.terminate() }
+        navigateWorkspace("ai-settings", in: app)
         try click(element("ai-settings", in: app))
         try click(element("ai-use-deepseek", in: app))
         let label = element("ai-provider-label", in: app)
@@ -129,6 +157,7 @@ final class ReadingIntegrationUITests: XCTestCase {
         try category("AI", id: "ai", in: app)
         XCTAssertEqual(element("ai-provider-label", in: app).value as? String, "Original pending label")
         try click(element("ai-settings-cancel", in: app))
+        navigateWorkspace("ai-settings", in: app)
         try click(element("ai-settings", in: app))
         XCTAssertNotEqual(element("ai-provider-label", in: app).value as? String, "Original pending label")
     }
@@ -187,15 +216,18 @@ final class ReadingIntegrationUITests: XCTestCase {
         return try XCTUnwrap(found, "Actual WebKit original paragraph must be exposed for user selection")
     }
     @MainActor private func prepareParagraph(_ app: XCUIApplication, epub: Bool = false) throws {
+        navigateWorkspace("ai-settings", in: app)
         try click(element("ai-settings", in: app)); try click(element("ai-use-deepseek", in: app))
         let key = element("ai-session-key", in: app); try paragraphPaste("synthetic-reading-ui-credential", into: key)
         try click(element("ai-settings-save", in: app))
         if epub {
+            navigateWorkspace("open-epub-sample", in: app)
             try click(element("open-epub-sample", in: app)); value(element("epub-position", in: app), contains: "第 1 章")
             let text = try paragraphWebText(in: app)
             XCTAssertTrue(text.isHittable)
             text.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
             try click(element("epub-ai-tools", in: app))
+        navigateWorkspace("open-sample", in: app)
         } else { try click(element("open-sample", in: app)); try paragraphSearch("window", in: app); try click(element("reader-ai-tools", in: app)) }
         try click(element("ai-tool-explain", in: app))
         value(element("ai-source-quote", in: app), contains: "window")

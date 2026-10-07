@@ -59,6 +59,9 @@ public actor EPUBRepository {
         try bytes.write(to: manifest, options: .atomic)
     }
     public func importBook(_ data: Data, filename: String) throws -> EPUBBook {
+        try importBookWithStatus(data, filename: filename).book
+    }
+    public func importBookWithStatus(_ data: Data, filename: String) throws -> LocalImportResult<EPUBBook> {
         let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
         defer { storeWrite.finish() }
         let transaction = EPUBManifestTransactions.shared.lock(for: root)
@@ -66,11 +69,11 @@ public actor EPUBRepository {
 
         _ = try EPUBArchive.validate(data)
         var state = try load(); let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-        if let existing = state.books.first(where: { $0.fileSHA256 == hash }) { return existing }
+        if let existing = state.books.first(where: { $0.fileSHA256 == hash }) { return .init(book: existing, created: false) }
         let name = URL(fileURLWithPath: filename).lastPathComponent
         let book = EPUBBook(fileSHA256: hash, title: URL(fileURLWithPath: name).deletingPathExtension().lastPathComponent, originalFilename: name)
         let asset = url(book); try FileManager.default.createDirectory(at: asset.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try data.write(to: asset, options: .atomic); state.books.append(book); try commit(state); return book
+        try data.write(to: asset, options: .atomic); state.books.append(book); try commit(state); return .init(book: book, created: true)
     }
     public func read(_ book: EPUBBook) throws -> Data {
         guard (try load()).books.contains(where: { $0.id == book.id && $0.fileSHA256 == book.fileSHA256 }) else { throw EPUBError.sourceMismatch }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
-"""Prepare a guarded snapshot and four extra UI regressions. Never launches GUI."""
+"""Prepare a guarded snapshot and eight extra UI regressions. Never launches GUI."""
 from pathlib import Path
 import argparse, hashlib, json, shutil, subprocess, uuid
 
@@ -62,7 +62,7 @@ p.write_text(s)
 import re
 legacy = re.findall(r'^\| `(\w+UITests/test\w+)` \| Passed \|', (ROOT/'docs/MAC-UI-FINAL-ACCEPTANCE-2026-10-06.md').read_text(), re.M)
 extra_methods = ['ProfessionalReaderUITests/'+name for name in re.findall(r'func (test\w+)\(',extra.read_text())]
-assert len(legacy)==60 and len(set(legacy))==60 and len(extra_methods)==4
-receipt = {'source_head': head, 'branch': subprocess.check_output(['git','branch','--show-current'],cwd=ROOT,text=True).strip(), 'bundle':bundle,'bundle_prefix':prefix,'source':str(snapshot),'preview_uuid':preview,'preview_root':'/tmp/PDFno-UITests-'+preview,'registry':str(registry),'production_inputs':inputs,'qa_only_deviations':changes,'extra_ui_file_sha256':sha(extra),'production_original_four_ui_sha256':{p.name:sha(p) for p in (ROOT/'apple/Tests').glob('*.swift')},'gui_started':False,'new_ui_methods':4,'expected_methods':sorted(legacy+extra_methods),'new_accounts_or_packages':False}
+assert len(legacy)==60 and len(set(legacy))==60 and len(extra_methods)==8
+receipt = {'source_head': head, 'branch': subprocess.check_output(['git','branch','--show-current'],cwd=ROOT,text=True).strip(), 'bundle':bundle,'bundle_prefix':prefix,'source':str(snapshot),'preview_uuid':preview,'preview_root':'/tmp/PDFno-UITests-'+preview,'registry':str(registry),'production_inputs':inputs,'qa_only_deviations':changes,'extra_ui_file_sha256':sha(extra),'production_original_four_ui_sha256':{p.name:sha(p) for p in (ROOT/'apple/Tests').glob('*.swift')},'gui_started':False,'new_ui_methods':len(extra_methods),'expected_methods':sorted(legacy+extra_methods),'new_accounts_or_packages':False}
 (out/'PREPARATION.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2))
-print(json.dumps({'bundle':receipt['bundle'],'source':str(snapshot),'gui_started':False,'extra_ui_methods':4}))
+print(json.dumps({'bundle':receipt['bundle'],'source':str(snapshot),'gui_started':False,'extra_ui_methods':len(extra_methods)}))

@@ -7,6 +7,29 @@ import AppKit
 /// Compile locally; execute only in isolated CI/VM/OS user with explicit scope.
 /// UUID stores and intercepted transport do not isolate an existing app process.
 final class NextBatchUITests: XCTestCase {
+    // Navigation driver only: existing behavior assertions remain in the methods.
+    @MainActor private func navigateWorkspace(_ id: String, in app: XCUIApplication) {
+        #if os(macOS)
+        func target(_ name: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: name).firstMatch }
+        if target(id).exists { return }
+        let example = id.hasPrefix("open-") && id.contains("sample")
+        let tools = ["ai-settings", "ai-tools-open", "bookno-preview-open", "document-conversion", "library-local-recovery"].contains(id)
+        if example || tools {
+            app.typeKey(.escape, modifierFlags: [])
+            let launcher = target(example ? "workspace-help" : "workspace-tools")
+            XCTAssertTrue(launcher.waitForExistence(timeout: 15)); launcher.click()
+        } else {
+            if target("workspace-back-library").exists { target("workspace-back-library").click() }
+            XCTAssertTrue(target("professional-library-workspace").waitForExistence(timeout: 15))
+            if id.hasPrefix("library-") || id.hasPrefix("cover-image-") {
+                if !target(id).waitForExistence(timeout: 2), target("library-category-examples").exists {
+                    target("library-category-examples").click()
+                }
+            }
+        }
+        #endif
+    }
+
     @MainActor private func element(_ id: String, _ app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
@@ -116,6 +139,7 @@ final class NextBatchUITests: XCTestCase {
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
         app.launch(); app.activate()
+        navigateWorkspace("open-sample", in: app)
         click(app.buttons["open-sample"].firstMatch)
         text(element("page-position", app), contains: "1 / 2")
     }
@@ -130,6 +154,7 @@ final class NextBatchUITests: XCTestCase {
         XCTAssertTrue(element("english-offline-fixture", app).waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["english-learning-start"].firstMatch.isEnabled)
         click(app.buttons["english-learning-close"].firstMatch)
+        navigateWorkspace("ai-settings", in: app)
         click(app.buttons["ai-settings"].firstMatch); click(app.buttons["ai-use-deepseek"].firstMatch)
         let key = app.secureTextFields["ai-session-key"].firstMatch
         reveal(key, form: "ai-settings-form", app: app); click(key); pasteFixture("synthetic-reading-ui-credential", into: key)
@@ -162,6 +187,7 @@ final class NextBatchUITests: XCTestCase {
         text(element("page-position", app), contains: "1 / 2")
         app.terminate(); app.launch(); app.activate()
         XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent("english-learning-v1.json")), bytes)
+        navigateWorkspace("library-book", in: app)
         click(element("library-book", app))
         click(app.buttons["reader-navigation"].firstMatch)
         let repeatSearch = app.textFields["search-input"].firstMatch; click(repeatSearch); pasteFixture("window", into: repeatSearch)
@@ -178,6 +204,7 @@ final class NextBatchUITests: XCTestCase {
         let book = try XCTUnwrap((before["books"] as? [[String: Any]])?.first), id = try XCTUnwrap(book["id"] as? String)
         let hash = try XCTUnwrap(book["fileSHA256"] as? String)
         let original = root.appendingPathComponent("Originals/" + hash + ".pdf"), bytes = try Data(contentsOf: original)
+        navigateWorkspace("library-local-recovery", in: app)
         click(app.buttons["library-local-recovery"].firstMatch)
         let remove = app.buttons["local-recovery-trash-" + id].firstMatch
         reveal(remove, form: "local-recovery-form", app: app); click(remove)
@@ -225,6 +252,7 @@ final class NextBatchUITests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: recovered.appendingPathComponent("record-edit-drafts-v1.json").path))
         print("Synthetic recovery checkpoint: new-root restoration and unchanged active library verified")
         click(app.buttons["local-recovery-close"].firstMatch)
+        navigateWorkspace("library-book", in: app)
         app.terminate(); app.launch(); app.activate(); click(element("library-book", app))
         text(element("page-position", app), contains: "1 / 2")
     }

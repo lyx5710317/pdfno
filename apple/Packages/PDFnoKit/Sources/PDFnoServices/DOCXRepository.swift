@@ -65,21 +65,28 @@ public actor DOCXRepository {
         }
         try data.write(to: manifest, options: .atomic)
     }
-    public func importFile(_ url: URL) throws -> DOCXBook {
+    public func importFile(_ url: URL) throws -> DOCXBook { try importFileWithStatus(url).book }
+    public func importFileWithStatus(_ url: URL) throws -> LocalImportResult<DOCXBook> {
         let ext = url.pathExtension.lowercased()
         guard ext != "doc" else { throw DOCXError.legacyDOC }
         guard ext == "docx" else { throw DOCXError.unsupportedContent }
-        return try importBook(Self.boundedRead(url), filename: url.lastPathComponent)
+        return try importBookWithStatus(Self.boundedRead(url), filename: url.lastPathComponent)
     }
     public func importBook(_ data: Data, filename: String) throws -> DOCXBook {
+        try importBookWithStatus(data, filename: filename).book
+    }
+    public func importBookWithStatus(_ data: Data, filename: String) throws -> LocalImportResult<DOCXBook> {
         let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
         defer { storeWrite.finish() }
+
+        let transaction = LocalImportTransactions.shared.lock(root)
+        transaction.lock(); defer { transaction.unlock() }
 
         guard URL(fileURLWithPath: filename).pathExtension.lowercased() != "doc" else { throw DOCXError.legacyDOC }
         guard URL(fileURLWithPath: filename).pathExtension.lowercased() == "docx" else { throw DOCXError.unsupportedContent }
         _ = try DOCXParser.preflight(data)
         var state = try load(); let hash = Self.hash(data)
-        if let book = state.books.first(where: { $0.fileSHA256 == hash }) { _ = try read(book); return book }
+        if let book = state.books.first(where: { $0.fileSHA256 == hash }) { _ = try read(book); return .init(book: book, created: false) }
         let name = URL(fileURLWithPath: filename).lastPathComponent
         let title = URL(fileURLWithPath: name).deletingPathExtension().lastPathComponent
         let book = DOCXBook(fileSHA256: hash, title: title.isEmpty ? "DOCX" : title, originalFilename: name)
@@ -89,7 +96,7 @@ public actor DOCXRepository {
         if FileManager.default.fileExists(atPath: url.path) {
             guard Self.hash(try Self.boundedRead(url)) == hash else { throw DOCXError.sourceMismatch }
         } else { try data.write(to: url, options: .atomic) }
-        try commit(state); return book
+        try commit(state); return .init(book: book, created: true)
     }
     public func read(_ book: DOCXBook) throws -> Data {
         guard DOCXBook.validHash(book.fileSHA256), (try load()).books.contains(where: {

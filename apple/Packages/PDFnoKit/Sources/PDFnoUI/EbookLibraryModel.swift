@@ -8,6 +8,7 @@ import PDFnoReaders
 
 /// Independent format slice. The shared LibraryModel only routes imports and active-reader state.
 @MainActor public final class EbookLibraryModel: ObservableObject {
+    var lastCreatedImport: BundledExampleIdentity?
     @Published public private(set) var books: [EbookBook] = []
     @Published public private(set) var notes: [EbookNote] = []
     @Published public private(set) var isActive = false
@@ -22,6 +23,7 @@ import PDFnoReaders
     }
     public func deactivate() { isActive = false; reader.close() }
     public func importFile(_ url: URL) async throws {
+        lastCreatedImport = nil
         let hostOperation = try LocalStoreWriteGate.shared(root: storageRoot).beginWrite()
         defer { hostOperation.finish() }
         guard !busy else { throw EbookError.cancelled }; busy = true; defer { busy = false }
@@ -32,7 +34,9 @@ import PDFnoReaders
         let candidate = EbookBook(fileSHA256: LibraryRepository.digest(data), format: format, contentKind: kind, title: url.deletingPathExtension().lastPathComponent, originalFilename: url.lastPathComponent)
         try await reader.open(data: data, book: candidate, notes: [])
         guard let document = reader.document else { throw EbookError.bridge }
-        let book = try await repository.importBook(data, filename: url.lastPathComponent, candidate: candidate)
+        let imported = try await repository.importBookWithStatus(data, filename: url.lastPathComponent, candidate: candidate)
+        let book = imported.book
+        if imported.created { lastCreatedImport = .init(format: book.format.rawValue, bookID: book.id, editionID: book.editionID, fileSHA256: book.fileSHA256) }
         try await repository.bindRenderedDocument(document, book: book)
         try await load(); try await activate(book)
     }

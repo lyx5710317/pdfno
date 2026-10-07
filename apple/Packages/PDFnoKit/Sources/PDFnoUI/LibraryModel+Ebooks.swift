@@ -11,6 +11,7 @@ extension LibraryModel {
         await saveProgress()
         do {
             try await ebook.importFile(url)
+            lastCreatedImport = ebook.lastCreatedImport
             epub.close(); comic.close(); docx.deactivate(); textFormats.deactivate(); readingEPUB = false; readingComic = false
             status = "电子书已保存到本地 · 原件保留"
         } catch { self.error = error.localizedDescription }
@@ -28,7 +29,7 @@ extension LibraryModel {
     }
     func openEbookSample(_ format: EbookFormat) async {
         if let root = Bundle.module.url(forResource: "Ebooks", withExtension: nil) {
-            await importEbook(root.appendingPathComponent("study-sample." + format.rawValue))
+            await importBundledExample(root.appendingPathComponent("study-sample." + format.rawValue))
         }
     }
 }

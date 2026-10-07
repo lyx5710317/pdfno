@@ -11,6 +11,8 @@ import PDFnoReaders
 public final class LibraryModel: ObservableObject {
     @Published var books: [BookRecord] = []
     @Published var notes: [ReadingNote] = []
+    var lastCreatedImport: BundledExampleIdentity?
+    @Published var bundledExamples: [BundledExampleRecord] = []
     @Published var isBusy = false
     @Published var storageMaintenance = false
     let storeWriteGate: LocalStoreWriteGate
@@ -200,6 +202,7 @@ public final class LibraryModel: ObservableObject {
             try await textFormats.load()
             try await ebook.load()
             #endif
+            bundledExamples = try await BundledExampleRepository(root: recordRoot).load().records
             await learning.load()
             #if os(macOS)
             await loadJapaneseLearningNotes()
@@ -208,6 +211,7 @@ public final class LibraryModel: ObservableObject {
         } catch { self.error = error.localizedDescription; canImport = false }
     }
     func importFile(_ url: URL) async {
+        lastCreatedImport = nil
         guard let hostOperation = try? storeWriteGate.beginWrite() else { return  }
         defer { hostOperation.finish() }
         learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
@@ -231,7 +235,9 @@ public final class LibraryModel: ObservableObject {
             guard let bytes = size.fileSize, bytes <= 200 * 1024 * 1024 else { throw LibraryError.fileTooLarge }
             let data = try await Task.detached { try BoundedFileReader.read(url, limit: 200 * 1024 * 1024) }.value
             guard let document = PDFDocument(data: data), !document.isLocked, document.pageCount > 0 else { throw ReaderError.invalidPDF }
-            let book = try await repository.importPDF(data, filename: url.lastPathComponent, pageCount: document.pageCount)
+            let imported = try await repository.importPDFWithStatus(data, filename: url.lastPathComponent, pageCount: document.pageCount)
+            let book = imported.book
+            if imported.created { lastCreatedImport = .init(format: "pdf", bookID: book.id, editionID: book.editionID, fileSHA256: book.fileSHA256) }
             await load(); try reader.open(data: data, book: book); reader.project(notes)
             #if os(macOS)
             epub.close(); comic.close(); docx.deactivate(); textFormats.deactivate(); ebook.deactivate()
@@ -281,7 +287,7 @@ public final class LibraryModel: ObservableObject {
         guard let url = Bundle.module.url(forResource: "study-sample", withExtension: "pdf") else {
             error = "随应用提供的测试 PDF 缺失。"; return
         }
-        await importFile(url)
+        await importBundledExample(url)
     }
     func saveNote(anchor: PDFSourceAnchor, text: String) async -> Bool {
         guard let hostOperation = try? storeWriteGate.beginWrite() else { return false }
@@ -353,7 +359,9 @@ public final class LibraryModel: ObservableObject {
             let info = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
             guard info.isRegularFile == true, let size = info.fileSize, size <= 20 * 1024 * 1024 else { throw EPUBError.resourceLimit }
             let data = try await Task.detached { try BoundedFileReader.read(url, limit: 20 * 1024 * 1024) }.value
-            let book = try await epubRepository.importBook(data, filename: url.lastPathComponent)
+            let imported = try await epubRepository.importBookWithStatus(data, filename: url.lastPathComponent)
+            let book = imported.book
+            if imported.created { lastCreatedImport = .init(format: "epub", bookID: book.id, editionID: book.editionID, fileSHA256: book.fileSHA256) }
             await load(); try await epub.open(data: data, book: book, notes: epubNotes)
             comic.close(); docx.deactivate(); textFormats.deactivate(); ebook.deactivate(); readingComic = false; readingEPUB = true
         } catch { self.error = error.localizedDescription }
@@ -381,7 +389,7 @@ public final class LibraryModel: ObservableObject {
         #endif
     }
     func openEPUBSample() async {
-        if let url = Bundle.module.url(forResource: "study-sample", withExtension: "epub") { await importEPUB(url) }
+        if let url = Bundle.module.url(forResource: "study-sample", withExtension: "epub") { await importBundledExample(url) }
     }
     #if os(macOS)
     func importDOCX(_ url: URL) async {
@@ -391,12 +399,12 @@ public final class LibraryModel: ObservableObject {
         guard canImport, !isBusy else { return }; isBusy = true; defer { isBusy = false }
         await saveProgress()
         do {
-            try await docx.importFile(url); textFormats.deactivate(); ebook.deactivate(); epub.close(); comic.close(); readingComic = false; readingEPUB = false
+            try await docx.importFile(url); lastCreatedImport = docx.lastCreatedImport; textFormats.deactivate(); ebook.deactivate(); epub.close(); comic.close(); readingComic = false; readingEPUB = false
             status = "DOCX 已保存到本地 · 语义重排阅读"
         } catch { self.error = error.localizedDescription }
     }
     func openDOCXSample() async {
-        if let url = Bundle.module.url(forResource: "study-sample", withExtension: "docx") { await importDOCX(url) }
+        if let url = Bundle.module.url(forResource: "study-sample", withExtension: "docx") { await importBundledExample(url) }
     }
     func openDOCX(_ book: DOCXBook) async {
         guard let hostOperation = try? storeWriteGate.beginWrite() else { return  }

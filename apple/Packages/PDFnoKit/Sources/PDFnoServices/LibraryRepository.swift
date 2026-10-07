@@ -105,6 +105,9 @@ public actor LibraryRepository {
         try bytes.write(to: manifest, options: .atomic)
     }
     public func importPDF(_ data: Data, filename: String, pageCount: Int) throws -> BookRecord {
+        try importPDFWithStatus(data, filename: filename, pageCount: pageCount).book
+    }
+    public func importPDFWithStatus(_ data: Data, filename: String, pageCount: Int) throws -> LocalImportResult<BookRecord> {
         let storeWrite = try LocalStoreWriteGate.shared(root: root).beginWrite()
         defer { storeWrite.finish() }
         let transaction = LibraryManifestTransactions.shared.lock(for: root)
@@ -114,7 +117,7 @@ public actor LibraryRepository {
         guard data.starts(with: Data("%PDF-".utf8)), pageCount > 0 else { throw LibraryError.invalidDocument }
         var state = try load()
         let hash = Self.digest(data)
-        if let existing = state.books.first(where: { $0.fileSHA256 == hash }) { return existing }
+        if let existing = state.books.first(where: { $0.fileSHA256 == hash }) { return .init(book: existing, created: false) }
         let name = URL(fileURLWithPath: filename).lastPathComponent
         let book = BookRecord(title: URL(fileURLWithPath: name).deletingPathExtension().lastPathComponent,
                               fileSHA256: hash, originalFilename: name, pageCount: pageCount)
@@ -123,7 +126,7 @@ public actor LibraryRepository {
         try data.write(to: url, options: .atomic)
         state.books.append(book)
         try commit(state)
-        return book
+        return .init(book: book, created: true)
     }
     public func readAsset(for book: BookRecord) throws -> Data {
         guard Self.isDigest(book.fileSHA256) else { throw LibraryError.sourceMismatch }

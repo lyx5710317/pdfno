@@ -13,7 +13,7 @@ import PDFnoUI
         let env = ProcessInfo.processInfo.environment
         guard let uuid = UUID(uuidString: env["PDFNO_UI_TEST_SESSION"] ?? "__PREVIEW_UUID__") else { exit(2) }
         let session = uuid.uuidString, scope = env["PDFNO_A_QA_SCOPE"] ?? "preview"
-        guard ["preview", "a-regression", "full64"].contains(scope) else { exit(2) }
+        guard ["preview", "a-regression", "full64", "full68"].contains(scope) else { exit(2) }
         let appPath = Bundle.main.bundleURL.standardizedFileURL.path
         // UUID bundle identifiers prevent Launch Services from selecting another
         // old QA snapshot. Formal runs additionally require the exact built path.

@@ -19,8 +19,147 @@ public struct LibraryWorkspace: View {
     @State private var selectedBookID: UUID?
     @State private var grid = false
     @State private var coverEditor: LibraryCoverItem?
+    @State private var libraryMode = true
+    @State private var examplesHelp = false
+    @State private var toolsPopover = false
     public init() {}
     public var body: some View {
+        workspaceContent
+        .disabled(model.storageMaintenance)
+        .task { await model.load() }
+        .onChange(of: displayedBookID) { _, id in
+            selectedBookID = id
+            if id != nil { libraryMode = false }
+        }
+        .fileImporter(isPresented: $importer, allowedContentTypes: importTypes) { result in
+            switch result {
+            case .success(let url): Task { await model.importFile(url); if displayedBookID != nil { compactColumn = .detail; libraryMode = false } }
+            case .failure(let error): model.error = error.localizedDescription
+            }
+        }
+        .toolbar { workspaceToolbar }
+        .sheet(isPresented: $about) { FeatureStatusView() }
+        #if os(macOS)
+        .popover(isPresented: $examplesHelp) { examplesMenu }
+        .sheet(item: $coverEditor) { item in LibraryCoverEditor(covers: model.covers, item: item) }
+        .sheet(isPresented: $librarySearch) { LibrarySearchWorkspace(library: model) }
+        .sheet(isPresented: $localRecovery) {
+            NavigationStack {
+                if let recovery = model.recoveryManagement {
+                    LocalRecoveryWorkspace(model: recovery)
+                        .toolbar { ToolbarItem { Button("完成") { localRecovery = false }.accessibilityIdentifier("local-recovery-close") } }
+                }
+            }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: 640, minHeight: 520)
+        }
+        .sheet(isPresented: $booknoPreview) { BooknoPreviewWorkspace(model: model.booknoPreview) }
+        .sheet(isPresented: $conversion) { ConversionWorkspace() }
+        .sheet(isPresented: $aiSettings) { AISettingsView(learning: model.learning, byok: model.byok, library: model) }
+        .sheet(isPresented: $aiTools) { ReadingToolsWorkspace(library: model) }
+        #endif
+        .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
+            Button("知道了") { model.error = nil }
+        } message: { Text(model.error ?? "") }
+        .overlay { if model.isBusy { PDFnoStatusMessage(text: model.storageMaintenance ? "正在校验并重载书库…" : "正在打开…", kind: .busy).frame(maxWidth: 320).pdfnoCard() } }
+    }
+    @ViewBuilder private var workspaceContent: some View {
+        #if os(macOS)
+        ZStack {
+            readerContent
+                .opacity(libraryMode ? 0 : 1)
+                .allowsHitTesting(!libraryMode)
+                .accessibilityHidden(libraryMode)
+            if libraryMode {
+                ProfessionalLibraryWorkspace(model: model, grid: $grid, selectedBookID: $selectedBookID,
+                    importFile: { importer = true }, search: { librarySearch = true },
+                    examples: { examplesHelp = true }, editCover: { coverEditor = $0 }, openBook: { openSelectedBook($0) },
+                    resume: displayedBookID == nil ? nil : { libraryMode = false })
+            }
+        }.tint(.blue).navigationTitle("PDFno")
+        #else
+        legacyWorkspace
+        #endif
+    }
+    @ViewBuilder private var readerContent: some View {
+        #if os(macOS)
+        if model.ebook.isActive { EbookWorkspace(model: model.ebook, editing: model.recordEditing) }
+        else if model.textFormats.isActive { TextFormatWorkspace(model: model.textFormats, editing: model.recordEditing) }
+        else if model.docx.isActive { DOCXWorkspace(model: model.docx) }
+        else if model.readingComic { ComicWorkspace(session: model.comic, close: { model.closeComic() }) }
+        else if model.readingEPUB { EPUBWorkspace(model: model, session: model.epub) }
+        else { ReaderWorkspace(model: model, session: model.reader) }
+        #else
+        ReaderWorkspace(model: model, session: model.reader)
+        #endif
+    }
+    @ToolbarContentBuilder private var workspaceToolbar: some ToolbarContent {
+        #if os(macOS)
+        ToolbarItem(placement: .navigation) {
+            if !libraryMode {
+                Button { libraryMode = true } label: { Label("返回书库", systemImage: "books.vertical") }
+                    .accessibilityIdentifier("workspace-back-library").help("返回书库，保留当前阅读与草稿")
+            }
+        }
+        ToolbarItem {
+            Button { toolsPopover.toggle() } label: { Label("工具与设置", systemImage: "slider.horizontal.3") }
+                .accessibilityIdentifier("workspace-tools")
+                .popover(isPresented: $toolsPopover) { toolsMenu }
+        }
+        ToolbarItem { Button { examplesHelp = true } label: { Label("帮助与示例", systemImage: "questionmark.circle") }.accessibilityIdentifier("workspace-help") }
+        ToolbarItem { Button { librarySearch = true } label: { Label("书库与笔记搜索", systemImage: "magnifyingglass") }.accessibilityIdentifier("library-search").keyboardShortcut("f", modifiers: [.command, .shift]) }
+        #endif
+        ToolbarItem { Button { about = true } label: { Label("功能状态", systemImage: "info.circle") } }
+    }
+    #if os(macOS)
+    private var toolsMenu: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("工具与设置").font(.system(size: 16, weight: .semibold))
+            Button { toolsPopover = false; model.reader.captureSelection(); aiTools = true } label: { Label("AI 工具", systemImage: "square.grid.2x2") }.accessibilityIdentifier("ai-tools-open")
+            Button { toolsPopover = false; aiSettings = true } label: { Label("模型与 BYOK 设置", systemImage: "slider.horizontal.3") }.accessibilityIdentifier("ai-settings")
+            Divider()
+            Button { toolsPopover = false; booknoPreview = true } label: { Label("Bookno 离线预览", systemImage: "globe") }.accessibilityIdentifier("bookno-preview-open")
+            Button { toolsPopover = false; conversion = true } label: { Label("格式转换", systemImage: "arrow.triangle.2.circlepath") }.accessibilityIdentifier("document-conversion")
+            Button { toolsPopover = false; model.prepareRecoveryManagement(); localRecovery = model.recoveryManagement != nil } label: { Label("回收站与备份", systemImage: "archivebox") }.accessibilityIdentifier("library-local-recovery").disabled(!model.canImport || model.isBusy)
+        }.buttonStyle(ProfessionalLibraryActionStyle()).padding(20).frame(width: 280)
+    }
+    private var examplesMenu: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("示例文档", systemImage: "doc.text").font(.system(size: 16, weight: .semibold))
+            Text("应用内置文档 · 本地试读\n新建示例与个人书籍分别显示。").font(.system(size: 12)).foregroundStyle(.secondary)
+            Button("打开示例 PDF") { openExample { await model.openSample() } }.accessibilityIdentifier("open-sample")
+            Button("打开示例 EPUB") { openExample { await model.openEPUBSample() } }.accessibilityIdentifier("open-epub-sample")
+            Button("打开示例 DOCX") { openExample { await model.openDOCXSample() } }.accessibilityIdentifier("open-docx-sample")
+            Menu("打开电子书示例") {
+                ForEach(EbookFormat.allCases, id: \.self) { format in
+                    Button(format.rawValue.uppercased()) { openExample { await model.openEbookSample(format) } }.accessibilityIdentifier("open-ebook-sample-\(format.rawValue)")
+                }
+            }.accessibilityIdentifier("open-ebook-sample")
+        }.buttonStyle(ProfessionalLibraryActionStyle()).padding(20).frame(width: 270)
+            .disabled(!model.canImport || model.isBusy)
+    }
+    private func openExample(_ action: @escaping @MainActor () async -> Void) {
+        examplesHelp = false
+        Task { await action(); if displayedBookID != nil { libraryMode = false } }
+    }
+    #endif
+    private func openSelectedBook(_ id: UUID?) {
+        guard let id else { return }
+        selectedBookID = id
+        if id == displayedBookID { libraryMode = false; return }
+        Task {
+            #if os(macOS)
+            if let b = model.ebook.books.first(where: { $0.id == id }) { await model.openEbook(b) }
+            else if let b = model.textFormats.books.first(where: { $0.id == id }) { await model.openTextFormat(b) }
+            else if let b = model.docx.books.first(where: { $0.id == id }) { await model.openDOCX(b) }
+            else if let b = model.books.first(where: { $0.id == id }) { await model.open(b) }
+            else if let b = model.comicBooks.first(where: { $0.id == id }) { await model.openComic(b) }
+            else if let b = model.epubBooks.first(where: { $0.id == id }) { await model.openEPUB(b) }
+            #else
+            if let b = model.books.first(where: { $0.id == id }) { await model.open(b) }
+            #endif
+            if displayedBookID == id { compactColumn = .detail; libraryMode = false }
+        }
+    }
+    private var legacyWorkspace: some View {
         NavigationSplitView(preferredCompactColumn: $compactColumn) {
             VStack(spacing: 0) {
                 #if os(macOS)
@@ -154,53 +293,6 @@ public struct LibraryWorkspace: View {
             ReaderWorkspace(model: model, session: model.reader)
             #endif
         }
-        .disabled(model.storageMaintenance)
-        .task { await model.load() }
-        .onChange(of: displayedBookID) { _, id in selectedBookID = id }
-        .fileImporter(isPresented: $importer, allowedContentTypes: importTypes) { result in
-            switch result {
-            case .success(let url): Task { await model.importFile(url); compactColumn = .detail }
-            case .failure(let error): model.error = error.localizedDescription
-            }
-        }
-        .toolbar {
-            ToolbarItem { Button { about = true } label: { Label("功能状态", systemImage: "info.circle") } }
-            #if os(macOS)
-            ToolbarItem {
-                Button { coverEditor = coverItems.first { $0.id == selectedBookID } } label: { Label("编辑封面", systemImage: "photo") }
-                    .disabled(!coverItems.contains { $0.id == selectedBookID }).accessibilityIdentifier("library-edit-cover")
-                    .help(model.textFormats.isActive ? "文本格式封面尚未开放" : "编辑选中书籍的本地封面")
-            }
-            ToolbarItem { Button { librarySearch = true } label: { Label("书库与笔记搜索", systemImage: "magnifyingglass") }.accessibilityIdentifier("library-search").keyboardShortcut("f", modifiers: [.command, .shift]).help("搜索书名与已保存笔记") }
-            ToolbarItem { Button {
-                model.prepareRecoveryManagement(); localRecovery = model.recoveryManagement != nil
-            } label: { Label("回收站与备份", systemImage: "archivebox") }
-                .disabled(!model.canImport || model.isBusy || model.storageMaintenance)
-                .accessibilityIdentifier("library-local-recovery").help("预览本地删除、恢复与校验备份") }
-            ToolbarItem { Button { conversion = true } label: { Label("格式转换", systemImage: "arrow.triangle.2.circlepath") }.accessibilityIdentifier("document-conversion").help("打开本地格式转换") }
-            #endif
-        }
-        .sheet(isPresented: $about) { FeatureStatusView() }
-        #if os(macOS)
-        .sheet(item: $coverEditor) { item in LibraryCoverEditor(covers: model.covers, item: item) }
-        .sheet(isPresented: $librarySearch) { LibrarySearchWorkspace(library: model) }
-        .sheet(isPresented: $localRecovery) {
-            NavigationStack {
-                if let recovery = model.recoveryManagement {
-                    LocalRecoveryWorkspace(model: recovery)
-                        .toolbar { ToolbarItem { Button("完成") { localRecovery = false }.accessibilityIdentifier("local-recovery-close") } }
-                }
-            }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: 640, minHeight: 520)
-        }
-        .sheet(isPresented: $booknoPreview) { BooknoPreviewWorkspace(model: model.booknoPreview) }
-        .sheet(isPresented: $conversion) { ConversionWorkspace() }
-        .sheet(isPresented: $aiSettings) { AISettingsView(learning: model.learning, byok: model.byok, library: model) }
-        .sheet(isPresented: $aiTools) { ReadingToolsWorkspace(library: model) }
-        #endif
-        .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
-            Button("知道了") { model.error = nil }
-        } message: { Text(model.error ?? "") }
-        .overlay { if model.isBusy { PDFnoStatusMessage(text: model.storageMaintenance ? "正在校验并重载书库…" : "正在打开…", kind: .busy).frame(maxWidth: 320).pdfnoCard() } }
     }
     private var libraryBookCount: Int {
         #if os(macOS)

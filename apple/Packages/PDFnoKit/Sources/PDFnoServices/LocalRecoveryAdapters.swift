@@ -54,6 +54,7 @@ struct RecoveryRegistry: Sendable {
             .init("learning-v1.json", collections: ["notes"]) { _ = try AILearningRepository.decode($0) },
             .init("japanese-learning-v1.json", collections: ["notes"]) { _ = try JapaneseLearningRepository.decode($0) },
             .init("book-metadata-v1.json", collections: ["records"]) { _ = try LocalBookMetadataRepository.decode($0) },
+            .init("bundled-examples-v1.json", collections: ["records"]) { _ = try BundledExampleRepository.decode($0) },
             .init("covers-v1.json", collections: ["records"], validate: Self.validateCovers)
         ]
         adapters = Dictionary(uniqueKeysWithValues: standard.map { ($0.filename, $0) })

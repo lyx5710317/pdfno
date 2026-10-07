@@ -6,6 +6,29 @@ import PDFKit
 #endif
 
 final class NativeUITests: XCTestCase {
+    // Navigation driver only: existing behavior assertions remain in the methods.
+    @MainActor private func navigateWorkspace(_ id: String, in app: XCUIApplication) {
+        #if os(macOS)
+        func target(_ name: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: name).firstMatch }
+        if target(id).exists { return }
+        let example = id.hasPrefix("open-") && id.contains("sample")
+        let tools = ["ai-settings", "ai-tools-open", "bookno-preview-open", "document-conversion", "library-local-recovery"].contains(id)
+        if example || tools {
+            app.typeKey(.escape, modifierFlags: [])
+            let launcher = target(example ? "workspace-help" : "workspace-tools")
+            XCTAssertTrue(launcher.waitForExistence(timeout: 15)); launcher.click()
+        } else {
+            if target("workspace-back-library").exists { target("workspace-back-library").click() }
+            XCTAssertTrue(target("professional-library-workspace").waitForExistence(timeout: 15))
+            if id.hasPrefix("library-") || id.hasPrefix("cover-image-") {
+                if !target(id).waitForExistence(timeout: 2), target("library-category-examples").exists {
+                    target("library-category-examples").click()
+                }
+            }
+        }
+        #endif
+    }
+
     #if os(macOS)
     // New four-slice acceptance: compile locally, run only on the authorized
     // isolated CI/OS user. Original fixtures, UUID stores and intercepted AI only.
@@ -51,13 +74,18 @@ final class NativeUITests: XCTestCase {
         let input = root.appendingPathComponent("Original parity.txt")
         let original = Data("Chapter 1\nwindow original 日本語 cafe\u{301}\nChapter 2\nOriginal end".utf8)
         if ebook {
+            navigateWorkspace("open-ebook-sample", in: app)
             let menu = japaneseElement("open-ebook-sample", in: app)
+            navigateWorkspace("open-ebook-sample", in: app)
             XCTAssertTrue(menu.waitForExistence(timeout: 15)); press(menu)
+            navigateWorkspace("open-ebook-sample-mobi", in: app)
             let item = japaneseElement("open-ebook-sample-mobi", in: app)
             XCTAssertTrue(item.waitForExistence(timeout: 5)); press(item)
         } else {
             try original.write(to: input)
+            navigateWorkspace("import-pdf", in: app)
             XCTAssertTrue(app.buttons["import-pdf"].firstMatch.waitForExistence(timeout: 15))
+            navigateWorkspace("import-pdf", in: app)
             try chooseInput(input, trigger: app.buttons["import-pdf"].firstMatch, app: app)
         }
         let navigation = app.buttons[prefix + "-navigation"].firstMatch
@@ -196,7 +224,9 @@ final class NativeUITests: XCTestCase {
         let store = URL(fileURLWithPath: "/tmp").appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent("learning-v1.json")
         XCTAssertFalse(String(decoding: try Data(contentsOf: store), as: UTF8.self).contains("synthetic-reading-ui-credential"))
         press(app.buttons["byok-close"].firstMatch)
+        navigateWorkspace("ai-settings", in: app)
         let originalSettings = app.buttons["ai-settings"].firstMatch
+        navigateWorkspace("ai-settings", in: app)
         XCTAssertTrue(originalSettings.waitForExistence(timeout: 5)); waitUntilEnabled(originalSettings); press(originalSettings)
         XCTAssertTrue(app.buttons["ai-use-deepseek"].firstMatch.waitForExistence(timeout: 5))
         press(app.buttons["byok-settings-open"].firstMatch)
@@ -213,7 +243,9 @@ final class NativeUITests: XCTestCase {
         try original.write(to: source)
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate(); defer { app.terminate() }
+        navigateWorkspace("document-conversion", in: app)
         let entry = app.buttons["document-conversion"].firstMatch
+        navigateWorkspace("document-conversion", in: app)
         XCTAssertTrue(entry.waitForExistence(timeout: 15)); press(entry)
         XCTAssertTrue(app.buttons["conversion-export"].firstMatch.waitForExistence(timeout: 5))
         press(app.buttons["reading-pdf-open"].firstMatch)
@@ -239,17 +271,24 @@ final class NativeUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate(); defer { app.terminate() }
+        navigateWorkspace("library-list-layout", in: app)
         let list = app.buttons["library-list-layout"].firstMatch
+        navigateWorkspace("library-grid-layout", in: app)
         let grid = app.buttons["library-grid-layout"].firstMatch
         XCTAssertTrue(list.waitForExistence(timeout: 10)); XCTAssertTrue(grid.exists)
         XCTAssertEqual(list.value as? String, "已选中")
+        navigateWorkspace("library-grid-layout", in: app)
         press(grid); XCTAssertEqual(grid.value as? String, "已选中")
         XCTAssertEqual(list.value as? String, "未选中")
         XCTAssertTrue(japaneseElement("library-empty-state", in: app).exists)
+        navigateWorkspace("library-list-layout", in: app)
         press(list); XCTAssertEqual(list.value as? String, "已选中")
         for id in ["open-sample", "open-epub-sample", "open-docx-sample", "bookno-preview-open", "import-pdf", "open-ebook-sample"] {
+            if id == "import-pdf" { app.typeKey(.escape, modifierFlags: []) }
+            navigateWorkspace(id, in: app)
             XCTAssertTrue(japaneseElement(id, in: app).exists, "Existing entry must remain: " + id)
         }
+        navigateWorkspace("open-sample", in: app)
         press(app.buttons["open-sample"].firstMatch)
         XCTAssertTrue(app.staticTexts["page-position"].firstMatch.waitForExistence(timeout: 15))
     }
@@ -333,6 +372,7 @@ final class NativeUITests: XCTestCase {
         }
         XCTAssertFalse(app.buttons["japanese-learning-start"].firstMatch.isEnabled)
         press(app.buttons["japanese-learning-close"].firstMatch)
+        navigateWorkspace("ai-settings", in: app)
         press(app.buttons["ai-settings"].firstMatch)
         XCTAssertTrue(app.buttons["ai-use-deepseek"].firstMatch.waitForExistence(timeout: 5))
         press(app.buttons["ai-use-deepseek"].firstMatch)
@@ -419,7 +459,9 @@ final class NativeUITests: XCTestCase {
         XCTAssertFalse(String(decoding: try Data(contentsOf: manifest), as: UTF8.self).contains("synthetic-reading-ui-credential"))
         press(app.buttons["japanese-learning-close"].firstMatch)
         app.terminate(); app.launch(); app.activate()
+        navigateWorkspace("library-book", in: app)
         let book = japaneseElement("library-book", in: app)
+        navigateWorkspace("library-book", in: app)
         XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
         press(app.buttons["reader-notes"].firstMatch)
         XCTAssertTrue(japaneseElement("japanese-saved-source", in: app).waitForExistence(timeout: 8))
@@ -437,6 +479,7 @@ final class NativeUITests: XCTestCase {
         app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_APPEARANCE"] = "dark"
         app.launch(); app.activate(); defer { app.terminate() }
         try prepareJapaneseOfflinePDF(app); press(app.buttons["japanese-learning-close"].firstMatch)
+        navigateWorkspace("open-epub-sample", in: app)
         press(app.buttons["open-epub-sample"].firstMatch)
         waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
         press(app.buttons["epub-contents"].firstMatch); press(app.buttons["epub-chapter-1"].firstMatch)
@@ -518,7 +561,9 @@ final class NativeUITests: XCTestCase {
     // These flows are for the isolated integration CI host only. They use
     // original bundled books and a fresh UUID store, never real keys/API calls.
     @MainActor private func prepareOriginalPDFNoteEditing(_ app: XCUIApplication) throws {
+        navigateWorkspace("open-sample", in: app)
         let sample = app.buttons["open-sample"].firstMatch
+        navigateWorkspace("open-sample", in: app)
         XCTAssertTrue(sample.waitForExistence(timeout: 15)); press(sample)
         let position = app.staticTexts["page-position"].firstMatch
         XCTAssertTrue(position.waitForExistence(timeout: 15))
@@ -602,7 +647,9 @@ final class NativeUITests: XCTestCase {
         pressEditingElement(app.buttons["pdf-note-edit"].firstMatch, app: app)
         enterEditingText("Original private unsaved Bookno draft", prefix: "pdf-note", app: app)
         press(app.buttons["close-notes"].firstMatch)
+        navigateWorkspace("bookno-preview-open", in: app)
         let open = app.buttons["bookno-preview-open"].firstMatch
+        navigateWorkspace("bookno-preview-open", in: app)
         XCTAssertTrue(open.waitForExistence(timeout: 5)); press(open)
         let enable = app.checkBoxes["bookno-preview-enabled"].firstMatch
         XCTAssertTrue(enable.waitForExistence(timeout: 5)); XCTAssertEqual(booknoCheckboxState(enable), false)
@@ -629,6 +676,7 @@ final class NativeUITests: XCTestCase {
         waitForText(["mock 记录 2", "连续确认游标 1"], in: counts, timeout: 5)
         waitForText(["不是实际同步", "Bookno 未连接"], in: app.staticTexts["bookno-preview-status"].firstMatch, timeout: 5)
         XCTAssertEqual(NSDictionary(dictionary: try originalSavedNote(token, manifest: "library-v1.json")), NSDictionary(dictionary: saved))
+        navigateWorkspace("bookno-preview-open", in: app)
         press(app.buttons["bookno-preview-close"].firstMatch); press(open)
         XCTAssertTrue(enable.waitForExistence(timeout: 5)); XCTAssertEqual(booknoCheckboxState(enable), false)
         XCTAssertFalse(prepare.isEnabled); XCTAssertFalse(app.staticTexts["bookno-preview-summary"].firstMatch.exists)
@@ -678,7 +726,9 @@ final class NativeUITests: XCTestCase {
         press(app.buttons["close-notes"].firstMatch); press(app.buttons["reader-notes"].firstMatch)
         XCTAssertEqual(textValue(editingInput("pdf-note", app: app)), "Original recovered 日本語🌸 café")
         app.terminate(); app.launch(); app.activate()
+        navigateWorkspace("library-book", in: app)
         let book = app.descendants(matching: .any).matching(identifier: "library-book").firstMatch
+        navigateWorkspace("library-book", in: app)
         XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
         XCTAssertTrue(app.buttons["reader-notes"].firstMatch.waitForExistence(timeout: 10)); press(app.buttons["reader-notes"].firstMatch)
         XCTAssertEqual(textValue(editingInput("pdf-note", app: app)), "Original recovered 日本語🌸 café")
@@ -730,6 +780,7 @@ final class NativeUITests: XCTestCase {
         let app = XCUIApplication(), token = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launch(); app.activate(); defer { app.terminate() }
+        navigateWorkspace("open-epub-sample", in: app)
         XCTAssertTrue(app.buttons["open-epub-sample"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["open-epub-sample"].firstMatch)
         waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
         let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
@@ -740,11 +791,14 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(edit.waitForExistence(timeout: 8))
         let before = try originalSavedNote(token, manifest: "epub-v1.json")
         pressEditingElement(edit, app: app); enterEditingText("Original EPUB edited body 日本語🌸", prefix: "epub-note", app: app)
+        navigateWorkspace("open-sample", in: app)
         press(app.buttons["epub-close-notes"].firstMatch); press(app.buttons["open-sample"].firstMatch)
         XCTAssertTrue(app.buttons["reader-notes"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["reader-notes"].firstMatch)
         XCTAssertFalse(app.buttons["epub-note-edit-save"].firstMatch.exists)
         press(app.buttons["close-notes"].firstMatch)
+        navigateWorkspace("library-epub", in: app)
         let book = app.descendants(matching: .any).matching(identifier: "library-epub").firstMatch
+        navigateWorkspace("library-epub", in: app)
         XCTAssertTrue(book.waitForExistence(timeout: 8)); press(book)
         waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
         press(app.buttons["epub-notes"].firstMatch)
@@ -755,6 +809,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(Set(before.keys), Set(after.keys))
         XCTAssertEqual(NSDictionary(dictionary: try XCTUnwrap(before["anchor"] as? [String: Any])), NSDictionary(dictionary: try XCTUnwrap(after["anchor"] as? [String: Any])))
         app.terminate(); app.launch(); app.activate()
+        navigateWorkspace("library-epub", in: app)
         XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
         XCTAssertTrue(app.buttons["epub-notes"].firstMatch.waitForExistence(timeout: 25)); press(app.buttons["epub-notes"].firstMatch)
         let body = app.staticTexts["epub-saved-user-text"].firstMatch
@@ -767,6 +822,7 @@ final class NativeUITests: XCTestCase {
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launch(); app.activate(); defer { app.terminate() }
         try prepareOriginalPDFNoteEditing(app)
+        navigateWorkspace("ai-settings", in: app)
         press(app.buttons["ai-settings"].firstMatch)
         let mock = app.buttons["ai-use-mock"].firstMatch
         XCTAssertTrue(mock.waitForExistence(timeout: 5)); press(mock); press(app.buttons["ai-settings-save"].firstMatch)
@@ -787,7 +843,9 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(after["userText"] as? String, "Original independent edited AI body")
         press(app.buttons["ai-close"].firstMatch)
         app.terminate(); app.launch(); app.activate()
+        navigateWorkspace("library-book", in: app)
         let book = app.descendants(matching: .any).matching(identifier: "library-book").firstMatch
+        navigateWorkspace("library-book", in: app)
         XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
         XCTAssertTrue(app.buttons["reader-ai"].firstMatch.waitForExistence(timeout: 10)); press(app.buttons["reader-ai"].firstMatch)
         let body = app.staticTexts["ai-saved-user-note"].firstMatch
@@ -807,11 +865,14 @@ final class NativeUITests: XCTestCase {
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launch(); app.activate()
         defer { app.terminate(); try? FileManager.default.removeItem(at: inputs); try? FileManager.default.removeItem(at: store) }
+        navigateWorkspace("open-sample", in: app)
         XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15))
+        navigateWorkspace("open-sample", in: app)
         press(app.buttons["open-sample"].firstMatch)
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 15)
         func cover(_ label: String) -> XCUIElement {
-            app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'cover-image-' AND label == %@", label)).firstMatch
+            if !app.sheets.firstMatch.exists { navigateWorkspace("library-book", in: app) }
+            return app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'cover-image-' AND label == %@", label)).firstMatch
         }
         XCTAssertTrue(cover("自动封面").waitForExistence(timeout: 10))
         func record() throws -> [String: Any] {
@@ -822,6 +883,7 @@ final class NativeUITests: XCTestCase {
         let automatic = try record(), identity = try XCTUnwrap(automatic["identity"] as? [String: Any])
         let hash = try XCTUnwrap(identity["fileSHA256"] as? String), original = store.appendingPathComponent("Originals/" + hash + ".pdf")
         let originalBytes = try Data(contentsOf: original), libraryBytes = try Data(contentsOf: store.appendingPathComponent("library-v1.json"))
+        navigateWorkspace("library-edit-cover", in: app)
         press(app.buttons["library-edit-cover"].firstMatch)
         try chooseInput(image, trigger: app.buttons["cover-select-image"].firstMatch, app: app)
         XCTAssertTrue(cover("自选封面").waitForExistence(timeout: 10))
@@ -830,16 +892,21 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(manual["width"] as? Int, 1200)
         XCTAssertEqual(manual["revision"] as? Int, (automatic["revision"] as? Int ?? 0) + 1)
         press(app.buttons["cover-editor-done"].firstMatch)
+        navigateWorkspace("library-grid-layout", in: app)
         press(app.buttons["library-grid-layout"].firstMatch)
         XCTAssertTrue(cover("自选封面").waitForExistence(timeout: 5)); XCTAssertTrue(cover("自选封面").isHittable)
+        navigateWorkspace("library-list-layout", in: app)
         press(app.buttons["library-list-layout"].firstMatch)
         XCTAssertTrue(cover("自选封面").waitForExistence(timeout: 5)); XCTAssertTrue(cover("自选封面").isHittable)
         app.terminate(); app.launch(); app.activate()
+        navigateWorkspace("library-book", in: app)
         let book = app.descendants(matching: .any).matching(identifier: "library-book").firstMatch
+        navigateWorkspace("library-book", in: app)
         XCTAssertTrue(book.waitForExistence(timeout: 15)); press(book)
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 15)
         XCTAssertTrue(cover("自选封面").waitForExistence(timeout: 8))
         XCTAssertEqual(try record()["imageSHA256"] as? String, manual["imageSHA256"] as? String)
+        navigateWorkspace("library-edit-cover", in: app)
         press(app.buttons["library-edit-cover"].firstMatch)
         press(app.buttons["cover-restore-automatic"].firstMatch)
         XCTAssertTrue(cover("自动封面").waitForExistence(timeout: 8))
@@ -852,10 +919,13 @@ final class NativeUITests: XCTestCase {
         // Cover writes never alter book IDs, progress or note data.
         XCTAssertEqual(try Data(contentsOf: store.appendingPathComponent("library-v1.json")), libraryBytes)
         press(app.buttons["cover-editor-done"].firstMatch)
+        navigateWorkspace("open-docx-sample", in: app)
         press(app.buttons["open-docx-sample"].firstMatch)
         XCTAssertTrue(app.buttons["docx-navigation"].firstMatch.waitForExistence(timeout: 25))
+        navigateWorkspace("library-grid-layout", in: app)
         press(app.buttons["library-grid-layout"].firstMatch)
         XCTAssertTrue(cover("自动封面").waitForExistence(timeout: 8))
+        navigateWorkspace("library-book", in: app)
         press(app.descendants(matching: .any).matching(identifier: "library-book").firstMatch)
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 15)
         XCTAssertEqual(try Data(contentsOf: original), originalBytes)
@@ -865,16 +935,22 @@ final class NativeUITests: XCTestCase {
         let store = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token)
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launch(); app.activate(); defer { app.terminate(); try? FileManager.default.removeItem(at: store) }
+        navigateWorkspace("open-docx-sample", in: app)
         XCTAssertTrue(app.buttons["open-docx-sample"].firstMatch.waitForExistence(timeout: 15))
+        navigateWorkspace("open-docx-sample", in: app)
         press(app.buttons["open-docx-sample"].firstMatch)
         XCTAssertTrue(app.buttons["docx-navigation"].firstMatch.waitForExistence(timeout: 25))
+        navigateWorkspace("library-docx", in: app)
         let placeholder = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'cover-image-' AND label == '默认封面'")).firstMatch
         XCTAssertTrue(placeholder.waitForExistence(timeout: 10))
         let before = try Data(contentsOf: store.appendingPathComponent("covers-v1.json"))
+        navigateWorkspace("library-grid-layout", in: app)
         press(app.buttons["library-grid-layout"].firstMatch)
         XCTAssertTrue(placeholder.waitForExistence(timeout: 5)); XCTAssertTrue(placeholder.isHittable)
+        navigateWorkspace("library-list-layout", in: app)
         press(app.buttons["library-list-layout"].firstMatch)
         app.terminate(); app.launch(); app.activate()
+        navigateWorkspace("library-docx", in: app)
         XCTAssertTrue(placeholder.waitForExistence(timeout: 15))
         XCTAssertEqual(try Data(contentsOf: store.appendingPathComponent("covers-v1.json")), before)
     }
@@ -882,7 +958,9 @@ final class NativeUITests: XCTestCase {
     @MainActor func testMacLibrarySearchMetadataUnicodeEmptyNoResultsAndRestart() throws {
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate(); defer { app.terminate() }
+        navigateWorkspace("open-sample", in: app)
         let sample = app.buttons["open-sample"].firstMatch
+        navigateWorkspace("open-sample", in: app)
         XCTAssertTrue(sample.waitForExistence(timeout: 15)); waitUntilEnabled(sample); press(sample)
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 15)
         press(app.buttons["library-search"].firstMatch)
@@ -923,7 +1001,9 @@ final class NativeUITests: XCTestCase {
     @MainActor func testMacLibrarySearchUserNoteSavedLocalMockAIAndExactSource() throws {
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate(); defer { app.terminate() }
+        navigateWorkspace("open-sample", in: app)
         let sample = app.buttons["open-sample"].firstMatch
+        navigateWorkspace("open-sample", in: app)
         XCTAssertTrue(sample.waitForExistence(timeout: 15)); waitUntilEnabled(sample); press(sample)
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 15)
         press(app.buttons["reader-navigation"].firstMatch)
@@ -945,6 +1025,7 @@ final class NativeUITests: XCTestCase {
         waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
         press(app.buttons["library-search-source"].firstMatch)
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
+        navigateWorkspace("ai-settings", in: app)
         press(app.buttons["ai-settings"].firstMatch)
         XCTAssertTrue(app.buttons["ai-use-mock"].firstMatch.waitForExistence(timeout: 5))
         press(app.buttons["ai-use-mock"].firstMatch); press(app.buttons["ai-settings-save"].firstMatch)
@@ -1000,7 +1081,10 @@ final class NativeUITests: XCTestCase {
         pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
         waitForText(["已保存到本地"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
         press(app.buttons["close-notes"].firstMatch)
+        navigateWorkspace("library-grid-layout", in: app)
+        navigateWorkspace("library-list-layout", in: app)
         press(app.buttons["library-grid-layout"].firstMatch); press(app.buttons["library-list-layout"].firstMatch)
+        navigateWorkspace("library-edit-cover", in: app)
         press(app.buttons["library-edit-cover"].firstMatch)
         XCTAssertTrue(app.buttons["cover-restore-automatic"].firstMatch.waitForExistence(timeout: 5))
         let coverManifest = store.appendingPathComponent("covers-v1.json")
@@ -1060,14 +1144,19 @@ final class NativeUITests: XCTestCase {
         let app = XCUIApplication(), token = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launch(); app.activate(); defer { app.terminate() }
+        navigateWorkspace("import-pdf", in: app)
         XCTAssertTrue(app.buttons["import-pdf"].firstMatch.waitForExistence(timeout: 15))
+        navigateWorkspace("import-pdf", in: app)
         try chooseInput(file, trigger: app.buttons["import-pdf"].firstMatch, app: app)
         let navigation = app.buttons["textformat-navigation"].firstMatch
         XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
+        navigateWorkspace("library-edit-cover", in: app)
         XCTAssertFalse(app.buttons["library-edit-cover"].firstMatch.isEnabled)
+        navigateWorkspace("library-grid-layout", in: app)
         press(app.buttons["library-grid-layout"].firstMatch)
         let textRow = app.descendants(matching: .any).matching(identifier: "library-textformat").firstMatch
         XCTAssertTrue(textRow.waitForExistence(timeout: 5)); XCTAssertTrue(textRow.isHittable)
+        navigateWorkspace("library-list-layout", in: app)
         press(app.buttons["library-list-layout"].firstMatch)
         XCTAssertTrue(textRow.waitForExistence(timeout: 5)); XCTAssertTrue(textRow.isHittable)
         XCTAssertFalse(app.buttons["reader-ai"].firstMatch.exists)
@@ -1118,7 +1207,9 @@ final class NativeUITests: XCTestCase {
         let app = XCUIApplication(), token = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launch(); app.activate(); defer { app.terminate() }
+        navigateWorkspace("import-pdf", in: app)
         XCTAssertTrue(app.buttons["import-pdf"].firstMatch.waitForExistence(timeout: 15))
+        navigateWorkspace("import-pdf", in: app)
         try chooseInput(source, trigger: app.buttons["import-pdf"].firstMatch, app: app)
         let navigation = app.buttons["docx-navigation"].firstMatch
         XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
@@ -1166,7 +1257,9 @@ final class NativeUITests: XCTestCase {
         }
         XCTAssertEqual(try Data(contentsOf: source), bytes)
         app.terminate(); app.launch(); app.activate()
+        navigateWorkspace("library-docx", in: app)
         let book = app.descendants(matching: .any).matching(identifier: "library-docx").firstMatch
+        navigateWorkspace("library-docx", in: app)
         XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
         XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
         XCTAssertTrue(try webText(in: app, matching: "Second UI heading", prefix: false, timeout: 10).isHittable)
@@ -1185,23 +1278,31 @@ final class NativeUITests: XCTestCase {
         try Data("Original malformed Word fixture".utf8).write(to: broken)
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate(); defer { app.terminate() }
+        navigateWorkspace("import-pdf", in: app)
         XCTAssertTrue(app.buttons["import-pdf"].firstMatch.waitForExistence(timeout: 15))
+        navigateWorkspace("import-pdf", in: app)
         try chooseInput(broken, trigger: app.buttons["import-pdf"].firstMatch, app: app)
         let dismiss = try modalButton(app, titles: ["知道了"])
         XCTAssertTrue(app.staticTexts["DOCX ZIP 无效、校验失败或含不安全路径／加密／不支持的归档结构。"].firstMatch.exists)
         press(dismiss)
+        navigateWorkspace("library-docx", in: app)
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "library-docx").firstMatch.exists)
+        navigateWorkspace("open-docx-sample", in: app)
         press(app.buttons["open-docx-sample"].firstMatch)
         let navigation = app.buttons["docx-navigation"].firstMatch
         XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
         XCTAssertTrue(try webText(in: app, matching: "Original DOCX chapter", prefix: false, timeout: 10).exists)
+        navigateWorkspace("open-sample", in: app)
         press(app.buttons["open-sample"].firstMatch)
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 15)
         XCTAssertFalse(navigation.exists)
+        navigateWorkspace("open-epub-sample", in: app)
         press(app.buttons["open-epub-sample"].firstMatch)
         waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
         XCTAssertFalse(navigation.exists)
+        navigateWorkspace("library-docx", in: app)
         let word = app.descendants(matching: .any).matching(identifier: "library-docx").firstMatch
+        navigateWorkspace("library-docx", in: app)
         XCTAssertTrue(word.waitForExistence(timeout: 5)); press(word)
         XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
         XCTAssertTrue(try webText(in: app, matching: "Original DOCX chapter", prefix: false, timeout: 10).exists)
@@ -1210,9 +1311,11 @@ final class NativeUITests: XCTestCase {
         XCTAssertFalse(app.buttons["reader-page-translation"].firstMatch.exists)
         let comic = root.appendingPathComponent("Original Word Transition.cbz")
         try originalZIP([("1.png", try originalPNG(width: 12, height: 20)), ("2.png", try originalPNG(width: 12, height: 20))]).write(to: comic)
+        navigateWorkspace("import-pdf", in: app)
         try chooseInput(comic, trigger: app.buttons["import-pdf"].firstMatch, app: app)
         waitForText(["1 / 2"], in: app.staticTexts["comic-position"].firstMatch, timeout: 25)
         XCTAssertFalse(navigation.exists)
+        navigateWorkspace("library-docx", in: app)
         press(word)
         XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
         XCTAssertTrue(try webText(in: app, matching: "Original DOCX chapter", prefix: false, timeout: 10).exists)
@@ -1235,7 +1338,9 @@ final class NativeUITests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate(); defer { app.terminate() }
+        navigateWorkspace("document-conversion", in: app)
         let entry = app.buttons["document-conversion"].firstMatch
+        navigateWorkspace("document-conversion", in: app)
         XCTAssertTrue(entry.waitForExistence(timeout: 15)); press(entry)
         let export = app.buttons["conversion-export"].firstMatch, status = app.staticTexts["conversion-status"].firstMatch
         XCTAssertTrue(export.waitForExistence(timeout: 5)); XCTAssertFalse(export.isEnabled)
@@ -1263,7 +1368,9 @@ final class NativeUITests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate(); defer { app.terminate() }
+        navigateWorkspace("document-conversion", in: app)
         let entry = app.buttons["document-conversion"].firstMatch
+        navigateWorkspace("document-conversion", in: app)
         XCTAssertTrue(entry.waitForExistence(timeout: 15)); press(entry)
         let export = app.buttons["conversion-export"].firstMatch, status = app.staticTexts["conversion-status"].firstMatch
         XCTAssertTrue(export.waitForExistence(timeout: 5)); XCTAssertFalse(export.isEnabled)
@@ -1293,13 +1400,16 @@ final class NativeUITests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate(); defer { app.terminate() }
+        navigateWorkspace("document-conversion", in: app)
         let entry = app.buttons["document-conversion"].firstMatch
+        navigateWorkspace("document-conversion", in: app)
         XCTAssertTrue(entry.waitForExistence(timeout: 15)); press(entry)
         let export = app.buttons["conversion-export"].firstMatch, status = app.staticTexts["conversion-status"].firstMatch
         XCTAssertTrue(export.waitForExistence(timeout: 5)); XCTAssertFalse(export.isEnabled)
         press(app.buttons["conversion-close"].firstMatch)
         // An isolated DEBUG fixture pauses the real local worker before parsing, making cancellation deterministic.
         app.terminate(); app.launchEnvironment["PDFNO_UI_TEST_CONVERSION"] = "cancellation-checkpoint"; app.launch(); app.activate()
+        navigateWorkspace("document-conversion", in: app)
         XCTAssertTrue(entry.waitForExistence(timeout: 10)); press(entry)
         guard app.staticTexts["conversion-fixture"].firstMatch.waitForExistence(timeout: 5) else { XCTFail("Cancellation fixture must be isolated"); return }
         try chooseInput(source, trigger: app.buttons["conversion-source"].firstMatch, app: app)
@@ -1350,7 +1460,9 @@ final class NativeUITests: XCTestCase {
         try Data("Original malformed CBZ fixture".utf8).write(to: broken)
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate(); defer { app.terminate() }
+        navigateWorkspace("open-sample", in: app)
         XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15))
+        navigateWorkspace("import-pdf", in: app)
         try chooseInput(archive, trigger: app.buttons["import-pdf"].firstMatch, app: app)
         let position = app.staticTexts["comic-position"].firstMatch
         waitForText(["1 / 7"], in: position, timeout: 25)
@@ -1383,23 +1495,30 @@ final class NativeUITests: XCTestCase {
         waitForText(["单页"], in: layout, timeout: 10)
         waitForText(["5 / 7"], in: position, timeout: 15)
         press(app.buttons["comic-close"].firstMatch)
+        navigateWorkspace("library-comic", in: app)
         let comic = app.descendants(matching: .any).matching(identifier: "library-comic").firstMatch
+        navigateWorkspace("library-comic", in: app)
         XCTAssertTrue(comic.waitForExistence(timeout: 5)); press(comic)
         waitForText(["5 / 7"], in: position, timeout: 25)
         app.terminate(); app.launch(); app.activate()
+        navigateWorkspace("library-comic", in: app)
         XCTAssertTrue(comic.waitForExistence(timeout: 10)); press(comic)
         waitForText(["5 / 7"], in: position, timeout: 25)
         XCTAssertTrue(textValue(direction).contains("从右到左")); XCTAssertTrue(textValue(layout).contains("单页"))
+        navigateWorkspace("import-pdf", in: app)
         try chooseInput(broken, trigger: app.buttons["import-pdf"].firstMatch, app: app)
         let dismissError = try modalButton(app, titles: ["知道了"])
         let archiveError = "CBZ 无效、路径不安全、校验失败或 ZIP 结构不受支持（加密、分卷、ZIP64）。"
         XCTAssertTrue(app.staticTexts[archiveError].firstMatch.exists)
         press(dismissError)
         waitForText(["5 / 7"], in: position, timeout: 5)
+        navigateWorkspace("open-sample", in: app)
         press(app.buttons["open-sample"].firstMatch)
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 10)
+        navigateWorkspace("open-epub-sample", in: app)
         press(app.buttons["open-epub-sample"].firstMatch)
         waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
+        navigateWorkspace("library-comic", in: app)
         press(comic); waitForText(["5 / 7"], in: position, timeout: 25)
     }
     @MainActor func testMacCBTImportSpreadsDirectionPageJumpAndRestart() throws {
@@ -1490,7 +1609,9 @@ final class NativeUITests: XCTestCase {
         try Data("Original malformed CBZ fixture".utf8).write(to: broken)
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate(); defer { app.terminate() }
+        navigateWorkspace("open-sample", in: app)
         XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15))
+        navigateWorkspace("import-pdf", in: app)
         try chooseInput(archive, trigger: app.buttons["import-pdf"].firstMatch, app: app)
         let position = app.staticTexts["comic-position"].firstMatch
         waitForText(["1 / 7"], in: position, timeout: 25)
@@ -1523,13 +1644,17 @@ final class NativeUITests: XCTestCase {
         waitForText(["单页"], in: layout, timeout: 10)
         waitForText(["5 / 7"], in: position, timeout: 15)
         press(app.buttons["comic-close"].firstMatch)
+        navigateWorkspace("library-comic", in: app)
         let comic = app.descendants(matching: .any).matching(identifier: "library-comic").firstMatch
+        navigateWorkspace("library-comic", in: app)
         XCTAssertTrue(comic.waitForExistence(timeout: 5)); press(comic)
         waitForText(["5 / 7"], in: position, timeout: 25)
         app.terminate(); app.launch(); app.activate()
+        navigateWorkspace("library-comic", in: app)
         XCTAssertTrue(comic.waitForExistence(timeout: 10)); press(comic)
         waitForText(["5 / 7"], in: position, timeout: 25)
         XCTAssertTrue(textValue(direction).contains("从右到左")); XCTAssertTrue(textValue(layout).contains("单页"))
+        navigateWorkspace("import-pdf", in: app)
         try chooseInput(broken, trigger: app.buttons["import-pdf"].firstMatch, app: app)
         let dismissError = try modalButton(app, titles: ["知道了"])
         let archiveError: String
@@ -1541,10 +1666,13 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts[archiveError].firstMatch.exists)
         press(dismissError)
         waitForText(["5 / 7"], in: position, timeout: 5)
+        navigateWorkspace("open-sample", in: app)
         press(app.buttons["open-sample"].firstMatch)
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 10)
+        navigateWorkspace("open-epub-sample", in: app)
         press(app.buttons["open-epub-sample"].firstMatch)
         waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
+        navigateWorkspace("library-comic", in: app)
         press(comic); waitForText(["5 / 7"], in: position, timeout: 25)
         XCTAssertEqual(try Data(contentsOf: archive), bytes)
     }
@@ -1644,6 +1772,7 @@ final class NativeUITests: XCTestCase {
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
         app.launchEnvironment["PDFNO_UI_TEST_PAGE_FIXTURE"] = "multi"
         app.launch(); app.activate()
+        navigateWorkspace("open-sample", in: app)
         XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["open-sample"].firstMatch)
         press(app.buttons["reader-page-translation"].firstMatch)
         guard app.staticTexts["page-offline-fixture"].firstMatch.waitForExistence(timeout: 5) else {
@@ -1697,7 +1826,9 @@ final class NativeUITests: XCTestCase {
         scrollPageToTop(in: app); press(app.buttons["page-return-source"].firstMatch)
         XCTAssertTrue(textValue(app.staticTexts["page-position"].firstMatch).contains("1 / 1"))
         app.terminate(); app.launch(); app.activate()
+        navigateWorkspace("library-book", in: app)
         let book = app.descendants(matching: .any).matching(identifier: "library-book").firstMatch
+        navigateWorkspace("library-book", in: app)
         XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
         press(app.buttons["reader-page-translation"].firstMatch)
         XCTAssertFalse(app.buttons["page-start"].firstMatch.isEnabled)
@@ -1754,7 +1885,9 @@ final class NativeUITests: XCTestCase {
         scrollChapterElement(back, in: app); press(back)
         waitForText(["第 2 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 10)
         app.terminate(); app.launch(); app.activate()
+        navigateWorkspace("library-epub", in: app)
         let book = app.descendants(matching: .any).matching(identifier: "library-epub").firstMatch
+        navigateWorkspace("library-epub", in: app)
         XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
         waitForText(["第 2 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
         press(app.buttons["epub-chapter-translation"].firstMatch)
@@ -1811,7 +1944,9 @@ final class NativeUITests: XCTestCase {
         scrollChapterElement(save, in: app); press(save); waitForText(["已保存"], in: save, timeout: 5)
     }
     @MainActor private func openChapterFixture(in app: XCUIApplication, japanese: Bool) {
+        navigateWorkspace("open-epub-sample", in: app)
         let sample = app.buttons["open-epub-sample"].firstMatch
+        navigateWorkspace("open-epub-sample", in: app)
         XCTAssertTrue(sample.waitForExistence(timeout: 15)); press(sample)
         waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
         if japanese {
@@ -1847,6 +1982,7 @@ final class NativeUITests: XCTestCase {
             let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
             app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"; app.launchEnvironment["PDFNO_UI_TEST_PAGE_FIXTURE"] = mode
             app.launch(); app.activate()
+            navigateWorkspace("open-sample", in: app)
             XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["open-sample"].firstMatch)
             press(app.buttons["reader-page-translation"].firstMatch)
             let error = app.staticTexts["page-preparation-error"].firstMatch
@@ -1860,6 +1996,7 @@ final class NativeUITests: XCTestCase {
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"; app.launchEnvironment["PDFNO_UI_TEST_PAGE_FIXTURE"] = "multi"
         app.launchEnvironment["PDFNO_UI_TEST_PAGE_RESPONSE"] = "slow"
         app.launch(); app.activate()
+        navigateWorkspace("open-sample", in: app)
         XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["open-sample"].firstMatch)
         press(app.buttons["reader-page-translation"].firstMatch)
         guard app.staticTexts["page-offline-fixture"].firstMatch.waitForExistence(timeout: 5) else {
@@ -1883,7 +2020,9 @@ final class NativeUITests: XCTestCase {
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
         app.launch(); app.activate()
+        navigateWorkspace("open-sample", in: app)
         let sample = app.buttons["open-sample"].firstMatch
+        navigateWorkspace("open-sample", in: app)
         XCTAssertTrue(sample.waitForExistence(timeout: 15)); press(sample)
         press(app.buttons["reader-navigation"].firstMatch)
         let search = app.textFields["search-input"].firstMatch
@@ -1898,6 +2037,7 @@ final class NativeUITests: XCTestCase {
             app.terminate(); return
         }
         press(app.buttons["ai-close"].firstMatch)
+        navigateWorkspace("ai-settings", in: app)
         press(app.buttons["ai-settings"].firstMatch)
         let preset = app.buttons["ai-use-deepseek"].firstMatch
         XCTAssertTrue(preset.waitForExistence(timeout: 5)); press(preset)
@@ -1922,6 +2062,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["ai-saved-user-note"].firstMatch.waitForExistence(timeout: 8))
         press(app.buttons["ai-result-source"].firstMatch)
         XCTAssertTrue(textValue(app.staticTexts["page-position"].firstMatch).contains("1 / 2"))
+        navigateWorkspace("open-epub-sample", in: app)
         press(app.buttons["open-epub-sample"].firstMatch)
         waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
         let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
@@ -1938,7 +2079,9 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["ai-saved-result"].firstMatch.waitForExistence(timeout: 8))
         press(app.buttons["ai-result-source"].firstMatch)
         app.terminate(); app.launch(); app.activate()
+        navigateWorkspace("library-epub", in: app)
         let book = app.descendants(matching: .any).matching(identifier: "library-epub").firstMatch
+        navigateWorkspace("library-epub", in: app)
         XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
         waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
         press(app.buttons["epub-ai"].firstMatch)
@@ -1951,7 +2094,9 @@ final class NativeUITests: XCTestCase {
     @MainActor func testMacAISelectionConsentMockNotesAndRestart() throws {
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate()
+        navigateWorkspace("open-sample", in: app)
         let sample = app.buttons["open-sample"].firstMatch
+        navigateWorkspace("open-sample", in: app)
         XCTAssertTrue(sample.waitForExistence(timeout: 15)); press(sample)
         press(app.buttons["reader-navigation"].firstMatch)
         let search = app.textFields["search-input"].firstMatch
@@ -1970,6 +2115,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(error.waitForExistence(timeout: 5)); XCTAssertTrue(textValue(error).contains("未配置"))
         XCTAssertFalse(app.staticTexts["ai-result"].firstMatch.exists)
         press(app.buttons["ai-close"].firstMatch)
+        navigateWorkspace("ai-settings", in: app)
         press(app.buttons["ai-settings"].firstMatch)
         let mock = app.buttons["ai-use-mock"].firstMatch
         XCTAssertTrue(mock.waitForExistence(timeout: 5)); press(mock)
@@ -1987,13 +2133,17 @@ final class NativeUITests: XCTestCase {
         press(app.buttons["ai-result-source"].firstMatch)
         XCTAssertTrue(textValue(app.staticTexts["page-position"].firstMatch).contains("1 / 2"))
         app.terminate(); app.launch(); app.activate()
+        navigateWorkspace("library-book", in: app)
         let book = app.descendants(matching: .any).matching(identifier: "library-book").firstMatch
+        navigateWorkspace("library-book", in: app)
         XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
         press(app.buttons["reader-ai"].firstMatch)
         XCTAssertTrue(userNote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(userNote), "Original synthetic AI user note")
         XCTAssertEqual(textValue(app.staticTexts["ai-saved-quote"].firstMatch), "window")
         press(app.buttons["ai-saved-source"].firstMatch)
+        navigateWorkspace("open-epub-sample", in: app)
         let epubSample = app.buttons["open-epub-sample"].firstMatch
+        navigateWorkspace("open-epub-sample", in: app)
         XCTAssertTrue(epubSample.waitForExistence(timeout: 5)); press(epubSample)
         waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
         let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
@@ -2016,7 +2166,9 @@ final class NativeUITests: XCTestCase {
     @MainActor func testMacEPUBSelectionRubyNotesAndRestart() throws {
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate()
+        navigateWorkspace("open-epub-sample", in: app)
         let sample = app.buttons["open-epub-sample"].firstMatch
+        navigateWorkspace("open-epub-sample", in: app)
         XCTAssertTrue(sample.waitForExistence(timeout: 15)); press(sample)
         let position = app.staticTexts["epub-position"].firstMatch
         waitForText(["第 1 章"], in: position, timeout: 25)
@@ -2043,7 +2195,9 @@ final class NativeUITests: XCTestCase {
         let ruby = try webText(in: app, matching: "にほんご", prefix: false, timeout: 15)
         XCTAssertTrue(ruby.exists, "Author ruby must remain visible in vertical reading")
         app.terminate(); app.launch(); app.activate()
+        navigateWorkspace("library-epub", in: app)
         let book = app.descendants(matching: .any).matching(identifier: "library-epub").firstMatch
+        navigateWorkspace("library-epub", in: app)
         XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
         waitForText(["第 2 章", "竖排"], in: position, timeout: 20)
         press(app.buttons["epub-notes"].firstMatch)
@@ -2171,6 +2325,7 @@ final class NativeUITests: XCTestCase {
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch()
         app.activate()
+        navigateWorkspace("open-sample", in: app)
         let sample = app.buttons["open-sample"].firstMatch
         guard sample.waitForExistence(timeout: 15) else {
             // Only the isolated PDFno test application is described here. Do not
@@ -2182,6 +2337,7 @@ final class NativeUITests: XCTestCase {
         }
         let ready = expectation(for: NSPredicate(format: "enabled == true AND hittable == true"), evaluatedWith: sample)
         wait(for: [ready], timeout: 15)
+        navigateWorkspace("open-sample", in: app)
         press(sample)
         let position = app.staticTexts["page-position"].firstMatch
         XCTAssertTrue(position.waitForExistence(timeout: 15))
@@ -2227,8 +2383,10 @@ final class NativeUITests: XCTestCase {
         app.activate()
         // SwiftUI plain buttons can be exposed as a group rather than a Button
         // on newer simulators. Target the explicit app-owned identifier.
+        navigateWorkspace("library-book", in: app)
         let book = app.descendants(matching: .any).matching(identifier: "library-book").firstMatch
         XCTAssertTrue(book.waitForExistence(timeout: 10))
+        navigateWorkspace("library-book", in: app)
         press(book)
         XCTAssertTrue(position.waitForExistence(timeout: 10))
         XCTAssertTrue(textValue(position).contains("2 / 2"), "Reading position must persist after process restart")

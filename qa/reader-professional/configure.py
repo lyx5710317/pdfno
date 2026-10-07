@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
-"""Validate compiled guarded products and prepare the complete 64-method run; no GUI."""
+"""Validate compiled guarded products and prepare the complete 68-method run; no GUI."""
 from pathlib import Path
 import argparse, hashlib, json, plistlib, subprocess, uuid
 
@@ -47,7 +47,7 @@ for relative, expected in receipt['production_inputs'].items():
         assert sha(snapshot / relative) == expected, relative
 for name, expected in receipt['production_original_four_ui_sha256'].items():
     assert sha(snapshot / 'apple/Tests' / name) == expected
-assert len(receipt['expected_methods']) == 64 and len(set(receipt['expected_methods'])) == 64
+assert len(receipt['expected_methods']) == 68 and len(set(receipt['expected_methods'])) == 68
 token = str(uuid.uuid4()).upper()
 bootstrap = Path('/tmp') / ('PDFno-UITests-' + token)
 assert not bootstrap.exists()
@@ -64,19 +64,19 @@ configuration['UserAttachmentLifetime'] = 'keepNever'
 environment = {
     'PDFNO_UI_TEST_SESSION': token,
     'PDFNO_UI_TEST_DEEPSEEK': 'offline',
-    'PDFNO_A_QA_SCOPE': 'full64',
+    'PDFNO_A_QA_SCOPE': 'full68',
     'PDFNO_ISOLATED_UI_APPLICATION_ID': receipt['bundle'],
     'PDFNO_A_QA_EXPECTED_BUNDLE': receipt['bundle'],
     'PDFNO_A_QA_SHOT_TOKEN': token,
 }
 configuration.setdefault('EnvironmentVariables', {}).update(environment)
 configuration.setdefault('UITargetAppEnvironmentVariables', {}).update(environment)
-configured = products / 'ProfessionalAComplete64.xctestrun'
+configured = products / 'ProfessionalAComplete68.xctestrun'
 assert not configured.exists()
 configured.write_bytes(plistlib.dumps(raw))
-result_bundle = out / 'ProfessionalAComplete64.xcresult'
+result_bundle = out / 'ProfessionalAComplete68.xcresult'
 assert not result_bundle.exists()
 command = ['xcodebuild', '-xctestrun', str(configured), '-destination', 'platform=macOS', '-resultBundlePath', str(result_bundle), '-parallel-testing-enabled', 'NO', '-test-timeouts-enabled', 'YES', '-default-test-execution-time-allowance', '180', '-maximum-test-execution-time-allowance', '240', 'test-without-building']
 plan = {'source_head': receipt['source_head'], 'branch': receipt['branch'], 'bundle': receipt['bundle'], 'compiled_products': compiled, 'xctestrun': str(configured), 'xctestrun_sha256': sha(configured), 'bootstrap_uuid': token, 'bootstrap_root': str(bootstrap), 'expected_methods': receipt['expected_methods'], 'filters': [], 'skips': [], 'automatic_retries': 0, 'command': command, 'gui_started': False, 'desktop_exclusive_handoff_required_before_run': True}
 (out / 'RUN-PLAN.json').write_text(json.dumps(plan, ensure_ascii=False, indent=2) + '\n')
-print(json.dumps({'bundle': receipt['bundle'], 'compiled_products_verified': True, 'expected_methods': 64, 'gui_started': False}))
+print(json.dumps({'bundle': receipt['bundle'], 'compiled_products_verified': True, 'expected_methods':len(receipt['expected_methods']), 'gui_started': False}))

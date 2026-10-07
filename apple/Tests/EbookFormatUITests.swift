@@ -6,6 +6,29 @@ import AppKit
 
 /// Execute only on an isolated CI host/OS user. Never launch against the owner's app session.
 final class EbookFormatUITests: XCTestCase {
+    // Navigation driver only: existing behavior assertions remain in the methods.
+    @MainActor private func navigateWorkspace(_ id: String, in app: XCUIApplication) {
+        #if os(macOS)
+        func target(_ name: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: name).firstMatch }
+        if target(id).exists { return }
+        let example = id.hasPrefix("open-") && id.contains("sample")
+        let tools = ["ai-settings", "ai-tools-open", "bookno-preview-open", "document-conversion", "library-local-recovery"].contains(id)
+        if example || tools {
+            app.typeKey(.escape, modifierFlags: [])
+            let launcher = target(example ? "workspace-help" : "workspace-tools")
+            XCTAssertTrue(launcher.waitForExistence(timeout: 15)); launcher.click()
+        } else {
+            if target("workspace-back-library").exists { target("workspace-back-library").click() }
+            XCTAssertTrue(target("professional-library-workspace").waitForExistence(timeout: 15))
+            if id.hasPrefix("library-") || id.hasPrefix("cover-image-") {
+                if !target(id).waitForExistence(timeout: 2), target("library-category-examples").exists {
+                    target("library-category-examples").click()
+                }
+            }
+        }
+        #endif
+    }
+
     @MainActor func testMOBISelectionNoteProgressRestart() throws { try flow("mobi", paragraph: "Original source", second: "Original MOBI chapter two") }
     @MainActor func testAZWSelectionNoteProgressRestart() throws { try flow("azw", paragraph: "Original source", second: "Original AZW chapter two") }
     @MainActor func testAZW3SelectionNoteProgressRestart() throws { try flow("azw3", paragraph: "Pure KF8", second: "Second KF8 heading") }
@@ -14,8 +37,10 @@ final class EbookFormatUITests: XCTestCase {
         let app = XCUIApplication(), token = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launch(); app.activate(); defer { app.terminate() }
+        navigateWorkspace("open-ebook-sample", in: app)
         let menu = app.descendants(matching: .any).matching(identifier: "open-ebook-sample").firstMatch
         XCTAssertTrue(menu.waitForExistence(timeout: 15)); menu.click()
+        navigateWorkspace("open-ebook-sample-", in: app)
         let item = app.descendants(matching: .any).matching(identifier: "open-ebook-sample-" + format).firstMatch
         XCTAssertTrue(item.waitForExistence(timeout: 5)); item.click()
         let nav = app.buttons["ebook-navigation"].firstMatch
@@ -68,6 +93,7 @@ final class EbookFormatUITests: XCTestCase {
         XCTAssertEqual(note["anchor"] as? NSDictionary, savedAnchor); XCTAssertEqual(book["progress"] as? NSDictionary, savedProgress)
         app.buttons["ebook-return"].firstMatch.click()
         XCTAssertTrue(try webText(app, prefix: paragraph).isHittable)
+        navigateWorkspace("open-sample", in: app)
         app.buttons["open-sample"].firstMatch.click()
         XCTAssertTrue(app.staticTexts["page-position"].firstMatch.waitForExistence(timeout: 15))
         XCTAssertFalse(app.buttons["ebook-navigation"].exists)

@@ -8,6 +8,7 @@ import PDFnoReaders
 
 /// Independent format slice. The shared LibraryModel only routes imports and active-reader state.
 @MainActor public final class DOCXLibraryModel: ObservableObject {
+    var lastCreatedImport: BundledExampleIdentity?
     @Published public private(set) var books: [DOCXBook] = []
     @Published public private(set) var notes: [DOCXNote] = []
     @Published public private(set) var isActive = false
@@ -22,11 +23,14 @@ import PDFnoReaders
     }
     public func deactivate() { isActive = false; reader.close() }
     public func importFile(_ url: URL) async throws {
+        lastCreatedImport = nil
         let hostOperation = try LocalStoreWriteGate.shared(root: storageRoot).beginWrite()
         defer { hostOperation.finish() }
         guard !busy else { return }; busy = true; defer { busy = false }
         let scoped = url.startAccessingSecurityScopedResource(); defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-        let book = try await repository.importFile(url); try await load(); try await activate(book)
+        let imported = try await repository.importFileWithStatus(url)
+        let book = imported.book
+        if imported.created { lastCreatedImport = .init(format: "docx", bookID: book.id, editionID: book.editionID, fileSHA256: book.fileSHA256) }; try await load(); try await activate(book)
     }
     public func open(_ book: DOCXBook) async throws {
         let hostOperation = try LocalStoreWriteGate.shared(root: storageRoot).beginWrite()
