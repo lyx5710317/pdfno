@@ -52,14 +52,9 @@ final class NextBatchUITests: XCTestCase {
         field.typeKey("a", modifierFlags: .command); field.typeKey("v", modifierFlags: .command)
     }
     @MainActor private func pastePath(_ value: String, into field: XCUIElement) {
+        // Write only this fixture path; never inspect the user's clipboard.
         let board = NSPasteboard.general
-        let previous = (board.pasteboardItems ?? []).map { item in
-            let copy = NSPasteboardItem()
-            for type in item.types { if let bytes = item.data(forType: type) { copy.setData(bytes, forType: type) } }
-            return copy
-        }
-        board.clearContents(); board.setString(value, forType: .string); let change = board.changeCount
-        defer { if board.changeCount == change { board.clearContents(); board.writeObjects(previous) } }
+        board.clearContents(); board.setString(value, forType: .string)
         field.typeKey("a", modifierFlags: .command); field.typeKey("v", modifierFlags: .command)
         XCTAssertEqual(field.value as? String, value)
     }
@@ -71,14 +66,26 @@ final class NextBatchUITests: XCTestCase {
         let path = app.textFields["PathTextField"].firstMatch; click(path)
         pastePath(url.path, into: path)
         XCTAssertEqual(path.value as? String, url.path)
-        for _ in 0..<2 {
-            if !path.exists || !path.isHittable { break }
-            app.typeKey(.return, modifierFlags: [])
-            let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !path.exists || !path.isHittable }, object: app)
-            if XCTWaiter.wait(for: [dismissed], timeout: 5) == .completed { break }
-        }
+        // Same native completion route used by the existing file-panel tests.
+        // The old Return path crashed the system panel immediately after paste.
+        let fixture = NSPredicate(format: "label == %@ OR value == %@", url.lastPathComponent, url.lastPathComponent)
+        let roles: [XCUIElement.ElementType] = [.cell, .tableRow, .outlineRow]
+        var completion: XCUIElement?
+        let ready = expectation(for: NSPredicate { _, _ in
+            completion = roles.flatMap { app.descendants(matching: $0).containing(fixture).allElementsBoundByIndex }
+                .first { $0.isHittable && !$0.frame.isEmpty && $0.frame.minX.isFinite && $0.frame.minY.isFinite }
+            return completion != nil
+        }, evaluatedWith: app)
+        wait(for: [ready], timeout: 10)
+        let row = try XCTUnwrap(completion, "The real fixture folder completion must be hittable")
+        row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).doubleClick()
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !path.exists || !path.isHittable }, object: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed)
         XCTAssertFalse(path.exists && path.isHittable)
-        if open.exists { click(open) }
+        let location = element("pdfno-directory-current-location", app)
+        XCTAssertTrue(location.waitForExistence(timeout: 10))
+        text(location, contains: "当前文件夹：" + url.resolvingSymlinksInPath().path)
+        click(open)
     }
     @MainActor private func confirmInitialDirectory(_ url: URL, trigger: XCUIElement, app: XCUIApplication) {
         click(trigger)
