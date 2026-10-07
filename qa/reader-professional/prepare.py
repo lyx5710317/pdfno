@@ -56,7 +56,7 @@ idx = s.index(source_phase + ' = '); start = s.index('files = (',idx)+len('files
 group = ident('mainGroup'); idx = s.index(group + ' = '); start = s.index('children = (',idx)+len('children = ('); s=s[:start]+reference+','+s[start:]
 p.write_text(s)
 import re
-legacy = re.findall(r'^\| `(\w+UITests/test\w+)` \|', (ROOT/'docs/MAC-UI-FINAL-ACCEPTANCE-2026-10-06.md').read_text(), re.M)
+legacy = re.findall(r'^\| `(\w+UITests/test\w+)` \| Passed \|', (ROOT/'docs/MAC-UI-FINAL-ACCEPTANCE-2026-10-06.md').read_text(), re.M)
 extra_methods = ['ProfessionalReaderUITests/'+name for name in re.findall(r'func (test\w+)\(',extra.read_text())]
 assert len(legacy)==60 and len(set(legacy))==60 and len(extra_methods)==4
 receipt = {'source_head': subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(), 'branch': subprocess.check_output(['git','branch','--show-current'],cwd=ROOT,text=True).strip(), 'bundle':'org.pdfno.integration.professionala20261007.PDFnoMac','source':str(snapshot),'preview_uuid':preview,'preview_root':'/tmp/PDFno-UITests-'+preview,'registry':str(registry),'production_inputs':inputs,'qa_only_deviations':changes,'extra_ui_file_sha256':sha(extra),'production_original_four_ui_sha256':{p.name:sha(p) for p in (ROOT/'apple/Tests').glob('*.swift')},'gui_started':False,'new_ui_methods':4,'expected_methods':sorted(legacy+extra_methods),'new_accounts_or_packages':False}
