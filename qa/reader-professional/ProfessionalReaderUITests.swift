@@ -131,7 +131,9 @@ final class ProfessionalReaderUITests: XCTestCase {
         try click(item("open-epub-sample", app))
         let paragraph = try originalWebText("window", app: app)
         XCTAssertTrue(paragraph.waitForExistence(timeout: 20)); XCTAssertTrue(paragraph.isHittable)
-        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.5)).doubleClick()
+        // Target the first line: at 720 the fixture paragraph wraps, so its
+        // vertical center can be the second line instead of the word window.
+        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.1)).doubleClick()
         try click(item("epub-notes", app)); contains(item("epub-selection", app), "window")
         let draft = item("epub-note-input", app), body = "A EPUB original draft 日本語"
         try click(draft); pasteOriginal(body, app: app); value(draft, equals: body)

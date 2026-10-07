@@ -72,6 +72,9 @@ struct PDFnoReaderShell<Reader: View, Navigation: View, Notes: View>: View {
             let layout = panels.placement(width: geometry.size.width, profile: profile)
             ZStack(alignment: .topLeading) {
                 reader()
+                    // Native PDF/WebKit AX hit tests otherwise resolve to the
+                    // covered document instead of the foreground inspector.
+                    .accessibilityHidden((layout.overlay || overlayPanels) && (layout.showNavigation || layout.showNotes))
                     .padding(.leading, overlayPanels ? 0 : layout.leading)
                     .padding(.trailing, overlayPanels ? 0 : layout.trailing)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
