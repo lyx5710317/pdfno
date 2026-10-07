@@ -142,7 +142,9 @@ struct ProfessionalLibraryWorkspace: View {
                 .font(.system(size: 12, weight: active ? .semibold : .regular)).padding(10)
                 .foregroundStyle(active ? Color.blue : Color.secondary)
                 .background(active ? Color.blue.opacity(0.10) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
-        }.buttonStyle(.plain).accessibilityValue(active ? "已选中" : "未选中")
+                .contentShape(Rectangle())
+        }.buttonStyle(.plain).accessibilityElement(children: .ignore).accessibilityLabel(title)
+            .accessibilityValue(active ? "已选中" : "未选中").accessibilityHint("\(count) 本书籍")
     }
     private var layoutPicker: some View {
         HStack(spacing: 2) {
