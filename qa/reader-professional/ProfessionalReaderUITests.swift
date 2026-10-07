@@ -62,6 +62,12 @@ final class ProfessionalReaderUITests: XCTestCase {
         let ready = expectation(for: NSPredicate { _, _ in element.exists && (element.label + " " + (element.value as? String ?? "")).contains(text) }, evaluatedWith: element)
         wait(for: [ready], timeout: 15)
     }
+    @MainActor private func waitForRemoval(_ element: XCUIElement) {
+        // EPUB source navigation awaits a real WebKit reply before closing
+        // its panel. Observe completion before the original closure assertion.
+        let removed = expectation(for: NSPredicate { _, _ in !element.exists }, evaluatedWith: element)
+        wait(for: [removed], timeout: 10)
+    }
     @MainActor private func originalWebText(_ text: String, app: XCUIApplication) throws -> XCUIElement {
         // Same real WebKit roles/value handling as the original EPUB regressions.
         // macOS 15 may expose ruby as a group and text through value, not label.
@@ -182,6 +188,7 @@ final class ProfessionalReaderUITests: XCTestCase {
         try click(item("epub-save-note", app))
         let source = item("epub-return", app)
         try reveal(source, in: "epub-notes-list", app: app); try click(source)
+        waitForRemoval(item("reader-notes-panel", app))
         XCTAssertFalse(item("reader-notes-panel", app).exists); contains(item("epub-position", app), "第 1 章")
     }
 
