@@ -252,8 +252,9 @@ final class NextBatchUITests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: recovered.appendingPathComponent("record-edit-drafts-v1.json").path))
         print("Synthetic recovery checkpoint: new-root restoration and unchanged active library verified")
         click(app.buttons["local-recovery-close"].firstMatch)
+        app.terminate(); app.launch(); app.activate()
         navigateWorkspace("library-book", in: app)
-        app.terminate(); app.launch(); app.activate(); click(element("library-book", app))
+        click(element("library-book", app))
         text(element("page-position", app), contains: "1 / 2")
     }
 }
