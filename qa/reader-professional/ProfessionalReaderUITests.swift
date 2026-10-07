@@ -61,10 +61,14 @@ final class ProfessionalReaderUITests: XCTestCase {
         guard element.isHittable else { throw NSError(domain: "ProfessionalOriginalUI", code: 2) }
     }
     @MainActor private func capture(_ name: String, app: XCUIApplication) throws {
-        let root = try XCTUnwrap(ProcessInfo.processInfo.environment["PDFNO_A_QA_SCREENSHOTS"])
-        let directory = URL(fileURLWithPath: root, isDirectory: true)
+        let token = try XCTUnwrap(ProcessInfo.processInfo.environment["PDFNO_A_QA_SHOT_TOKEN"])
+        XCTAssertNotNil(UUID(uuidString: token))
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-A-WindowShots-" + token, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try app.windows.firstMatch.screenshot().pngRepresentation.write(to: directory.appendingPathComponent(name + ".png"))
+        let file = directory.appendingPathComponent(name + ".png")
+        try app.windows.firstMatch.screenshot().pngRepresentation.write(to: file)
+        let receipt = try JSONSerialization.data(withJSONObject: ["name": name, "path": file.path], options: [.sortedKeys])
+        print("PDFNO_A_WINDOW_SHOT " + String(decoding: receipt, as: UTF8.self))
     }
 
     @MainActor func testANarrowPDFKeyboardSearchAndNoteDraftSurviveCollapse() throws {

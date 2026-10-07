@@ -32,11 +32,13 @@ struct PDFnoProfessionalReaderChrome<Actions: View, Controls: View, Content: Vie
                     VStack(spacing: 4) { actions() }.padding(.vertical, 8)
                 }.scrollIndicators(.hidden).frame(width: 58)
                     .background(PDFnoDesign.Palette.surface)
+                    .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("professional-reader-tool-rail")
                 Divider()
                 content().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }.background(PDFnoDesign.Palette.chrome).tint(.blue)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("professional-reader-workspace")
     }
 }

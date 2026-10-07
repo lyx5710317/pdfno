@@ -84,6 +84,7 @@ struct PDFnoReaderShell<Reader: View, Navigation: View, Notes: View>: View {
                         .zIndex(2)
                         // Foreground controls precede the reader in the AX tree.
                         .accessibilitySortPriority(10)
+                        .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("reader-notes-panel")
                 }
             }

@@ -278,7 +278,8 @@ struct AILearningWorkspace: View {
                     }
                 }
             }.padding(PDFnoDesign.Space.section)
-            }.background(PDFnoDesign.Palette.chrome).font(PDFnoDesign.TypeStyle.body).accessibilityIdentifier("ai-notes-list").navigationTitle("选文学习")
+            }.background(PDFnoDesign.Palette.chrome).font(PDFnoDesign.TypeStyle.body).accessibilityIdentifier("ai-notes-list")
+            .modifier(AILearningPresentationTitle(embedded: embedded))
             .toolbar {
                 if !embedded {
                     ToolbarItem { Button("查看结果／错误") { proxy.scrollTo(learning.result == nil ? "ai-task-state" : "ai-current-result", anchor: .top) } }
@@ -306,6 +307,14 @@ struct AILearningWorkspace: View {
             if (learning.source?.anchor.quote.utf16.count ?? 0) > DeepSeekSelectionPolicy.maxSourceUTF16 { return "选文超过 500 UTF-16 单位，请缩短选文。" }
         }
         return confirmed ? nil : "核对选文、任务、接收方和费用后，勾选确认以开始。"
+    }
+}
+
+private struct AILearningPresentationTitle: ViewModifier {
+    let embedded: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if embedded { content }
+        else { content.navigationTitle("选文学习") }
     }
 }
 #endif

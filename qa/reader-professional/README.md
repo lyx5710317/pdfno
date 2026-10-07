@@ -21,6 +21,6 @@ python3 qa/reader-professional/configure.py --output <QA目录>
 
 启动入口在 SwiftUI Scene 创建前强制检查 bundle、UUID 和范围，自制 Library 固定到 `/tmp/PDFno-UITests-{UUID}`；权限为 0700，进程／会话记录放在 Library 外的 `Registry`。已有目录只能由该入口自己的匹配会话记录恢复。每个原 GUI 方法仍自行生成 UUID，`preview` 则使用独立固定 UUID 并仅打开内置原创示例。
 
-原 60 方法的完整结果须和新增四项分别核对 xcresult 方法树、实际日志及运行次数。四项新增方法覆盖真实 ⌘F 焦点、窄窗笔记草稿、AI 确认和手动保存、EPUB 规范来源与草稿、宽窗双面板恢复。显式截图只取自制 App 的 `app.windows.firstMatch`，输出到 `Screenshots`，不捕获桌面。测试系统自动附件设为 `keepNever`。
+原 60 方法的完整结果须和新增四项分别核对 xcresult 方法树、实际日志及运行次数。四项新增方法覆盖真实 ⌘F 焦点、窄窗笔记草稿、AI 确认和手动保存、EPUB 规范来源与草稿、宽窗双面板恢复。显式截图只取自制 App 的 `app.windows.firstMatch`，写入 runner 自己的 `FileManager.default.temporaryDirectory` 下以固定 QA UUID 命名的 `PDFno-A-WindowShots-*` 专用目录，不捕获桌面。日志中的 `PDFNO_A_WINDOW_SHOT` JSON 提供准确图片路径；收集到本地 `Screenshots` 时须逐张核对原始 PNG 与 SHA，不改像素。工作树和任意 `/tmp` 路径并不保证 runner 可写。测试系统自动附件设为 `keepNever`。
 
 未执行 GUI 时，不得将编译、隐藏 NSHostingView 布局测试、历史 60 项通过或原型截图称为当前 A 产品验收。

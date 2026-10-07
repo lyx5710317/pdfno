@@ -65,7 +65,7 @@ environment = {
     'PDFNO_UI_TEST_DEEPSEEK': 'offline',
     'PDFNO_A_QA_SCOPE': 'full64',
     'PDFNO_ISOLATED_UI_APPLICATION_ID': receipt['bundle'],
-    'PDFNO_A_QA_SCREENSHOTS': str(out / 'Screenshots'),
+    'PDFNO_A_QA_SHOT_TOKEN': token,
 }
 configuration.setdefault('EnvironmentVariables', {}).update(environment)
 configuration.setdefault('UITargetAppEnvironmentVariables', {}).update(environment)
