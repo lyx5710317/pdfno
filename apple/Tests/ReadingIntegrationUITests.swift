@@ -227,8 +227,10 @@ final class ReadingIntegrationUITests: XCTestCase {
             XCTAssertTrue(text.isHittable)
             text.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
             try click(element("epub-ai-tools", in: app))
-        navigateWorkspace("open-sample", in: app)
-        } else { try click(element("open-sample", in: app)); try paragraphSearch("window", in: app); try click(element("reader-ai-tools", in: app)) }
+        } else {
+            navigateWorkspace("open-sample", in: app)
+            try click(element("open-sample", in: app)); try paragraphSearch("window", in: app); try click(element("reader-ai-tools", in: app))
+        }
         try click(element("ai-tool-explain", in: app))
         value(element("ai-source-quote", in: app), contains: "window")
         let source = element("ai-source-quote", in: app)

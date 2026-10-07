@@ -677,8 +677,11 @@ final class NativeUITests: XCTestCase {
         waitForText(["mock 记录 2", "连续确认游标 1"], in: counts, timeout: 5)
         waitForText(["不是实际同步", "Bookno 未连接"], in: app.staticTexts["bookno-preview-status"].firstMatch, timeout: 5)
         XCTAssertEqual(NSDictionary(dictionary: try originalSavedNote(token, manifest: "library-v1.json")), NSDictionary(dictionary: saved))
+        // Finish the current preview before navigating to its new tools entry.
+        // Escape inside navigateWorkspace would otherwise dismiss this sheet.
+        press(app.buttons["bookno-preview-close"].firstMatch)
         navigateWorkspace("bookno-preview-open", in: app)
-        press(app.buttons["bookno-preview-close"].firstMatch); press(open)
+        press(open)
         XCTAssertTrue(enable.waitForExistence(timeout: 5)); XCTAssertEqual(booknoCheckboxState(enable), false)
         XCTAssertFalse(prepare.isEnabled); XCTAssertFalse(app.staticTexts["bookno-preview-summary"].firstMatch.exists)
         XCTAssertFalse(counts.exists)
@@ -792,8 +795,9 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(edit.waitForExistence(timeout: 8))
         let before = try originalSavedNote(token, manifest: "epub-v1.json")
         pressEditingElement(edit, app: app); enterEditingText("Original EPUB edited body 日本語🌸", prefix: "epub-note", app: app)
+        press(app.buttons["epub-close-notes"].firstMatch)
         navigateWorkspace("open-sample", in: app)
-        press(app.buttons["epub-close-notes"].firstMatch); press(app.buttons["open-sample"].firstMatch)
+        press(app.buttons["open-sample"].firstMatch)
         XCTAssertTrue(app.buttons["reader-notes"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["reader-notes"].firstMatch)
         XCTAssertFalse(app.buttons["epub-note-edit-save"].firstMatch.exists)
         press(app.buttons["close-notes"].firstMatch)
@@ -1467,6 +1471,9 @@ final class NativeUITests: XCTestCase {
         app.launch(); app.activate(); defer { app.terminate() }
         navigateWorkspace("open-sample", in: app)
         XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15))
+        // The unchanged sample-entry assertion now observes the help popover.
+        // Close that popover before activating the real library import button.
+        app.typeKey(.escape, modifierFlags: [])
         navigateWorkspace("import-pdf", in: app)
         try chooseInput(archive, trigger: app.buttons["import-pdf"].firstMatch, app: app)
         let position = app.staticTexts["comic-position"].firstMatch
