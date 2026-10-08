@@ -20,7 +20,6 @@ private struct CancelableConversionUITestAdapter: DocumentConversionAdapter {
 @MainActor
 final class ConversionModel: ObservableObject {
     @Published var source: URL?
-    @Published var output: ConversionFormat = .plainText
     @Published private(set) var isRunning = false
     @Published private(set) var choosingDestination = false
     @Published private(set) var phase: ConversionPhase = .reading
@@ -49,7 +48,7 @@ final class ConversionModel: ObservableObject {
         source = url; result = nil; status = "已选择原文件。转换只读取原件，输出使用新文件。"
     }
     func importFailed(_ error: Error) { status = error.localizedDescription }
-    func chooseDestinationAndStart() async {
+    func chooseDestinationAndStart(output: ConversionFormat) async {
         guard let source, !isBusy else { return }
         choosingDestination = true
         let panel = NSSavePanel(); savePanel = panel
@@ -97,6 +96,7 @@ final class ConversionModel: ObservableObject {
 struct ConversionWorkspace: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model = ConversionModel()
+    @State private var output: ConversionFormat = .plainText
     @State private var importer = false
     @State private var readingPDF = false
     var body: some View {
@@ -111,7 +111,7 @@ struct ConversionWorkspace: View {
                     Button("选择 DOCX…") { importer = true }.disabled(model.isBusy).accessibilityIdentifier("conversion-source")
                     Text(model.source?.lastPathComponent ?? "尚未选择文件").lineLimit(2).textSelection(.enabled)
                 }
-                Picker("输出格式", selection: $model.output) {
+                Picker("输出格式", selection: $output) {
                     Text(ConversionFormat.plainText.title).tag(ConversionFormat.plainText)
                     Text(ConversionFormat.html.title).tag(ConversionFormat.html)
                 }.pickerStyle(.segmented).disabled(model.isBusy).accessibilityIdentifier("conversion-format")
@@ -130,7 +130,10 @@ struct ConversionWorkspace: View {
                 }
                 Spacer(minLength: 0)
                 HStack {
-                    Button("选择保存位置并转换…") { Task { await model.chooseDestinationAndStart() } }
+                    Button("选择保存位置并转换…") {
+                        let selectedOutput = output
+                        Task { await model.chooseDestinationAndStart(output: selectedOutput) }
+                    }
                         .buttonStyle(.borderedProminent).disabled(model.source == nil || model.isBusy)
                         .accessibilityIdentifier("conversion-export")
                     if model.isRunning { Button("取消转换") { model.cancel() }.accessibilityIdentifier("conversion-cancel") }
