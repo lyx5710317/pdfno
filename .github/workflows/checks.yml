@@ -1,5 +1,10 @@
 name: Native checks
 on: [push, pull_request]
+env:
+  # Temporary explicit scope for the approved debugging branch's pushes only.
+  # After the focused evidence is reviewed, a normal feature-branch commit
+  # selects full; other refs and all PRs retain the original full60 path.
+  PDFNO_APPROVED_BRANCH_PUSH_UI_SCOPE: focused
 permissions:
   contents: read
 concurrency:
@@ -9,7 +14,8 @@ jobs:
   native:
     runs-on: macos-15
     # Run 37784399153 exceeded 65m: prechecks/builds plus the full 60-method GUI run took ~69m.
-    timeout-minutes: 80 # Keep all assertion deadlines and individual 180/240s limits unchanged.
+    # Original per-assertion and per-test limits are retained in both scopes.
+    timeout-minutes: ${{ github.event_name == 'push' && github.ref == 'refs/heads/feature/mac-reader-viewport-focus-20261008' && 60 || 80 }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # verified v4, 2026-10-03
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # verified v4, 2026-10-03
@@ -40,6 +46,19 @@ jobs:
         run: |
           xcodebuild -version
           swift --version
+      - name: Select explicit GUI scope
+        id: ui-scope
+        env:
+          PDFNO_EVENT: ${{ github.event_name }}
+          PDFNO_REF: ${{ github.ref }}
+        run: |
+          if [ "$PDFNO_EVENT" = push ] && [ "$PDFNO_REF" = refs/heads/feature/mac-reader-viewport-focus-20261008 ]; then
+            case "$PDFNO_APPROVED_BRANCH_PUSH_UI_SCOPE" in full|focused) mode="$PDFNO_APPROVED_BRANCH_PUSH_UI_SCOPE" ;; *) exit 1 ;; esac
+          else
+            mode=full
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "Explicit GUI scope: $mode (focused10 and full60 results are distinct)"
       - name: Source and original fixture guards
         run: |
           python3 scripts/check-native-source.py
@@ -54,4 +73,24 @@ jobs:
       - name: Native iPhone and iPad simulator build
         run: xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMobile -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath .build/Mobile CODE_SIGNING_ALLOWED=NO build
       - name: Mac PDF, EPUB, CBZ, Word, local export and offline AI consent, citations and restart
+        if: steps.ui-scope.outputs.mode == 'full'
         run: xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/Mac -resultBundlePath .build/CI-Mac.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 240 test
+      - name: Focused original failures and unfinished flows with fixture panel diagnostics
+        if: steps.ui-scope.outputs.mode == 'focused'
+        timeout-minutes: 45
+        run: |
+          xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/Mac CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- build-for-testing
+          python3 scripts/prepare-native-focused-ui.py --products .build/Mac/Build/Products --output .build/Mac/Build/Products/FocusedDiagnostic10.xctestrun
+          set -o pipefail
+          xcodebuild -xctestrun .build/Mac/Build/Products/FocusedDiagnostic10.xctestrun -destination 'platform=macOS' -resultBundlePath .build/CI-Focused.xcresult -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 240 test-without-building 2>&1 | tee .build/CI-Focused.log
+      - name: Retain actual focused diagnostic evidence
+        if: always() && steps.ui-scope.outputs.mode == 'focused'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # official v4 commit verified 2026-10-08
+        with:
+          name: native-focused-diagnostic10
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            .build/CI-Focused.xcresult
+            .build/CI-Focused.log
+            .build/Mac/Build/Products/FocusedDiagnostic10.json

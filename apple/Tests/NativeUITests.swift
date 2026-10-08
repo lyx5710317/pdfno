@@ -22,6 +22,7 @@ final class NativeUITests: XCTestCase {
                 // after its launcher click. Await the requested control before
                 // the caller checks the original entry or opens its workspace.
                 XCTAssertTrue(target(id).waitForExistence(timeout: 10))
+                traceWorkspaceEntry(id, element: target(id))
             }
         } else {
             if target("workspace-back-library").exists { target("workspace-back-library").click() }
@@ -33,6 +34,17 @@ final class NativeUITests: XCTestCase {
             }
         }
         #endif
+    }
+
+    @MainActor private func traceWorkspaceEntry(_ id: String, element: XCUIElement) {
+        guard ProcessInfo.processInfo.environment["PDFNO_UI_TEST_PANEL_DIAGNOSTICS"] == "1" else { return }
+        print("PDFno original workspace entry diagnostic id=\(id) exists=\(element.exists)")
+        guard element.exists else { return }
+        print("PDFno original workspace entry AX \(id)\n\(element.debugDescription)")
+        let attachment = XCTAttachment(screenshot: element.screenshot())
+        attachment.name = "Original own workspace control - " + id
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     #if os(macOS)
@@ -1738,17 +1750,20 @@ final class NativeUITests: XCTestCase {
         return try XCTUnwrap(found, "The actual modal action must exist and be hittable")
     }
     @MainActor private func goToFixtureLocation(_ url: URL, app: XCUIApplication) throws {
+        let diagnosticStarted = ProcessInfo.processInfo.systemUptime
         // Resolve the real file panel once; its AX queries should not repeatedly
         // traverse the reader WebView behind it. Retain the application scope
         // for platforms where the panel has no exposed dialog/sheet/window root.
         let panel = [app.dialogs, app.sheets, app.windows].lazy.map {
             $0.containing(.button, identifier: "OKButton").firstMatch
         }.first { $0.exists } ?? app
+        traceFixturePanel("panel-resolved", url: url, panel: panel, started: diagnosticStarted)
         app.typeKey("g", modifierFlags: [.command, .shift])
         let location = panel.textFields["PathTextField"].firstMatch
         XCTAssertTrue(location.waitForExistence(timeout: 5))
         enterSearch(url.path, into: location, replacing: true)
         XCTAssertEqual(location.value as? String, url.path)
+        traceFixturePanel("literal-path-confirmed", url: url, panel: panel, started: diagnosticStarted)
         // The completion label is not hittable on macOS; select its actual row/cell by mouse.
         // A keyboard Return here can crash the system panel's input-context service.
         let fixture = NSPredicate(format: "label == %@ OR value == %@", url.lastPathComponent, url.lastPathComponent)
@@ -1760,7 +1775,9 @@ final class NativeUITests: XCTestCase {
             let frame = $0.frame
             return $0.isHittable && !frame.isEmpty && frame.minX.isFinite && frame.minY.isFinite
         }, "The actual fixture completion must be hittable")
+        traceFixturePanel("qualified-completion", url: url, panel: panel, started: diagnosticStarted, evidence: completion)
         completion.doubleClick()
+        traceFixturePanel("real-cell-double-clicked", url: url, panel: panel, started: diagnosticStarted)
         let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             !location.exists || !location.isHittable
         }, object: app)
@@ -1768,6 +1785,21 @@ final class NativeUITests: XCTestCase {
         if !location.exists || !location.isHittable { return }
         XCTFail("The original fixture Go-to overlay must close before using the file-panel action")
         throw NSError(domain: "PDFnoOriginalFixturePanel", code: 1)
+    }
+    @MainActor private func traceFixturePanel(_ stage: String, url: URL, panel: XCUIElement, started: TimeInterval, evidence: XCUIElement? = nil) {
+        // Enabled only in the explicit focused CI xctestrun. It never opens a
+        // different app, reads production data, changes input, or fakes a result.
+        guard ProcessInfo.processInfo.environment["PDFNO_UI_TEST_PANEL_DIAGNOSTICS"] == "1" else { return }
+        let elapsed = ProcessInfo.processInfo.systemUptime - started
+        print("PDFno fixture-panel diagnostic stage=\(stage) file=\(url.lastPathComponent) seconds=\(elapsed) rootType=\(panel.elementType.rawValue)")
+        guard stage == "qualified-completion", let evidence else { return }
+        // Limit AX and images to the exact synthetic completion cell. The file
+        // panel's unrelated directory listing and the desktop are never dumped.
+        print("PDFno fixture-completion AX begin \(url.lastPathComponent)\n\(evidence.debugDescription)\nPDFno fixture-completion AX end")
+        let attachment = XCTAttachment(screenshot: evidence.screenshot())
+        attachment.name = "Original fixture completion - " + url.lastPathComponent
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
     @MainActor private func originalPNG(width: Int, height: Int) throws -> Data {
         let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
