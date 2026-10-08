@@ -194,7 +194,11 @@ public final class LibraryModel: ObservableObject {
         }
         #endif
         do {
-            let state = try await repository.load(); books = state.books; notes = state.notes; canImport = true
+            let state = try await repository.load()
+            // Resolve the example partition before publishing any book rows.
+            // A row must not appear as personal and disappear during reload.
+            bundledExamples = try await BundledExampleRepository(root: recordRoot).load().records
+            books = state.books; notes = state.notes; canImport = true
             let epubState = try await epubRepository.load(); epubBooks = epubState.books; epubNotes = epubState.notes
             comicBooks = try await comicRepository.load().books
             #if os(macOS)
@@ -202,7 +206,6 @@ public final class LibraryModel: ObservableObject {
             try await textFormats.load()
             try await ebook.load()
             #endif
-            bundledExamples = try await BundledExampleRepository(root: recordRoot).load().records
             await learning.load()
             #if os(macOS)
             await loadJapaneseLearningNotes()
