@@ -155,7 +155,16 @@ window.PDFno = {async command(message) {
     const anchor=progress(); if(!anchor)throw Error('No visible source position');anchor.vertical=!renderer.isVertical(); await navigate(anchor);
   } else if (message.command==='navigate') await navigate(message.payload.anchor);
   else if (message.command==='notes') { notes=message.payload.notes; project(); }
-  else if (message.command==='resize') { const anchor=progress(); if (anchor) await navigate(anchor); }
+  else if (message.command==='resize') {
+    // Rebind the actual DOM range after reflow, independently of the visible
+    // reading-position anchor. Opening an inspector must not select that anchor.
+    const selected=selectedAnchor(), anchor=progress();
+    if (anchor) {
+      await navigate(anchor);
+      const selection=doc().getSelection(); selection.removeAllRanges();
+      if (selected) selection.addRange(rangeFor(selected));
+    }
+  }
   else if (message.command==='chapterText') {
     // Bounds checked before bridging any body text. Oversize returns a true count and null, never an excerpt.
     const {text}=canonical();
@@ -170,6 +179,7 @@ window.PDFno = {async command(message) {
   // deduplicated. Acknowledge the actual DOM range in this verified reply too.
   if(message.command==='navigate') response.navigationSelection=selectedAnchor();
   if(message.command==='notes') response.noteSelection=selectedAnchor();
+  if(message.command==='resize') response.resizeSelection=selectedAnchor();
   return JSON.stringify(envelope(response,message.requestID));
 }};
 post({v:1,payload:{kind:'ready'}});

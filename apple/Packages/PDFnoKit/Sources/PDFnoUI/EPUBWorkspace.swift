@@ -31,7 +31,7 @@ struct EPUBWorkspace: View {
                 Button { session.close() } label: { Label("取消并关闭", systemImage: "xmark") }
                     .accessibilityIdentifier("epub-close")
             } actions: { professionalActions } content: {
-                PDFnoReaderShell(panels: panels, profile: .professional, overlayPanels: true) {
+                PDFnoReaderShell(panels: panels, profile: .professional) {
                     EPUBCanvas(session: session).background(PDFnoDesign.Palette.canvas)
                 } navigation: {
                     PDFnoPanel(title: "目录", icon: "list.bullet", closeIdentifier: "epub-close-contents", close: { panels.navigation = false }) { contentsContent }

@@ -44,8 +44,13 @@ struct PDFnoReaderPlacement: Equatable {
         self.width = max(0, width.isFinite ? width : 0)
         let m = PDFnoDesign.Metric.self
         let navigationSize: CGFloat = profile == .professional ? 210 : m.navigationWidth
-        let notesSize: CGFloat = profile == .professional ? 300 : m.notesWidth
-        let bothFit = self.width >= m.readerMinimum + navigationSize + notesSize
+        let preferredNotesSize: CGFloat = profile == .professional ? 300 : m.notesWidth
+        let bothFit = self.width >= m.readerMinimum + navigationSize + preferredNotesSize
+        // The professional inspector can become compact before covering the
+        // native document. Keep the full-width, two-panel desktop threshold.
+        let notesSize: CGFloat = profile == .professional
+            ? min(preferredNotesSize, max(210, self.width - m.readerMinimum))
+            : preferredNotesSize
         showNavigation = navigation && (!notes || bothFit || preferred == .navigation)
         showNotes = notes && (!navigation || bothFit || preferred == .notes)
         let requestedWidth = showNavigation ? navigationSize : (showNotes ? notesSize : 0)
@@ -61,9 +66,6 @@ struct PDFnoReaderPlacement: Equatable {
 struct PDFnoReaderShell<Reader: View, Navigation: View, Notes: View>: View {
     let panels: PDFnoReaderPanels
     var profile = PDFnoReaderLayoutProfile.standard
-    // Reflowable readers must not invalidate a fixed selection merely because
-    // its inspector opens. Panels cover their viewport instead of resizing it.
-    var overlayPanels = false
     @ViewBuilder let reader: () -> Reader
     @ViewBuilder let navigation: () -> Navigation
     @ViewBuilder let notes: () -> Notes
@@ -74,9 +76,9 @@ struct PDFnoReaderShell<Reader: View, Navigation: View, Notes: View>: View {
                 reader()
                     // Native PDF/WebKit AX hit tests otherwise resolve to the
                     // covered document instead of the foreground inspector.
-                    .accessibilityHidden((layout.overlay || overlayPanels) && (layout.showNavigation || layout.showNotes))
-                    .padding(.leading, overlayPanels ? 0 : layout.leading)
-                    .padding(.trailing, overlayPanels ? 0 : layout.trailing)
+                    .accessibilityHidden(layout.overlay && (layout.showNavigation || layout.showNotes))
+                    .padding(.leading, layout.leading)
+                    .padding(.trailing, layout.trailing)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .zIndex(0)
                 if layout.showNavigation {

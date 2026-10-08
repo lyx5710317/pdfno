@@ -211,6 +211,7 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
     }
     public func command(_ name: String, index: Int? = nil, anchor: EPUBAnchor? = nil, notes: [EPUBNote]? = nil) async -> Bool {
         guard !busy else { return false }; let token = generation
+        let selectionBeforeResize = name == "resize" ? selection : nil
         let origin = progress, recordsJump = !returningToPreviousLocation && ["chapter", "navigate"].contains(name)
         busy = true; defer { if generation == token { busy = false } }
         do {
@@ -240,6 +241,20 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
                           selected.resourceHref == progress?.resourceHref else { throw EPUBError.sourceMismatch }
                     selection = selected
                 } else if !(state["noteSelection"] is NSNull) { throw EPUBError.sourceMismatch }
+            }
+            if name == "resize" {
+                // request() verifies the engine identity/version. Accept only
+                // the real rebound DOM selection, never a retained native cache.
+                if let value = state["resizeSelection"] as? [String: Any] {
+                    let selected = try anchorValue(value)
+                    guard selected.spineIndex == spineIndex,
+                          selected.resourceHref == progress?.resourceHref,
+                          selectionBeforeResize == nil || selected == selectionBeforeResize else { throw EPUBError.sourceMismatch }
+                    selection = selected
+                } else if state["resizeSelection"] is NSNull {
+                    selection = nil
+                    guard selectionBeforeResize == nil else { throw EPUBError.sourceMismatch }
+                } else { throw EPUBError.sourceMismatch }
             }
             if recordsJump, let origin, let destination = progress, book?.accepts(origin) == true {
                 navigationHistory.record(origin, destination: destination)

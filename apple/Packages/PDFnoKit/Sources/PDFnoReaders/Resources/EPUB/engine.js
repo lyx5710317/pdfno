@@ -18263,8 +18263,13 @@
       notes = message.payload.notes;
       project();
     } else if (message.command === "resize") {
-      const anchor = progress();
-      if (anchor) await navigate(anchor);
+      const selected = selectedAnchor(), anchor = progress();
+      if (anchor) {
+        await navigate(anchor);
+        const selection2 = doc().getSelection();
+        selection2.removeAllRanges();
+        if (selected) selection2.addRange(rangeFor(selected));
+      }
     } else if (message.command === "chapterText") {
       const { text } = canonical();
       const chapterText = {
@@ -18282,6 +18287,7 @@
     const response = state();
     if (message.command === "navigate") response.navigationSelection = selectedAnchor();
     if (message.command === "notes") response.noteSelection = selectedAnchor();
+    if (message.command === "resize") response.resizeSelection = selectedAnchor();
     return JSON.stringify(envelope(response, message.requestID));
   } };
   post({ v: 1, payload: { kind: "ready" } });
