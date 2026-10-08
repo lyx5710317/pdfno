@@ -17,8 +17,8 @@ final class NativeUITests: XCTestCase {
             app.typeKey(.escape, modifierFlags: [])
             let launcher = target(example ? "workspace-help" : "workspace-tools")
             XCTAssertTrue(launcher.waitForExistence(timeout: 15)); launcher.click()
-            if id == "open-ebook-sample" || tools {
-                // Native Menu and tools controls enter the popover's AX tree
+            if example || tools {
+                // Native example and tools controls enter the popover's AX tree
                 // after its launcher click. Await the requested control before
                 // the caller checks the original entry or opens its workspace.
                 XCTAssertTrue(target(id).waitForExistence(timeout: 10))
@@ -1738,8 +1738,14 @@ final class NativeUITests: XCTestCase {
         return try XCTUnwrap(found, "The actual modal action must exist and be hittable")
     }
     @MainActor private func goToFixtureLocation(_ url: URL, app: XCUIApplication) throws {
+        // Resolve the real file panel once; its AX queries should not repeatedly
+        // traverse the reader WebView behind it. Retain the application scope
+        // for platforms where the panel has no exposed dialog/sheet/window root.
+        let panel = [app.dialogs, app.sheets, app.windows].lazy.map {
+            $0.containing(.button, identifier: "OKButton").firstMatch
+        }.first { $0.exists } ?? app
         app.typeKey("g", modifierFlags: [.command, .shift])
-        let location = app.textFields["PathTextField"].firstMatch
+        let location = panel.textFields["PathTextField"].firstMatch
         XCTAssertTrue(location.waitForExistence(timeout: 5))
         enterSearch(url.path, into: location, replacing: true)
         XCTAssertEqual(location.value as? String, url.path)
@@ -1747,10 +1753,14 @@ final class NativeUITests: XCTestCase {
         // A keyboard Return here can crash the system panel's input-context service.
         let fixture = NSPredicate(format: "label == %@ OR value == %@", url.lastPathComponent, url.lastPathComponent)
         let rows: [XCUIElement.ElementType] = [.cell, .tableRow, .outlineRow]
-        let candidates = rows.flatMap { app.descendants(matching: $0).containing(fixture).allElementsBoundByIndex }
-        let completion = try XCTUnwrap(candidates.first { $0.isHittable && !$0.frame.isEmpty
-            && $0.frame.minX.isFinite && $0.frame.minY.isFinite }, "The actual fixture completion must be hittable")
-        completion.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).doubleClick()
+        // Stop after a real matching row is found. Eagerly enumerating all three
+        // row types causes redundant, slow system-panel AX snapshots on CI.
+        let candidates = rows.lazy.flatMap { panel.descendants(matching: $0).containing(fixture).allElementsBoundByIndex }
+        let completion = try XCTUnwrap(candidates.first {
+            let frame = $0.frame
+            return $0.isHittable && !frame.isEmpty && frame.minX.isFinite && frame.minY.isFinite
+        }, "The actual fixture completion must be hittable")
+        completion.doubleClick()
         let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             !location.exists || !location.isHittable
         }, object: app)
@@ -2327,7 +2337,8 @@ final class NativeUITests: XCTestCase {
     @MainActor private func enterSearch(_ text: String, into input: XCUIElement, replacing: Bool = false) {
         press(input)
         #if os(macOS)
-        let literalField = input.identifier == "library-search-input" || input.identifier.hasPrefix("chapter-user-note-")
+        let identifier = input.identifier
+        let literalField = identifier == "library-search-input" || identifier.hasPrefix("chapter-user-note-")
         let previousValue = literalField && !replacing ? (input.value as? String ?? "") : ""
         if replacing { input.typeKey("a", modifierFlags: .command) }
         // A user-selected input method can turn typeText into composition text.
