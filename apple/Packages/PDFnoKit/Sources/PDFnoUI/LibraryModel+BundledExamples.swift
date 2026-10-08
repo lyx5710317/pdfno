@@ -15,8 +15,8 @@ extension LibraryModel {
         if ebook.isActive, let b = ebook.reader.book { return .init(format: b.format.rawValue, bookID: b.id, editionID: b.editionID, fileSHA256: b.fileSHA256) }
         if docx.isActive, let b = docx.reader.book { return .init(format: "docx", bookID: b.id, editionID: b.editionID, fileSHA256: b.fileSHA256) }
         if textFormats.isActive || readingComic { return nil }
-        #endif
         if readingEPUB, let b = epub.book { return .init(format: "epub", bookID: b.id, editionID: b.editionID, fileSHA256: b.fileSHA256) }
+        #endif
         if let b = reader.book { return .init(format: "pdf", bookID: b.id, editionID: b.editionID, fileSHA256: b.fileSHA256) }
         return nil
     }
@@ -28,7 +28,7 @@ extension LibraryModel {
               !before.contains(book.bookID) else { return }
         do {
             let data = try Data(contentsOf: url, options: .mappedIfSafe)
-            bundledExamples = try await BundledExampleRepository(root: recordRoot).registerNewImport(
+            bundledExamples = try await BundledExampleRepository(root: repository.root).registerNewImport(
                 book, resource: url.lastPathComponent, existingBookIDs: before, newImport: true,
                 bundledSHA256: LibraryRepository.digest(data)).records
         } catch { self.error = "示例来源未能记录，书籍保留在我的书库。" }

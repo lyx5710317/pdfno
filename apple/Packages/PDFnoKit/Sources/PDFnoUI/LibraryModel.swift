@@ -197,7 +197,7 @@ public final class LibraryModel: ObservableObject {
             let state = try await repository.load()
             // Resolve the example partition before publishing any book rows.
             // A row must not appear as personal and disappear during reload.
-            bundledExamples = try await BundledExampleRepository(root: recordRoot).load().records
+            bundledExamples = try await BundledExampleRepository(root: repository.root).load().records
             books = state.books; notes = state.notes; canImport = true
             let epubState = try await epubRepository.load(); epubBooks = epubState.books; epubNotes = epubState.notes
             comicBooks = try await comicRepository.load().books
