@@ -324,8 +324,14 @@ final class NativeUITests: XCTestCase {
     // execute only on the authorized isolated CI host, using UUID stores and an intercepted
     // transport. Confirm the visible offline marker BEFORE entering a synthetic credential.
     @MainActor private func japaneseElement(_ id: String, in app: XCUIApplication) -> XCUIElement {
+        // Native Menu controls on macOS 15 can expose a custom identifier in
+        // their identifiers collection without using it as the primary identifier.
+        // Keep the existing entry assertion and resolve that exact native identifier.
+        if id == "open-ebook-sample" {
+            return app.descendants(matching: .any).matching(identifier: id).firstMatch
+        }
         // Exact AX identifier avoids title/label alias resolution during broad snapshot queries.
-        app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", id)).firstMatch
+        return app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", id)).firstMatch
     }
     @MainActor private func scrollJapaneseElement(_ element: XCUIElement, in app: XCUIApplication) {
         XCTAssertTrue(element.waitForExistence(timeout: 8))
@@ -2198,7 +2204,23 @@ final class NativeUITests: XCTestCase {
         let quote = app.staticTexts["epub-saved-quote"].firstMatch
         XCTAssertTrue(quote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(quote), selectedText)
         press(app.buttons["epub-return"].firstMatch)
-        press(app.buttons["epub-next"].firstMatch)
+        let next = app.buttons["epub-next"].firstMatch
+        // Returning to source closes the inspector and starts native WebKit resize.
+        // A click during that disabled interval is ignored. Synchronize the real
+        // control before clicking; keep the original page assertion and its deadline.
+        var readySince: TimeInterval?
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            guard next.exists, next.isEnabled, next.isHittable,
+                  !app.buttons["epub-return"].firstMatch.exists else {
+                readySince = nil; return false
+            }
+            let now = ProcessInfo.processInfo.systemUptime
+            if readySince == nil { readySince = now }
+            return now - (readySince ?? now) >= 0.3
+        }, object: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed,
+                       "Source return and reader resize must finish before the real next-page click")
+        press(next)
         waitForText(["第 2 页"], in: position, timeout: 10)
         press(app.buttons["epub-contents"].firstMatch)
         let japanese = app.buttons["epub-chapter-1"].firstMatch
