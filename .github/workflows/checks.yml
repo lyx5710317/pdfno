@@ -8,7 +8,8 @@ concurrency:
 jobs:
   native:
     runs-on: macos-15
-    timeout-minutes: 65 # Run 37253975797 reached 49/50 UI methods at 50m; keep individual 180/240s limits.
+    # Run 37784399153 exceeded 65m: prechecks/builds plus the full 60-method GUI run took ~69m.
+    timeout-minutes: 80 # Keep all assertion deadlines and individual 180/240s limits unchanged.
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # verified v4, 2026-10-03
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # verified v4, 2026-10-03

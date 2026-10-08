@@ -17,6 +17,12 @@ final class NativeUITests: XCTestCase {
             app.typeKey(.escape, modifierFlags: [])
             let launcher = target(example ? "workspace-help" : "workspace-tools")
             XCTAssertTrue(launcher.waitForExistence(timeout: 15)); launcher.click()
+            if id == "open-ebook-sample" {
+                // The native Menu enters the help popover's AX tree after the
+                // launcher click. Existing ebook flows already await this control.
+                // Keep the caller's original entry assertion after real readiness.
+                XCTAssertTrue(target(id).waitForExistence(timeout: 10))
+            }
         } else {
             if target("workspace-back-library").exists { target("workspace-back-library").click() }
             XCTAssertTrue(target("professional-library-workspace").waitForExistence(timeout: 15))
@@ -324,9 +330,7 @@ final class NativeUITests: XCTestCase {
     // execute only on the authorized isolated CI host, using UUID stores and an intercepted
     // transport. Confirm the visible offline marker BEFORE entering a synthetic credential.
     @MainActor private func japaneseElement(_ id: String, in app: XCUIApplication) -> XCUIElement {
-        // Native Menu controls on macOS 15 can expose a custom identifier in
-        // their identifiers collection without using it as the primary identifier.
-        // Keep the existing entry assertion and resolve that exact native identifier.
+        // Use the same exact native identifier matching as the ebook format flows.
         if id == "open-ebook-sample" {
             return app.descendants(matching: .any).matching(identifier: id).firstMatch
         }
