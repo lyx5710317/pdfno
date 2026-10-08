@@ -82,13 +82,13 @@ function decorate() {
   d.addEventListener('click',event => { if (event.target.closest?.('a')) event.preventDefault(); },true);
   project();
 }
-async function chapter(index,vertical=false) {
+async function chapter(index,vertical=false,preserveVersion=false) {
   if (!Number.isSafeInteger(index) || index<0 || index>=renderer.book.sections.length) throw Error('Invalid chapter');
   initialising=true;
   try {
     current=index; renderer.textOrientation=vertical?'vertical':'horizontal'; window.textOrientation=renderer.textOrientation;
     handleLayout(renderer.element,renderer.readerMode,doc());
-    await renderer.goToChapterDocIndex(index); version++; lastSelection=''; decorate();
+    await renderer.goToChapterDocIndex(index); if (!preserveVersion) version++; lastSelection=''; decorate();
   } finally { initialising=false; }
 }
 function progress() {
@@ -118,8 +118,8 @@ function state() {
   return {kind:'state',spineIndex:current,chapterCount:renderer.book.sections.length,page:String(page),
     vertical:renderer.isVertical(),progress:progress(),outline:renderer.flattenChapters.map(x=>({title:x.label,index:x.index})).slice(0,1000)};
 }
-async function navigate(anchor) {
-  await chapter(anchor.spineIndex,anchor.vertical);
+async function navigate(anchor,preserveVersion=false) {
+  await chapter(anchor.spineIndex,anchor.vertical,preserveVersion);
   const range=rangeFor(anchor),glyph=range.cloneRange();
   glyph.setEnd(range.startContainer,Math.min(range.startContainer.length,range.startOffset+(range.startContainer.data.codePointAt(range.startOffset)>65535?2:1)));
   const r=glyph.getBoundingClientRect(),d=doc(),vertical=renderer.isVertical();
@@ -160,7 +160,8 @@ window.PDFno = {async command(message) {
     // reading-position anchor. Opening an inspector must not select that anchor.
     const selected=selectedAnchor(), anchor=progress();
     if (anchor) {
-      await navigate(anchor);
+      // This is the same canonical chapter, not a source or history change.
+      await navigate(anchor,true);
       const selection=doc().getSelection(); selection.removeAllRanges();
       if (selected) selection.addRange(rangeFor(selected));
     }

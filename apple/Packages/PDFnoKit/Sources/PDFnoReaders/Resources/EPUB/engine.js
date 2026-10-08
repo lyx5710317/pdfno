@@ -18157,7 +18157,7 @@
     }, true);
     project();
   }
-  async function chapter(index, vertical = false) {
+  async function chapter(index, vertical = false, preserveVersion = false) {
     if (!Number.isSafeInteger(index) || index < 0 || index >= renderer.book.sections.length) throw Error("Invalid chapter");
     initialising = true;
     try {
@@ -18166,7 +18166,7 @@
       window.textOrientation = renderer.textOrientation;
       handleLayout(renderer.element, renderer.readerMode, doc());
       await renderer.goToChapterDocIndex(index);
-      version++;
+      if (!preserveVersion) version++;
       lastSelection = "";
       decorate();
     } finally {
@@ -18209,8 +18209,8 @@
       outline: renderer.flattenChapters.map((x) => ({ title: x.label, index: x.index })).slice(0, 1e3)
     };
   }
-  async function navigate(anchor) {
-    await chapter(anchor.spineIndex, anchor.vertical);
+  async function navigate(anchor, preserveVersion = false) {
+    await chapter(anchor.spineIndex, anchor.vertical, preserveVersion);
     const range2 = rangeFor(anchor), glyph = range2.cloneRange();
     glyph.setEnd(range2.startContainer, Math.min(range2.startContainer.length, range2.startOffset + (range2.startContainer.data.codePointAt(range2.startOffset) > 65535 ? 2 : 1)));
     const r = glyph.getBoundingClientRect(), d = doc(), vertical = renderer.isVertical();
@@ -18265,7 +18265,7 @@
     } else if (message.command === "resize") {
       const selected = selectedAnchor(), anchor = progress();
       if (anchor) {
-        await navigate(anchor);
+        await navigate(anchor, true);
         const selection2 = doc().getSelection();
         selection2.removeAllRanges();
         if (selected) selection2.addRange(rangeFor(selected));

@@ -41,7 +41,11 @@ struct ReaderViewportRegressionTests {
 
     @Test func EPUBReflowKeepsActualDOMSelectionAndUncoveredViewport() async throws {
         NSApplication.shared.setActivationPolicy(.prohibited)
-        let data = try publication(), session = EPUBReaderSession(), state = ViewportState()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Viewport-" + UUID().uuidString)
+        let transport = ViewportNoNetwork()
+        let library = LibraryModel(root: root, aiSession: AppAISession(), learningTransport: transport)
+        library.readingEPUB = true
+        let data = try publication(), session = library.epub, state = ViewportState()
         let book = EPUBBook(fileSHA256: LibraryRepository.digest(data), title: "Original viewport", originalFilename: "original.epub")
         try await session.open(data: data, book: book, notes: [])
         let host = NSHostingView(rootView: ViewportHost(state: state) { EPUBCanvas(session: session) })
@@ -59,22 +63,32 @@ struct ReaderViewportRegressionTests {
         let selectedDeadline = Date().addingTimeInterval(3)
         while session.selection == nil && Date() < selectedDeadline { await settle(host) }
         let source = try #require(session.selection)
+        let sourceVersion = session.documentVersion
         #expect(source.quote == "window")
+        let aiSource = try #require(library.captureAISource())
+        library.learning.prepare(aiSource)
+        let result = AIResult(request: AIRequest(source: aiSource, provider: library.learning.config, kind: .translate), text: "Original offline result 日本語", fromCache: false)
+        library.learning.result = result; library.learning.userText = ViewportState.originalDraft
         for width in [CGFloat(720), 1280, 720] {
             for scheme in [ColorScheme.light, .dark] {
                 state.scheme = scheme; state.width = width; state.panels.show(.notes)
                 window.setContentSize(NSSize(width: width, height: 520)); await settle(host)
                 checkViewport(web, state: state, host: host, window: window)
                 #expect(session.webView === web && session.readerSessionID == identity && session.book?.id == book.id)
+                #expect(session.documentVersion == sourceVersion)
+                #expect(library.isCurrentAISource(aiSource) && library.learning.source == aiSource && library.learning.result == result)
+                #expect(library.learning.userText.utf8.elementsEqual(ViewportState.originalDraft.utf8))
                 #expect(session.selection == source && session.spineIndex == 0 && session.position.contains("第 1 页"))
                 let quote = try await web.callAsyncJavaScript("return document.querySelector('iframe').contentDocument.getSelection().toString();", arguments: [:], in: nil, contentWorld: .page) as? String
                 #expect(quote == source.quote)
                 #expect(state.draft.utf8.elementsEqual(ViewportState.originalDraft.utf8))
                 state.panels.notes = false; await settle(host)
                 #expect(session.selection == source)
+                #expect(session.documentVersion == sourceVersion)
             }
         }
         #expect(data == (try publication()))
+        #expect(await transport.attempts == 0 && library.learning.notes.isEmpty)
     }
 
     private func checkViewport<V: View>(_ native: NSView, state: ViewportState, host: NSHostingView<V>, window: NSWindow) {
@@ -100,6 +114,10 @@ struct ReaderViewportRegressionTests {
             ("one.xhtml", Data("<html xmlns='http://www.w3.org/1999/xhtml'><head><title>Original viewport</title></head><body><p>window · Original reading paragraph 日本語 café 🌸.</p><p>Original second paragraph keeps its source.</p></body></html>".utf8))
         ], deflated: false)
     }
+}
+private actor ViewportNoNetwork: AIHTTPTransport {
+    private(set) var attempts = 0
+    func send(_ request: URLRequest) throws -> AIHTTPResponse { attempts += 1; throw AIFailure.network }
 }
 @MainActor private final class ViewportState: ObservableObject {
     static let originalDraft = "Original unsaved 日本語 cafe\u{301} 👩🏽‍🚀"
