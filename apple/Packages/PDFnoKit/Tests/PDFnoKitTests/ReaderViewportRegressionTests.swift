@@ -69,6 +69,10 @@ struct ReaderViewportRegressionTests {
         library.learning.prepare(aiSource)
         let result = AIResult(request: AIRequest(source: aiSource, provider: library.learning.config, kind: .translate), text: "Original offline result 日本語", fromCache: false)
         library.learning.result = result; library.learning.userText = ViewportState.originalDraft
+        // Moving focus to a native inspector can collapse WebKit's live range.
+        // Reflow must rebind the previously captured real source in the engine,
+        // rather than erase the note field or merely retain a native quote cache.
+        _ = try await web.callAsyncJavaScript("return document.querySelector('iframe').contentDocument.getSelection().removeAllRanges();", arguments: [:], in: nil, contentWorld: .page)
         for width in [CGFloat(720), 1280, 720] {
             for scheme in [ColorScheme.light, .dark] {
                 state.scheme = scheme; state.width = width; state.panels.show(.notes)

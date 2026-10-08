@@ -158,7 +158,8 @@ window.PDFno = {async command(message) {
   else if (message.command==='resize') {
     // Rebind the actual DOM range after reflow, independently of the visible
     // reading-position anchor. Opening an inspector must not select that anchor.
-    const selected=selectedAnchor(), anchor=progress();
+    const selected=selectedAnchor() ?? message.payload.selectionAnchor ?? null, anchor=progress();
+    if (selected) rangeFor(selected); // Verify the source before reflow too.
     if (anchor) {
       // This is the same canonical chapter, not a source or history change.
       await navigate(anchor,true);

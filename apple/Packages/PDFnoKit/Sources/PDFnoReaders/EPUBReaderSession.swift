@@ -218,6 +218,13 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
             var payload: [String: Any] = [:]
             if let index { payload["index"] = index }
             if let anchor { guard book?.accepts(anchor) == true else { throw EPUBError.sourceMismatch }; payload["anchor"] = try json(anchor) }
+            if let selectionBeforeResize {
+                // Native inspector focus may collapse the browser range. Give
+                // the engine the previously captured source to validate/rebind;
+                // the verified reply below must acknowledge an actual DOM range.
+                guard book?.accepts(selectionBeforeResize) == true else { throw EPUBError.sourceMismatch }
+                payload["selectionAnchor"] = try json(selectionBeforeResize)
+            }
             if let notes { payload["notes"] = try json(notes) }
             let state = try await request(name, payload: payload)
             if name == "navigate" {
