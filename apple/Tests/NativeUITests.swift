@@ -17,10 +17,10 @@ final class NativeUITests: XCTestCase {
             app.typeKey(.escape, modifierFlags: [])
             let launcher = target(example ? "workspace-help" : "workspace-tools")
             XCTAssertTrue(launcher.waitForExistence(timeout: 15)); launcher.click()
-            if id == "open-ebook-sample" {
-                // The native Menu enters the help popover's AX tree after the
-                // launcher click. Existing ebook flows already await this control.
-                // Keep the caller's original entry assertion after real readiness.
+            if id == "open-ebook-sample" || tools {
+                // Native Menu and tools controls enter the popover's AX tree
+                // after its launcher click. Await the requested control before
+                // the caller checks the original entry or opens its workspace.
                 XCTAssertTrue(target(id).waitForExistence(timeout: 10))
             }
         } else {
