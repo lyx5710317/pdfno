@@ -27,10 +27,6 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
         private func isEmptySpace(_ point: NSPoint) -> Bool {
             !controlFrames.isEmpty && !controlFrames.contains(where: { $0.contains(point) })
         }
-        override var mouseDownCanMoveWindow: Bool {
-            guard let window else { return false }
-            return isEmptySpace(convert(window.mouseLocationOutsideOfEventStream, from: nil))
-        }
         override func hitTest(_ point: NSPoint) -> NSView? {
             let local = convert(point, from: superview)
             guard bounds.contains(local) else { return nil }
@@ -40,8 +36,15 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
             return super.hitTest(point)
         }
         override func mouseDown(with event: NSEvent) {
-            if isEmptySpace(convert(event.locationInWindow, from: nil)) { nextResponder?.mouseDown(with: event) }
-            else { super.mouseDown(with: event) }
+            guard isEmptySpace(convert(event.locationInWindow, from: nil)), let window else {
+                super.mouseDown(with: event); return
+            }
+            if event.clickCount > 1, let nativeTitlebar = window.standardWindowButton(.closeButton)?.superview {
+                // The native titlebar keeps the user's macOS double-click action.
+                nativeTitlebar.mouseDown(with: event)
+            } else {
+                window.performDrag(with: event)
+            }
         }
     }
     @MainActor final class Coordinator: NSObject {
