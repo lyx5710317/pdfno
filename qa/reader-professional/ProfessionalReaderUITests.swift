@@ -26,8 +26,15 @@ final class ProfessionalReaderUITests: XCTestCase {
             if target("workspace-back-library").exists { target("workspace-back-library").click() }
             XCTAssertTrue(target("professional-library-workspace").waitForExistence(timeout: 15))
             if id.hasPrefix("library-") || id.hasPrefix("cover-image-") {
-                if !target(id).waitForExistence(timeout: 2), target("library-category-examples").exists {
-                    target("library-category-examples").click()
+                if !target(id).waitForExistence(timeout: 2) {
+                    if target("library-category-picker").exists {
+                        target("library-category-picker").click()
+                        let category = app.menuItems["示例文档"].firstMatch
+                        XCTAssertTrue(category.waitForExistence(timeout: 10))
+                        category.click()
+                    } else if target("library-category-examples").exists {
+                        target("library-category-examples").click()
+                    }
                 }
             }
         }
@@ -51,7 +58,15 @@ final class ProfessionalReaderUITests: XCTestCase {
         return app
     }
     @MainActor private func item(_ id: String, _ app: XCUIApplication) -> XCUIElement {
-        app.descendants(matching: .any).matching(identifier: id).firstMatch
+        let target = app.descendants(matching: .any).matching(identifier: id).firstMatch
+        if ["library-category-personal", "library-category-examples"].contains(id), !target.exists {
+            let picker = app.descendants(matching: .any).matching(identifier: "library-category-picker").firstMatch
+            if picker.exists {
+                picker.click()
+                return app.menuItems[id == "library-category-examples" ? "示例文档" : "我的书库"].firstMatch
+            }
+        }
+        return target
     }
     @MainActor private func click(_ element: XCUIElement) throws {
         let ready = expectation(for: NSPredicate { _, _ in element.exists && element.isEnabled && element.isHittable }, evaluatedWith: element)

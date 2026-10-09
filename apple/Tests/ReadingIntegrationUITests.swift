@@ -27,8 +27,15 @@ final class ReadingIntegrationUITests: XCTestCase {
             if target("workspace-back-library").exists { target("workspace-back-library").click() }
             XCTAssertTrue(target("professional-library-workspace").waitForExistence(timeout: 15))
             if id.hasPrefix("library-") || id.hasPrefix("cover-image-") {
-                if !target(id).waitForExistence(timeout: 2), target("library-category-examples").exists {
-                    target("library-category-examples").click()
+                if !target(id).waitForExistence(timeout: 2) {
+                    if target("library-category-picker").exists {
+                        target("library-category-picker").click()
+                        let category = app.menuItems["示例文档"].firstMatch
+                        XCTAssertTrue(category.waitForExistence(timeout: 10))
+                        category.click()
+                    } else if target("library-category-examples").exists {
+                        target("library-category-examples").click()
+                    }
                 }
             }
         }
