@@ -84,11 +84,14 @@ public struct LocalRecoveryWorkspace: View {
     @State private var action = PickerAction.export
     private enum PickerAction { case export, inspect, restore }
     private let mode: LocalRecoveryWorkspaceMode
-    public init(model: LocalRecoveryManagementModel, mode: LocalRecoveryWorkspaceMode = .combined) { self.model = model; self.mode = mode }
+    private let showsTitle: Bool
+    public init(model: LocalRecoveryManagementModel, mode: LocalRecoveryWorkspaceMode = .combined, showsTitle: Bool = true) {
+        self.model = model; self.mode = mode; self.showsTitle = showsTitle
+    }
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text(mode == .backup ? "备份与恢复" : mode == .recycle ? "回收站" : mode == .change ? "文件移至回收站" : "本地回收站与备份").font(.title2).bold()
+                if showsTitle { Text(mode == .backup ? "备份与恢复" : mode == .recycle ? "回收站" : mode == .change ? "文件移至回收站" : "本地回收站与备份").font(.title2).bold() }
                 Text("移至回收站会暂时移出本地书库，保留原件、来源、阅读位置和已保存笔记。回收站没有自动清空或永久删除。")
                 if mode == .backup || mode == .combined {
                 HStack {

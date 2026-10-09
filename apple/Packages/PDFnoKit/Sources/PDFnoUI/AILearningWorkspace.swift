@@ -34,24 +34,10 @@ struct AISettingsView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-            if embedded {
-                HStack(spacing: 12) {
-                    Text("设置").font(PDFnoDesign.TypeStyle.title)
-                    Text(category.title).foregroundStyle(.secondary)
-                    Spacer()
-                    if byok != nil {
-                        Button("HTTPS BYOK") { category = .ai; showBYOKSettings = true }
-                            .disabled(childBusy).accessibilityIdentifier("byok-settings-open")
-                    }
-                    Button("返回") { clearUnappliedSecrets(); close?() }.disabled(childBusy).accessibilityIdentifier("settings-return")
-                    Button("取消") { cancelConfiguration() }.disabled(childBusy).accessibilityIdentifier("ai-settings-cancel")
-                    Button("保存配置") { saveConfiguration() }.accessibilityIdentifier("ai-settings-save").disabled(category != .ai || childBusy)
-                }.padding(20).background(PDFnoDesign.Palette.surface)
-                Divider()
-            }
             PDFnoSettingsShell(category: $category, navigationDisabled: childBusy) {
                 if embedded && hasSubpage {
                     VStack(spacing: 0) {
+                        contentHeading.padding(.bottom, 12)
                         HStack {
                             Button { closeSubpage() } label: { Label("返回" + category.title, systemImage: "chevron.left") }
                                 .disabled(childBusy).accessibilityIdentifier("settings-subpage-return")
@@ -62,7 +48,10 @@ struct AISettingsView: View {
                 } else {
                     ScrollViewReader { proxy in
                         ScrollView {
-                            VStack(alignment: .leading, spacing: PDFnoDesign.Space.regular) { categoryContent }
+                            VStack(alignment: .leading, spacing: PDFnoDesign.Space.regular) {
+                                if embedded { contentHeading }
+                                categoryContent
+                            }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }.accessibilityIdentifier("ai-settings-form")
                             .onChange(of: showBYOKSettings) { _, shown in if shown && embedded { proxy.scrollTo("settings-inline-byok", anchor: .top) } }
@@ -102,6 +91,14 @@ struct AISettingsView: View {
         .onChange(of: DeepSeekSelectionPolicy.supports(draft)) { _, supported in if !supported { secret = "" } }
         .onDisappear { clearUnappliedSecrets() }
         .onPreferenceChange(PDFnoWorkspaceBusyKey.self) { childBusy = $0 }
+    }
+    private var contentHeading: some View {
+        HStack {
+            Text("设置 · " + category.title).font(PDFnoDesign.TypeStyle.title)
+            Spacer()
+            Button("返回") { clearUnappliedSecrets(); close?() }
+                .disabled(childBusy).accessibilityIdentifier("settings-return")
+        }
     }
     private var hasSubpage: Bool { showDeepSeekTest || showTools || showBookno || showRecovery }
     private func clearUnappliedSecrets() { secret = ""; if embedded { byok?.temporarySecret = "" } }
@@ -158,8 +155,8 @@ struct AISettingsView: View {
                 }
             } else { Text("请从书库设置打开备份与恢复。") }
         case .general:
-            PDFnoSettingsCard("阅读与外观", symbol: "slider.horizontal.3", status: "沿用现有阅读器") {
-                Text("书库默认显示封面网格，可切换列表。设置与阅读使用同一窗口；返回阅读会保留当前阅读位置、选区和未保存草稿。外观跟随系统。")
+            PDFnoSettingsCard("外观", symbol: "circle.lefthalf.filled") {
+                PDFnoAppearancePicker()
             }
         case .shortcuts:
             PDFnoSettingsCard("现有应用内快捷键", symbol: "keyboard") {
@@ -215,6 +212,14 @@ struct AISettingsView: View {
                         .fixedSize(horizontal: false, vertical: true).font(.caption)
                 }
                 if let error = learning.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "ai-settings-error") }
+                if embedded {
+                    HStack {
+                        Spacer()
+                        Button("取消") { cancelConfiguration() }.disabled(childBusy).accessibilityIdentifier("ai-settings-cancel")
+                        Button("保存配置") { saveConfiguration() }.disabled(childBusy)
+                            .buttonStyle(PDFnoActionStyle(role: .primary)).accessibilityIdentifier("ai-settings-save")
+                    }.padding(.top, 8)
+                }
             }
             PDFnoSettingsCard("其他 HTTPS BYOK 选文配置", detail: "独立会话身份；不会替换上方 DeepSeek、日语、英语、页或 spine 配置。", symbol: "network") {
                 if let byok {

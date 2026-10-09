@@ -5,9 +5,14 @@ import PDFnoUI
 
 @main struct PDFnoMacApp: App {
     @State private var settingsRequest = 0
+    @AppStorage(PDFnoAppAppearance.preferenceKey) private var appearancePreference = ""
     @Environment(\.openWindow) private var openWindow
     var body: some Scene {
-        Window("PDFno", id: "library") { LibraryWorkspace(settingsRequest: settingsRequest).frame(minWidth: 720, minHeight: 468) }
+        Window("PDFno", id: "library") {
+            LibraryWorkspace(settingsRequest: settingsRequest).frame(minWidth: 720, minHeight: 468)
+                .preferredColorScheme(PDFnoAppearanceMode(rawValue: appearancePreference)?.colorScheme)
+                .onChange(of: appearancePreference, initial: true) { _, value in PDFnoAppAppearance.apply(value) }
+        }
             .defaultSize(width: min(1180, max(720, (NSScreen.main?.visibleFrame.width ?? 1204) - 24)),
                          height: min(780, max(520, (NSScreen.main?.visibleFrame.height ?? 804) - 24)))
             .defaultPosition(.center)

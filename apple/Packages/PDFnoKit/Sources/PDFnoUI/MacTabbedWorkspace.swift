@@ -24,7 +24,8 @@ struct MacTabbedWorkspace: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                if sidebar { globalSidebar.frame(width: 180); Divider() }
+                globalSidebar.frame(width: sidebar ? 180 : 56)
+                Divider()
                 ZStack {
                     ForEach(documents.tabs) { tab in
                         MacDocumentReader(model: tab.model, workspaceClose: {
@@ -105,12 +106,12 @@ struct MacTabbedWorkspace: View {
     }
     private var documentBar: some View {
         HStack(spacing: 6) {
-            Button { sidebar.toggle() } label: { Image(systemName: "sidebar.left").frame(width: 30, height: 30) }
-                .accessibilityLabel(sidebar ? "收起全局侧栏" : "展开全局侧栏").accessibilityIdentifier("workspace-sidebar-toggle")
-                .accessibilityValue(sidebar ? "已展开" : "已收起").help("显示或收起全局导航")
             Button { navigation.showLibrary() } label: { Image(systemName: "house").frame(width: 34, height: 32) }
                 .background(navigation.route == .library ? Color.blue.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 8))
                 .accessibilityIdentifier("workspace-back-library").accessibilityLabel("主页").help("返回书库，保留所有文件与草稿")
+            Button { sidebar.toggle() } label: { Image(systemName: "sidebar.left").frame(width: 30, height: 30) }
+                .accessibilityLabel(sidebar ? "切换为图标侧栏" : "展开全局侧栏").accessibilityIdentifier("workspace-sidebar-toggle")
+                .accessibilityValue(sidebar ? "已展开" : "图标侧栏").help(sidebar ? "切换为图标侧栏" : "展开全局侧栏")
             Divider().frame(height: 22)
             ScrollView(.horizontal) {
                 HStack(spacing: 5) {
@@ -173,9 +174,12 @@ struct MacTabbedWorkspace: View {
     }
     private var globalSidebar: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("PDFno").font(.system(size: 18, weight: .semibold)).padding(.horizontal, 12).padding(.vertical, 18)
+            Group {
+                if sidebar { Text("PDFno").font(.system(size: 18, weight: .semibold)).padding(.horizontal, 12) }
+                else { Image(systemName: "book.closed").font(.system(size: 19)).frame(maxWidth: .infinity).accessibilityLabel("PDFno") }
+            }.padding(.vertical, 18)
             sidebarButton("书库", "books.vertical", "workspace-library", selected: navigation.route == .library) { navigation.showLibrary() }
-            sidebarButton("书库与笔记搜索", "magnifyingglass", "library-search", selected: selected(.search)) { showTool(.search) }
+            sidebarButton("查找", "magnifyingglass", "library-search", selected: selected(.search)) { showTool(.search) }
             sidebarButton("格式转换", "arrow.triangle.2.circlepath", "document-conversion", selected: selected(.conversion)) { showTool(.conversion) }
             sidebarButton("Bookno 离线预览", "globe", "bookno-preview-open", selected: selected(.bookno)) { showTool(.bookno) }
             sidebarButton("回收站", "trash", "library-local-recovery", selected: selected(.recovery)) {
@@ -185,23 +189,28 @@ struct MacTabbedWorkspace: View {
             Divider().padding(.horizontal, 10)
             sidebarButton("设置", "gearshape", "ai-settings", selected: navigation.route == .settings) { navigation.showSettings() }
             sidebarButton("帮助与示例", "questionmark.circle", "workspace-help", selected: false) { examples = true }
-            Text("本地阅读").font(.system(size: 11)).foregroundStyle(.secondary).padding(12)
+            if sidebar { Text("本地阅读").font(.system(size: 11)).foregroundStyle(.secondary).padding(12) }
+            else { Spacer().frame(height: 12) }
         }.padding(8).background(PDFnoDesign.Palette.chrome).disabled(navigationBusy || documents.opening)
     }
     private func sidebarButton(_ title: String, _ symbol: String, _ id: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Label(title, systemImage: symbol).font(.system(size: 12, weight: selected ? .semibold : .regular))
-                .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading).padding(.horizontal, 10).contentShape(Rectangle())
+            HStack(spacing: 9) {
+                Image(systemName: symbol).frame(width: 18)
+                if sidebar { Text(title).lineLimit(1) }
+            }.font(.system(size: 12, weight: selected ? .semibold : .regular))
+                .frame(maxWidth: .infinity, minHeight: 38, alignment: sidebar ? .leading : .center)
+                .padding(.horizontal, sidebar ? 10 : 0).contentShape(Rectangle())
         }.buttonStyle(.plain).foregroundStyle(selected ? Color.blue : Color.primary)
             .background(selected ? Color.blue.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 8))
-            .accessibilityIdentifier(id).accessibilityValue(selected ? "已选中" : "未选中")
+            .accessibilityIdentifier(id).accessibilityLabel(title).accessibilityValue(selected ? "已选中" : "未选中").help(title)
     }
     private func selected(_ tool: PDFnoWorkspaceTool) -> Bool { navigation.route == .tool && navigation.tool == tool }
     private func showTool(_ tool: PDFnoWorkspaceTool) { navigation.showTool(tool) }
     private func openBook(_ id: UUID) { selectedBookID = id; Task { if await documents.open(id) { navigation.showReader() } } }
     private var toolTitle: String {
         switch navigation.tool {
-        case .search: "书库与笔记搜索"
+        case .search: "查找"
         case .conversion: "格式转换"
         case .bookno: "Bookno 离线预览"
         case .recovery: "回收站"
@@ -215,18 +224,18 @@ struct MacTabbedWorkspace: View {
                 Spacer()
                 Button("返回") { navigation.returnFromTool(readerAvailable: documents.active != nil) }
                     .disabled(navigationBusy).accessibilityIdentifier("workspace-tool-return")
-            }.padding(18).background(PDFnoDesign.Palette.surface)
-            Divider()
+            }.padding(.horizontal, 24).padding(.top, 24).padding(.bottom, 12)
             Group {
                 switch navigation.tool {
                 case .search: LibrarySearchWorkspace(library: model, openTarget: documents.openSearchTarget, openRecordTarget: documents.openRecordSearchTarget)
                 case .conversion: ConversionWorkspace()
                 case .bookno: BooknoPreviewWorkspace(model: model.booknoPreview)
-                case .recovery: if let recovery = model.recoveryManagement { LocalRecoveryWorkspace(model: recovery, mode: .recycle) }
+                case .recovery: if let recovery = model.recoveryManagement { LocalRecoveryWorkspace(model: recovery, mode: .recycle, showsTitle: false) }
                 default: FeatureStatusView(embedded: true)
                 }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
-        }.environment(\.pdfnoInlineDismiss, { navigation.returnFromTool(readerAvailable: documents.active != nil) })
+        }.background(PDFnoDesign.Palette.canvas)
+            .environment(\.pdfnoInlineDismiss, { navigation.returnFromTool(readerAvailable: documents.active != nil) })
     }
     private var examplesMenu: some View {
         VStack(alignment: .leading, spacing: 12) {

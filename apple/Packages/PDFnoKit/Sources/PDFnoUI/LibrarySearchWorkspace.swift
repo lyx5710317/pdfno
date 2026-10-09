@@ -97,7 +97,7 @@ private struct LibrarySearchContent: View {
                     if model.phase == .idle { Text("输入关键词搜索书库与笔记").foregroundStyle(.secondary).accessibilityIdentifier("library-search-empty") }
                     else if model.phase == .results && model.response.totalCount == 0 { Text("没有匹配结果").foregroundStyle(.secondary).accessibilityIdentifier("library-search-no-results") }
                 }
-            }.padding().navigationTitle("书库与笔记搜索")
+            }.padding().navigationTitle("查找")
                 .toolbar {
                     ToolbarItem { Button("书目信息") { metadata = true }.disabled(opening || model.response.legacy.books.isEmpty).accessibilityIdentifier("library-search-metadata") }
                     ToolbarItem { Button("完成") { if let inlineDismiss { inlineDismiss() } else { dismiss() } }.disabled(opening).accessibilityIdentifier("library-search-close") }
