@@ -90,6 +90,12 @@ final class HomeSettingsUITests: XCTestCase {
             XCTAssertTrue(item("professional-library-books", app).frame.contains(card.frame), "The entire first card must fit in the visible gallery")
             let scheme = dark ? "dark" : "light", label = "H-" + String(width) + "-" + scheme
             try capture(label + "-home-grid", app: app)
+            try click(item("library-search-open", app))
+            try paste("study-sample", into: item("library-search-input", app), app: app)
+            try click(item("library-search-open-book", app))
+            contains(item("page-position", app), "1 / 2")
+            XCTAssertFalse(item("library-search-input", app).exists)
+            try click(item("workspace-back-library", app))
             try click(item("library-list-layout", app)); XCTAssertEqual(item("library-list-layout", app).value as? String, "已选中")
             try click(item("library-grid-layout", app))
             app.typeKey(",", modifierFlags: .command)

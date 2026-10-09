@@ -21,6 +21,7 @@ struct LibrarySearchWorkspace: View {
 private struct LibrarySearchContent: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.pdfnoInlineDismiss) private var inlineDismiss
+    @Environment(\.pdfnoWorkspaceNavigation) private var workspaceNavigation
     @ObservedObject var library: LibraryModel
     @ObservedObject var model: SavedRecordSearchModel
     @State private var query = ""
@@ -66,7 +67,7 @@ private struct LibrarySearchContent: View {
                                         Task {
                                             let opened = await library.openSearchTarget(hit.entry.target)
                                             opening = false
-                                            if opened { if let inlineDismiss { inlineDismiss() } else { dismiss() } } else { sourceError = LibrarySearchFailure.source.localizedDescription }
+                                            if opened { finishOpening() } else { sourceError = LibrarySearchFailure.source.localizedDescription }
                                         }
                                     }.disabled(opening || library.isBusy || !hit.entry.book.sourceAvailable)
                                         .accessibilityIdentifier(hit.entry.target.kind == .book ? "library-search-open-book" : "library-search-source")
@@ -83,7 +84,7 @@ private struct LibrarySearchContent: View {
                         opening = true
                         let opened = await library.openRecordSearchTarget(target)
                         opening = false
-                        if opened { if let inlineDismiss { inlineDismiss() } else { dismiss() } }
+                        if opened { finishOpening() }
                         return opened
                     }
                 }.overlay {
@@ -103,6 +104,11 @@ private struct LibrarySearchContent: View {
             .onChange(of: library.storageMaintenance) { _, paused in if paused { model.cancel() } else { model.refresh() } }
             .disabled(library.storageMaintenance)
             .sheet(isPresented: Binding(get: { metadata && inlineDismiss == nil }, set: { metadata = $0 })) { LocalBookMetadataWorkspace(model: model) }
+    }
+    private func finishOpening() {
+        // Opening the same book does not change its identity. Make the route explicit.
+        workspaceNavigation?.showReader()
+        if let inlineDismiss { inlineDismiss() } else { dismiss() }
     }
     private var status: String {
         switch model.phase {
