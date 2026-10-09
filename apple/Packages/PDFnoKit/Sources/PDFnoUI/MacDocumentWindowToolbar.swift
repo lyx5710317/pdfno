@@ -28,6 +28,7 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
         weak var window: NSWindow?
         let accessory = NSTitlebarAccessoryViewController()
         private var resizeObserver: NSObjectProtocol?
+        private var updateObserver: NSObjectProtocol?
         private var widthConstraint: NSLayoutConstraint!
         init(content: AnyView, width: CGFloat) {
             host = NSHostingView(rootView: content); self.width = width
@@ -44,11 +45,19 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
             if window !== candidate {
                 detach(); window = candidate
                 candidate.addTitlebarAccessoryViewController(accessory)
+                // NavigationStack may restore its title after a route update.
+                // Hide only that text; the toolbar and its KVO ownership stay intact.
+                updateObserver = NotificationCenter.default.addObserver(forName: NSWindow.didUpdateNotification, object: candidate, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.hideNativeTitle() }
+                }
                 resizeObserver = NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification, object: candidate, queue: .main) { [weak self] _ in
                     MainActor.assumeIsolated { self?.resize() }
                 }
             }
-            resize()
+            hideNativeTitle(); resize()
+        }
+        private func hideNativeTitle() {
+            if let window, window.titleVisibility != .hidden { window.titleVisibility = .hidden }
         }
         private func resize() {
             guard let window else { return }
@@ -61,6 +70,8 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
         func detach() {
             if let resizeObserver { NotificationCenter.default.removeObserver(resizeObserver) }
             resizeObserver = nil
+            if let updateObserver { NotificationCenter.default.removeObserver(updateObserver) }
+            updateObserver = nil
             if let window, let index = window.titlebarAccessoryViewControllers.firstIndex(where: { $0 === accessory }) {
                 window.removeTitlebarAccessoryViewController(at: index)
             }

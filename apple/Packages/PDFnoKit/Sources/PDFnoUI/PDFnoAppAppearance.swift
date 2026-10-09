@@ -42,7 +42,7 @@ struct PDFnoAppearancePicker: View {
                         .overlay(RoundedRectangle(cornerRadius: 12).stroke(selected == mode ? Color.blue : Color.primary.opacity(0.12), lineWidth: selected == mode ? 2 : 1))
                         .contentShape(RoundedRectangle(cornerRadius: 12))
                 }.buttonStyle(.plain).foregroundStyle(.primary)
-                    .accessibilityElement(children: .ignore).accessibilityLabel(mode.title)
+                    .accessibilityLabel(mode.title)
                     .accessibilityIdentifier("appearance-" + mode.rawValue)
                     .accessibilityValue(selected == mode ? "已选中" : "未选中")
             }
