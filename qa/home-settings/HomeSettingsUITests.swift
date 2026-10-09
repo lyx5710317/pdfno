@@ -86,7 +86,8 @@ final class HomeSettingsUITests: XCTestCase {
             XCTAssertEqual(item("library-grid-layout", app).value as? String, "已选中")
             try sample(app); try click(item("workspace-back-library", app)); try click(item("library-category-examples", app))
             let card = item("library-book", app)
-            XCTAssertTrue(card.waitForExistence(timeout: 10)); XCTAssertGreaterThan(card.frame.height, 270)
+            XCTAssertTrue(card.waitForExistence(timeout: 10)); XCTAssertGreaterThan(card.frame.height, width == 720 ? 200 : 270)
+            XCTAssertTrue(item("professional-library-books", app).frame.contains(card.frame), "The entire first card must fit in the visible gallery")
             let scheme = dark ? "dark" : "light", label = "H-" + String(width) + "-" + scheme
             try capture(label + "-home-grid", app: app)
             try click(item("library-list-layout", app)); XCTAssertEqual(item("library-list-layout", app).value as? String, "已选中")

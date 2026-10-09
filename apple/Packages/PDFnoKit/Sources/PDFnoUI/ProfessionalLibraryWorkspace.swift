@@ -69,6 +69,7 @@ struct ProfessionalLibraryWorkspace: View {
     private var formats: [String] { ["全部格式"] + Array(Set(items.map { $0.subtitle.components(separatedBy: " · ")[0] })).sorted() }
     var body: some View {
         GeometryReader { geometry in
+            let compact = geometry.size.height < 600
             VStack(spacing: 0) {
                 HStack(spacing: 12) {
                     categories
@@ -76,12 +77,12 @@ struct ProfessionalLibraryWorkspace: View {
                     if let resume { Button(action: resume) { Label("继续阅读", systemImage: "arrow.right") }.accessibilityIdentifier("workspace-resume-reader") }
                     Button(action: importFile) { Label("导入书籍 / 文本", systemImage: "plus") }
                         .buttonStyle(ProfessionalLibraryActionStyle(primary: true)).accessibilityIdentifier("import-pdf").disabled(!model.canImport || model.isBusy)
-                }.buttonStyle(ProfessionalLibraryActionStyle()).padding(.horizontal, 24).frame(height: 64)
+                }.buttonStyle(ProfessionalLibraryActionStyle()).padding(.horizontal, 24).frame(height: compact ? 52 : 64)
                 Divider()
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: compact ? 12 : 18) {
                     HStack(alignment: .center) {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text(showingExamples ? "示例文档" : "我的书库").font(.system(size: 24, weight: .semibold))
+                            Text(showingExamples ? "示例文档" : "我的书库").font(.system(size: compact ? 20 : 24, weight: .semibold))
                             Text("\(items.filter { $0.example == showingExamples }.count) 本 · " + (showingExamples ? "内置原创文档" : "保存在此设备"))
                                 .font(.system(size: 12)).foregroundStyle(.secondary)
                         }
@@ -110,9 +111,9 @@ struct ProfessionalLibraryWorkspace: View {
                         ScrollView {
                             if grid {
                                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 180, maximum: 240), spacing: 20, alignment: .top)], alignment: .leading, spacing: 20) {
-                                    ForEach(filtered) { row($0) }
+                                    ForEach(filtered) { row($0, compact: compact) }
                                 }.padding(1)
-                            } else { LazyVStack(spacing: 8) { ForEach(filtered) { row($0) } }.padding(1) }
+                            } else { LazyVStack(spacing: 8) { ForEach(filtered) { row($0, compact: compact) } }.padding(1) }
                         }.accessibilityElement(children: .contain).accessibilityIdentifier("professional-library-books")
                     }
                     HStack(spacing: 6) {
@@ -121,7 +122,7 @@ struct ProfessionalLibraryWorkspace: View {
                         Spacer()
                         if showingExamples { Button(action: examples) { Label("打开内置示例", systemImage: "doc.badge.plus") }.accessibilityIdentifier("library-example-help") }
                     }.foregroundStyle(.secondary)
-                }.padding(geometry.size.width < 900 ? 20 : 28)
+                }.padding(compact ? 16 : (geometry.size.width < 900 ? 20 : 28))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(PDFnoWorkspaceStyle.background)
             }.background(PDFnoDesign.Palette.canvas).accessibilityElement(children: .contain).accessibilityIdentifier("professional-library-workspace")
@@ -151,19 +152,19 @@ struct ProfessionalLibraryWorkspace: View {
             Button { grid = true } label: { Image(systemName: "square.grid.2x2").frame(width: 30, height: 28).background(grid ? Color.blue.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 6)) }.accessibilityIdentifier("library-grid-layout").accessibilityLabel("网格").accessibilityValue(grid ? "已选中" : "未选中")
         }.buttonStyle(.plain).padding(3).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
     }
-    private func row(_ item: ProfessionalLibraryItem) -> some View {
+    private func row(_ item: ProfessionalLibraryItem, compact: Bool) -> some View {
         Group {
             if grid {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: compact ? 8 : 12) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.025))
                         if let cover = item.cover {
-                            LibraryCoverImage(covers: model.covers, identity: cover.identity, width: 126, height: 180)
+                            LibraryCoverImage(covers: model.covers, identity: cover.identity, width: compact ? 88 : 126, height: compact ? 126 : 180)
                                 .shadow(color: .black.opacity(0.10), radius: 6, y: 3)
-                        } else { placeholder(item, width: 126, height: 180) }
-                    }.frame(height: 202)
+                        } else { placeholder(item, width: compact ? 88 : 126, height: compact ? 126 : 180) }
+                    }.frame(height: compact ? 140 : 202)
                     Text(item.title).font(.system(size: 13, weight: .semibold)).lineLimit(2)
-                        .frame(height: 36, alignment: .topLeading).frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(height: compact ? 32 : 36, alignment: .topLeading).frame(maxWidth: .infinity, alignment: .leading)
                     HStack(spacing: 4) {
                         Text(item.subtitle).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
                         Spacer(minLength: 0)
@@ -184,7 +185,7 @@ struct ProfessionalLibraryWorkspace: View {
                     Spacer()
                 }
             }
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(compact ? 10 : 12)
             .background(PDFnoDesign.Palette.surface, in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(selectedBookID == item.id ? Color.blue.opacity(0.45) : Color.primary.opacity(0.07)))
             .accessibilityElement(children: .contain).accessibilityIdentifier(item.accessibilityID)
