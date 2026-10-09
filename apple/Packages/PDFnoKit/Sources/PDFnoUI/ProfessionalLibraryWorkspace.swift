@@ -149,7 +149,7 @@ struct ProfessionalLibraryWorkspace: View {
                     HStack(spacing: 4) {
                         Text(item.subtitle).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
                         Spacer(minLength: 0)
-
+                        coverAction(item)
                     }.frame(height: 20)
                 }
             } else {
@@ -161,6 +161,7 @@ struct ProfessionalLibraryWorkspace: View {
                         Text(item.subtitle).font(.system(size: 11)).foregroundStyle(.secondary)
                     }
                     Spacer()
+                    coverAction(item)
                 }
             }
         }.frame(maxWidth: .infinity, alignment: .leading).padding(compact ? 10 : 12)
@@ -171,6 +172,14 @@ struct ProfessionalLibraryWorkspace: View {
             .accessibilityAction { openBook(item.id) }.focusable()
             .onKeyPress(.return) { openBook(item.id); return .handled }
             .onKeyPress(.space) { openBook(item.id); return .handled }
+    }
+    private func coverAction(_ item: ProfessionalLibraryItem) -> some View {
+        Button { if let cover = item.cover { editCover(cover) } } label: {
+            Image(systemName: "photo").frame(width: 26, height: 24)
+        }.buttonStyle(.plain).foregroundStyle(.secondary)
+            .disabled(item.cover == nil || model.storageMaintenance)
+            .accessibilityIdentifier("library-edit-cover").accessibilityLabel("编辑封面：" + item.title)
+            .help(item.cover == nil ? "此格式暂无自选封面设置" : "编辑封面")
     }
     private func placeholder(_ item: ProfessionalLibraryItem, width: CGFloat, height: CGFloat) -> some View {
         VStack(spacing: 8) {

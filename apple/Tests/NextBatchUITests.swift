@@ -209,6 +209,25 @@ final class NextBatchUITests: XCTestCase {
         text(element("english-learning-fixed-source", app), contains: "window")
         XCTAssertFalse(app.buttons["english-learning-start"].firstMatch.isEnabled, "Session credential must not survive restart")
     }
+    @MainActor private func openCurrentTrashPreview(_ app: XCUIApplication) {
+        let done = app.buttons["local-recovery-close"].firstMatch
+        if done.exists { click(done) }
+        click(element("document-more", app))
+        let action = app.menuItems.matching(identifier: "document-move-to-trash").firstMatch
+        XCTAssertTrue(action.waitForExistence(timeout: 10)); XCTAssertTrue(action.isEnabled)
+        click(action)
+        XCTAssertTrue(app.buttons["local-recovery-confirm-change"].firstMatch.waitForExistence(timeout: 10))
+    }
+    @MainActor private func openCurrentBackupSettings(_ app: XCUIApplication) {
+        click(app.buttons["ai-settings"].firstMatch)
+        let category = app.buttons["settings-category-backup"].firstMatch
+        if category.exists { click(category) }
+        else {
+            click(element("settings-category-picker", app))
+            click(app.menuItems["备份与恢复"].firstMatch)
+        }
+    }
+
     @MainActor func testTrashConfirmationRestoreAndRestartPreserveOriginalBook() throws {
         let app = XCUIApplication(), token = UUID().uuidString
         let root = URL(fileURLWithPath: "/tmp/PDFno-UITests-" + token)
@@ -217,16 +236,15 @@ final class NextBatchUITests: XCTestCase {
         let book = try XCTUnwrap((before["books"] as? [[String: Any]])?.first), id = try XCTUnwrap(book["id"] as? String)
         let hash = try XCTUnwrap(book["fileSHA256"] as? String)
         let original = root.appendingPathComponent("Originals/" + hash + ".pdf"), bytes = try Data(contentsOf: original)
-        navigateWorkspace("library-local-recovery", in: app)
-        click(app.buttons["library-local-recovery"].firstMatch)
-        let remove = app.buttons["local-recovery-trash-" + id].firstMatch
-        reveal(remove, form: "local-recovery-form", app: app); click(remove)
+        openCurrentTrashPreview(app)
         XCTAssertEqual((try state("library-v1.json", root: root)["books"] as? [[String: Any]])?.count, 1)
         click(app.buttons["local-recovery-cancel-change"].firstMatch)
-        click(remove); click(app.buttons["local-recovery-confirm-change"].firstMatch)
+        openCurrentTrashPreview(app); click(app.buttons["local-recovery-confirm-change"].firstMatch)
         text(element("local-recovery-status", app), contains: "已移至")
         XCTAssertEqual((try state("library-v1.json", root: root)["books"] as? [[String: Any]])?.count, 0)
         XCTAssertEqual(try Data(contentsOf: original), bytes)
+        click(app.buttons["local-recovery-close"].firstMatch)
+        click(app.buttons["library-local-recovery"].firstMatch)
         let restore = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'local-recovery-restore-'")).firstMatch
         reveal(restore, form: "local-recovery-form", app: app); click(restore)
         click(app.buttons["local-recovery-confirm-change"].firstMatch)
@@ -239,6 +257,7 @@ final class NextBatchUITests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { cleanup(directory) }
         let currentManifest = try Data(contentsOf: root.appendingPathComponent("library-v1.json"))
+        openCurrentBackupSettings(app)
         let export = app.buttons["local-recovery-export"].firstMatch
         reveal(export, form: "local-recovery-form", app: app)
         try chooseDirectory(directory, trigger: export, app: app)
@@ -264,7 +283,7 @@ final class NextBatchUITests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: recovered.appendingPathComponent("note-edit-drafts-v1.json").path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: recovered.appendingPathComponent("record-edit-drafts-v1.json").path))
         print("Synthetic recovery checkpoint: new-root restoration and unchanged active library verified")
-        click(app.buttons["local-recovery-close"].firstMatch)
+        click(app.buttons["settings-return"].firstMatch)
         app.terminate(); app.launch(); app.activate()
         navigateWorkspace("library-book", in: app)
         click(element("library-book", app))

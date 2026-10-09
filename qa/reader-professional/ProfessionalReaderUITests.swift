@@ -59,6 +59,23 @@ final class ProfessionalReaderUITests: XCTestCase {
     }
     @MainActor private func item(_ id: String, _ app: XCUIApplication) -> XCUIElement {
         let target = app.descendants(matching: .any).matching(identifier: id).firstMatch
+        if !target.exists, id == "workspace-resume-reader" {
+            let tabs = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'document-tab-' AND NOT identifier BEGINSWITH 'document-tab-close-'"))
+            XCTAssertEqual(tabs.count, 1, "Resume the scenario's single real document tab")
+            return tabs.firstMatch
+        }
+        if !target.exists, id == "workspace-tools" {
+            return app.buttons["ai-settings"].firstMatch
+        }
+        if !target.exists, id == "ai-tools-open" {
+            let category = app.buttons["settings-category-tools"].firstMatch
+            if category.exists { return category }
+            let picker = app.descendants(matching: .any).matching(identifier: "settings-category-picker").firstMatch
+            if picker.exists {
+                picker.click()
+                return app.menuItems["阅读辅助"].firstMatch
+            }
+        }
         if ["library-category-personal", "library-category-examples"].contains(id), !target.exists {
             let picker = app.descendants(matching: .any).matching(identifier: "library-category-picker").firstMatch
             if picker.exists {

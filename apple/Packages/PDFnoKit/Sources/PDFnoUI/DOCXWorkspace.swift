@@ -28,6 +28,11 @@ public struct DOCXWorkspace: View {
                     }.font(.caption)
                 }
             }.padding(12).frame(maxWidth: .infinity, alignment: .leading).background(.bar)
+            HStack(spacing: 12) {
+            Button { navigation = true } label: { Label("标题目录", systemImage: "list.bullet") }.disabled(!session.ready).accessibilityIdentifier("docx-navigation")
+            Button { Task { captured = await session.captureSelection(); notes = true } } label: { Label("选文与笔记", systemImage: "highlighter") }.disabled(!session.ready).accessibilityIdentifier("docx-notes")
+                Spacer()
+            }.padding(.horizontal, 12).padding(.vertical, 8).background(.bar)
             if let error = session.error {
                 VStack {
                     ContentUnavailableView("DOCX 无法显示", systemImage: "exclamationmark.triangle", description: Text(error))
@@ -41,10 +46,7 @@ public struct DOCXWorkspace: View {
             else { DOCXCanvas(session: session).frame(maxWidth: .infinity, maxHeight: .infinity).accessibilityIdentifier("docx-content") }
         }
         .navigationTitle(session.book?.title ?? "DOCX")
-        .toolbar { ToolbarItemGroup {
-            Button { navigation = true } label: { Label("标题目录", systemImage: "list.bullet") }.disabled(!session.ready).accessibilityIdentifier("docx-navigation")
-            Button { Task { captured = await session.captureSelection(); notes = true } } label: { Label("选文与笔记", systemImage: "highlighter") }.disabled(!session.ready).accessibilityIdentifier("docx-notes")
-        } }
+
         .onChange(of: draft) { _, value in LibraryMaintenanceOwners.setDraft(root: model.storageRoot, owner: draftOwner, dirty: !value.isEmpty) }
         .onDisappear { LibraryMaintenanceOwners.setDraft(root: model.storageRoot, owner: draftOwner, dirty: false) }
         .onChange(of: session.progress) { _, anchor in if let anchor { Task { await model.saveProgress(anchor) } } }

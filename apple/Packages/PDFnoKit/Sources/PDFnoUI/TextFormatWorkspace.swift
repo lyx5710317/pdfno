@@ -30,6 +30,11 @@ public struct TextFormatWorkspace: View {
                     }.font(.caption)
                 }
             }.padding(12).frame(maxWidth: .infinity, alignment: .leading).background(.bar)
+            HStack(spacing: 12) {
+            Button { navigation = true } label: { Label("标题目录", systemImage: "list.bullet") }.disabled(!session.ready).accessibilityIdentifier("textformat-navigation")
+            Button { Task { captured = await session.captureSelection(); notes = true } } label: { Label("选文与笔记", systemImage: "highlighter") }.disabled(!session.ready).accessibilityIdentifier("textformat-notes")
+                Spacer()
+            }.padding(.horizontal, 12).padding(.vertical, 8).background(.bar)
             if let error = session.error {
                 VStack {
                     ContentUnavailableView("文本无法显示", systemImage: "exclamationmark.triangle", description: Text(error))
@@ -50,10 +55,7 @@ public struct TextFormatWorkspace: View {
             }
         }
         .navigationTitle(session.book?.title ?? "文本")
-        .toolbar { ToolbarItemGroup {
-            Button { navigation = true } label: { Label("标题目录", systemImage: "list.bullet") }.disabled(!session.ready).accessibilityIdentifier("textformat-navigation")
-            Button { Task { captured = await session.captureSelection(); notes = true } } label: { Label("选文与笔记", systemImage: "highlighter") }.disabled(!session.ready).accessibilityIdentifier("textformat-notes")
-        } }
+
         .onChange(of: draft) { _, value in LibraryMaintenanceOwners.setDraft(root: model.storageRoot, owner: draftOwner, dirty: !value.isEmpty) }
         .onDisappear { LibraryMaintenanceOwners.setDraft(root: model.storageRoot, owner: draftOwner, dirty: false) }
         .onChange(of: session.progress) { _, anchor in if let anchor { Task { await model.saveProgress(anchor) } } }

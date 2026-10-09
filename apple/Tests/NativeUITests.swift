@@ -49,6 +49,18 @@ final class NativeUITests: XCTestCase {
         #endif
     }
 
+    @MainActor private func resumeCurrentDocument(_ app: XCUIApplication) {
+        let tabs = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'document-tab-' AND NOT identifier BEGINSWITH 'document-tab-close-'"))
+        XCTAssertEqual(tabs.count, 1, "Resume the scenario's single real document tab")
+        press(tabs.firstMatch)
+    }
+    @MainActor private func openCurrentFileAction(_ id: String, app: XCUIApplication) {
+        press(app.descendants(matching: .any).matching(identifier: "document-more").firstMatch)
+        let menu = app.menuItems.matching(identifier: id).firstMatch
+        XCTAssertTrue(menu.waitForExistence(timeout: 10)); XCTAssertTrue(menu.isEnabled)
+        press(menu)
+    }
+
     @MainActor private func traceWorkspaceEntry(_ id: String, element: XCUIElement) {
         guard ProcessInfo.processInfo.environment["PDFNO_UI_TEST_PANEL_DIAGNOSTICS"] == "1" else { return }
         print("PDFno original workspace entry diagnostic id=\(id) exists=\(element.exists)")
@@ -1141,7 +1153,7 @@ final class NativeUITests: XCTestCase {
         waitUntilEnabled(app.buttons["cover-editor-done"].firstMatch); press(app.buttons["cover-editor-done"].firstMatch)
         // Library controls have their own screen. Resume the preserved reader
         // before checking the original page and note-source assertions.
-        press(app.buttons["workspace-resume-reader"].firstMatch)
+        resumeCurrentDocument(app)
         press(app.buttons["next-page"].firstMatch)
         waitForText(["2 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 5)
         press(app.buttons["library-search"].firstMatch)
@@ -1202,7 +1214,7 @@ final class NativeUITests: XCTestCase {
         navigateWorkspace("library-list-layout", in: app)
         press(app.buttons["library-list-layout"].firstMatch)
         XCTAssertTrue(textRow.waitForExistence(timeout: 5)); XCTAssertTrue(textRow.isHittable)
-        press(app.buttons["workspace-resume-reader"].firstMatch)
+        resumeCurrentDocument(app)
         XCTAssertFalse(app.buttons["reader-ai"].firstMatch.exists)
         XCTAssertFalse(app.buttons["epub-ai"].firstMatch.exists)
         XCTAssertFalse(app.buttons["reader-page-translation"].firstMatch.exists)
@@ -1853,7 +1865,7 @@ final class NativeUITests: XCTestCase {
         app.launch(); app.activate()
         navigateWorkspace("open-sample", in: app)
         XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["open-sample"].firstMatch)
-        press(app.buttons["reader-page-translation"].firstMatch)
+        openCurrentFileAction("document-page-translation", app: app)
         guard app.staticTexts["page-offline-fixture"].firstMatch.waitForExistence(timeout: 5) else {
             XCTFail("Fully intercepted transport required before synthetic key entry"); app.terminate(); return
         }
@@ -1909,7 +1921,7 @@ final class NativeUITests: XCTestCase {
         let book = app.descendants(matching: .any).matching(identifier: "library-book").firstMatch
         navigateWorkspace("library-book", in: app)
         XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
-        press(app.buttons["reader-page-translation"].firstMatch)
+        openCurrentFileAction("document-page-translation", app: app)
         XCTAssertFalse(app.buttons["page-start"].firstMatch.isEnabled)
         XCTAssertFalse(app.staticTexts["page-result-0"].firstMatch.exists)
         press(app.buttons["page-close"].firstMatch)
@@ -1927,7 +1939,7 @@ final class NativeUITests: XCTestCase {
         app.launch(); app.activate()
         defer { app.terminate() }
         openChapterFixture(in: app, japanese: true)
-        press(app.buttons["epub-chapter-translation"].firstMatch)
+        openCurrentFileAction("document-spine-translation", app: app)
         guard app.staticTexts["chapter-offline-fixture"].firstMatch.waitForExistence(timeout: 5) else {
             XCTFail("Fully intercepted transport required before synthetic key entry"); return
         }
@@ -1969,7 +1981,7 @@ final class NativeUITests: XCTestCase {
         navigateWorkspace("library-epub", in: app)
         XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
         waitForText(["第 2 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
-        press(app.buttons["epub-chapter-translation"].firstMatch)
+        openCurrentFileAction("document-spine-translation", app: app)
         XCTAssertFalse(app.buttons["chapter-start"].firstMatch.isEnabled)
         XCTAssertFalse(app.staticTexts["chapter-result-0"].firstMatch.exists)
         let restartedKey = app.descendants(matching: .any).matching(identifier: "chapter-session-key").firstMatch
@@ -1986,7 +1998,7 @@ final class NativeUITests: XCTestCase {
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
         app.launch(); app.activate(); defer { app.terminate() }
         openChapterFixture(in: app, japanese: false)
-        press(app.buttons["epub-chapter-translation"].firstMatch)
+        openCurrentFileAction("document-spine-translation", app: app)
         waitForText(["3000", "不会静默截断", "选文 AI"], in: app.staticTexts["chapter-preparation-error"].firstMatch, timeout: 5)
         XCTAssertTrue(textValue(app.staticTexts["chapter-scope"].firstMatch).contains("OEBPS/english.xhtml"))
         XCTAssertFalse(app.buttons["chapter-start"].firstMatch.exists)
@@ -2004,7 +2016,7 @@ final class NativeUITests: XCTestCase {
         waitForText(["已取消"], in: app.staticTexts["chapter-status"].firstMatch, timeout: 5)
         waitForText(["1 / 6"], in: app.staticTexts["chapter-limits"].firstMatch, timeout: 5)
         XCTAssertFalse(app.staticTexts["chapter-result-0"].firstMatch.exists)
-        press(app.buttons["chapter-close"].firstMatch); press(app.buttons["epub-chapter-translation"].firstMatch)
+        press(app.buttons["chapter-close"].firstMatch); openCurrentFileAction("document-spine-translation", app: app)
         XCTAssertFalse(app.buttons["chapter-start"].firstMatch.exists)
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "chapter-session-key").firstMatch.exists)
         waitForText(["1 / 6"], in: app.staticTexts["chapter-limits"].firstMatch, timeout: 5)
@@ -2034,7 +2046,7 @@ final class NativeUITests: XCTestCase {
         }
     }
     @MainActor private func startChapterFixture(in app: XCUIApplication) {
-        press(app.buttons["epub-chapter-translation"].firstMatch)
+        openCurrentFileAction("document-spine-translation", app: app)
         guard app.staticTexts["chapter-offline-fixture"].firstMatch.waitForExistence(timeout: 5) else {
             XCTFail("Fully intercepted transport required before synthetic key entry"); return
         }
@@ -2063,7 +2075,7 @@ final class NativeUITests: XCTestCase {
             app.launch(); app.activate()
             navigateWorkspace("open-sample", in: app)
             XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["open-sample"].firstMatch)
-            press(app.buttons["reader-page-translation"].firstMatch)
+            openCurrentFileAction("document-page-translation", app: app)
             let error = app.staticTexts["page-preparation-error"].firstMatch
             XCTAssertTrue(error.waitForExistence(timeout: 5)); XCTAssertTrue(textValue(error).contains(mode == "blank" ? "OCR" : "3000"))
             XCTAssertFalse(app.buttons["page-start"].firstMatch.exists); XCTAssertFalse(app.secureTextFields["page-session-key"].firstMatch.exists)
@@ -2077,7 +2089,7 @@ final class NativeUITests: XCTestCase {
         app.launch(); app.activate()
         navigateWorkspace("open-sample", in: app)
         XCTAssertTrue(app.buttons["open-sample"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["open-sample"].firstMatch)
-        press(app.buttons["reader-page-translation"].firstMatch)
+        openCurrentFileAction("document-page-translation", app: app)
         guard app.staticTexts["page-offline-fixture"].firstMatch.waitForExistence(timeout: 5) else {
             XCTFail("Fully intercepted transport required before synthetic key entry"); app.terminate(); return
         }
@@ -2090,7 +2102,7 @@ final class NativeUITests: XCTestCase {
         waitForText(["已取消"], in: app.staticTexts["page-status"].firstMatch, timeout: 5)
         XCTAssertFalse(app.staticTexts["page-result-0"].firstMatch.exists)
         waitForText(["1 / 6"], in: app.staticTexts["page-limits"].firstMatch, timeout: 5)
-        press(app.buttons["page-close"].firstMatch); press(app.buttons["reader-page-translation"].firstMatch)
+        press(app.buttons["page-close"].firstMatch); openCurrentFileAction("document-page-translation", app: app)
         XCTAssertFalse(app.buttons["page-start"].firstMatch.isEnabled)
         XCTAssertTrue(textValue(app.staticTexts["page-limits"].firstMatch).contains("1 / 6"))
         app.terminate()
