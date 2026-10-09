@@ -153,8 +153,8 @@ struct ConversionWorkspace: View {
         .interactiveDismissDisabled(model.isBusy)
         .onDisappear { model.cancel() }
         .sheet(isPresented: Binding(get: { readingPDF && inlineDismiss == nil }, set: { readingPDF = $0 })) { DOCXReadingPDFExportWorkspace(source: model.source) }
-        .fileImporter(isPresented: $importer, allowedContentTypes: [UTType(filenameExtension: "docx") ?? .data]) { result in
-            switch result { case .success(let url): model.select(url); case .failure(let error): model.importFailed(error) }
+        .background {
+            PDFnoDOCXPicker(isPresented: $importer) { model.select($0) }.frame(width: 0, height: 0)
         }
     }
 }

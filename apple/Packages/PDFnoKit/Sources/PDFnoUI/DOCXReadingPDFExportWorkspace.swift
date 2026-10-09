@@ -111,8 +111,8 @@ public struct DOCXReadingPDFExportWorkspace: View {
         }.padding(24).frame(minWidth: inlineDismiss == nil ? 640 : 0, minHeight: inlineDismiss == nil ? 520 : 0)
             .preference(key: PDFnoWorkspaceBusyKey.self, value: model.isBusy)
             .interactiveDismissDisabled(model.isBusy).onDisappear { model.cancel() }
-            .fileImporter(isPresented: $importing, allowedContentTypes: [UTType(filenameExtension: "docx") ?? .data]) { result in
-                switch result { case .success(let url): model.select(url); case .failure(let error): model.importFailed(error) }
+            .background {
+                PDFnoDOCXPicker(isPresented: $importing) { model.select($0) }.frame(width: 0, height: 0)
             }
     }
 }

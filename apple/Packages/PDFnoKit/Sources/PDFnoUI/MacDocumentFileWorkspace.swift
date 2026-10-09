@@ -73,13 +73,20 @@ struct MacDocumentFileWorkspace: View {
                 }
             case .trash:
                 if let recovery = panel.recovery {
-                    VStack(spacing: 0) {
-                        LocalRecoveryWorkspace(model: recovery, mode: .change)
-                        Button("完成") { dismiss() }.disabled(recovery.busy).accessibilityIdentifier("local-recovery-close").padding()
-                    }.frame(width: 600, height: 420)
+                    MacDocumentTrashWorkspace(recovery: recovery)
                 }
             }
         }
+    }
+}
+private struct MacDocumentTrashWorkspace: View {
+    @ObservedObject var recovery: LocalRecoveryManagementModel
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        VStack(spacing: 0) {
+            LocalRecoveryWorkspace(model: recovery, mode: .change)
+            Button("完成") { dismiss() }.disabled(recovery.busy).accessibilityIdentifier("local-recovery-close").padding()
+        }.frame(width: 600, height: 420)
     }
 }
 extension LibraryModel {
