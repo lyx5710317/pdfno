@@ -54,6 +54,7 @@ struct PDFnoSettingsShell<Content: View>: View {
                             Button { category = item } label: {
                                 Label(item.title, systemImage: item.symbol)
                                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                    .contentShape(Rectangle())
                             }.buttonStyle(PDFnoActionStyle(role: .quiet))
                                 .background(category == item ? Color.blue.opacity(0.10) : .clear,
                                     in: RoundedRectangle(cornerRadius: PDFnoTemporaryLayout.corner))
