@@ -72,16 +72,6 @@ struct ProfessionalLibraryWorkspace: View {
             let compact = geometry.size.height < 600
             VStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: compact ? 12 : 18) {
-                    HStack(alignment: .center) {
-                        VStack(alignment: .leading, spacing: 5) {
-                            categories
-                            Text("\(items.filter { $0.example == showingExamples }.count) 本 · " + (showingExamples ? "内置原创文档" : "保存在此设备"))
-                                .font(.system(size: 12)).foregroundStyle(.secondary)
-                        }
-                        Spacer(minLength: 8)
-                        Button(action: importFile) { Label("导入书籍 / 文本", systemImage: "plus") }
-                            .buttonStyle(ProfessionalLibraryActionStyle(primary: true)).accessibilityIdentifier("import-pdf").disabled(!model.canImport || model.isBusy)
-                    }
                     HStack(spacing: 10) {
                         HStack(spacing: 8) {
                             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -93,8 +83,17 @@ struct ProfessionalLibraryWorkspace: View {
                         Picker("格式", selection: $format) { ForEach(formats, id: \.self) { Text($0).tag($0) } }
                             .labelsHidden().frame(width: 108).accessibilityIdentifier("library-format-filter")
                         layoutPicker
-                        Button(action: search) { Label("搜索笔记", systemImage: "text.magnifyingglass") }.accessibilityIdentifier("library-search-notes")
                     }.font(.system(size: 13))
+                    HStack(alignment: .center) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            categories
+                            Text("\(items.filter { $0.example == showingExamples }.count) 本 · " + (showingExamples ? "内置原创文档" : "保存在此设备"))
+                                .font(.system(size: 12)).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 8)
+                        Button(action: importFile) { Label("打开文件", systemImage: "plus") }
+                            .buttonStyle(ProfessionalLibraryActionStyle(primary: true)).accessibilityIdentifier("import-pdf").disabled(!model.canImport || model.isBusy)
+                    }.accessibilityElement(children: .contain).accessibilityIdentifier("library-content-heading")
                     if filtered.isEmpty { emptyState.frame(maxWidth: .infinity, maxHeight: .infinity) }
                     else {
                         ScrollView {
@@ -119,21 +118,14 @@ struct ProfessionalLibraryWorkspace: View {
         }
     }
     private var categories: some View {
-        HStack(spacing: 8) {
-            category("我的书库", icon: "books.vertical", count: items.filter { !$0.example }.count, active: !showingExamples) { showingExamples = false }.accessibilityIdentifier("library-category-personal")
-            category("示例文档", icon: "doc.text", count: items.filter(\.example).count, active: showingExamples) { showingExamples = true }.accessibilityIdentifier("library-category-examples")
-        }.fixedSize(horizontal: true, vertical: false)
-    }
-    private func category(_ title: String, icon: String, count: Int, active: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 9) { Image(systemName: icon).frame(width: 16); Text(title); Text("\(count)").font(.system(size: 11)).monospacedDigit() }
-                .font(.system(size: 18, weight: active ? .semibold : .regular)).padding(.horizontal, 8).padding(.vertical, 7)
-                .foregroundStyle(active ? Color.blue : Color.secondary)
-                .background(active ? Color.blue.opacity(0.10) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
-                .contentShape(Rectangle())
-        }.buttonStyle(.plain).accessibilityLabel(title).accessibilityAddTraits(.isButton)
-            .accessibilityAction { action() }
-            .accessibilityValue(active ? "已选中" : "未选中").accessibilityHint("\(count) 本书籍")
+        Menu {
+            Button("我的书库") { showingExamples = false }.accessibilityIdentifier("library-category-personal")
+            Button("示例文档") { showingExamples = true }.accessibilityIdentifier("library-category-examples")
+        } label: {
+            Text(showingExamples ? "示例文档" : "我的书库").font(.system(size: 20, weight: .semibold))
+        }.menuStyle(.borderlessButton).fixedSize()
+            .accessibilityIdentifier("library-category-picker")
+            .accessibilityLabel(showingExamples ? "示例文档" : "我的书库")
     }
     private var layoutPicker: some View {
         HStack(spacing: 2) {
@@ -192,7 +184,7 @@ struct ProfessionalLibraryWorkspace: View {
         VStack(spacing: 12) {
             Image(systemName: showingExamples ? "doc.text" : "books.vertical").font(.system(size: 34, weight: .light)).foregroundStyle(.blue.opacity(0.65))
             Text(query.isEmpty ? (showingExamples ? "试读内置示例" : "导入书籍，开始阅读") : "没有匹配的书籍").font(.system(size: 16, weight: .semibold))
-            Text(query.isEmpty ? (showingExamples ? "从帮助与示例打开文档，新增示例会出现在这里。" : "使用右上方导入，选择 PDF、EPUB、Word、漫画或本地文本。") : "换一个书名或格式关键词。")
+            Text(query.isEmpty ? (showingExamples ? "从帮助与示例打开文档，新增示例会出现在这里。" : "点击打开文件，选择 PDF、EPUB、Word、漫画或本地文本。") : "换一个书名或格式关键词。")
                 .font(.system(size: 12)).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }.padding(24).accessibilityIdentifier("library-empty-state")
     }

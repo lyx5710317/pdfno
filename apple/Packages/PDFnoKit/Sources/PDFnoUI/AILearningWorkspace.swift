@@ -58,7 +58,7 @@ struct AISettingsView: View {
                     }
                 }
             }.disabled(childBusy && !hasSubpage)
-            }.navigationTitle("设置 · " + category.title)
+            }.navigationTitle("设置")
             .toolbar {
                 if !embedded {
                 ToolbarItem { Button("取消") { cancelConfiguration() }.keyboardShortcut(.cancelAction).accessibilityIdentifier("ai-settings-cancel") }
@@ -94,7 +94,6 @@ struct AISettingsView: View {
     }
     private var contentHeading: some View {
         HStack {
-            Text("设置 · " + category.title).font(PDFnoDesign.TypeStyle.title)
             Spacer()
             Button("返回") { clearUnappliedSecrets(); close?() }
                 .disabled(childBusy).accessibilityIdentifier("settings-return")

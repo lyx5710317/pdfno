@@ -111,10 +111,7 @@ struct MacTabbedWorkspace: View {
             Button { navigation.showLibrary() } label: { Image(systemName: "house").frame(width: 34, height: 32) }
                 .background(navigation.route == .library ? Color.blue.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 8))
                 .accessibilityIdentifier("workspace-back-library").accessibilityLabel("主页").help("返回书库，保留所有文件与草稿")
-            Button { sidebar.toggle() } label: { Image(systemName: "sidebar.left").frame(width: 30, height: 30) }
-                .accessibilityLabel(sidebar ? "切换为图标侧栏" : "展开全局侧栏").accessibilityIdentifier("workspace-sidebar-toggle")
-                .accessibilityValue(sidebar ? "已展开" : "图标侧栏").help(sidebar ? "切换为图标侧栏" : "展开全局侧栏")
-            Divider().frame(height: 22)
+                .pdfnoTitlebarControl()
             ScrollView(.horizontal) {
                 HStack(spacing: 5) {
                     ForEach(documents.tabs) { tab in
@@ -128,9 +125,11 @@ struct MacTabbedWorkspace: View {
                                     .frame(minWidth: 86, maxWidth: 180, minHeight: 32, alignment: .leading).contentShape(Rectangle())
                             }.accessibilityIdentifier("document-tab-" + tab.id.uuidString)
                                 .accessibilityValue(isVisible(tab) ? "已选中" : "未选中")
+                                .pdfnoTitlebarControl()
                             Button { Task { await documents.requestClose(tab.id); if documents.active == nil && navigation.route == .reader { navigation.showLibrary() } } } label: {
                                 Image(systemName: "xmark").font(.system(size: 10)).frame(width: 24, height: 28).contentShape(Rectangle())
                             }.accessibilityLabel("关闭文件：" + tab.title).accessibilityIdentifier("document-tab-close-" + tab.id.uuidString)
+                                .pdfnoTitlebarControl()
                         }.padding(.horizontal, 9)
                             .background(isVisible(tab) ? PDFnoDesign.Palette.surface : Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
                             .overlay(RoundedRectangle(cornerRadius: 8).stroke(isVisible(tab) ? Color.blue.opacity(0.4) : Color.primary.opacity(0.06)))
@@ -140,6 +139,7 @@ struct MacTabbedWorkspace: View {
             Button { importer = true } label: { Image(systemName: "plus").frame(width: 28, height: 30) }
                 .disabled(!model.canImport).accessibilityIdentifier("document-add").accessibilityLabel("导入文件到新标签")
                 .help("选择本地文件；已打开的文件会激活原标签")
+                .pdfnoTitlebarControl()
             if let active = documents.active, navigation.route == .reader {
                 MacDocumentMoreMenu(model: active.model) { action in
                     Task {
@@ -159,7 +159,7 @@ struct MacTabbedWorkspace: View {
                         guard documents.activeID == active.id, navigation.route == .reader else { return }
                         filePanel = MacDocumentFilePanel(model: active.model, action: action, recovery: model.recoveryManagement)
                     }
-                }
+                }.pdfnoTitlebarControl()
             } else {
                 Image(systemName: "ellipsis").frame(width: 22, height: 28).foregroundStyle(.tertiary)
                     .accessibilityLabel("当前文件菜单：需要活动文件").accessibilityIdentifier("document-more-unavailable")
@@ -176,10 +176,19 @@ struct MacTabbedWorkspace: View {
     }
     private var globalSidebar: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Group {
-                if sidebar { Text("PDFno").font(.system(size: 18, weight: .semibold)).padding(.horizontal, 12) }
-                else { Image(systemName: "book.closed").font(.system(size: 19)).frame(maxWidth: .infinity).accessibilityLabel("PDFno") }
-            }.padding(.vertical, 18)
+            HStack(spacing: 8) {
+                if sidebar {
+                    Text("PDFno").font(.system(size: 18, weight: .semibold)).accessibilityIdentifier("workspace-brand")
+                    Spacer(minLength: 0)
+                }
+                Button { sidebar.toggle() } label: {
+                    Image(systemName: "sidebar.left").frame(width: 28, height: 28).contentShape(Rectangle())
+                }.buttonStyle(.plain)
+                    .accessibilityLabel(sidebar ? "切换为图标侧栏" : "展开全局侧栏")
+                    .accessibilityIdentifier("workspace-sidebar-toggle")
+                    .accessibilityValue(sidebar ? "已展开" : "图标侧栏")
+                    .help(sidebar ? "切换为图标侧栏" : "展开全局侧栏")
+            }.frame(maxWidth: .infinity).padding(.horizontal, sidebar ? 10 : 0).padding(.vertical, 18)
             sidebarButton("书库", "books.vertical", "workspace-library", selected: navigation.route == .library) { navigation.showLibrary() }
             sidebarButton("查找", "magnifyingglass", "library-search", selected: selected(.search)) { showTool(.search) }
             sidebarButton("格式转换", "arrow.triangle.2.circlepath", "document-conversion", selected: selected(.conversion)) { showTool(.conversion) }

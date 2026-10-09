@@ -13,7 +13,7 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
         let view = Anchor(); view.owner = context.coordinator; return view
     }
     func updateNSView(_ view: Anchor, context: Context) {
-        context.coordinator.host.rootView = content
+        context.coordinator.setContent(content)
         context.coordinator.width = width
         context.coordinator.attach(view.window)
     }
@@ -22,8 +22,18 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
         weak var owner: Coordinator?
         override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); owner?.attach(window) }
     }
+    final class DocumentBandHost: NSHostingView<AnyView> {
+        var controlFrames: [CGRect] = []
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            let local = convert(point, from: superview)
+            // AppKit's titlebar receives empty space, including its native
+            // drag and double-click behavior. SwiftUI keeps actual controls.
+            guard controlFrames.isEmpty || controlFrames.contains(where: { $0.contains(local) }) else { return nil }
+            return super.hitTest(point)
+        }
+    }
     @MainActor final class Coordinator: NSObject {
-        let host: NSHostingView<AnyView>
+        let host: DocumentBandHost
         var width: CGFloat
         weak var window: NSWindow?
         let accessory = NSTitlebarAccessoryViewController()
@@ -31,7 +41,7 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
         private var updateObserver: NSObjectProtocol?
         private var widthConstraint: NSLayoutConstraint!
         init(content: AnyView, width: CGFloat) {
-            host = NSHostingView(rootView: content); self.width = width
+            host = DocumentBandHost(rootView: content); self.width = width
             super.init()
             host.sizingOptions = []; host.translatesAutoresizingMaskIntoConstraints = false
             widthConstraint = host.widthAnchor.constraint(equalToConstant: max(260, width - 120))
@@ -39,6 +49,13 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
             host.setFrameSize(NSSize(width: max(260, width - 120), height: 34))
             accessory.view = host; accessory.layoutAttribute = .right
             accessory.fullScreenMinHeight = 34
+            setContent(content)
+        }
+        func setContent(_ content: AnyView) {
+            host.rootView = AnyView(content.coordinateSpace(name: PDFnoTitlebarControlFrames.space)
+                .onPreferenceChange(PDFnoTitlebarControlFrames.self) { [weak host] frames in
+                    host?.controlFrames = frames
+                })
         }
         func attach(_ candidate: NSWindow?) {
             guard let candidate else { return }
@@ -76,6 +93,22 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
                 window.removeTitlebarAccessoryViewController(at: index)
             }
             window = nil
+        }
+    }
+}
+
+private struct PDFnoTitlebarControlFrames: PreferenceKey {
+    static let space = "PDFnoDocumentTitlebar"
+    static let defaultValue: [CGRect] = []
+    static func reduce(value: inout [CGRect], nextValue: () -> [CGRect]) { value += nextValue() }
+}
+extension View {
+    func pdfnoTitlebarControl() -> some View {
+        background {
+            GeometryReader { geometry in
+                Color.clear.preference(key: PDFnoTitlebarControlFrames.self,
+                    value: [geometry.frame(in: .named(PDFnoTitlebarControlFrames.space))])
+            }
         }
     }
 }

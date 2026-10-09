@@ -50,6 +50,9 @@ struct PDFnoSettingsShell<Content: View>: View {
             HStack(alignment: .top, spacing: PDFnoDesign.Space.section) {
                 if wide {
                     VStack(spacing: PDFnoDesign.Space.small) {
+                        Text("设置").font(PDFnoDesign.TypeStyle.title)
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.bottom, 8)
+                            .accessibilityIdentifier("settings-title")
                         ForEach(PDFnoSettingsCategory.allCases) { item in
                             Button { category = item } label: {
                                 Label(item.title, systemImage: item.symbol)
@@ -68,6 +71,7 @@ struct PDFnoSettingsShell<Content: View>: View {
                 }
                 VStack(alignment: .leading, spacing: PDFnoDesign.Space.regular) {
                     if !wide {
+                        Text("设置").font(PDFnoDesign.TypeStyle.title).accessibilityIdentifier("settings-title")
                         Picker("设置分类", selection: $category) {
                             ForEach(PDFnoSettingsCategory.allCases) { item in Text(item.title).tag(item) }
                         }.disabled(navigationDisabled).accessibilityIdentifier("settings-category-picker")
