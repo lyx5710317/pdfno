@@ -5,7 +5,7 @@ import PDFnoDomain
 import PDFnoServices
 import PDFnoReaders
 
-enum MacDocumentFileAction { case settings, page, spine, trash }
+enum MacDocumentFileAction { case settings, tools, page, spine, trash }
 struct MacDocumentFilePanel: Identifiable {
     let id = UUID()
     let model: LibraryModel
@@ -22,7 +22,9 @@ struct MacDocumentMoreMenu: View {
     var body: some View {
         Menu {
             Text(model.displayedDocumentTitle)
-            Button("文件设置…") { open(.settings) }.accessibilityIdentifier("document-file-settings")
+            Button("文件设置…") { open(.settings) }.disabled(model.currentDocumentCover == nil)
+                .accessibilityIdentifier("document-file-settings")
+            Button("阅读与 AI 工具…") { open(.tools) }.accessibilityIdentifier("document-reading-tools")
             Divider()
             Button("翻译当前 PDF 物理页…") { open(.page) }
                 .disabled(PDFnoReadingToolContext(library: model).format != .pdf || model.reader.book == nil)
@@ -45,6 +47,7 @@ struct MacDocumentFileWorkspace: View {
     var body: some View {
         Group {
             switch panel.action {
+            case .tools: ReadingToolsWorkspace(library: panel.model)
             case .page: PDFPageTranslationWorkspace(library: panel.model, translation: panel.model.pageTranslation, learning: panel.model.learning)
             case .spine: EPUBChapterTranslationWorkspace(library: panel.model, translation: panel.model.chapterTranslation, learning: panel.model.learning)
             case .settings:

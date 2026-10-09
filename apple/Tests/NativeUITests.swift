@@ -54,8 +54,12 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(tabs.count, 1, "Resume the scenario's single real document tab")
         press(tabs.firstMatch)
     }
-    @MainActor private func openCurrentFileAction(_ id: String, app: XCUIApplication) {
+    @MainActor private func openCurrentFileMenu(_ app: XCUIApplication) {
+        if !app.descendants(matching: .any).matching(identifier: "document-more").firstMatch.exists { resumeCurrentDocument(app) }
         press(app.descendants(matching: .any).matching(identifier: "document-more").firstMatch)
+    }
+    @MainActor private func openCurrentFileAction(_ id: String, app: XCUIApplication) {
+        openCurrentFileMenu(app)
         let menu = app.menuItems.matching(identifier: id).firstMatch
         XCTAssertTrue(menu.waitForExistence(timeout: 10)); XCTAssertTrue(menu.isEnabled)
         press(menu)
@@ -935,8 +939,8 @@ final class NativeUITests: XCTestCase {
         let automatic = try record(), identity = try XCTUnwrap(automatic["identity"] as? [String: Any])
         let hash = try XCTUnwrap(identity["fileSHA256"] as? String), original = store.appendingPathComponent("Originals/" + hash + ".pdf")
         let originalBytes = try Data(contentsOf: original), libraryBytes = try Data(contentsOf: store.appendingPathComponent("library-v1.json"))
-        navigateWorkspace("library-edit-cover", in: app)
-        press(app.buttons["library-edit-cover"].firstMatch)
+        resumeCurrentDocument(app)
+        openCurrentFileAction("document-file-settings", app: app)
         try chooseInput(image, trigger: app.buttons["cover-select-image"].firstMatch, app: app)
         XCTAssertTrue(cover("自选封面").waitForExistence(timeout: 10))
         let manual = try record()
@@ -958,8 +962,8 @@ final class NativeUITests: XCTestCase {
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 15)
         XCTAssertTrue(cover("自选封面").waitForExistence(timeout: 8))
         XCTAssertEqual(try record()["imageSHA256"] as? String, manual["imageSHA256"] as? String)
-        navigateWorkspace("library-edit-cover", in: app)
-        press(app.buttons["library-edit-cover"].firstMatch)
+        resumeCurrentDocument(app)
+        openCurrentFileAction("document-file-settings", app: app)
         press(app.buttons["cover-restore-automatic"].firstMatch)
         XCTAssertTrue(cover("自动封面").waitForExistence(timeout: 8))
         let restored = try record()
@@ -1136,8 +1140,8 @@ final class NativeUITests: XCTestCase {
         navigateWorkspace("library-grid-layout", in: app)
         navigateWorkspace("library-list-layout", in: app)
         press(app.buttons["library-grid-layout"].firstMatch); press(app.buttons["library-list-layout"].firstMatch)
-        navigateWorkspace("library-edit-cover", in: app)
-        press(app.buttons["library-edit-cover"].firstMatch)
+        resumeCurrentDocument(app)
+        openCurrentFileAction("document-file-settings", app: app)
         XCTAssertTrue(app.buttons["cover-restore-automatic"].firstMatch.waitForExistence(timeout: 5))
         let coverManifest = store.appendingPathComponent("covers-v1.json")
         let coverState = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: coverManifest)) as? [String: Any])
@@ -1205,8 +1209,9 @@ final class NativeUITests: XCTestCase {
         try chooseInput(file, trigger: app.buttons["import-pdf"].firstMatch, app: app)
         let navigation = app.buttons["textformat-navigation"].firstMatch
         XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
-        navigateWorkspace("library-edit-cover", in: app)
-        XCTAssertFalse(app.buttons["library-edit-cover"].firstMatch.isEnabled)
+        openCurrentFileMenu(app)
+        XCTAssertFalse(app.menuItems["document-file-settings"].firstMatch.isEnabled)
+        app.typeKey(.escape, modifierFlags: [])
         navigateWorkspace("library-grid-layout", in: app)
         press(app.buttons["library-grid-layout"].firstMatch)
         let textRow = app.descendants(matching: .any).matching(identifier: "library-textformat").firstMatch

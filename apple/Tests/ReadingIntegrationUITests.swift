@@ -55,7 +55,11 @@ final class ReadingIntegrationUITests: XCTestCase {
         return app
     }
     @MainActor private func element(_ id: String, in app: XCUIApplication) -> XCUIElement {
-        app.descendants(matching: .any).matching(identifier: id).firstMatch
+        if ["reader-ai-tools", "epub-ai-tools"].contains(id) {
+            let menu = app.descendants(matching: .any).matching(identifier: "document-more").firstMatch
+            if menu.exists { menu.click(); return app.menuItems.matching(identifier: "document-reading-tools").firstMatch }
+        }
+        return app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
     @MainActor private func click(_ item: XCUIElement) throws {
         let ready = expectation(for: NSPredicate { _, _ in item.exists && item.isEnabled && item.isHittable }, evaluatedWith: item)
@@ -70,11 +74,15 @@ final class ReadingIntegrationUITests: XCTestCase {
         wait(for: [ready], timeout: 20)
     }
     @MainActor private func category(_ name: String, id: String, in app: XCUIApplication) throws {
-        let sidebar = element("settings-category-" + id, in: app)
+        // Planning information moved from the old AI-tools category to About.
+        // The original configuration/source assertions still run unchanged.
+        let currentID = id == "tools" && name == "AI工具" ? "about" : id
+        let currentName = currentID == "about" ? "关于" : name
+        let sidebar = element("settings-category-" + currentID, in: app)
         if sidebar.exists { try click(sidebar) }
         else {
             try click(element("settings-category-picker", in: app))
-            try click(app.menuItems[name].firstMatch)
+            try click(app.menuItems[currentName].firstMatch)
         }
     }
     @MainActor private func search(_ query: String, in app: XCUIApplication) throws {

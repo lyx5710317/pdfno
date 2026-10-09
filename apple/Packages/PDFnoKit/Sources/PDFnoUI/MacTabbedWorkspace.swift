@@ -17,7 +17,6 @@ struct MacTabbedWorkspace: View {
     @State private var navigationBusy = false
     @State private var windowWidth: CGFloat = 1180
     @State private var filePanel: MacDocumentFilePanel?
-    @State private var coverEditor: LibraryCoverItem?
     init(model: LibraryModel, navigation: PDFnoWorkspaceNavigation, settingsRequest: Int) {
         self.model = model; self.navigation = navigation; self.settingsRequest = settingsRequest
         _documents = StateObject(wrappedValue: MacDocumentTabs(catalogue: model))
@@ -39,7 +38,7 @@ struct MacTabbedWorkspace: View {
                     if navigation.route == .library {
                         ProfessionalLibraryWorkspace(model: model, grid: $grid, selectedBookID: $selectedBookID,
                             importFile: { importer = true }, search: { showTool(.search) }, examples: { examples = true },
-                            editCover: { coverEditor = $0 }, openBook: openBook,
+                            editCover: { _ in }, openBook: openBook,
                             resume: documents.active == nil ? nil : { navigation.showReader() })
                     }
                     if navigation.route == .tool { toolContent }
@@ -85,7 +84,6 @@ struct MacTabbedWorkspace: View {
             }
             .popover(isPresented: $examples) { examplesMenu }
             .sheet(item: $filePanel) { panel in MacDocumentFileWorkspace(panel: panel) }
-            .sheet(item: $coverEditor) { item in LibraryCoverEditor(covers: model.covers, item: item) }
             .alert("关闭这个文件？", isPresented: Binding(get: { documents.pendingCloseID != nil }, set: { if !$0 { documents.pendingCloseID = nil } })) {
                 Button("取消", role: .cancel) { documents.pendingCloseID = nil }.accessibilityIdentifier("document-close-cancel")
                 Button("放弃未保存内容并关闭", role: .destructive) {
@@ -147,6 +145,8 @@ struct MacTabbedWorkspace: View {
                     Task {
                         guard documents.activeID == active.id, navigation.route == .reader else { return }
                         switch action {
+                        case .tools:
+                            if PDFnoReadingToolContext(library: active.model).format == .pdf { active.model.reader.captureSelection() }
                         case .page: active.model.preparePageTranslation()
                         case .spine: await active.model.prepareChapterTranslation()
                         case .trash:
