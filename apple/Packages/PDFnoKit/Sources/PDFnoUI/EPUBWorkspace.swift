@@ -13,6 +13,7 @@ struct EPUBWorkspace: View {
     @State private var readerWidth: CGFloat = 0
     @State private var readerSettings = false
     @State private var draft = ""
+    @State private var draftAnchor: EPUBAnchor?
     @State private var chapterTranslation = false
     @State private var japaneseLearning = false
     @State private var englishLearning = false
@@ -61,7 +62,11 @@ struct EPUBWorkspace: View {
         .overlay { if session.busy { PDFnoStatusMessage(text: "正在排版…", kind: .busy).frame(maxWidth: 320).pdfnoCard() } }
         .onChange(of: session.progress) { _, anchor in if let anchor { Task { await model.saveEPUBProgress(anchor) } } }
         .sheet(isPresented: $chapterTranslation) { EPUBChapterTranslationWorkspace(library: model, translation: model.chapterTranslation, learning: model.learning) }
-        .onChange(of: draft) { _, value in model.recordVisibleDraft(owner: draftOwner, dirty: !value.isEmpty) }
+        .onChange(of: draft) { _, value in
+            if value.isEmpty { draftAnchor = nil }
+            else if draftAnchor == nil { draftAnchor = session.selection }
+            model.recordVisibleDraft(owner: draftOwner, dirty: !value.isEmpty)
+        }
         .onDisappear { model.recordVisibleDraft(owner: draftOwner, dirty: false) }
         .sheet(isPresented: $englishLearning) { EnglishLearningSheet(library: model) }
         .sheet(isPresented: $japaneseLearning) { JapaneseLearningSheet(library: model) }
@@ -112,11 +117,14 @@ struct EPUBWorkspace: View {
     private var notesContent: some View {
         List {
             Section("当前选区") {
-                if let anchor = session.selection {
+                if let anchor = draftAnchor ?? session.selection {
                     PDFnoTextViewport(text: anchor.quote, identifier: "epub-selection")
                     TextField("写下你的笔记（可选）", text: $draft, axis: .vertical)
                         .lineLimit(3...8).accessibilityIdentifier("epub-note-input")
                     if !draft.isEmpty { PDFnoStatusMessage(text: "草稿未保存 · 关闭面板会保留，保存成功后清空") }
+                    if draftAnchor != nil && draftAnchor != session.selection {
+                        Text("此草稿引用上方已固定的原文；新的选区不会替换草稿来源。").font(.caption).foregroundStyle(.secondary)
+                    }
                     Button("保存高亮与笔记") { Task { if await model.saveEPUBNote(anchor, text: draft) { draft = "" } } }
                         .buttonStyle(PDFnoActionStyle(role: .primary)).accessibilityIdentifier("epub-save-note")
                 } else { PDFnoEmptyState(title: "尚未选择原文", detail: "在原文中选择文字，再打开这里。正文定位保留作者 ruby。") }

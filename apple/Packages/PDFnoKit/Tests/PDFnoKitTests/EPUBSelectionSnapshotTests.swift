@@ -29,6 +29,10 @@ import PDFnoReaders
         guard case .epubChapter(let anchor) = try #require(plan.sources.first).anchor else { Issue.record("Missing canonical source"); return }
         #expect(await session.command("navigate", anchor: anchor))
         let selected = try #require(session.selection), identity = session.readerSessionID, version = session.documentVersion
+        // Reproduce native menu focus collapsing the live DOM range while the
+        // immutable native source is still retained. The reply must validate
+        // and acknowledge the rebound actual range, without navigation.
+        _ = try await session.webView?.callAsyncJavaScript("document.querySelector('iframe').contentDocument.getSelection().removeAllRanges(); return true", arguments: [:], in: nil, in: .page)
         for _ in 0..<3 {
             let preview = try await session.currentChapterTextSnapshot()
             #expect(preview.text == snapshot.text && preview.resourceHref == "one.xhtml")

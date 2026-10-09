@@ -155,7 +155,12 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
         guard !busy, let book else { throw EPUBChapterTranslationFailure.invalidSource }
         let token = generation
         busy = true; defer { if generation == token { busy = false } }
-        let state = try await request("chapterText")
+        var payload: [String: Any] = [:]
+        if let selected = selection {
+            guard book.accepts(selected) else { throw EPUBError.sourceMismatch }
+            payload["selectionAnchor"] = try json(selected)
+        }
+        let state = try await request("chapterText", payload: payload)
         struct TextPayload: Decodable {
             let resourceHref: String; let spineIndex: Int; let chapterCount: Int
             let utf16Count: Int; let text: String?; let vertical: Bool
