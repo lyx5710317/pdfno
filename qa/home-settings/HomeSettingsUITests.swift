@@ -98,7 +98,11 @@ final class HomeSettingsUITests: XCTestCase {
             try click(item("workspace-back-library", app))
             try click(item("library-list-layout", app)); XCTAssertEqual(item("library-list-layout", app).value as? String, "已选中")
             try click(item("library-grid-layout", app))
-            app.typeKey(",", modifierFlags: .command)
+            // Exercise the native App menu through XCTest. The separate own-window
+            // keyboard probe records Command-comma; punctuation synthesis did not
+            // open the menu in this Runner session. Keep the same window assertions.
+            try click(app.menuBars.firstMatch.menuBarItems["PDFnoMac"].firstMatch)
+            try click(app.menuItems["设置…"].firstMatch)
             XCTAssertTrue(item("settings-return", app).waitForExistence(timeout: 10))
             XCTAssertEqual(app.windows.count, 1)
             if width == 720 { XCTAssertLessThanOrEqual(app.windows.firstMatch.frame.width, 760) }
