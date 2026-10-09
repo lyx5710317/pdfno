@@ -27,11 +27,12 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
         private var nativeTitlebar: NSView? {
             guard let window else { return nil }
             var view = window.standardWindowButton(.closeButton)?.superview
+            var titlebar: NSView?
             while let current = view {
-                if current.frame.width >= window.frame.width - 1, current.frame.height <= 80 { return current }
+                if current.frame.width >= window.frame.width - 1, current.frame.height <= 80 { titlebar = current }
                 view = current.superview
             }
-            return nil
+            return titlebar
         }
         private func isEmptySpace(_ point: NSPoint) -> Bool {
             !controlFrames.isEmpty && !controlFrames.contains(where: { $0.contains(point) })
