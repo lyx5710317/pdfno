@@ -69,7 +69,7 @@ final class NativeUITests: XCTestCase {
     }
     @MainActor private func chooseCurrentLanguage(_ id: String, app: XCUIApplication) {
         let submenu = app.menuItems.matching(identifier: "document-selection-learning").firstMatch
-        XCTAssertTrue(submenu.waitForExistence(timeout: 10)); XCTAssertTrue(submenu.isEnabled); press(submenu)
+        XCTAssertTrue(submenu.waitForExistence(timeout: 10)); XCTAssertTrue(submenu.isEnabled); submenu.hover()
         let action = app.menuItems.matching(identifier: id).firstMatch
         XCTAssertTrue(action.waitForExistence(timeout: 10)); XCTAssertTrue(action.isEnabled); press(action)
     }
@@ -2439,16 +2439,21 @@ final class NativeUITests: XCTestCase {
         let outer = app.scrollViews["ai-settings-form"].firstMatch
         XCTAssertTrue(outer.waitForExistence(timeout: 5)); XCTAssertTrue(element.waitForExistence(timeout: 5))
         let inner = app.scrollViews["byok-settings-form"].firstMatch
+        let returning = element.identifier == "settings-return"
         for _ in 0..<12 {
             let target = element.frame, viewport = outer.frame.insetBy(dx: 4, dy: 8)
             let nested = element.identifier.hasPrefix("byok-") && inner.exists
             let nestedVisible = !nested || inner.frame.insetBy(dx: 4, dy: 8).contains(target)
-            if !target.isEmpty, viewport.contains(target), nestedVisible, element.isHittable { return }
+            // The native header button may extend into the scroll content inset.
+            // It must still be fully inside this App's window and actually hittable.
+            if !target.isEmpty, (returning || viewport.contains(target)), nestedVisible,
+               app.windows.firstMatch.frame.contains(target), element.isHittable { return }
             let scroll = nested && !nestedVisible ? inner : outer
             let bounds = scroll.frame.insetBy(dx: 4, dy: 8)
             scroll.scroll(byDeltaX: 0, deltaY: target.minY < bounds.minY ? 250 : -250)
         }
-        XCTAssertTrue(outer.frame.insetBy(dx: 4, dy: 8).contains(element.frame)); XCTAssertTrue(element.isHittable)
+        if !returning { XCTAssertTrue(outer.frame.insetBy(dx: 4, dy: 8).contains(element.frame)) }
+        XCTAssertTrue(app.windows.firstMatch.frame.contains(element.frame)); XCTAssertTrue(element.isHittable)
     }
     @MainActor private func enterCurrentBYOKSetting(_ text: String, into input: XCUIElement, app: XCUIApplication) {
         revealCurrentSettingsElement(input, app: app)

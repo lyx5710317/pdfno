@@ -49,7 +49,7 @@ final class NextBatchUITests: XCTestCase {
     @MainActor private func openCurrentEnglish(_ app: XCUIApplication) {
         click(element("document-more", app))
         let submenu = app.menuItems.matching(identifier: "document-selection-learning").firstMatch
-        XCTAssertTrue(submenu.waitForExistence(timeout: 10)); XCTAssertTrue(submenu.isEnabled); click(submenu)
+        XCTAssertTrue(submenu.waitForExistence(timeout: 10)); XCTAssertTrue(submenu.isEnabled); submenu.hover()
         let action = app.menuItems.matching(identifier: "document-english-learning").firstMatch
         XCTAssertTrue(action.waitForExistence(timeout: 10)); XCTAssertTrue(action.isEnabled); click(action)
     }

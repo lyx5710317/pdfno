@@ -173,7 +173,7 @@ final class ReadingIntegrationUITests: XCTestCase {
         let label = element("ai-provider-label", in: app)
         try paragraphPaste("Original pending label", into: label, replacing: true)
         try category("AI工具", id: "tools", in: app)
-        XCTAssertFalse(element("ai-settings-save", in: app).isEnabled)
+        XCTAssertFalse(element("ai-settings-save", in: app).exists && element("ai-settings-save", in: app).isEnabled)
         XCTAssertTrue(element("planned-semantic", in: app).exists)
         try category("AI", id: "ai", in: app)
         XCTAssertEqual(element("ai-provider-label", in: app).value as? String, "Original pending label")
