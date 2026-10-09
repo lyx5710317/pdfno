@@ -24,29 +24,25 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
     }
     final class DocumentBandHost: NSHostingView<AnyView> {
         var controlFrames: [CGRect] = []
-        private let nativeBackground = NativeTitlebarBackground()
-        required init(rootView: AnyView) {
-            super.init(rootView: rootView)
-            nativeBackground.frame = bounds
-            nativeBackground.autoresizingMask = [.width, .height]
-            addSubview(nativeBackground, positioned: .below, relativeTo: nil)
+        private func isEmptySpace(_ point: NSPoint) -> Bool {
+            !controlFrames.isEmpty && !controlFrames.contains(where: { $0.contains(point) })
         }
-        @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
+        override var mouseDownCanMoveWindow: Bool {
+            guard let window else { return false }
+            return isEmptySpace(convert(window.mouseLocationOutsideOfEventStream, from: nil))
+        }
         override func hitTest(_ point: NSPoint) -> NSView? {
             let local = convert(point, from: superview)
             guard bounds.contains(local) else { return nil }
             // AppKit's titlebar receives empty space, including its native
             // drag and double-click behavior. SwiftUI keeps actual controls.
-            guard controlFrames.isEmpty || controlFrames.contains(where: { $0.contains(local) }) else { return nativeBackground }
+            if isEmptySpace(local) { return self }
             return super.hitTest(point)
         }
-    }
-    final class NativeTitlebarBackground: NSView {
-        override var isOpaque: Bool { false }
-        override var mouseDownCanMoveWindow: Bool { true }
-        // Only the hosting view explicitly selects this view for empty space.
-        // It cannot intercept SwiftUI buttons during the normal hit-test walk.
-        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func mouseDown(with event: NSEvent) {
+            if isEmptySpace(convert(event.locationInWindow, from: nil)) { nextResponder?.mouseDown(with: event) }
+            else { super.mouseDown(with: event) }
+        }
     }
     @MainActor final class Coordinator: NSObject {
         let host: DocumentBandHost
