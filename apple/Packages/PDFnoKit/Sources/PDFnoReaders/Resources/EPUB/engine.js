@@ -18272,13 +18272,11 @@
         if (selected) selection2.addRange(rangeFor(selected));
       }
     } else if (message.command === "chapterText") {
-      // Native menu/inspector focus may collapse the range. Validate and
-      // rebind its canonical source in this document without navigating.
       const selected = selectedAnchor() ?? message.payload.selectionAnchor ?? null;
       if (selected) {
-        const range = rangeFor(selected), selection2 = doc().getSelection();
+        const range2 = rangeFor(selected), selection2 = doc().getSelection();
         selection2.removeAllRanges();
-        selection2.addRange(range);
+        selection2.addRange(range2);
       }
       const { text } = canonical();
       const chapterText = {
