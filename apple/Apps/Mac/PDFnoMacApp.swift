@@ -7,7 +7,7 @@ import PDFnoUI
     @State private var settingsRequest = 0
     @Environment(\.openWindow) private var openWindow
     var body: some Scene {
-        WindowGroup("PDFno", id: "library") { LibraryWorkspace(settingsRequest: settingsRequest).frame(minWidth: 720, minHeight: 520) }
+        Window("PDFno", id: "library") { LibraryWorkspace(settingsRequest: settingsRequest).frame(minWidth: 720, minHeight: 520) }
             .defaultSize(width: min(1180, max(720, (NSScreen.main?.visibleFrame.width ?? 1204) - 24)),
                          height: min(780, max(520, (NSScreen.main?.visibleFrame.height ?? 804) - 24)))
             .defaultPosition(.center)

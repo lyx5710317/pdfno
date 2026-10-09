@@ -74,7 +74,7 @@ struct PDFnoSettingsShell<Content: View>: View {
                     content().frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }.frame(maxWidth: PDFnoTemporaryLayout.contentMaximum, maxHeight: .infinity, alignment: .topLeading)
             }.padding(PDFnoDesign.Space.section).frame(maxWidth: .infinity, alignment: .center)
-        }.background(PDFnoDesign.Palette.chrome)
+        }.background(PDFnoWorkspaceStyle.background)
     }
 }
 

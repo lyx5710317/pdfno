@@ -1,17 +1,27 @@
 // Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
 #if os(macOS)
 import SwiftUI
+import AppKit
 import PDFnoDomain
 import PDFnoServices
 
+enum PDFnoWorkspaceStyle {
+    static let background = Color(nsColor: NSColor(name: "PDFnoWorkspaceBackground") { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 0.10, green: 0.11, blue: 0.13, alpha: 1)
+            : NSColor(srgbRed: 0.96, green: 0.97, blue: 0.98, alpha: 1)
+    })
+}
+
 struct ProfessionalLibraryActionStyle: ButtonStyle {
     var primary = false
+    @Environment(\.isEnabled) private var enabled
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.font(.system(size: 12, weight: .medium))
             .padding(.horizontal, 10).frame(minHeight: 30)
             .foregroundStyle(primary ? Color.white : Color.primary)
             .background(primary ? Color.blue.opacity(configuration.isPressed ? 0.7 : 1) : Color.primary.opacity(configuration.isPressed ? 0.10 : 0.045), in: RoundedRectangle(cornerRadius: 8))
-            .contentShape(RoundedRectangle(cornerRadius: 8))
+            .contentShape(RoundedRectangle(cornerRadius: 8)).opacity(enabled ? 1 : 0.4)
     }
 }
 private struct ProfessionalLibraryItem: Identifiable {
@@ -113,7 +123,7 @@ struct ProfessionalLibraryWorkspace: View {
                     }.foregroundStyle(.secondary)
                 }.padding(geometry.size.width < 900 ? 20 : 28)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(PDFnoDesign.Palette.chrome)
+                    .background(PDFnoWorkspaceStyle.background)
             }.background(PDFnoDesign.Palette.canvas).accessibilityElement(children: .contain).accessibilityIdentifier("professional-library-workspace")
                 .buttonStyle(ProfessionalLibraryActionStyle())
         }
