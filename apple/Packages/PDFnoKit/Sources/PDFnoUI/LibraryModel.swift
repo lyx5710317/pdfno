@@ -50,6 +50,7 @@ public final class LibraryModel: ObservableObject {
     var startupRecoveryTask: Task<Bool, Never>?
     weak var activeSavedSearch: SavedRecordSearchModel?
     var recoveryManagement: LocalRecoveryManagementModel?
+    var documentVisibleDrafts: Set<String> = []
     @Published var japaneseStoreError: String?
     lazy var japaneseLearning = makeJapaneseLearningModel()
     let recordRoot: URL

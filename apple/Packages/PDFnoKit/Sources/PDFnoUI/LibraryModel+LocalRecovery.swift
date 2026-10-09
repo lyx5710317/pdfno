@@ -142,7 +142,7 @@ extension LibraryModel {
             throw original
         }
     }
-    private var hasPendingEditorChanges: Bool {
+    var hasPendingEditorChanges: Bool {
         noteEditing.journalError != nil || recordEditing.editor.journalError != nil ||
         noteEditing.drafts.values.contains { !$0.text.utf8.elementsEqual($0.baseline.userText.utf8) } ||
         recordEditing.editor.drafts.values.contains { !$0.text.utf8.elementsEqual($0.baseline.userText.utf8) }
@@ -170,6 +170,9 @@ extension LibraryModel {
             }
         }
     }
-    func recordVisibleDraft(owner: String, dirty: Bool) { LibraryMaintenanceOwners.setDraft(root: recordRoot, owner: owner, dirty: dirty) }
+    func recordVisibleDraft(owner: String, dirty: Bool) {
+        if dirty { documentVisibleDrafts.insert(owner) } else { documentVisibleDrafts.remove(owner) }
+        LibraryMaintenanceOwners.setDraft(root: recordRoot, owner: owner, dirty: dirty)
+    }
 }
 #endif

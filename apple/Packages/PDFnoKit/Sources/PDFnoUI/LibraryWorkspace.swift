@@ -45,6 +45,13 @@ public struct LibraryWorkspace: View {
     }
     #endif
     public var body: some View {
+        #if os(macOS)
+        MacTabbedWorkspace(model: model, navigation: workspaceNavigation, settingsRequest: settingsRequest)
+        #else
+        legacyBody
+        #endif
+    }
+    private var legacyBody: some View {
         workspaceContent
         .disabled(model.storageMaintenance)
         .task { await model.load() }
@@ -176,6 +183,7 @@ public struct LibraryWorkspace: View {
                 case .conversion: ConversionWorkspace()
                 case .bookno: BooknoPreviewWorkspace(model: model.booknoPreview)
                 case .tools: ReadingToolsWorkspace(library: model)
+                case .help: FeatureStatusView()
                 case .recovery:
                     NavigationStack {
                         if let recovery = model.recoveryManagement {

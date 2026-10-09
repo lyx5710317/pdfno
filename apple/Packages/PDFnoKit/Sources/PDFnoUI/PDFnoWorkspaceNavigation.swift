@@ -5,7 +5,7 @@ import AppKit
 
 /// Window presentation only. Reader models and draft owners remain mounted.
 enum PDFnoWorkspaceRoute: Equatable { case library, reader, settings, tool }
-enum PDFnoWorkspaceTool { case search, cover, conversion, bookno, recovery, tools }
+enum PDFnoWorkspaceTool { case search, cover, conversion, bookno, recovery, tools, help }
 
 @MainActor final class PDFnoWorkspaceNavigation: ObservableObject {
     @Published private(set) var route = PDFnoWorkspaceRoute.library
