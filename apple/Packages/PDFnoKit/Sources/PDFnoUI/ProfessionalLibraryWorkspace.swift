@@ -141,7 +141,8 @@ struct ProfessionalLibraryWorkspace: View {
                 .foregroundStyle(active ? Color.blue : Color.secondary)
                 .background(active ? Color.blue.opacity(0.10) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
                 .contentShape(Rectangle())
-        }.buttonStyle(.plain).accessibilityElement(children: .ignore).accessibilityLabel(title)
+        }.buttonStyle(.plain).accessibilityLabel(title).accessibilityAddTraits(.isButton)
+            .accessibilityAction(action)
             .accessibilityValue(active ? "已选中" : "未选中").accessibilityHint("\(count) 本书籍")
     }
     private var layoutPicker: some View {

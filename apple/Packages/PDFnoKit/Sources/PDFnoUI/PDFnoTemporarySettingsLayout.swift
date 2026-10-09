@@ -55,7 +55,7 @@ struct PDFnoSettingsShell<Content: View>: View {
                                 Label(item.title, systemImage: item.symbol)
                                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                             }.buttonStyle(PDFnoActionStyle(role: .quiet))
-                                .background(category == item ? PDFnoDesign.Palette.selection : .clear,
+                                .background(category == item ? Color.blue.opacity(0.10) : .clear,
                                     in: RoundedRectangle(cornerRadius: PDFnoTemporaryLayout.corner))
                                 .disabled(navigationDisabled).accessibilityIdentifier("settings-category-" + item.rawValue)
                                 .accessibilityValue(category == item ? "已选中" : "未选中")
@@ -63,7 +63,7 @@ struct PDFnoSettingsShell<Content: View>: View {
                         }
                     }.padding(PDFnoDesign.Space.small).pdfnoCard()
                         .frame(width: PDFnoTemporaryLayout.sidebarWidth)
-                        .accessibilityIdentifier("settings-sidebar")
+                        .accessibilityElement(children: .contain).accessibilityIdentifier("settings-sidebar")
                 }
                 VStack(alignment: .leading, spacing: PDFnoDesign.Space.regular) {
                     if !wide {

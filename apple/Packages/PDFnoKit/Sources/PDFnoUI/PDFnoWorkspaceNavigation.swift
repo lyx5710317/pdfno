@@ -1,6 +1,7 @@
 // Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
 #if os(macOS)
 import SwiftUI
+import AppKit
 
 /// Window presentation only. Reader models and draft owners remain mounted.
 enum PDFnoWorkspaceRoute: Equatable { case library, reader, settings, tool }
@@ -36,6 +37,21 @@ enum PDFnoWorkspaceTool { case search, cover, conversion, bookno, recovery, tool
 struct PDFnoWorkspaceBusyKey: PreferenceKey {
     static let defaultValue = false
     static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
+}
+
+/// Hidden routes remain mounted, so their navigation titles must not replace the active page title.
+struct PDFnoWorkspaceWindowTitle: NSViewRepresentable {
+    let title: String
+    final class TitleView: NSView {
+        var title = "PDFno"
+        override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); applyTitle() }
+        func applyTitle() {
+            window?.title = title
+            DispatchQueue.main.async { [weak self] in guard let self else { return }; self.window?.title = self.title }
+        }
+    }
+    func makeNSView(context: Context) -> TitleView { let view = TitleView(); view.title = title; return view }
+    func updateNSView(_ view: TitleView, context: Context) { view.title = title; view.applyTitle() }
 }
 
 private struct PDFnoWorkspaceNavigationKey: EnvironmentKey {

@@ -103,6 +103,7 @@ public struct LibraryWorkspace: View {
                     .accessibilityHidden(workspaceNavigation.route != .settings)
             }
         }.tint(.blue).navigationTitle("PDFno")
+            .background(PDFnoWorkspaceWindowTitle(title: workspaceWindowTitle))
             .environment(\.pdfnoWorkspaceNavigation, workspaceNavigation)
         #else
         legacyWorkspace
@@ -146,6 +147,15 @@ public struct LibraryWorkspace: View {
         #endif
     }
     #if os(macOS)
+    private var workspaceWindowTitle: String {
+        switch workspaceNavigation.route {
+        case .library: "PDFno"
+        case .settings: "设置"
+        case .reader: coverItems.first(where: { $0.id == displayedBookID })?.title
+            ?? model.ebook.reader.book?.title ?? model.textFormats.reader.book?.title ?? "PDFno"
+        case .tool: "PDFno · 本地工具"
+        }
+    }
     private func finishTool() {
         workspaceNavigation.returnFromTool(readerAvailable: displayedBookID != nil)
         coverEditor = nil
