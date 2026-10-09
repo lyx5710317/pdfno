@@ -281,11 +281,11 @@ final class NativeUITests: XCTestCase {
         press(app.buttons["byok-selection-settings"].firstMatch)
         revealCurrentBYOKSettings(app)
         let endpoint = app.textFields["byok-endpoint"].firstMatch
-        XCTAssertTrue(endpoint.waitForExistence(timeout: 5)); enterSearch("https://joint-ui.example/v1", into: endpoint, replacing: true)
-        enterSearch("original-ui-model", into: app.textFields["byok-model"].firstMatch, replacing: true)
+        XCTAssertTrue(endpoint.waitForExistence(timeout: 5)); enterCurrentBYOKSetting("https://joint-ui.example/v1", into: endpoint, app: app)
+        enterCurrentBYOKSetting("original-ui-model", into: app.textFields["byok-model"].firstMatch, app: app)
         let key = japaneseElement("byok-session-key", in: app)
-        XCTAssertTrue(key.waitForExistence(timeout: 5)); enterSearch("synthetic-reading-ui-credential", into: key, replacing: true)
-        press(app.buttons["byok-apply"].firstMatch)
+        XCTAssertTrue(key.waitForExistence(timeout: 5)); enterCurrentBYOKSetting("synthetic-reading-ui-credential", into: key, app: app)
+        applyCurrentBYOKSettings(app)
         waitForText(["仅在本次会话生效"], in: japaneseElement("byok-settings-status", in: app), timeout: 5)
         let settingsClose = currentSettingsReturn(app)
         press(settingsClose)
@@ -322,7 +322,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(originalSettings.waitForExistence(timeout: 5)); waitUntilEnabled(originalSettings); press(originalSettings)
         XCTAssertTrue(app.buttons["ai-use-deepseek"].firstMatch.waitForExistence(timeout: 5))
         revealCurrentBYOKSettings(app)
-        XCTAssertTrue(endpoint.waitForExistence(timeout: 5)); enterSearch("https://different-ui.example/v1", into: endpoint, replacing: true)
+        XCTAssertTrue(endpoint.waitForExistence(timeout: 5)); enterCurrentBYOKSetting("https://different-ui.example/v1", into: endpoint, app: app)
         waitForText(["旧会话密钥已撤销"], in: japaneseElement("byok-settings-status", in: app), timeout: 5)
         XCTAssertEqual(key.value as? String, "")
         XCTAssertEqual(try originalSavedNote(token, manifest: "learning-v1.json")["result"] as? NSDictionary, NSDictionary(dictionary: savedResult))
@@ -2450,16 +2450,20 @@ final class NativeUITests: XCTestCase {
         }
         XCTAssertTrue(outer.frame.insetBy(dx: 4, dy: 8).contains(element.frame)); XCTAssertTrue(element.isHittable)
     }
+    @MainActor private func enterCurrentBYOKSetting(_ text: String, into input: XCUIElement, app: XCUIApplication) {
+        revealCurrentSettingsElement(input, app: app)
+        enterSearch(text, into: input, replacing: true)
+    }
+    @MainActor private func applyCurrentBYOKSettings(_ app: XCUIApplication) {
+        let apply = app.buttons["byok-apply"].firstMatch
+        revealCurrentSettingsElement(apply, app: app); press(apply)
+    }
     @MainActor private func currentSettingsReturn(_ app: XCUIApplication) -> XCUIElement {
         let back = app.buttons["settings-return"].firstMatch
         revealCurrentSettingsElement(back, app: app); return back
     }
     @MainActor private func press(_ element: XCUIElement) {
         #if os(macOS)
-        if ["byok-endpoint", "byok-model", "byok-session-key", "byok-apply"].contains(element.identifier),
-           XCUIApplication().scrollViews["ai-settings-form"].firstMatch.exists {
-            revealCurrentSettingsElement(element, app: XCUIApplication())
-        }
         element.click()
         #else
         element.tap()
