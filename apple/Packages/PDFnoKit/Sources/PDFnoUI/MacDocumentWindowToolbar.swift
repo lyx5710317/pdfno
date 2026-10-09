@@ -98,6 +98,8 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
         }
         func attach(_ candidate: NSWindow?) {
             guard let candidate else { return }
+            // Borderless rendering hosts have no native titlebar to attach to.
+            guard candidate.styleMask.contains(.titled) else { detach(); return }
             if window !== candidate {
                 detach(); window = candidate
                 candidate.addTitlebarAccessoryViewController(accessory)
