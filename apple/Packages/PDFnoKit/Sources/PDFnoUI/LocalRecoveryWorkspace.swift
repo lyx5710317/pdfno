@@ -77,17 +77,20 @@ public typealias LocalRecoveryHostPause = @MainActor (@escaping LocalRecoveryPau
         } catch { message = error.localizedDescription }
     }
 }
+public enum LocalRecoveryWorkspaceMode { case combined, recycle, backup, change }
 public struct LocalRecoveryWorkspace: View {
     @ObservedObject private var model: LocalRecoveryManagementModel
     @State private var picker = false
     @State private var action = PickerAction.export
     private enum PickerAction { case export, inspect, restore }
-    public init(model: LocalRecoveryManagementModel) { self.model = model }
+    private let mode: LocalRecoveryWorkspaceMode
+    public init(model: LocalRecoveryManagementModel, mode: LocalRecoveryWorkspaceMode = .combined) { self.model = model; self.mode = mode }
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("本地回收站与备份").font(.title2).bold()
+                Text(mode == .backup ? "备份与恢复" : mode == .recycle ? "回收站" : mode == .change ? "文件移至回收站" : "本地回收站与备份").font(.title2).bold()
                 Text("移至回收站会暂时移出本地书库，保留原件、来源、阅读位置和已保存笔记。回收站没有自动清空或永久删除。")
+                if mode == .backup || mode == .combined {
                 HStack {
                     Button("导出校验备份") { action = .export; picker = true }.accessibilityIdentifier("local-recovery-export")
                     Button("预检备份目录") { action = .inspect; picker = true }.accessibilityIdentifier("local-recovery-inspect")
@@ -102,7 +105,8 @@ public struct LocalRecoveryWorkspace: View {
                         Button("确认恢复到新目录…") { action = .restore; picker = true }.accessibilityIdentifier("local-recovery-restore-package")
                     }.padding().background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
                 }
-                if let preview = model.changePreview {
+                }
+                if mode != .backup, let preview = model.changePreview {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(preview.tombstoneID == nil ? "确认移至回收站" : "确认恢复回收记录").font(.headline)
                         Text("关联已保存笔记：\(preview.savedRecords)；保留资产：\(preview.retainedAssets)。数据变化或冲突会阻止提交。")
@@ -112,6 +116,7 @@ public struct LocalRecoveryWorkspace: View {
                         }
                     }.padding().background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
                 }
+                if mode == .combined {
                 Text("书库").font(.headline)
                 ForEach(model.books) { book in
                     HStack {
@@ -120,6 +125,8 @@ public struct LocalRecoveryWorkspace: View {
                             .accessibilityIdentifier("local-recovery-trash-" + book.id.uuidString)
                     }
                 }
+                }
+                if mode == .recycle || mode == .combined {
                 Text("回收站（一直保留）").font(.headline)
                 if model.tombstones.isEmpty { Text("回收站为空").foregroundStyle(.secondary) }
                 ForEach(model.tombstones) { entry in
@@ -129,9 +136,12 @@ public struct LocalRecoveryWorkspace: View {
                         else { Button("预检恢复…") { Task { await model.previewRestore(entry.id) } }.accessibilityIdentifier("local-recovery-restore-" + entry.id.uuidString) }
                     }
                 }
+                }
                 Text(model.message).font(.callout).accessibilityIdentifier("local-recovery-status")
+                if mode == .backup || mode == .combined {
                 Text("备份为 PDFno 目录包，不是 ZIP。当前限额：256 MiB、20000 个文件；单个 manifest 5 MiB。")
                     .font(.caption).foregroundStyle(.secondary)
+                }
             }.padding()
         }
         .accessibilityIdentifier("local-recovery-form")

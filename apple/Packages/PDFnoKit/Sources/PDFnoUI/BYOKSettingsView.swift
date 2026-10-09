@@ -105,8 +105,9 @@ public struct BYOKSelectionConsentView: View {
     @ObservedObject private var model: BYOKSettingsModel
     private let sourceIsCurrent: @MainActor (AISourceSnapshot) -> Bool
     @State private var confirmed = false
-    public init(model: BYOKSettingsModel, sourceIsCurrent: @escaping @MainActor (AISourceSnapshot) -> Bool) {
-        self.model = model; self.sourceIsCurrent = sourceIsCurrent
+    private let consentRevision: UUID?
+    public init(model: BYOKSettingsModel, sourceIsCurrent: @escaping @MainActor (AISourceSnapshot) -> Bool, consentRevision: UUID? = nil) {
+        self.model = model; self.sourceIsCurrent = sourceIsCurrent; self.consentRevision = consentRevision
     }
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -147,6 +148,7 @@ public struct BYOKSelectionConsentView: View {
             if let result = model.result, result.paragraphExplanation == nil { PDFnoTextViewport(text: result.displayText, identifier: "byok-result", height: 220) }
         }
         .onChange(of: model.preview) { _, _ in confirmed = false }
+        .onChange(of: consentRevision) { _, _ in confirmed = false }
         .onDisappear { model.invalidate() }
     }
 }

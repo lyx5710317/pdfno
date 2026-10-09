@@ -49,6 +49,7 @@ public final class LibraryModel: ObservableObject {
     var startupRecoveryCompleted = false
     var startupRecoveryTask: Task<Bool, Never>?
     weak var activeSavedSearch: SavedRecordSearchModel?
+    var searchDocumentDidOpen: (@MainActor () -> Void)?
     var recoveryManagement: LocalRecoveryManagementModel?
     var documentVisibleDrafts: Set<String> = []
     @Published var japaneseStoreError: String?
@@ -88,7 +89,7 @@ public final class LibraryModel: ObservableObject {
     }
     // Internal injection keeps native source/storage regressions in fresh test
     // directories without configuring or accessing the user's real library.
-    init(root: URL, aiSession: AppAISession = .shared, learningTransport: (any AIHTTPTransport)? = nil) {
+    init(root: URL, aiSession: AppAISession = .shared, learningTransport: (any AIHTTPTransport)? = nil, byokSession: BYOKProviderSession? = nil) {
         storeWriteGate = LocalStoreWriteGate.shared(root: root)
         covers = CoverLibraryModel.shared(root: root)
         repository = LibraryRepository(root: root)
@@ -104,17 +105,17 @@ public final class LibraryModel: ObservableObject {
         recordRoot = root
         #if DEBUG
         if let learningTransport {
-            byok = BYOKSettingsModel(transport: learningTransport, aiSession: aiSession)
+            byok = BYOKSettingsModel(session: byokSession ?? BYOKProviderSession(), transport: learningTransport, aiSession: aiSession)
             byokOfflineTransport = true
         } else if let token = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"], UUID(uuidString: token) != nil,
                   ProcessInfo.processInfo.environment["PDFNO_UI_TEST_DEEPSEEK"] == "offline" {
-            byok = BYOKSettingsModel(transport: OfflineSelectionUITestTransport(), aiSession: aiSession)
+            byok = BYOKSettingsModel(session: byokSession ?? BYOKProviderSession(), transport: OfflineSelectionUITestTransport(), aiSession: aiSession)
             byokOfflineTransport = true
         } else {
-            byok = BYOKSettingsModel(aiSession: aiSession); byokOfflineTransport = false
+            byok = BYOKSettingsModel(session: byokSession ?? BYOKProviderSession(), aiSession: aiSession); byokOfflineTransport = false
         }
         #else
-        byok = BYOKSettingsModel(transport: learningTransport ?? URLSessionAITransport(), aiSession: aiSession)
+        byok = BYOKSettingsModel(session: byokSession ?? BYOKProviderSession(), transport: learningTransport ?? URLSessionAITransport(), aiSession: aiSession)
         byokOfflineTransport = learningTransport != nil
         #endif
         #endif

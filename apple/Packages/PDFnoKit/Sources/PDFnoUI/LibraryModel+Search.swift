@@ -7,7 +7,7 @@ import PDFnoReaders
 
 extension LibraryModel {
     /// Resolve IDs from freshly validated stores on activation; search snapshots never bypass source checks.
-    @MainActor func openSearchTarget(_ target: LibrarySearchTarget) async -> Bool {
+    @MainActor func openSearchTarget(_ target: LibrarySearchTarget, preservingCurrentReader: Bool = false) async -> Bool {
         guard !isBusy else { return false }
         error = nil
         do {
@@ -40,9 +40,10 @@ extension LibraryModel {
                     case .epub, .epubChapter: return false
                     }
                 }
-                await open(book)
+                if !preservingCurrentReader || displayedDocumentID != book.id { await open(book) }
                 guard error == nil, !readingEPUB, !readingComic, !docx.isActive, !textFormats.isActive, !ebook.isActive,
                       reader.book?.editionID == book.editionID, reader.book?.id == book.id else { return false }
+                searchDocumentDidOpen?()
                 if target.kind == .book { return true }
                 if target.kind == .note {
                     guard let note = notes.first(where: { $0.id == target.noteID && $0.bookID == book.id }) else { return false }
@@ -61,8 +62,9 @@ extension LibraryModel {
                     case .pdf, .pdfPage: return false
                     }
                 }
-                await openEPUB(book)
+                if !preservingCurrentReader || displayedDocumentID != book.id { await openEPUB(book) }
                 guard error == nil, readingEPUB, epub.book?.id == book.id, epub.book?.editionID == book.editionID else { return false }
+                searchDocumentDidOpen?()
                 if target.kind == .book { return true }
                 guard await waitForSearchEPUB(book) else { return false }
                 if target.kind == .note {
@@ -75,8 +77,9 @@ extension LibraryModel {
                 guard let book = state.books.first(where: { $0.id == target.book.bookID }),
                       book.editionID == target.book.editionID, book.fileSHA256 == target.book.fileSHA256 else { return false }
                 guard target.kind == .book || (target.kind == .note && state.notes.contains(where: { $0.id == target.noteID && $0.bookID == book.id && book.accepts($0.anchor) })) else { return false }
-                await openDOCX(book)
+                if !preservingCurrentReader || displayedDocumentID != book.id { await openDOCX(book) }
                 guard error == nil, docx.isActive, docx.reader.book?.id == book.id, docx.reader.book?.editionID == book.editionID else { return false }
+                searchDocumentDidOpen?()
                 if target.kind == .book { return true }
                 guard target.kind == .note, let note = docx.notes.first(where: { $0.id == target.noteID && $0.bookID == book.id }) else { return false }
                 return await docx.reader.navigate(to: note.anchor)
@@ -86,7 +89,8 @@ extension LibraryModel {
                 guard let book = state.books.first(where: { $0.id == target.book.bookID }),
                       book.editionID == target.book.editionID, book.fileSHA256 == target.book.fileSHA256,
                       LocalBookFormat(book.archiveFormat ?? .cbz) == target.book.format else { return false }
-                await openComic(book)
+                if !preservingCurrentReader || displayedDocumentID != book.id { await openComic(book) }
+                searchDocumentDidOpen?()
                 return error == nil && readingComic && comic.book?.id == book.id && comic.book?.editionID == book.editionID
             }
             guard target.kind == .learning else { return false }

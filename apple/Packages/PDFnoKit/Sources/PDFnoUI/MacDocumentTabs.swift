@@ -26,6 +26,13 @@ import PDFnoDomain
     private let documentFactory: (@MainActor (URL) -> LibraryModel)?
     init(catalogue: LibraryModel, documentFactory: (@MainActor (URL) -> LibraryModel)? = nil) {
         self.catalogue = catalogue; self.documentFactory = documentFactory
+        catalogue.byok.sessionDidChange = { [weak self] in
+            guard let self else { return }
+            for tab in tabs where tab.model !== catalogue {
+                tab.model.invalidateBYOKSelection()
+                Task { await tab.model.byok.load() }
+            }
+        }
     }
     var active: MacDocumentTab? { tabs.first { $0.id == activeID } }
     func adopt(_ model: LibraryModel) {
@@ -33,11 +40,20 @@ import PDFnoDomain
         if !tabs.contains(where: { $0.id == id }) { tabs.append(MacDocumentTab(model: model)) }
         activeID = id
     }
+    func reconcileAfterMaintenance() {
+        guard !catalogue.storageMaintenance else { return }
+        tabs.removeAll { $0.model.displayedDocumentID != $0.id }
+        if !tabs.contains(where: { $0.id == activeID }) { activeID = tabs.last?.id }
+    }
     func activate(_ id: UUID) {
         guard tabs.contains(where: { $0.id == id }) else { return }
         activeID = id
     }
-    func makeDocumentModel() -> LibraryModel { documentFactory?(catalogue.recordRoot) ?? LibraryModel(root: catalogue.recordRoot) }
+    func makeDocumentModel() -> LibraryModel {
+        let model = documentFactory?(catalogue.recordRoot) ?? LibraryModel(root: catalogue.recordRoot, byokSession: catalogue.byok.session)
+        model.learning.shareSessionConfiguration(with: catalogue.learning)
+        return model
+    }
     func open(_ id: UUID) async -> Bool {
         if tabs.contains(where: { $0.id == id }) { activate(id); return true }
         guard !opening, !catalogue.storageMaintenance else { return false }
@@ -63,6 +79,27 @@ import PDFnoDomain
         if model !== catalogue { await catalogue.load() }
         return true
     }
+    func openSearchTarget(_ target: LibrarySearchTarget) async -> Bool {
+        await openSearchDocument(target.book.bookID) { await $0.openSearchTarget(target, preservingCurrentReader: true) }
+    }
+    func openRecordSearchTarget(_ target: RecordSearchTarget) async -> Bool {
+        await openSearchDocument(target.book.bookID) { await $0.openRecordSearchTarget(target, preservingCurrentReader: true) }
+    }
+    private func openSearchDocument(_ id: UUID, operation: @MainActor (LibraryModel) async -> Bool) async -> Bool {
+        guard !opening, !catalogue.storageMaintenance else { return false }
+        opening = true; defer { opening = false }
+        let existing = tabs.first { $0.id == id }
+        let model = existing?.model ?? makeDocumentModel()
+        if existing == nil { await model.load() }
+        // Canonical source validation happens inside the original resolver. Once
+        // it opens a validated reader, mount its native view before WebKit waits.
+        model.searchDocumentDidOpen = { [weak self, weak model] in
+            guard let model else { return }; self?.adopt(model)
+        }
+        defer { model.searchDocumentDidOpen = nil }
+        guard await operation(model), model.displayedDocumentID == id else { return false }
+        adopt(model); return true
+    }
     func requestClose(_ id: UUID) async {
         guard let tab = tabs.first(where: { $0.id == id }), !opening else { return }
         if tab.model.hasDocumentWorkToReview { pendingCloseID = id }
@@ -82,9 +119,10 @@ import PDFnoDomain
             guard !model.hasDocumentEditorChanges else { error = "草稿取消未完成，文件保持打开。请载入最新笔记后核对。"; return }
         }
         model.cancelDocumentTasks()
-        await model.saveProgress()
+        await model.saveDocumentPosition()
         guard model.error == nil else { error = model.error; return }
         for owner in model.documentVisibleDrafts { model.recordVisibleDraft(owner: owner, dirty: false) }
+        model.discardDocumentPresentation()
         model.reader.close(); model.epub.close(); model.comic.close()
         model.docx.deactivate(); model.textFormats.deactivate(); model.ebook.deactivate()
         tabs.remove(at: index)
@@ -122,14 +160,36 @@ extension LibraryModel {
     var hasDocumentRunningTasks: Bool {
         learning.busy || byok.busy || pageTranslation.busy || chapterTranslation.busy || japaneseLearning.busy || englishLearning.busy
     }
-    var hasDocumentWorkToReview: Bool {
-        hasDocumentEditorChanges || !documentVisibleDrafts.isEmpty || hasDocumentRunningTasks || hasDocumentSaveInFlight ||
-        !learning.userText.isEmpty || !byokUserText.isEmpty || !englishLearning.userText.isEmpty || !japaneseLearning.userText.isEmpty ||
+    var hasUnsavedDocumentLearning: Bool {
+        learning.hasRetainedUserDraft || englishLearning.hasRetainedUserDraft || japaneseLearning.hasRetainedUserDraft ||
+        (!byokUserText.isEmpty && !learning.notes.contains { $0.result.requestID == byok.result?.requestID && $0.userText == byokUserText }) ||
         learning.result.map { result in !learning.notes.contains { $0.result.requestID == result.requestID } } == true ||
         byok.result.map { result in !learning.notes.contains { $0.result.requestID == result.requestID } } == true ||
-        pageTranslation.segments.contains { !$0.userText.isEmpty || $0.result != nil } ||
-        chapterTranslation.segments.contains { !$0.userText.isEmpty || $0.result != nil } ||
+        pageTranslation.segments.contains { segment in segment.result.map { result in !learning.notes.contains { $0.result.requestID == result.requestID && $0.userText == segment.userText } } ?? !segment.userText.isEmpty } ||
+        (chapterTranslation.segments + chapterTranslation.retainedBatches.flatMap(\.segments)).contains { segment in segment.result.map { result in !learning.notes.contains { $0.result.requestID == result.requestID && $0.userText == segment.userText } } ?? !segment.userText.isEmpty } ||
         (englishLearning.review != nil && !englishLearning.saved) || (japaneseLearning.review != nil && !japaneseLearning.saved)
+    }
+    var hasDocumentWorkToReview: Bool {
+        hasDocumentEditorChanges || !documentVisibleDrafts.isEmpty || hasDocumentRunningTasks || hasDocumentSaveInFlight || hasUnsavedDocumentLearning
+    }
+    func saveDocumentPosition() async {
+        if readingEPUB, let anchor = epub.progress { await saveEPUBProgress(anchor) }
+        else if docx.isActive, let anchor = docx.reader.progress { await docx.saveProgress(anchor) }
+        else { await saveProgress() }
+    }
+    func reopenStorageDocument(_ id: UUID) async {
+        if let book = books.first(where: { $0.id == id }) { await open(book) }
+        else if let book = epubBooks.first(where: { $0.id == id }) { await openEPUB(book) }
+        else if let book = docx.books.first(where: { $0.id == id }) { await openDOCX(book) }
+        else if let book = comicBooks.first(where: { $0.id == id }) { await openComic(book) }
+        else if let book = textFormats.books.first(where: { $0.id == id }) { await openTextFormat(book) }
+        else if let book = ebook.books.first(where: { $0.id == id }) { await openEbook(book) }
+    }
+    func discardDocumentPresentation() {
+        learning.discardDocumentPresentation(); byok.discardDocumentPresentation()
+        englishLearning.discardDocumentPresentation(); japaneseLearning.discardDocumentPresentation()
+        byokUserText = ""; pageTranslation.cancel(); pageTranslation.segments = []
+        chapterTranslation.cancel(); chapterTranslation.segments = []; chapterTranslation.retainedBatches = []
     }
     func cancelDocumentTasks() {
         learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()

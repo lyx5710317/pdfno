@@ -535,13 +535,20 @@ struct ReaderWorkspace: View {
                         PDFReturnToPreviousLocationButton(session: session)
                     } actions: { professionalActions } content: {
                         PDFnoReaderShell(panels: panels, profile: .professional) {
-                            PDFCanvas(session: session).background(PDFnoDesign.Palette.canvas)
-                                .background { PDFReaderNavigationShortcuts(session: session) }
+                            VStack(spacing: 0) {
+                                if session.capturedSelection != nil { selectionActions }
+                                PDFCanvas(session: session).background(PDFnoDesign.Palette.canvas)
+                                    .onReceive(NotificationCenter.default.publisher(for: .PDFViewSelectionChanged)) { notification in
+                                        guard let view = notification.object as? PDFView, view === session.view else { return }
+                                        session.captureSelection()
+                                    }
+                                    .background { PDFReaderNavigationShortcuts(session: session) }
+                            }
                         } navigation: {
                             PDFnoPanel(title: "导航与搜索", icon: "list.bullet", closeIdentifier: "close-navigation", close: closeNavigation) { navigationContent }
                         } notes: {
                             if inspector == .learning {
-                                AILearningWorkspace(library: model, learning: model.learning, embedded: true) { panels.notes = false }
+                                ReadingSelectionWorkspace(library: model) { panels.notes = false }
                             } else {
                                 PDFnoPanel(title: "高亮与笔记", icon: "highlighter", closeIdentifier: "close-notes", close: closeNotes) { notesContent }
                             }
@@ -775,21 +782,26 @@ struct ReaderWorkspace: View {
                 navigationTab = .search; panels.show(.navigation); searchFocused = true
             }.keyboardShortcut("f", modifiers: .command)
             PDFnoReaderRailButton(title: "笔记", symbol: "highlighter", identifier: "reader-notes", accessibilityTitle: "高亮与笔记", active: notesVisible, hint: "显示或收起高亮与笔记，保留草稿和选区", action: openNotes)
-            PDFnoReaderRailButton(title: "AI", symbol: "sparkles", identifier: "reader-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, hint: "固定当前选文，预览接收方与任务") {
+            PDFnoReaderRailButton(title: "AI", symbol: "sparkles", identifier: "reader-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.capturedSelection == nil && model.learning.source == nil, hint: "先选择原文；固定选文后核对接收方与任务") {
                 if panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning { panels.notes = false }
                 else { model.learning.prepare(model.captureAISource()); inspector = .learning; panels.show(.notes) }
             }
-            Divider().padding(.horizontal, 12).padding(.vertical, 4)
-            PDFnoReaderRailButton(title: "工具", symbol: "square.grid.2x2", identifier: "reader-ai-tools", accessibilityTitle: "AI工具", hint: "打开已有阅读工具") { session.captureSelection(); aiTools = true }
-            PDFnoReaderRailButton(title: "日语", symbol: "character.ja", identifier: "reader-japanese-learning", accessibilityTitle: "日语选文学习") { model.prepareJapaneseLearning(); japaneseLearning = true }
-            PDFnoReaderRailButton(title: "英语", symbol: "textformat.abc", identifier: "reader-english-learning", accessibilityTitle: "英语结构与语法") { model.prepareEnglishLearning(); englishLearning = true }
-            PDFnoReaderRailButton(title: "整页", symbol: "doc.badge.ellipsis", identifier: "reader-page-translation", accessibilityTitle: "翻译当前页", hint: "预览当前物理页完整文字，确认后发送") { model.preparePageTranslation(); pageTranslation = true }
-            PDFnoReaderRailButton(title: "BYOK", symbol: "network", identifier: "reader-byok", accessibilityTitle: "BYOK选文 · 翻译/解释") { Task { await model.prepareBYOKSelection(); byokLearning = true } }
-            Divider().padding(.horizontal, 12).padding(.vertical, 4)
-            PDFnoReaderRailButton(title: "设置", symbol: "slider.horizontal.3", identifier: "reader-settings", accessibilityTitle: "模型与 BYOK 设置") {
-                if let workspaceNavigation { workspaceNavigation.showSettings() } else { readerSettings = true }
-            }
+
         }
+    }
+    #endif
+    #if os(macOS)
+    private var selectionActions: some View {
+        ReadingSelectionActions(available: session.capturedSelection != nil, busy: model.hasDocumentSaveInFlight,
+            highlight: { session.captureSelection(); if let anchor = session.capturedSelection { _ = model.savePDFNoteImmediately(anchor: anchor, text: "") } },
+            note: { session.captureSelection(); inspector = .notes; panels.show(.notes) },
+            translate: { openSelection(.translate) }, explain: { openSelection(.explain) },
+            japanese: { model.prepareJapaneseLearning(); japaneseLearning = true },
+            english: { model.prepareEnglishLearning(); englishLearning = true })
+    }
+    private func openSelection(_ kind: AILearningKind) {
+        model.learning.kind = kind; model.learning.prepare(model.captureAISource())
+        inspector = .learning; panels.show(.notes)
     }
     #endif
     private var notesSheet: some View {

@@ -16,6 +16,7 @@ struct MacTabbedWorkspace: View {
     @State private var examples = false
     @State private var navigationBusy = false
     @State private var windowWidth: CGFloat = 1180
+    @State private var filePanel: MacDocumentFilePanel?
     init(model: LibraryModel, navigation: PDFnoWorkspaceNavigation, settingsRequest: Int) {
         self.model = model; self.navigation = navigation; self.settingsRequest = settingsRequest
         _documents = StateObject(wrappedValue: MacDocumentTabs(catalogue: model))
@@ -26,7 +27,9 @@ struct MacTabbedWorkspace: View {
                 if sidebar { globalSidebar.frame(width: 180); Divider() }
                 ZStack {
                     ForEach(documents.tabs) { tab in
-                        MacDocumentReader(model: tab.model)
+                        MacDocumentReader(model: tab.model, workspaceClose: {
+                            Task { await documents.requestClose(tab.id); if documents.active == nil { navigation.showLibrary() } }
+                        })
                             .opacity(isVisible(tab) ? 1 : 0)
                             .allowsHitTesting(isVisible(tab)).disabled(!isVisible(tab))
                             .accessibilityHidden(!isVisible(tab))
@@ -63,7 +66,10 @@ struct MacTabbedWorkspace: View {
             .disabled(model.storageMaintenance)
             .task { await model.load(); if model.displayedDocumentID != nil { documents.adopt(model) } }
             .onChange(of: model.displayedDocumentID) { _, id in
-                if id != nil { documents.adopt(model); navigation.showReader() }
+                if id != nil && !model.storageMaintenance { documents.adopt(model); navigation.showReader() }
+            }
+            .onChange(of: model.storageMaintenance) { _, paused in
+                if !paused { documents.reconcileAfterMaintenance(); if documents.active == nil && navigation.route == .reader { navigation.showLibrary() } }
             }
             .onChange(of: settingsRequest, initial: true) { _, value in if value > 0 && !navigationBusy { navigation.showSettings() } }
             .onPreferenceChange(PDFnoWorkspaceBusyKey.self) { navigationBusy = $0 }
@@ -74,6 +80,7 @@ struct MacTabbedWorkspace: View {
                 }
             }
             .popover(isPresented: $examples) { examplesMenu }
+            .sheet(item: $filePanel) { panel in MacDocumentFileWorkspace(panel: panel) }
             .alert("关闭这个文件？", isPresented: Binding(get: { documents.pendingCloseID != nil }, set: { if !$0 { documents.pendingCloseID = nil } })) {
                 Button("取消", role: .cancel) { documents.pendingCloseID = nil }.accessibilityIdentifier("document-close-cancel")
                 Button("放弃未保存内容并关闭", role: .destructive) {
@@ -131,7 +138,28 @@ struct MacTabbedWorkspace: View {
                 .disabled(!model.canImport).accessibilityIdentifier("document-add").accessibilityLabel("导入文件到新标签")
                 .help("选择本地文件；已打开的文件会激活原标签")
             if let active = documents.active, navigation.route == .reader {
-                MacDocumentMoreMenu(model: active.model)
+                MacDocumentMoreMenu(model: active.model) { action in
+                    Task {
+                        guard documents.activeID == active.id, navigation.route == .reader else { return }
+                        switch action {
+                        case .page: active.model.preparePageTranslation()
+                        case .spine: await active.model.prepareChapterTranslation()
+                        case .trash:
+                            model.prepareRecoveryManagement()
+                            guard let recovery = model.recoveryManagement else { return }
+                            await recovery.refresh()
+                            guard let book = recovery.books.first(where: { $0.id == active.id }) else { documents.error = "当前文件已不可用，请刷新书库。"; return }
+                            await recovery.preview(.book(book))
+                            guard recovery.changePreview != nil else { documents.error = recovery.message; return }
+                        case .settings: break
+                        }
+                        guard documents.activeID == active.id, navigation.route == .reader else { return }
+                        filePanel = MacDocumentFilePanel(model: active.model, action: action, recovery: model.recoveryManagement)
+                    }
+                }
+            } else {
+                Image(systemName: "ellipsis").frame(width: 22, height: 28).foregroundStyle(.tertiary)
+                    .accessibilityLabel("当前文件菜单：需要活动文件").accessibilityIdentifier("document-more-unavailable")
             }
         }.buttonStyle(.plain).font(.system(size: 12)).padding(.horizontal, 2).frame(height: 34)
             .background(PDFnoDesign.Palette.chrome).disabled(navigationBusy || documents.opening)
@@ -191,10 +219,10 @@ struct MacTabbedWorkspace: View {
             Divider()
             Group {
                 switch navigation.tool {
-                case .search: LibrarySearchWorkspace(library: model)
+                case .search: LibrarySearchWorkspace(library: model, openTarget: documents.openSearchTarget, openRecordTarget: documents.openRecordSearchTarget)
                 case .conversion: ConversionWorkspace()
                 case .bookno: BooknoPreviewWorkspace(model: model.booknoPreview)
-                case .recovery: if let recovery = model.recoveryManagement { LocalRecoveryWorkspace(model: recovery) }
+                case .recovery: if let recovery = model.recoveryManagement { LocalRecoveryWorkspace(model: recovery, mode: .recycle) }
                 default: FeatureStatusView(embedded: true)
                 }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -229,12 +257,13 @@ struct MacTabbedWorkspace: View {
 
 struct MacDocumentReader: View {
     @ObservedObject var model: LibraryModel
+    var workspaceClose: (() -> Void)? = nil
     var body: some View {
         Group {
             if model.ebook.isActive { EbookWorkspace(model: model.ebook, editing: model.recordEditing) }
             else if model.textFormats.isActive { TextFormatWorkspace(model: model.textFormats, editing: model.recordEditing) }
             else if model.docx.isActive { DOCXWorkspace(model: model.docx) }
-            else if model.readingComic { ComicWorkspace(session: model.comic, close: { model.closeComic() }) }
+            else if model.readingComic { ComicWorkspace(session: model.comic, close: { workspaceClose?() }) }
             else if model.readingEPUB { EPUBWorkspace(model: model, session: model.epub) }
             else { ReaderWorkspace(model: model, session: model.reader) }
         }.alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
@@ -243,14 +272,4 @@ struct MacDocumentReader: View {
     }
 }
 
-struct MacDocumentMoreMenu: View {
-    @ObservedObject var model: LibraryModel
-    var body: some View {
-        Menu {
-            Text(model.displayedDocumentTitle)
-            Text("文件设置与整页／spine 翻译将在下一批接入")
-        } label: { Label("当前文件", systemImage: "ellipsis") }
-            .accessibilityIdentifier("document-more").menuStyle(.borderlessButton).fixedSize()
-    }
-}
 #endif

@@ -1,6 +1,7 @@
 // Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
 import Foundation
 import SwiftUI
+import Combine
 import PDFnoDomain
 import PDFnoServices
 
@@ -39,13 +40,44 @@ public final class AILearningModel: ObservableObject {
     let offlineTransport: Bool
     let repository: AILearningRepository
     private let coordinator = AIJobCoordinator()
-    private let sessionCredentials = SessionCredentialStore()
+    private let ownSessionCredentials = SessionCredentialStore()
+    private var configurationOwner: AILearningModel?
+    private var configurationChanges: AnyCancellable?
+    private var sessionCredentials: SessionCredentialStore { configurationOwner?.sessionCredentials ?? ownSessionCredentials }
     private let transport: any AIHTTPTransport
     private let aiSession: AppAISession
     var japaneseScopeDidInvalidate: (@MainActor () -> Void)?
     private let remoteBudget: DeepSeekSelectionBudget
     private let timeoutSeconds: Double
-    private var temporaryCredentialReference: UUID?
+    private var ownTemporaryCredentialReference: UUID?
+    private var temporaryCredentialReference: UUID? {
+        get { configurationOwner?.temporaryCredentialReference ?? ownTemporaryCredentialReference }
+        set { ownTemporaryCredentialReference = newValue }
+    }
+    /// UI document owners share applied settings and the in-memory credential owner,
+    /// while source, jobs, result and user drafts remain per document.
+    func shareSessionConfiguration(with owner: AILearningModel) {
+        guard owner !== self else { return }
+        configurationOwner = owner
+        configurationChanges = owner.$config.combineLatest(owner.$hasSessionCredential).sink { [weak self] candidate, credential in
+            guard let self else { return }
+            let changed = !ReadingSkillIdentity.matches(config, candidate)
+            if changed || hasSessionCredential != credential { cancel() }
+            if changed { result = nil }
+            config = candidate; hasSessionCredential = credential
+        }
+    }
+    var hasRetainedUserDraft: Bool {
+        func saved(_ key: String, _ body: String) -> Bool {
+            notes.contains { draftKey($0.result.source) == key && $0.userText == body }
+        }
+        if !userText.isEmpty, source.flatMap(draftKey).map({ saved($0, userText) }) != true { return true }
+        return drafts.contains { !$0.value.isEmpty && !saved($0.key, $0.value) }
+    }
+    func discardDocumentPresentation() {
+        cancel(); drafts.removeAll(); userText = ""; source = nil; result = nil; attempts.removeAll()
+        paragraphSourceIsStale = false; error = nil; status = "文件已关闭 · 未保存内容已明确放弃"
+    }
     private var task: Task<Void, Never>?
     private var generation = UUID()
     @Published private(set) var paragraphSourceIsStale = false
@@ -76,10 +108,11 @@ public final class AILearningModel: ObservableObject {
         }
     }
     func load() async {
-        do { let state = try await repository.load(); config = state.config; notes = state.notes }
+        do { let state = try await repository.load(); config = configurationOwner?.config ?? state.config; notes = state.notes }
         catch { self.error = AIFailure.store.localizedDescription }
     }
     func saveConfig(_ candidate: AIProviderConfig, temporarySecret: String) async -> Bool {
+        if let configurationOwner { return await configurationOwner.saveConfig(candidate, temporarySecret: temporarySecret) }
         do {
             if !temporarySecret.isEmpty, !CredentialValidation.valid(temporarySecret) { throw AIFailure.credentials }
             if !temporarySecret.isEmpty, !DeepSeekSelectionPolicy.supports(candidate) { throw AIFailure.configuration }
@@ -98,6 +131,7 @@ public final class AILearningModel: ObservableObject {
         } catch { self.error = AIJobCoordinator.safeError(error).localizedDescription; return false }
     }
     func clearSessionCredential() async {
+        if let configurationOwner { await configurationOwner.clearSessionCredential(); return }
         invalidateParagraphSource(); cancel()
         if let reference = temporaryCredentialReference { await sessionCredentials.remove(reference) }
         temporaryCredentialReference = nil; hasSessionCredential = false; status = "会话密钥已清除 · 已有结果与笔记保留"

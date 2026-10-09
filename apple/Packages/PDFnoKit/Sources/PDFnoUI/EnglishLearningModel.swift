@@ -38,16 +38,23 @@ public final class EnglishLearningModel: ObservableObject {
     private let coordinator = EnglishLearningCoordinator()
     private var task: Task<Void, Never>?
     private var generation = UUID()
-    private struct Draft { let userText: String }
+    private struct Draft { let userText: String; let saved: Bool }
     private var drafts: [String: Draft] = [:]
     private var noteIDs: [UUID: UUID] = [:]
+    var hasRetainedUserDraft: Bool {
+        (!saved && (!userText.isEmpty)) || drafts.values.contains { !$0.saved && (!$0.userText.isEmpty) }
+    }
+    func discardDocumentPresentation() {
+        cancel(); drafts.removeAll(); noteIDs.removeAll(); userText = ""; request = nil; review = nil; saved = false
+        confirmationScope = ""; confirmationRevision = UUID()
+    }
     public init(provider: any EnglishLearningProvider, sourceIsCurrent: @escaping CurrentScope,
                 saveReviewedNote: SaveNote? = nil) {
         self.provider = provider; isCurrent = sourceIsCurrent; saveNote = saveReviewedNote
     }
     private func retainDraft() {
         guard let source = request?.source, let key = try? EnglishLearningCoordinator.draftFingerprint(source) else { return }
-        drafts[key] = Draft(userText: userText)
+        drafts[key] = Draft(userText: userText, saved: saved)
     }
     /// Host calls on capture/close/book/version/reflow/config/credential-generation changes.
     /// Replacing a provider also invalidates consent, even if nonsecret configuration is identical.

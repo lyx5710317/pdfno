@@ -13,7 +13,7 @@ import PDFnoServices
             if !ReadingSkillIdentity.matches(draft.endpoint, oldValue.endpoint) {
                 temporarySecret = ""; hasSessionCredential = false
                 let previous = credentialClearTask, session = session
-                credentialClearTask = Task { await previous?.value; await session.clearCredential() }
+                credentialClearTask = Task { await previous?.value; await session.clearCredential(); self.sessionDidChange?() }
                 status = "接收地址已更改 · 旧会话密钥已撤销 · 请重新输入"
             }
         }
@@ -40,6 +40,7 @@ import PDFnoServices
     private var generation = UUID()
     var paragraphCommitFence: EnglishLearningSourceCommitFence?
     private var synchronizing = false
+    var sessionDidChange: (@MainActor () -> Void)?
     public init(session: BYOKProviderSession = BYOKProviderSession(),
                 transport: any AIHTTPTransport = URLSessionAITransport(), aiSession: AppAISession = .shared) {
         self.session = session; self.transport = transport; self.aiSession = aiSession
@@ -65,10 +66,10 @@ import PDFnoServices
             guard generation == token, ReadingSkillIdentity.matches(draft, candidate) else { await session.clearCredential(); throw AIFailure.stale }
             draft = snapshot.configuration; hasSessionCredential = snapshot.hasSessionCredential; error = nil
             status = "配置仅在本次会话生效 · " + (hasSessionCredential ? "需要逐次确认后发送" : "需要重新输入会话密钥")
-            return true
+            sessionDidChange?(); return true
         } catch {
             hasSessionCredential = (await session.snapshot()).hasSessionCredential
-            self.error = Self.message(error); return false
+            self.error = Self.message(error); sessionDidChange?(); return false
         }
     }
     public func clearCredential() async {
@@ -76,6 +77,7 @@ import PDFnoServices
         await credentialClearTask?.value; await session.clearCredential()
         draft = (await session.snapshot()).configuration
         status = "会话密钥已清除 · 已有结果与外部笔记保留"
+        sessionDidChange?()
     }
     /// Caller supplies an already captured immutable PDF/EPUB selection; no document discovery.
     public func prepareSelection(_ source: AISourceSnapshot, kind: AILearningKind) async {
@@ -138,6 +140,7 @@ import PDFnoServices
         let budget = aiSession.selection
         Task { [weak self] in let count = await budget.attemptsUsed(); guard let self else { return }; attemptsUsed = max(attemptsUsed, count) }
     }
+    func discardDocumentPresentation() { invalidate(); result = nil; error = nil }
     public static func message(_ error: Error) -> String {
         let failure = ReadingSkillSelectionAdapter.hostFailure(error)
         if failure == .configuration { return "此 BYOK 首片仅接受有效 HTTPS 地址和模型；不允许本地 HTTP、URL 凭据、查询、片段或重定向。" }

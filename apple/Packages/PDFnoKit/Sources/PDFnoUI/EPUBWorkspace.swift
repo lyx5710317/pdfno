@@ -29,16 +29,17 @@ struct EPUBWorkspace: View {
                 EPUBReturnToPreviousLocationButton(session: session)
                 Button(session.vertical ? "横排" : "竖排") { Task { _ = await session.command("vertical") } }
                     .accessibilityIdentifier("epub-orientation")
-                Button { session.close() } label: { Label("取消并关闭", systemImage: "xmark") }
-                    .accessibilityIdentifier("epub-close")
             } actions: { professionalActions } content: {
                 PDFnoReaderShell(panels: panels, profile: .professional) {
-                    EPUBCanvas(session: session).background(PDFnoDesign.Palette.canvas)
+                    VStack(spacing: 0) {
+                        if session.selection != nil { selectionActions }
+                        EPUBCanvas(session: session).background(PDFnoDesign.Palette.canvas)
+                    }
                 } navigation: {
                     PDFnoPanel(title: "目录", icon: "list.bullet", closeIdentifier: "epub-close-contents", close: { panels.navigation = false }) { contentsContent }
                 } notes: {
                     if inspector == .learning {
-                        AILearningWorkspace(library: model, learning: model.learning, embedded: true) { panels.notes = false }
+                        ReadingSelectionWorkspace(library: model) { panels.notes = false }
                     } else {
                         PDFnoPanel(title: "高亮与笔记", icon: "highlighter", closeIdentifier: "epub-close-notes", close: closeNotes) { notesContent }
                     }
@@ -79,21 +80,24 @@ struct EPUBWorkspace: View {
         Group {
             PDFnoReaderRailButton(title: "目录", symbol: "list.bullet", identifier: "epub-contents", active: contentsVisible, disabled: session.book == nil || session.busy, hint: "显示或收起 EPUB 目录，保留阅读位置") { panels.toggle(.navigation, width: readerWidth, profile: .professional) }
             PDFnoReaderRailButton(title: "笔记", symbol: "highlighter", identifier: "epub-notes", accessibilityTitle: "高亮与笔记", active: notesVisible, action: openNotes)
-            PDFnoReaderRailButton(title: "AI", symbol: "sparkles", identifier: "epub-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning) {
+            PDFnoReaderRailButton(title: "AI", symbol: "sparkles", identifier: "epub-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.selection == nil && model.learning.source == nil) {
                 if panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning { panels.notes = false }
                 else { model.learning.prepare(model.captureAISource()); inspector = .learning; panels.show(.notes) }
             }
-            Divider().padding(.horizontal, 12).padding(.vertical, 4)
-            PDFnoReaderRailButton(title: "工具", symbol: "square.grid.2x2", identifier: "epub-ai-tools", accessibilityTitle: "AI工具", disabled: session.busy) { aiTools = true }
-            PDFnoReaderRailButton(title: "日语", symbol: "character.ja", identifier: "epub-japanese-learning", accessibilityTitle: "日语选文学习", disabled: session.busy) { model.prepareJapaneseLearning(); japaneseLearning = true }
-            PDFnoReaderRailButton(title: "英语", symbol: "textformat.abc", identifier: "epub-english-learning", accessibilityTitle: "英语结构与语法", disabled: session.busy) { model.prepareEnglishLearning(); englishLearning = true }
-            PDFnoReaderRailButton(title: "整章", symbol: "book", identifier: "epub-chapter-translation", accessibilityTitle: "翻译当前文档", disabled: session.busy, hint: "预览当前完整 spine 文档，确认后发送") { Task { await model.prepareChapterTranslation(); chapterTranslation = true } }
-            PDFnoReaderRailButton(title: "BYOK", symbol: "network", identifier: "epub-byok", accessibilityTitle: "BYOK选文 · 翻译/解释", disabled: session.busy) { Task { await model.prepareBYOKSelection(); byokLearning = true } }
-            Divider().padding(.horizontal, 12).padding(.vertical, 4)
-            PDFnoReaderRailButton(title: "设置", symbol: "slider.horizontal.3", identifier: "epub-reader-settings", accessibilityTitle: "模型与 BYOK 设置") {
-                if let workspaceNavigation { workspaceNavigation.showSettings() } else { readerSettings = true }
-            }
+
         }
+    }
+    private var selectionActions: some View {
+        ReadingSelectionActions(available: session.selection != nil && !session.busy, busy: model.hasDocumentSaveInFlight,
+            highlight: { if let anchor = session.selection { Task { _ = await model.saveEPUBNote(anchor, text: "") } } },
+            note: { inspector = .notes; panels.show(.notes) },
+            translate: { openSelection(.translate) }, explain: { openSelection(.explain) },
+            japanese: { model.prepareJapaneseLearning(); japaneseLearning = true },
+            english: { model.prepareEnglishLearning(); englishLearning = true })
+    }
+    private func openSelection(_ kind: AILearningKind) {
+        model.learning.kind = kind; model.learning.prepare(model.captureAISource())
+        inspector = .learning; panels.show(.notes)
     }
     private var contentsContent: some View {
         List {

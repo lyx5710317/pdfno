@@ -100,7 +100,10 @@ extension LibraryModel {
     /// Dirty editor/visible reader drafts prevent an operation before any change.
     func withPausedStoreWriters(_ operation: @escaping LocalRecoveryPausedOperation) async throws {
         let owners = LibraryMaintenanceOwners.all(root: recordRoot)
-        guard !LibraryMaintenanceOwners.hasDraft(root: recordRoot), owners.allSatisfy({ !$0.hasPendingEditorChanges }) else { throw LibraryMaintenanceFailure.drafts }
+        guard !LibraryMaintenanceOwners.hasDraft(root: recordRoot), owners.allSatisfy({ !$0.hasPendingEditorChanges && !$0.hasUnsavedDocumentLearning && !$0.hasDocumentRunningTasks && !$0.hasDocumentSaveInFlight }) else { throw LibraryMaintenanceFailure.drafts }
+        let retained = owners.compactMap { library in library.displayedDocumentID.map { (library, $0) } }
+        for (library, _) in retained { await library.saveDocumentPosition() }
+        guard !LibraryMaintenanceOwners.hasDraft(root: recordRoot), owners.allSatisfy({ !$0.hasPendingEditorChanges && !$0.hasUnsavedDocumentLearning && !$0.hasDocumentRunningTasks && !$0.hasDocumentSaveInFlight }) else { throw LibraryMaintenanceFailure.drafts }
         let pause = try storeWriteGate.beginPause()
         var validated = false
         defer {
@@ -112,7 +115,7 @@ extension LibraryModel {
         let permit = LocalRecoveryWritePermit(pausedRoot: recordRoot, writerEpoch: pause.epoch), service = try recoveryService()
         do {
             try await pause.drain(); try pause.assertReady()
-            guard !LibraryMaintenanceOwners.hasDraft(root: recordRoot), owners.allSatisfy({ !$0.hasPendingEditorChanges }) else { throw LibraryMaintenanceFailure.drafts }
+            guard !LibraryMaintenanceOwners.hasDraft(root: recordRoot), owners.allSatisfy({ !$0.hasPendingEditorChanges && !$0.hasUnsavedDocumentLearning && !$0.hasDocumentRunningTasks && !$0.hasDocumentSaveInFlight }) else { throw LibraryMaintenanceFailure.drafts }
             for library in owners { library.closeStorageReaders() }
             if !FileManager.default.fileExists(atPath: recordRoot.path) {
                 try FileManager.default.createDirectory(at: recordRoot, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -122,6 +125,10 @@ extension LibraryModel {
             _ = try await service.recoverPendingTransactions(permit: permit)
             try await reloadAfterStorageMaintenance(owners)
             validated = true
+            pause.finish()
+            for (library, id) in retained {
+                library.isBusy = false; await library.reopenStorageDocument(id); library.isBusy = true
+            }
         } catch {
             // Bounded recovery must finish even if the original UI task was
             // cancelled. Keep the fence when validation cannot prove safety.
@@ -134,6 +141,10 @@ extension LibraryModel {
                     try await reloadAfterStorageMaintenance(owners)
                 }.value
                 validated = true
+                pause.finish()
+                for (library, id) in retained {
+                    library.isBusy = false; await library.reopenStorageDocument(id); library.isBusy = true
+                }
             } catch {
                 pause.retainFenceUntilRecovery()
                 for library in owners { library.canImport = false; library.startupRecoveryCompleted = false; library.error = LibraryMaintenanceFailure.reload.localizedDescription }

@@ -87,11 +87,7 @@ struct ProfessionalLibraryWorkspace: View {
                                 .font(.system(size: 12)).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        if let cover = items.first(where: { $0.id == selectedBookID })?.cover {
-                            Button { editCover(cover) } label: { Label("编辑封面", systemImage: "photo") }.accessibilityIdentifier("library-edit-cover")
-                        } else {
-                            Button {} label: { Label("编辑封面", systemImage: "photo") }.disabled(true).accessibilityIdentifier("library-edit-cover")
-                        }
+
                     }
                     HStack(spacing: 10) {
                         HStack(spacing: 8) {
@@ -168,10 +164,7 @@ struct ProfessionalLibraryWorkspace: View {
                     HStack(spacing: 4) {
                         Text(item.subtitle).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
                         Spacer(minLength: 0)
-                        if let cover = item.cover {
-                            Menu { Button("编辑封面") { editCover(cover) } } label: { Image(systemName: "ellipsis") }
-                                .menuStyle(.borderlessButton).fixedSize().accessibilityLabel("书籍操作：" + item.title)
-                        }
+
                     }.frame(height: 20)
                 }
             } else {
@@ -189,7 +182,6 @@ struct ProfessionalLibraryWorkspace: View {
             .background(PDFnoDesign.Palette.surface, in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(selectedBookID == item.id ? Color.blue.opacity(0.45) : Color.primary.opacity(0.07)))
             .accessibilityElement(children: .contain).accessibilityIdentifier(item.accessibilityID)
-            .contextMenu { if let cover = item.cover { Button("编辑封面") { editCover(cover) } } }
             .contentShape(Rectangle()).onTapGesture { openBook(item.id) }
             .accessibilityAction { openBook(item.id) }.focusable()
             .onKeyPress(.return) { openBook(item.id); return .handled }

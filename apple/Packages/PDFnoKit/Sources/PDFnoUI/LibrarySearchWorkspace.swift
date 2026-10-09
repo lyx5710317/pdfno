@@ -5,10 +5,12 @@ import PDFnoDomain
 
 struct LibrarySearchWorkspace: View {
     let library: LibraryModel
+    var openTarget: (@MainActor (LibrarySearchTarget) async -> Bool)? = nil
+    var openRecordTarget: (@MainActor (RecordSearchTarget) async -> Bool)? = nil
     @State private var search: SavedRecordSearchModel?
     var body: some View {
         Group {
-            if let search { LibrarySearchContent(library: library, model: search) }
+            if let search { LibrarySearchContent(library: library, model: search, openTarget: openTarget, openRecordTarget: openRecordTarget) }
             else { ProgressView("正在加载本地书库…").frame(minWidth: 520, minHeight: 480) }
         }.task {
             guard search == nil else { return }
@@ -24,6 +26,8 @@ private struct LibrarySearchContent: View {
     @Environment(\.pdfnoWorkspaceNavigation) private var workspaceNavigation
     @ObservedObject var library: LibraryModel
     @ObservedObject var model: SavedRecordSearchModel
+    var openTarget: (@MainActor (LibrarySearchTarget) async -> Bool)?
+    var openRecordTarget: (@MainActor (RecordSearchTarget) async -> Bool)?
     @State private var query = ""
     @State private var metadata = false
     @State private var opening = false
@@ -65,7 +69,8 @@ private struct LibrarySearchContent: View {
                                     Button(hit.entry.target.kind == .book ? "打开书籍" : "回到来源") {
                                         opening = true
                                         Task {
-                                            let opened = await library.openSearchTarget(hit.entry.target)
+                                            let opened: Bool
+                                            if let openTarget { opened = await openTarget(hit.entry.target) } else { opened = await library.openSearchTarget(hit.entry.target) }
                                             opening = false
                                             if opened { finishOpening() } else { sourceError = LibrarySearchFailure.source.localizedDescription }
                                         }
@@ -82,7 +87,8 @@ private struct LibrarySearchContent: View {
                     RecordSearchResults(response: model.response.records, error: nil) { target in
                         guard !opening, !library.isBusy else { return false }
                         opening = true
-                        let opened = await library.openRecordSearchTarget(target)
+                        let opened: Bool
+                        if let openRecordTarget { opened = await openRecordTarget(target) } else { opened = await library.openRecordSearchTarget(target) }
                         opening = false
                         if opened { finishOpening() }
                         return opened

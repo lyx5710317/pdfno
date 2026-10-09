@@ -134,36 +134,25 @@ struct AISettingsView: View {
         switch category {
         case .ai: aiContent
         case .tools:
-            PDFnoSettingsCard("现有阅读能力", detail: "选文翻译与解释、日语、英语、PDF物理页、EPUB spine 文档以及已保存记录搜索。", symbol: "book") {
-                Text("各入口沿用原来源确认、预算与手动保存。可进入不表示真实模型或语言质量已验收。")
-                if library != nil {
-                    Button("打开阅读工具") { showTools = true }.accessibilityIdentifier("settings-reading-tools")
-                }
+            PDFnoSettingsCard("选文与语言学习", detail: "从阅读器的选文工具栏进入；结果与原文并排查看。", symbol: "book") {
+                Text("选文翻译、解释、日语与英语沿用 AI 分类中的阅读配置。每次先核对来源、接收方和预算，再手动开始；生成结果由你决定是否保存。")
+                Text("日语保留作者 ruby、生成读音建议与用户修正；英语保留结构与语法候选。当前没有额外的持久阅读辅助开关。")
+                Button("查看现有阅读配置") { category = .ai }.accessibilityIdentifier("settings-reading-configuration")
             }
-            ForEach(PDFnoPlannedCapability.settings) { PDFnoPlannedCapabilityCard(capability: $0) }
-            PDFnoSettingsCard("工具目录", status: "规划中") {
-                Text("网页阅读与公共搜索尚未实现；没有可连接的工具目录。本片未新增下载、添加、授权或自动安装流程。")
-                PDFnoPlannedDirectory()
+            PDFnoSettingsCard("整页与 spine 翻译", symbol: "doc.text") {
+                Text("从当前文件的更多菜单进入。PDF 处理当前物理页；EPUB 处理当前完整 spine 文档。先展示完整原文与分段计划，本次密钥由你单独输入。")
+                Text("此页只说明现有范围，打开设置不会捕获非活动文件或发送请求。").foregroundStyle(.secondary)
             }
         case .backup:
-            PDFnoSettingsCard("本地回收站与校验备份", detail: "预览删除与恢复，目录包校验后恢复至新目录。", symbol: "archivebox", status: "现有本地能力") {
-                if let library {
-                    Button("打开回收站与备份") {
-                        library.prepareRecoveryManagement(); showRecovery = library.recoveryManagement != nil
-                    }.disabled(!library.canImport || library.isBusy || library.storageMaintenance)
-                        .accessibilityIdentifier("settings-local-recovery")
-                } else { Text("请从书库的原入口打开本地管理。") }
-            }
-            PDFnoSettingsCard("Bookno 离线预览", detail: "现有离线交换预览，与实际网络同步分开。", symbol: "arrow.left.arrow.right") {
-                if let library {
-                    Button("打开 Bookno 离线预览") { showBookno = true }
-                        .disabled(!library.canImport || library.isBusy || library.storageMaintenance)
-                        .accessibilityIdentifier("settings-bookno-preview")
+            if let library {
+                if let recovery = library.recoveryManagement {
+                    LocalRecoveryWorkspace(model: recovery, mode: .backup)
+                        .frame(minHeight: 430)
+                } else {
+                    ProgressView("正在准备本地备份…")
+                        .task { library.prepareRecoveryManagement() }
                 }
-            }
-            PDFnoSettingsCard("Bookno 实际同步与 iCloud", status: "未实现 · 默认关闭") {
-                Text("本片未新增联网同步、账号连接或云端授权。")
-            }
+            } else { Text("请从书库设置打开备份与恢复。") }
         case .general:
             PDFnoSettingsCard("阅读与外观", symbol: "slider.horizontal.3", status: "沿用现有阅读器") {
                 Text("书库默认显示封面网格，可切换列表。设置与阅读使用同一窗口；返回阅读会保留当前阅读位置、选区和未保存草稿。外观跟随系统。")
@@ -185,6 +174,8 @@ struct AISettingsView: View {
                 Text("AGPL-3.0-or-later")
                 Text("现有阅读、笔记与有限 AI 入口各保留原能力范围。语义检索、MCP 和工具调用仍为规划。")
             }
+            ForEach(PDFnoPlannedCapability.settings) { PDFnoPlannedCapabilityCard(capability: $0) }
+            PDFnoSettingsCard("工具目录", status: "规划中") { PDFnoPlannedDirectory() }
             PDFnoSettingsCard("功能状态", symbol: "checklist") { FeatureStatusView(embedded: true).frame(height: 620) }
         }
     }
@@ -249,6 +240,7 @@ struct AILearningWorkspace: View {
     @ObservedObject var learning: AILearningModel
     var embedded = false
     var close: (() -> Void)? = nil
+    var consentRevision: UUID? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var confirmed = false
     var body: some View {
@@ -369,6 +361,7 @@ struct AILearningWorkspace: View {
             }
             }
         }.frame(minWidth: embedded ? 0 : PDFnoDesign.Metric.sheetMinimum, idealWidth: embedded ? PDFnoDesign.Metric.notesWidth : PDFnoDesign.Metric.sheetIdeal, minHeight: embedded ? 0 : 600)
+        .onChange(of: consentRevision) { _, _ in confirmed = false }
         .onChange(of: learning.kind) { _, _ in learning.cancel(); learning.result = nil; confirmed = false }
         .onChange(of: try? ReadingSkillIdentity.data(learning.config)) { _, _ in learning.cancel(); learning.result = nil; confirmed = false }
         .onChange(of: try? ReadingSkillIdentity.data(learning.source)) { _, _ in confirmed = false }

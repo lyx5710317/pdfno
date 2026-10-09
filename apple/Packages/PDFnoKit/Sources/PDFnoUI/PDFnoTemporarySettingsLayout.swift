@@ -19,8 +19,8 @@ enum PDFnoSettingsCategory: String, CaseIterable, Identifiable {
         switch self {
         case .general: "通用"
         case .ai: "AI"
-        case .tools: "AI工具"
-        case .backup: "数据与备份"
+        case .tools: "阅读辅助"
+        case .backup: "备份与恢复"
         case .shortcuts: "快捷键"
         case .diagnostics: "诊断"
         case .about: "关于"
@@ -30,7 +30,7 @@ enum PDFnoSettingsCategory: String, CaseIterable, Identifiable {
         switch self {
         case .general: "slider.horizontal.3"
         case .ai: "sparkles"
-        case .tools: "square.grid.2x2"
+        case .tools: "book"
         case .backup: "archivebox"
         case .shortcuts: "keyboard"
         case .diagnostics: "doc.text.magnifyingglass"

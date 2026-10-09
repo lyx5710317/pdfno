@@ -8,7 +8,7 @@ import PDFnoReaders
 extension LibraryModel {
     /// Fresh source identity and native canonical resolution are required before switching readers.
     /// The host calls this only for an explicit result activation.
-    func openRecordSearchTarget(_ target: RecordSearchTarget) async -> Bool {
+    func openRecordSearchTarget(_ target: RecordSearchTarget, preservingCurrentReader: Bool = false) async -> Bool {
         guard !isBusy, !Task.isCancelled else { return false }
         let initialScope = recordSearchReaderScope()
         let repository = RecordSearchRepository(root: await self.repository.root)
@@ -23,9 +23,10 @@ extension LibraryModel {
                 }
                 try Task.checkCancellation()
                 guard !isBusy, recordSearchReaderScope() == initialScope else { return false }
-                await openTextFormat(book)
+                if !preservingCurrentReader || displayedDocumentID != book.id { await openTextFormat(book) }
                 guard textFormats.isActive, textFormats.reader.book?.id == book.id, textFormats.reader.book?.editionID == book.editionID,
                       textFormats.reader.ready, !Task.isCancelled else { return false }
+                searchDocumentDidOpen?()
                 if anchor == nil { return true }
                 let activeScope = recordSearchReaderScope()
                 guard case .text(let freshBook, let freshAnchor) = try await repository.resolve(target), freshBook.id == book.id,
@@ -39,9 +40,10 @@ extension LibraryModel {
                 }
                 try Task.checkCancellation()
                 guard !isBusy, recordSearchReaderScope() == initialScope else { return false }
-                await openEbook(book)
+                if !preservingCurrentReader || displayedDocumentID != book.id { await openEbook(book) }
                 guard ebook.isActive, ebook.reader.book?.id == book.id, ebook.reader.book?.editionID == book.editionID,
                       ebook.reader.ready, !Task.isCancelled else { return false }
+                searchDocumentDidOpen?()
                 if anchor == nil { return true }
                 let activeScope = recordSearchReaderScope()
                 guard case .ebook(let freshBook, let freshAnchor) = try await repository.resolve(target), freshBook.id == book.id,
@@ -63,7 +65,7 @@ extension LibraryModel {
                 let bookTarget = LibrarySearchTarget(book: LocalBookIdentity(format: format, bookID: target.book.bookID,
                     editionID: target.book.editionID, fileSHA256: target.book.fileSHA256), kind: .book)
                 guard !isBusy, recordSearchReaderScope() == initialScope, !Task.isCancelled else { return false }
-                guard await openSearchTarget(bookTarget) else { return false }
+                guard await openSearchTarget(bookTarget, preservingCurrentReader: preservingCurrentReader) else { return false }
                 if format == .epub {
                     let session = epub.readerSessionID, deadline = Date().addingTimeInterval(20)
                     while epub.busy {

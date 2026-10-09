@@ -30,6 +30,10 @@ struct BYOKSelectionEntry: View {
 struct BYOKLearningWorkspace: View {
     @ObservedObject var library: LibraryModel
     @ObservedObject var model: BYOKSettingsModel
+    var embedded = false
+    var close: (() -> Void)? = nil
+    var consentRevision: UUID? = nil
+    @Environment(\.pdfnoWorkspaceNavigation) private var navigation
     @Environment(\.dismiss) private var dismiss
     @State private var kind = AILearningKind.translate
     @State private var settings = false
@@ -40,7 +44,7 @@ struct BYOKLearningWorkspace: View {
                 PDFnoAdaptiveActions {
                     Button("重新固定选文") { Task { await library.prepareBYOKSelection(kind: kind) } }
                         .disabled(model.busy || saving).accessibilityIdentifier("byok-recapture")
-                    Button("完成（取消未完成请求）") { library.invalidateBYOKSelection(); dismiss() }
+                    Button("完成（取消未完成请求）") { library.invalidateBYOKSelection(); finish() }
                         .disabled(saving).accessibilityIdentifier("byok-close")
                 }.padding()
                 Divider()
@@ -49,16 +53,16 @@ struct BYOKLearningWorkspace: View {
                         if library.byokOfflineTransport {
                             Text("离线transport替身 · 不发送真实API").accessibilityIdentifier("byok-offline-fixture")
                         }
-                        Text("这里只使用独立BYOK会话配置；DeepSeek、日语、页和章节入口保持原链。").font(.caption).foregroundStyle(.secondary)
-                        Button("配置HTTPS BYOK") { settings = true }.accessibilityIdentifier("byok-selection-settings")
+                        Text("独立会话配置；只发送下方固定选文。服务选择不会发送请求或保存密钥。").font(.caption).foregroundStyle(.secondary)
+                        Button("配置HTTPS BYOK") { if let navigation { navigation.showSettings() } else { settings = true } }.accessibilityIdentifier("byok-selection-settings")
                         Picker("选文任务", selection: $kind) {
                             Text("翻译").tag(AILearningKind.translate)
                             Text("段落解释").tag(AILearningKind.explain)
                         }.pickerStyle(.segmented).accessibilityIdentifier("byok-kind").disabled(model.busy || saving)
-                        BYOKSelectionConsentView(model: model, sourceIsCurrent: library.isCurrentBYOKSource)
+                        BYOKSelectionConsentView(model: model, sourceIsCurrent: library.isCurrentBYOKSource, consentRevision: consentRevision)
                         if let result = model.result {
                             if let explanation = result.paragraphExplanation {
-                                ParagraphExplanationResultView(explanation: explanation, source: result.source, library: library, current: library.isCurrentBYOKSource(result.source), summaryIdentifier: "byok-result") { dismiss() }
+                                ParagraphExplanationResultView(explanation: explanation, source: result.source, library: library, current: library.isCurrentBYOKSource(result.source), summaryIdentifier: "byok-result") { finish() }
                             }
                             TextField("你的笔记（与模型结果独立）", text: $library.byokUserText, axis: .vertical).lineLimit(3...8)
                                 .accessibilityIdentifier("byok-user-note")
@@ -70,7 +74,7 @@ struct BYOKLearningWorkspace: View {
                                 .accessibilityIdentifier("byok-save-note")
                             Button("引用 · 回到原文") {
                                 Task {
-                                    if library.isCurrentBYOKSource(result.source), await library.returnToAISource(result.source) { dismiss() }
+                                    if library.isCurrentBYOKSource(result.source), await library.returnToAISource(result.source) { finish() }
                                 }
                             }.accessibilityIdentifier("byok-result-source")
                         }
@@ -79,10 +83,14 @@ struct BYOKLearningWorkspace: View {
                     }.font(PDFnoDesign.TypeStyle.body).padding(PDFnoDesign.Space.section).frame(maxWidth: .infinity, alignment: .leading)
                 }.accessibilityIdentifier("byok-selection-workspace")
             }.navigationTitle("BYOK固定选文")
-        }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: PDFnoDesign.Metric.sheetIdeal, minHeight: 600)
-            .onChange(of: kind) { _, value in Task { await library.prepareBYOKSelection(kind: value) } }
+        }.frame(minWidth: embedded ? 0 : PDFnoDesign.Metric.sheetMinimum, idealWidth: embedded ? 300 : PDFnoDesign.Metric.sheetIdeal, minHeight: embedded ? 0 : 600)
+            .onChange(of: model.preview?.request.kind) { _, value in if let value { kind = value } }
+            .onChange(of: kind) { _, value in
+                if model.preview?.request.kind != value { Task { await library.prepareBYOKSelection(kind: value) } }
+            }
             .onDisappear { library.invalidateBYOKSelection() }
             .sheet(isPresented: $settings) { BYOKSettingsSheet(model: model) }
     }
+    private func finish() { if let close { close() } else { dismiss() } }
 }
 #endif
