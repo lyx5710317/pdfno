@@ -82,7 +82,7 @@ struct AISettingsView: View {
                     .accessibilityIdentifier("ai-settings-save").disabled(category != .ai || childBusy) }
                 }
             }
-        }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: 980, minHeight: embedded ? 0 : 560)
+        }.frame(minWidth: embedded ? 0 : PDFnoDesign.Metric.sheetMinimum, idealWidth: 980, minHeight: embedded ? 0 : 560)
         .sheet(isPresented: Binding(get: { showDeepSeekTest && !embedded }, set: { showDeepSeekTest = $0 })) { DeepSeekSelfTestView(model: learning.deepSeekTest) }
         .sheet(isPresented: Binding(get: { showBYOKSettings && !embedded }, set: { showBYOKSettings = $0 })) { if let byok { BYOKSettingsSheet(model: byok) } }
         .sheet(isPresented: Binding(get: { showTools && !embedded }, set: { showTools = $0 })) { if let library { ReadingToolsWorkspace(library: library) } }

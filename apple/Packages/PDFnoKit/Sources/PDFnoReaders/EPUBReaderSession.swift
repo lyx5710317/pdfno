@@ -169,6 +169,13 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
             text: value.text, vertical: value.vertical)
         guard snapshot.hasValidMetadata, snapshot.spineIndex == spineIndex,
               (value.utf16Count > EPUBChapterTranslationPolicy.maxChapterUTF16 ? value.text == nil : value.text?.utf16.count == value.utf16Count) else { throw EPUBChapterTranslationFailure.invalidSource }
+        // Extraction is read-only. Restore only the actual canonical DOM range
+        // acknowledged by this identity/request/version-checked reply.
+        if let selectedValue = state["chapterSelection"] as? [String: Any] {
+            let selected = try anchorValue(selectedValue)
+            guard selected.spineIndex == snapshot.spineIndex, selected.resourceHref == snapshot.resourceHref else { throw EPUBError.sourceMismatch }
+            selection = selected
+        } else if !(state["chapterSelection"] is NSNull) { throw EPUBError.sourceMismatch }
         return snapshot
     }
     /// Exact canonical quote/context validation without navigation or document mutation.

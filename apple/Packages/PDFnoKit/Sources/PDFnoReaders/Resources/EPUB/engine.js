@@ -18281,7 +18281,7 @@
         text: text.length <= 3e3 ? text : null,
         vertical: renderer.isVertical()
       };
-      return JSON.stringify(envelope({ ...state(), chapterText }, message.requestID));
+      return JSON.stringify(envelope({ ...state(), chapterText, chapterSelection: selectedAnchor() }, message.requestID));
     } else if (message.command === "validateAnchor") rangeFor(message.payload.anchor);
     else throw Error("Command is not allowed");
     project();
