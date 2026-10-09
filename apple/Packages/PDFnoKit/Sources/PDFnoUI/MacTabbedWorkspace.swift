@@ -15,14 +15,13 @@ struct MacTabbedWorkspace: View {
     @State private var importer = false
     @State private var examples = false
     @State private var navigationBusy = false
+    @State private var windowWidth: CGFloat = 1180
     init(model: LibraryModel, navigation: PDFnoWorkspaceNavigation, settingsRequest: Int) {
         self.model = model; self.navigation = navigation; self.settingsRequest = settingsRequest
         _documents = StateObject(wrappedValue: MacDocumentTabs(catalogue: model))
     }
     var body: some View {
         VStack(spacing: 0) {
-            documentBar
-            Divider()
             HStack(spacing: 0) {
                 if sidebar { globalSidebar.frame(width: 180); Divider() }
                 ZStack {
@@ -51,7 +50,16 @@ struct MacTabbedWorkspace: View {
             }
         }.tint(.blue).background(PDFnoDesign.Palette.canvas)
             .environment(\.pdfnoWorkspaceNavigation, navigation)
-            .background(PDFnoWorkspaceWindowTitle(title: windowTitle))
+            .background(PDFnoWorkspaceWindowTitle(title: windowTitle, documentToolbar: true))
+            .background {
+                GeometryReader { geometry in
+                    Color.clear.onAppear { windowWidth = geometry.size.width }
+                        .onChange(of: geometry.size.width) { _, width in windowWidth = width }
+                }
+            }
+            .background {
+                MacDocumentWindowToolbar(content: AnyView(documentBar), width: windowWidth).frame(width: 0, height: 0)
+            }
             .disabled(model.storageMaintenance)
             .task { await model.load(); if model.displayedDocumentID != nil { documents.adopt(model) } }
             .onChange(of: model.displayedDocumentID) { _, id in
@@ -102,7 +110,11 @@ struct MacTabbedWorkspace: View {
                     ForEach(documents.tabs) { tab in
                         HStack(spacing: 6) {
                             Button { documents.activate(tab.id); navigation.showReader() } label: {
-                                HStack(spacing: 7) { Image(systemName: "doc.text"); Text(tab.title).lineLimit(1) }
+                                HStack(spacing: 7) {
+                                    Image(systemName: "doc.text")
+                                    Text(tab.title).lineLimit(1)
+                                    Text(documentFormat(tab.model)).font(.system(size: 9, weight: .medium)).foregroundStyle(.secondary)
+                                }
                                     .frame(minWidth: 86, maxWidth: 180, minHeight: 32, alignment: .leading).contentShape(Rectangle())
                             }.accessibilityIdentifier("document-tab-" + tab.id.uuidString)
                                 .accessibilityValue(isVisible(tab) ? "已选中" : "未选中")
@@ -115,11 +127,21 @@ struct MacTabbedWorkspace: View {
                     }
                 }.padding(.vertical, 2)
             }.scrollIndicators(.hidden).accessibilityIdentifier("document-tabs")
+            Button { importer = true } label: { Image(systemName: "plus").frame(width: 28, height: 30) }
+                .disabled(!model.canImport).accessibilityIdentifier("document-add").accessibilityLabel("导入文件到新标签")
+                .help("选择本地文件；已打开的文件会激活原标签")
             if let active = documents.active, navigation.route == .reader {
                 MacDocumentMoreMenu(model: active.model)
             }
-        }.buttonStyle(.plain).font(.system(size: 12)).padding(.horizontal, 10).frame(height: 46)
+        }.buttonStyle(.plain).font(.system(size: 12)).padding(.horizontal, 2).frame(height: 34)
             .background(PDFnoDesign.Palette.chrome).disabled(navigationBusy || documents.opening)
+    }
+    private func documentFormat(_ model: LibraryModel) -> String {
+        if model.ebook.isActive { return model.ebook.reader.book?.format.rawValue.uppercased() ?? "电子书" }
+        if model.textFormats.isActive { return model.textFormats.reader.book?.format.rawValue.uppercased() ?? "文本" }
+        if model.docx.isActive { return "DOCX" }
+        if model.readingComic { return "漫画" }
+        return model.readingEPUB ? "EPUB" : "PDF"
     }
     private var globalSidebar: some View {
         VStack(alignment: .leading, spacing: 6) {

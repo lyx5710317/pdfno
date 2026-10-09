@@ -11,6 +11,7 @@ import PDFnoUI
             .defaultSize(width: min(1180, max(720, (NSScreen.main?.visibleFrame.width ?? 1204) - 24)),
                          height: min(780, max(520, (NSScreen.main?.visibleFrame.height ?? 804) - 24)))
             .defaultPosition(.center)
+            .windowToolbarStyle(.unifiedCompact)
             .commands {
                 CommandGroup(replacing: .newItem) {}
                 CommandGroup(replacing: .appSettings) {

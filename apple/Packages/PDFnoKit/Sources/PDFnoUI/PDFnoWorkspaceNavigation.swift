@@ -42,16 +42,22 @@ struct PDFnoWorkspaceBusyKey: PreferenceKey {
 /// Hidden routes remain mounted, so their navigation titles must not replace the active page title.
 struct PDFnoWorkspaceWindowTitle: NSViewRepresentable {
     let title: String
+    var documentToolbar = false
     final class TitleView: NSView {
         var title = "PDFno"
+        var documentToolbar = false
         override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); applyTitle() }
         func applyTitle() {
+            if documentToolbar {
+                window?.toolbarStyle = .unifiedCompact
+                window?.titleVisibility = .hidden
+            }
             window?.title = title
             DispatchQueue.main.async { [weak self] in guard let self else { return }; self.window?.title = self.title }
         }
     }
-    func makeNSView(context: Context) -> TitleView { let view = TitleView(); view.title = title; return view }
-    func updateNSView(_ view: TitleView, context: Context) { view.title = title; view.applyTitle() }
+    func makeNSView(context: Context) -> TitleView { let view = TitleView(); view.title = title; view.documentToolbar = documentToolbar; return view }
+    func updateNSView(_ view: TitleView, context: Context) { view.title = title; view.documentToolbar = documentToolbar; view.applyTitle() }
 }
 
 private struct PDFnoWorkspaceNavigationKey: EnvironmentKey {
