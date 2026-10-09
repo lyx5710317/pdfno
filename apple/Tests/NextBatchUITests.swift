@@ -50,7 +50,8 @@ final class NextBatchUITests: XCTestCase {
         click(element("document-more", app))
         let submenu = app.menuItems.matching(identifier: "document-selection-learning").firstMatch
         XCTAssertTrue(submenu.waitForExistence(timeout: 10)); XCTAssertTrue(submenu.isEnabled); submenu.hover()
-        let action = app.menuItems.matching(identifier: "document-english-learning").firstMatch
+        // AppKit exposes this SwiftUI submenu action as menuAction:, retaining its visible label.
+        let action = app.menuItems["英语选文学习…"].firstMatch
         XCTAssertTrue(action.waitForExistence(timeout: 10)); XCTAssertTrue(action.isEnabled); click(action)
     }
     @MainActor private func click(_ item: XCUIElement) {

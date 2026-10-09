@@ -70,7 +70,10 @@ final class NativeUITests: XCTestCase {
     @MainActor private func chooseCurrentLanguage(_ id: String, app: XCUIApplication) {
         let submenu = app.menuItems.matching(identifier: "document-selection-learning").firstMatch
         XCTAssertTrue(submenu.waitForExistence(timeout: 10)); XCTAssertTrue(submenu.isEnabled); submenu.hover()
-        let action = app.menuItems.matching(identifier: id).firstMatch
+        // AppKit exposes SwiftUI submenu actions as menuAction:, retaining their visible labels.
+        let labels = ["document-japanese-learning": "日语选文学习…", "document-english-learning": "英语选文学习…"]
+        guard let title = labels[id] else { XCTFail("Unknown language action: \(id)"); return }
+        let action = app.menuItems[title].firstMatch
         XCTAssertTrue(action.waitForExistence(timeout: 10)); XCTAssertTrue(action.isEnabled); press(action)
     }
     @MainActor private func openCurrentBYOK(_ app: XCUIApplication) {
