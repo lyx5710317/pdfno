@@ -53,6 +53,9 @@ struct MacTabbedWorkspace: View {
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }.tint(.blue).background(PDFnoDesign.Palette.canvas)
+            // SwiftUI owns its toolbar and appearance observers. The document
+            // band is a native titlebar accessory, independent of route toolbars.
+            .toolbar(.hidden, for: .windowToolbar)
             .environment(\.pdfnoWorkspaceNavigation, navigation)
             .background(PDFnoWorkspaceWindowTitle(title: windowTitle, documentToolbar: true))
             .background {
