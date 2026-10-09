@@ -3,6 +3,7 @@
 import SwiftUI
 import PDFnoDomain
 import PDFnoServices
+import PDFnoReaders
 
 enum MacDocumentFileAction { case settings, page, spine, trash }
 struct MacDocumentFilePanel: Identifiable {
@@ -13,7 +14,11 @@ struct MacDocumentFilePanel: Identifiable {
 }
 struct MacDocumentMoreMenu: View {
     @ObservedObject var model: LibraryModel
+    @ObservedObject private var epub: EPUBReaderSession
     let open: (MacDocumentFileAction) -> Void
+    init(model: LibraryModel, open: @escaping (MacDocumentFileAction) -> Void) {
+        self.model = model; self.epub = model.epub; self.open = open
+    }
     var body: some View {
         Menu {
             Text(model.displayedDocumentTitle)
@@ -23,7 +28,7 @@ struct MacDocumentMoreMenu: View {
                 .disabled(PDFnoReadingToolContext(library: model).format != .pdf || model.reader.book == nil)
                 .accessibilityIdentifier("document-page-translation")
             Button("翻译当前 EPUB spine 文档…") { open(.spine) }
-                .disabled(PDFnoReadingToolContext(library: model).format != .epub || model.epub.book == nil || model.epub.busy)
+                .disabled(PDFnoReadingToolContext(library: model).format != .epub || epub.book == nil || epub.busy)
                 .accessibilityIdentifier("document-spine-translation")
             Text("需活动的 PDF / EPUB；其他格式不可用")
             Divider()
