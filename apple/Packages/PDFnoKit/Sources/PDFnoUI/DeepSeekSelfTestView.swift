@@ -86,6 +86,7 @@ struct DeepSeekAttemptRecord: Identifiable, Equatable {
 struct DeepSeekSelfTestView: View {
     @ObservedObject var model: DeepSeekTestModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.pdfnoInlineDismiss) private var inlineDismiss
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
@@ -158,13 +159,13 @@ struct DeepSeekSelfTestView: View {
             }.navigationTitle("DeepSeek 短句自助测试")
             .toolbar {
                 ToolbarItem { Button("查看测试记录") { proxy.scrollTo(model.records.last?.id as AnyHashable? ?? AnyHashable("test-records"), anchor: .top) }.accessibilityIdentifier("deepseek-show-records") }
-                ToolbarItem { Button("关闭（清除密钥，保留记录）") { model.close(); dismiss() }.accessibilityIdentifier("deepseek-close") }
+                ToolbarItem { Button("关闭（清除密钥，保留记录）") { model.close(); if let inlineDismiss { inlineDismiss() } else { dismiss() } }.accessibilityIdentifier("deepseek-close") }
             }
             .onChange(of: model.records) { _, records in
                 if let last = records.last { withAnimation { proxy.scrollTo(last.id, anchor: .top) } }
             }
             }
-        }.frame(minWidth: 560, minHeight: 620)
+        }.frame(minWidth: inlineDismiss == nil ? 560 : 0, minHeight: inlineDismiss == nil ? 620 : 0)
         .onDisappear { model.close() }
     }
     private func wrapped(_ text: String) -> some View {

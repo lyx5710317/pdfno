@@ -95,12 +95,16 @@ final class ConversionModel: ObservableObject {
 
 struct ConversionWorkspace: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.pdfnoInlineDismiss) private var inlineDismiss
     @StateObject private var model = ConversionModel()
     @State private var output: ConversionFormat = .plainText
     @State private var importer = false
     @State private var readingPDF = false
     var body: some View {
         NavigationStack {
+            if readingPDF && inlineDismiss != nil {
+                DOCXReadingPDFExportWorkspace(source: model.source).environment(\.pdfnoInlineDismiss, { readingPDF = false })
+            } else {
             VStack(alignment: .leading, spacing: 16) {
                 Text("DOCX 正文转换").font(.title2.bold())
                 Button("DOCX → 阅读版PDF（独立导出）") { readingPDF = true }
@@ -138,15 +142,17 @@ struct ConversionWorkspace: View {
                         .accessibilityIdentifier("conversion-export")
                     if model.isRunning { Button("取消转换") { model.cancel() }.accessibilityIdentifier("conversion-cancel") }
                     Spacer()
-                    Button("完成") { dismiss() }.disabled(model.isBusy).accessibilityIdentifier("conversion-close")
+                    Button("完成") { if let inlineDismiss { inlineDismiss() } else { dismiss() } }.disabled(model.isBusy).accessibilityIdentifier("conversion-close")
                 }
             }.padding(24)
             .navigationTitle("格式转换")
+            }
         }
-        .frame(minWidth: 560, minHeight: 440)
+        .frame(minWidth: inlineDismiss == nil ? 560 : 0, minHeight: inlineDismiss == nil ? 440 : 0)
+        .preference(key: PDFnoWorkspaceBusyKey.self, value: model.isBusy)
         .interactiveDismissDisabled(model.isBusy)
         .onDisappear { model.cancel() }
-        .sheet(isPresented: $readingPDF) { DOCXReadingPDFExportWorkspace(source: model.source) }
+        .sheet(isPresented: Binding(get: { readingPDF && inlineDismiss == nil }, set: { readingPDF = $0 })) { DOCXReadingPDFExportWorkspace(source: model.source) }
         .fileImporter(isPresented: $importer, allowedContentTypes: [UTType(filenameExtension: "docx") ?? .data]) { result in
             switch result { case .success(let url): model.select(url); case .failure(let error): model.importFailed(error) }
         }

@@ -5,6 +5,7 @@ import PDFnoDomain
 import PDFnoReaders
 
 struct EPUBWorkspace: View {
+    @Environment(\.pdfnoWorkspaceNavigation) private var workspaceNavigation
     @ObservedObject var model: LibraryModel
     @ObservedObject var session: EPUBReaderSession
     @State private var panels = PDFnoReaderPanels()
@@ -89,7 +90,9 @@ struct EPUBWorkspace: View {
             PDFnoReaderRailButton(title: "整章", symbol: "book", identifier: "epub-chapter-translation", accessibilityTitle: "翻译当前文档", disabled: session.busy, hint: "预览当前完整 spine 文档，确认后发送") { Task { await model.prepareChapterTranslation(); chapterTranslation = true } }
             PDFnoReaderRailButton(title: "BYOK", symbol: "network", identifier: "epub-byok", accessibilityTitle: "BYOK选文 · 翻译/解释", disabled: session.busy) { Task { await model.prepareBYOKSelection(); byokLearning = true } }
             Divider().padding(.horizontal, 12).padding(.vertical, 4)
-            PDFnoReaderRailButton(title: "设置", symbol: "slider.horizontal.3", identifier: "epub-reader-settings", accessibilityTitle: "模型与 BYOK 设置") { readerSettings = true }
+            PDFnoReaderRailButton(title: "设置", symbol: "slider.horizontal.3", identifier: "epub-reader-settings", accessibilityTitle: "模型与 BYOK 设置") {
+                if let workspaceNavigation { workspaceNavigation.showSettings() } else { readerSettings = true }
+            }
         }
     }
     private var contentsContent: some View {

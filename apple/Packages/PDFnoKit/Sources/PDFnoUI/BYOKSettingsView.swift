@@ -6,7 +6,8 @@ import PDFnoServices
 public struct BYOKSettingsView: View {
     @ObservedObject private var model: BYOKSettingsModel
     @State private var applying = false
-    public init(model: BYOKSettingsModel) { self.model = model }
+    private let loadOnAppear: Bool
+    public init(model: BYOKSettingsModel, loadOnAppear: Bool = true) { self.model = model; self.loadOnAppear = loadOnAppear }
     public var body: some View {
         #if os(macOS)
         ScrollView {
@@ -51,7 +52,8 @@ public struct BYOKSettingsView: View {
                 }
             }.textFieldStyle(.roundedBorder).padding(PDFnoDesign.Space.section)
         }.background(PDFnoDesign.Palette.chrome)
-            .task { await model.load() }.onDisappear { model.invalidate() }
+            .preference(key: PDFnoWorkspaceBusyKey.self, value: applying)
+            .task { if loadOnAppear { await model.load() } }.onDisappear { model.invalidate() }
         #else
         originalForm
         #endif
@@ -93,7 +95,7 @@ public struct BYOKSettingsView: View {
             }
         }
         .font(PDFnoDesign.TypeStyle.body).formStyle(.grouped)
-        .task { await model.load() }
+        .task { if loadOnAppear { await model.load() } }
         .onDisappear { model.invalidate() }
     }
 }

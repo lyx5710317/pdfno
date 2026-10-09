@@ -125,6 +125,7 @@ struct LibraryCoverRow: View {
 #if os(macOS)
 struct LibraryCoverEditor: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.pdfnoInlineDismiss) private var inlineDismiss
     @ObservedObject var covers: CoverLibraryModel
     let item: LibraryCoverItem
     @State private var importer = false
@@ -142,9 +143,10 @@ struct LibraryCoverEditor: View {
                 Text("单帧 PNG / JPEG / HEIC / TIFF，最多 12 MiB、3200 万像素。仅在本地处理。")
                     .font(.caption).foregroundStyle(.secondary)
                 if covers.busy { ProgressView("正在更新封面…") }
-            }.padding(24).frame(width: 380, height: 450).navigationTitle("编辑封面")
-                .toolbar { ToolbarItem { Button("完成") { dismiss() }.disabled(covers.busy).accessibilityIdentifier("cover-editor-done") } }
+            }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity).navigationTitle("编辑封面")
+                .toolbar { ToolbarItem { Button("完成") { if let inlineDismiss { inlineDismiss() } else { dismiss() } }.disabled(covers.busy).accessibilityIdentifier("cover-editor-done") } }
         }
+        .preference(key: PDFnoWorkspaceBusyKey.self, value: covers.busy)
         .fileImporter(isPresented: $importer, allowedContentTypes: [.png, .jpeg, .heic, .tiff]) { result in
             switch result {
             case .success(let url): Task { await covers.replace(item.identity, url: url) }

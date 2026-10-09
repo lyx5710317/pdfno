@@ -14,41 +14,80 @@ struct AISettingsView: View {
     private let byok: BYOKSettingsModel?
     private let library: LibraryModel?
     @State private var showBYOKSettings = false
+    @State private var hasLoadedBYOK = false
+    @State private var childBusy = false
     @State private var showTools = false
     @State private var showRecovery = false
     @State private var showBookno = false
+    private let embedded: Bool
+    private let active: Bool
+    private let close: (() -> Void)?
     init(learning: AILearningModel, byok: BYOKSettingsModel? = nil, library: LibraryModel? = nil,
-         initialCategory: PDFnoSettingsCategory = .ai) {
+         initialCategory: PDFnoSettingsCategory = .ai, embedded: Bool = false, active: Bool = true,
+         close: (() -> Void)? = nil) {
         self.learning = learning; self.byok = byok; self.library = library
+        self.embedded = embedded; self.active = active; self.close = close
         _draft = State(initialValue: learning.config)
         _category = State(initialValue: initialCategory)
     }
     var body: some View {
         NavigationStack {
-            PDFnoSettingsShell(category: $category) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: PDFnoDesign.Space.regular) {
-                        categoryContent
-                    }.frame(maxWidth: .infinity, alignment: .leading)
-                }.accessibilityIdentifier("ai-settings-form")
+            VStack(spacing: 0) {
+            if embedded {
+                HStack(spacing: 12) {
+                    Text("设置").font(PDFnoDesign.TypeStyle.title)
+                    Text(category.title).foregroundStyle(.secondary)
+                    Spacer()
+                    if byok != nil {
+                        Button("HTTPS BYOK") { category = .ai; showBYOKSettings = true }
+                            .disabled(childBusy).accessibilityIdentifier("byok-settings-open")
+                    }
+                    Button("返回") { clearUnappliedSecrets(); close?() }.disabled(childBusy).accessibilityIdentifier("settings-return")
+                    Button("取消") { cancelConfiguration() }.disabled(childBusy).accessibilityIdentifier("ai-settings-cancel")
+                    Button("保存配置") { saveConfiguration() }.accessibilityIdentifier("ai-settings-save").disabled(category != .ai || childBusy)
+                }.padding(20).background(PDFnoDesign.Palette.surface)
+                Divider()
+            }
+            PDFnoSettingsShell(category: $category, navigationDisabled: childBusy) {
+                if embedded && hasSubpage {
+                    VStack(spacing: 0) {
+                        HStack {
+                            Button { closeSubpage() } label: { Label("返回" + category.title, systemImage: "chevron.left") }
+                                .disabled(childBusy).accessibilityIdentifier("settings-subpage-return")
+                            Spacer()
+                        }.padding(.bottom, 12)
+                        settingsSubpage.frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                } else {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: PDFnoDesign.Space.regular) { categoryContent }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }.accessibilityIdentifier("ai-settings-form")
+                            .onChange(of: showBYOKSettings) { _, shown in if shown && embedded { proxy.scrollTo("settings-inline-byok", anchor: .top) } }
+                    }
+                }
+            }.disabled(childBusy && !hasSubpage)
             }.navigationTitle("设置 · " + category.title)
             .toolbar {
-                ToolbarItem { Button("取消") { secret = ""; dismiss() }.keyboardShortcut(.cancelAction).accessibilityIdentifier("ai-settings-cancel") }
+                if !embedded {
+                ToolbarItem { Button("取消") { cancelConfiguration() }.keyboardShortcut(.cancelAction).accessibilityIdentifier("ai-settings-cancel") }
                 ToolbarItem {
                     if byok != nil {
                         Button("HTTPS BYOK") { showBYOKSettings = true }.accessibilityIdentifier("byok-settings-open")
                             .help("打开独立 HTTPS BYOK 选文身份，不替换当前阅读配置")
                     }
                 }
-                ToolbarItem { Button("保存配置") { Task { if await learning.saveConfig(draft, temporarySecret: secret) { secret = ""; dismiss() } } }
-                    .accessibilityIdentifier("ai-settings-save").disabled(category != .ai) }
+                ToolbarItem { Button("保存配置") { saveConfiguration() }
+                    .accessibilityIdentifier("ai-settings-save").disabled(category != .ai || childBusy) }
+                }
             }
-        }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: 980, minHeight: 560)
-        .sheet(isPresented: $showDeepSeekTest) { DeepSeekSelfTestView(model: learning.deepSeekTest) }
-        .sheet(isPresented: $showBYOKSettings) { if let byok { BYOKSettingsSheet(model: byok) } }
-        .sheet(isPresented: $showTools) { if let library { ReadingToolsWorkspace(library: library) } }
-        .sheet(isPresented: $showBookno) { if let library { BooknoPreviewWorkspace(model: library.booknoPreview) } }
-        .sheet(isPresented: $showRecovery) {
+        }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: 980, minHeight: embedded ? 0 : 560)
+        .sheet(isPresented: Binding(get: { showDeepSeekTest && !embedded }, set: { showDeepSeekTest = $0 })) { DeepSeekSelfTestView(model: learning.deepSeekTest) }
+        .sheet(isPresented: Binding(get: { showBYOKSettings && !embedded }, set: { showBYOKSettings = $0 })) { if let byok { BYOKSettingsSheet(model: byok) } }
+        .sheet(isPresented: Binding(get: { showTools && !embedded }, set: { showTools = $0 })) { if let library { ReadingToolsWorkspace(library: library) } }
+        .sheet(isPresented: Binding(get: { showBookno && !embedded }, set: { showBookno = $0 })) { if let library { BooknoPreviewWorkspace(model: library.booknoPreview) } }
+        .sheet(isPresented: Binding(get: { showRecovery && !embedded }, set: { showRecovery = $0 })) {
             if let recovery = library?.recoveryManagement {
                 NavigationStack {
                     LocalRecoveryWorkspace(model: recovery)
@@ -56,9 +95,40 @@ struct AISettingsView: View {
                 }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: 640, minHeight: 520)
             }
         }
-        .onChange(of: category) { _, _ in secret = "" }
+        .onChange(of: category) { _, _ in clearUnappliedSecrets(); closeSubpage() }
+        .onChange(of: active) { _, active in if !active { clearUnappliedSecrets() } }
+        .onChange(of: learning.config) { old, new in if draft == old { draft = new } }
         .onChange(of: DeepSeekSelectionPolicy.supports(draft)) { _, supported in if !supported { secret = "" } }
-        .onDisappear { secret = "" }
+        .onDisappear { clearUnappliedSecrets() }
+        .onPreferenceChange(PDFnoWorkspaceBusyKey.self) { childBusy = $0 }
+    }
+    private var hasSubpage: Bool { showDeepSeekTest || showTools || showBookno || showRecovery }
+    private func clearUnappliedSecrets() { secret = ""; if embedded { byok?.temporarySecret = "" } }
+    private func closeSubpage() { showDeepSeekTest = false; showTools = false; showBookno = false; showRecovery = false }
+    @ViewBuilder private var settingsSubpage: some View {
+        Group {
+            if showDeepSeekTest { DeepSeekSelfTestView(model: learning.deepSeekTest) }
+            else if showTools, let library { ReadingToolsWorkspace(library: library, settingsAction: { showTools = false; category = .ai }) }
+            else if showBookno, let library { BooknoPreviewWorkspace(model: library.booknoPreview) }
+            else if showRecovery, let recovery = library?.recoveryManagement {
+                NavigationStack {
+                    LocalRecoveryWorkspace(model: recovery)
+                        .toolbar { ToolbarItem { Button("完成") { showRecovery = false }.disabled(recovery.busy).accessibilityIdentifier("local-recovery-close") } }
+                }
+            }
+        }.environment(\.pdfnoInlineDismiss, { closeSubpage() })
+    }
+    private func cancelConfiguration() {
+        draft = learning.config; clearUnappliedSecrets()
+        if let close { close() } else { dismiss() }
+    }
+    private func saveConfiguration() {
+        Task {
+            if await learning.saveConfig(draft, temporarySecret: secret) {
+                secret = ""
+                if let close { close() } else { dismiss() }
+            }
+        }
     }
     @ViewBuilder private var categoryContent: some View {
         switch category {
@@ -96,7 +166,7 @@ struct AISettingsView: View {
             }
         case .general:
             PDFnoSettingsCard("阅读与外观", symbol: "slider.horizontal.3", status: "沿用现有阅读器") {
-                Text("列表／网格及阅读器导航仍由原入口操作。外观跟随系统；本片未新增主题、语言或自动保存设置。")
+                Text("书库默认显示封面网格，可切换列表。设置与阅读使用同一窗口；返回阅读会保留当前阅读位置、选区和未保存草稿。外观跟随系统。")
             }
         case .shortcuts:
             PDFnoSettingsCard("现有应用内快捷键", symbol: "keyboard") {
@@ -112,9 +182,10 @@ struct AISettingsView: View {
             }
         case .about:
             PDFnoSettingsCard("PDFno", detail: "原生本地阅读与可核对的学习记录。", symbol: "book.closed") {
-                Text("AGPL-3.0-or-later · 临时 AI 工具与设置布局")
+                Text("AGPL-3.0-or-later")
                 Text("现有阅读、笔记与有限 AI 入口各保留原能力范围。语义检索、MCP 和工具调用仍为规划。")
             }
+            PDFnoSettingsCard("功能状态", symbol: "checklist") { FeatureStatusView(embedded: true).frame(height: 620) }
         }
     }
     private var aiContent: some View {
@@ -151,10 +222,17 @@ struct AISettingsView: View {
                 if let error = learning.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "ai-settings-error") }
             }
             PDFnoSettingsCard("其他 HTTPS BYOK 选文配置", detail: "独立会话身份；不会替换上方 DeepSeek、日语、英语、页或 spine 配置。", symbol: "network") {
-                if byok != nil {
-                    Button("其他 HTTPS BYOK选文设置") { showBYOKSettings = true }.accessibilityIdentifier("settings-byok-details")
+                if let byok {
+                    Button("其他 HTTPS BYOK选文设置") { showBYOKSettings.toggle() }.accessibilityIdentifier("settings-byok-details")
+                    if embedded && showBYOKSettings {
+                        BYOKSettingsView(model: byok, loadOnAppear: false)
+                            .frame(minHeight: 560)
+                            .task { if !hasLoadedBYOK { hasLoadedBYOK = true; await byok.load() } }
+                        Button("取消未应用的 BYOK 修改") { Task { byok.temporarySecret = ""; await byok.load(); showBYOKSettings = false } }
+                            .accessibilityIdentifier("settings-byok-cancel")
+                    }
                 } else { Text("此宿主未接入独立 BYOK 设置。") }
-            }
+            }.id("settings-inline-byok")
             PDFnoSettingsCard("会话密钥与预算", symbol: "lock") {
                 Text("配置预览与分类切换不保存、不测试、不发送。应用会话凭据和未应用输入各沿用原生命周期；持久 Keychain 尚未启用。")
                 Text("选文翻译、解释、日语、英语与独立 BYOK 共用 3 次；PDF页与EPUB spine 各 6 次。每次最多 1024 输出 tokens、30 秒、64 KiB 响应；失败、取消也计数，自动重试 0 次。")

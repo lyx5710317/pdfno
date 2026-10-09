@@ -96,11 +96,14 @@ struct ReadingToolsWorkspace: View {
     @ObservedObject private var learning: AILearningModel
     @ObservedObject private var byok: BYOKSettingsModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.pdfnoInlineDismiss) private var inlineDismiss
     @State private var route: PDFnoReadingTool?
     @State private var existingOnly = false
     @State private var settings = false
+    @Environment(\.pdfnoWorkspaceNavigation) private var workspaceNavigation
     @State private var width: CGFloat = 0
-    init(library: LibraryModel) { self.library = library; learning = library.learning; byok = library.byok }
+    private let settingsAction: (() -> Void)?
+    init(library: LibraryModel, settingsAction: (() -> Void)? = nil) { self.library = library; learning = library.learning; byok = library.byok; self.settingsAction = settingsAction }
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -129,7 +132,7 @@ struct ReadingToolsWorkspace: View {
                             }.accessibilityIdentifier("ai-tools-external-planned")
                         }
                     }
-                    Button("模型与 BYOK 设置") { settings = true }
+                    Button("模型与 BYOK 设置") { if let settingsAction { settingsAction() } else if let workspaceNavigation { workspaceNavigation.showSettings() } else { settings = true } }
                         .buttonStyle(PDFnoActionStyle()).accessibilityIdentifier("ai-tools-settings")
                 }.padding(PDFnoDesign.Space.section).frame(maxWidth: PDFnoTemporaryLayout.contentMaximum, alignment: .leading)
                     .frame(maxWidth: .infinity)
@@ -139,10 +142,10 @@ struct ReadingToolsWorkspace: View {
                         .onChange(of: geometry.size.width) { _, value in width = value }
                 } }.navigationTitle("AI工具")
                 .accessibilityIdentifier("ai-tools-directory")
-                .toolbar { ToolbarItem { Button("完成") { dismiss() }.keyboardShortcut(.cancelAction).accessibilityIdentifier("ai-tools-close") } }
-        }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: 860, minHeight: 600)
+                .toolbar { ToolbarItem { Button("完成") { if let inlineDismiss { inlineDismiss() } else { dismiss() } }.keyboardShortcut(.cancelAction).accessibilityIdentifier("ai-tools-close") } }
+        }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: 860, minHeight: inlineDismiss == nil ? 600 : 0)
             .sheet(item: $route) { tool in
-                switch tool {
+                Group { switch tool {
                 case .translate, .explain: AILearningWorkspace(library: library, learning: learning)
                 case .japanese: JapaneseLearningSheet(library: library)
                 case .english: EnglishLearningSheet(library: library)
@@ -150,7 +153,7 @@ struct ReadingToolsWorkspace: View {
                 case .spine: EPUBChapterTranslationWorkspace(library: library, translation: library.chapterTranslation, learning: learning)
                 case .byok: BYOKLearningWorkspace(library: library, model: byok)
                 case .savedSearch: LibrarySearchWorkspace(library: library)
-                }
+                } }.environment(\.pdfnoInlineDismiss, nil)
             }
             .sheet(isPresented: $settings) { AISettingsView(learning: learning, byok: byok, library: library) }
     }

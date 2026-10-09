@@ -69,6 +69,7 @@ import PDFnoReaders
 /// Embeddable component; its host owns presentation. No shared LibraryModel/LibraryWorkspace changes.
 public struct DOCXReadingPDFExportWorkspace: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.pdfnoInlineDismiss) private var inlineDismiss
     @StateObject private var model: DOCXReadingPDFExportModel
     @State private var importing = false
     public init(source: URL? = nil) { _model = StateObject(wrappedValue: DOCXReadingPDFExportModel(source: source)) }
@@ -105,9 +106,10 @@ public struct DOCXReadingPDFExportWorkspace: View {
                     .buttonStyle(.borderedProminent).disabled(model.source == nil || model.isBusy).accessibilityIdentifier("reading-pdf-export")
                 if model.isRunning { Button("取消导出") { model.cancel() }.accessibilityIdentifier("reading-pdf-cancel") }
                 Spacer()
-                Button("完成") { dismiss() }.disabled(model.isBusy)
+                Button("完成") { if let inlineDismiss { inlineDismiss() } else { dismiss() } }.disabled(model.isBusy)
             }
-        }.padding(24).frame(minWidth: 640, minHeight: 520)
+        }.padding(24).frame(minWidth: inlineDismiss == nil ? 640 : 0, minHeight: inlineDismiss == nil ? 520 : 0)
+            .preference(key: PDFnoWorkspaceBusyKey.self, value: model.isBusy)
             .interactiveDismissDisabled(model.isBusy).onDisappear { model.cancel() }
             .fileImporter(isPresented: $importing, allowedContentTypes: [UTType(filenameExtension: "docx") ?? .data]) { result in
                 switch result { case .success(let url): model.select(url); case .failure(let error): model.importFailed(error) }

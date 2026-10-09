@@ -20,6 +20,7 @@ struct LibrarySearchWorkspace: View {
 
 private struct LibrarySearchContent: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.pdfnoInlineDismiss) private var inlineDismiss
     @ObservedObject var library: LibraryModel
     @ObservedObject var model: SavedRecordSearchModel
     @State private var query = ""
@@ -28,6 +29,9 @@ private struct LibrarySearchContent: View {
     @State private var sourceError: String?
     var body: some View {
         NavigationStack {
+            if metadata && inlineDismiss != nil {
+                LocalBookMetadataWorkspace(model: model).environment(\.pdfnoInlineDismiss, { metadata = false })
+            } else {
             VStack(spacing: 12) {
                 TextField("书名、作者、笔记或引文", text: $query)
                     .textFieldStyle(.roundedBorder).accessibilityIdentifier("library-search-input")
@@ -62,7 +66,7 @@ private struct LibrarySearchContent: View {
                                         Task {
                                             let opened = await library.openSearchTarget(hit.entry.target)
                                             opening = false
-                                            if opened { dismiss() } else { sourceError = LibrarySearchFailure.source.localizedDescription }
+                                            if opened { if let inlineDismiss { inlineDismiss() } else { dismiss() } } else { sourceError = LibrarySearchFailure.source.localizedDescription }
                                         }
                                     }.disabled(opening || library.isBusy || !hit.entry.book.sourceAvailable)
                                         .accessibilityIdentifier(hit.entry.target.kind == .book ? "library-search-open-book" : "library-search-source")
@@ -79,7 +83,7 @@ private struct LibrarySearchContent: View {
                         opening = true
                         let opened = await library.openRecordSearchTarget(target)
                         opening = false
-                        if opened { dismiss() }
+                        if opened { if let inlineDismiss { inlineDismiss() } else { dismiss() } }
                         return opened
                     }
                 }.overlay {
@@ -89,14 +93,16 @@ private struct LibrarySearchContent: View {
             }.padding().navigationTitle("书库与笔记搜索")
                 .toolbar {
                     ToolbarItem { Button("书目信息") { metadata = true }.disabled(opening || model.response.legacy.books.isEmpty).accessibilityIdentifier("library-search-metadata") }
-                    ToolbarItem { Button("完成") { dismiss() }.disabled(opening).accessibilityIdentifier("library-search-close") }
+                    ToolbarItem { Button("完成") { if let inlineDismiss { inlineDismiss() } else { dismiss() } }.disabled(opening).accessibilityIdentifier("library-search-close") }
                 }
-        }.frame(minWidth: 520, idealWidth: 640, minHeight: 480)
+            }
+        }.frame(minWidth: 520, idealWidth: 640, minHeight: inlineDismiss == nil ? 480 : 0)
+            .preference(key: PDFnoWorkspaceBusyKey.self, value: opening)
             .task { library.activeSavedSearch = model; model.observeChanges(in: library); model.updateQuery("") }
             .onDisappear { model.stopObservingChanges(); model.cancel(); if library.activeSavedSearch === model { library.activeSavedSearch = nil } }
             .onChange(of: library.storageMaintenance) { _, paused in if paused { model.cancel() } else { model.refresh() } }
             .disabled(library.storageMaintenance)
-            .sheet(isPresented: $metadata) { LocalBookMetadataWorkspace(model: model) }
+            .sheet(isPresented: Binding(get: { metadata && inlineDismiss == nil }, set: { metadata = $0 })) { LocalBookMetadataWorkspace(model: model) }
     }
     private var status: String {
         switch model.phase {
@@ -114,6 +120,7 @@ private struct LibrarySearchContent: View {
 
 private struct LocalBookMetadataWorkspace: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.pdfnoInlineDismiss) private var inlineDismiss
     @ObservedObject var model: SavedRecordSearchModel
     @State private var selectedID: String?
     @State private var draftBook: LibrarySearchBook?
@@ -140,8 +147,8 @@ private struct LocalBookMetadataWorkspace: View {
                     Task { saved = await model.saveMetadata(book, title: title, author: author); saving = false; if saved { select(book.id) } }
                 }.disabled(saving || draftBook == nil || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .accessibilityIdentifier("library-metadata-save")
-            }.padding().disabled(saving).navigationTitle("本地书目信息")
-                .toolbar { ToolbarItem { Button("完成") { dismiss() }.disabled(saving).accessibilityIdentifier("library-metadata-close") } }
+            }.padding().disabled(saving).preference(key: PDFnoWorkspaceBusyKey.self, value: saving).navigationTitle("本地书目信息")
+                .toolbar { ToolbarItem { Button("完成") { if let inlineDismiss { inlineDismiss() } else { dismiss() } }.disabled(saving).accessibilityIdentifier("library-metadata-close") } }
         }.frame(minWidth: 480, minHeight: 300)
             .task { if selectedID == nil { selectedID = model.response.legacy.books.first?.id; select(selectedID) } }
     }

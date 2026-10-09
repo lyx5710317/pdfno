@@ -20,7 +20,7 @@ enum PDFnoSettingsCategory: String, CaseIterable, Identifiable {
         case .general: "通用"
         case .ai: "AI"
         case .tools: "AI工具"
-        case .backup: "同步与备份"
+        case .backup: "数据与备份"
         case .shortcuts: "快捷键"
         case .diagnostics: "诊断"
         case .about: "关于"
@@ -42,6 +42,7 @@ enum PDFnoSettingsCategory: String, CaseIterable, Identifiable {
 /// Content always has the same parent across resizing; state belongs to the caller.
 struct PDFnoSettingsShell<Content: View>: View {
     @Binding var category: PDFnoSettingsCategory
+    var navigationDisabled = false
     @ViewBuilder var content: () -> Content
     var body: some View {
         GeometryReader { geometry in
@@ -56,7 +57,7 @@ struct PDFnoSettingsShell<Content: View>: View {
                             }.buttonStyle(PDFnoActionStyle(role: .quiet))
                                 .background(category == item ? PDFnoDesign.Palette.selection : .clear,
                                     in: RoundedRectangle(cornerRadius: PDFnoTemporaryLayout.corner))
-                                .accessibilityIdentifier("settings-category-" + item.rawValue)
+                                .disabled(navigationDisabled).accessibilityIdentifier("settings-category-" + item.rawValue)
                                 .accessibilityValue(category == item ? "已选中" : "未选中")
                                 .accessibilityAddTraits(category == item ? .isSelected : [])
                         }
@@ -68,7 +69,7 @@ struct PDFnoSettingsShell<Content: View>: View {
                     if !wide {
                         Picker("设置分类", selection: $category) {
                             ForEach(PDFnoSettingsCategory.allCases) { item in Text(item.title).tag(item) }
-                        }.accessibilityIdentifier("settings-category-picker")
+                        }.disabled(navigationDisabled).accessibilityIdentifier("settings-category-picker")
                     }
                     content().frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }.frame(maxWidth: PDFnoTemporaryLayout.contentMaximum, maxHeight: .infinity, alignment: .topLeading)

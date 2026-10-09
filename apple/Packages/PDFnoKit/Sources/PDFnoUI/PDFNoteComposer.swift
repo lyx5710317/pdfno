@@ -15,7 +15,7 @@ struct PDFNoteComposer: View {
         VStack(alignment: .leading, spacing: PDFnoDesign.Space.small) {
             Text("当前选区").font(PDFnoDesign.TypeStyle.metadata).foregroundStyle(.secondary)
             if let anchor {
-                PDFnoTextViewport(text: anchor.quote)
+                PDFnoTextViewport(text: anchor.quote, identifier: "pdf-note-selection")
                 PDFNoteDraftInput(text: $draft, enabled: enabled).frame(height: 96)
                 if !draft.isEmpty { PDFnoStatusMessage(text: "草稿未保存 · 关闭面板会保留，保存成功后清空") }
                 Button("保存高亮与笔记") {

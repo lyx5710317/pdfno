@@ -17,12 +17,33 @@ public struct LibraryWorkspace: View {
     @State private var localRecovery = false
     @State private var compactColumn: NavigationSplitViewColumn = .sidebar
     @State private var selectedBookID: UUID?
+    #if os(macOS)
+    @State private var grid = true
+    @State private var navigationBusy = false
+    #else
     @State private var grid = false
+    #endif
     @State private var coverEditor: LibraryCoverItem?
+    #if os(macOS)
+    @StateObject private var workspaceNavigation = PDFnoWorkspaceNavigation()
+    private var libraryMode: Bool {
+        get { workspaceNavigation.route == .library }
+        nonmutating set { if newValue { workspaceNavigation.showLibrary() } else { workspaceNavigation.showReader() } }
+    }
+    #else
     @State private var libraryMode = true
+    #endif
+    private let settingsRequest: Int
     @State private var examplesHelp = false
     @State private var toolsPopover = false
-    public init() {}
+    public init(settingsRequest: Int = 0) { self.settingsRequest = settingsRequest }
+    #if os(macOS)
+    init(model: LibraryModel, navigation: PDFnoWorkspaceNavigation) {
+        _model = StateObject(wrappedValue: model)
+        _workspaceNavigation = StateObject(wrappedValue: navigation)
+        settingsRequest = 0
+    }
+    #endif
     public var body: some View {
         workspaceContent
         .disabled(model.storageMaintenance)
@@ -38,23 +59,19 @@ public struct LibraryWorkspace: View {
             }
         }
         .toolbar { workspaceToolbar }
+        #if !os(macOS)
         .sheet(isPresented: $about) { FeatureStatusView() }
+        #endif
         #if os(macOS)
         .popover(isPresented: $examplesHelp) { examplesMenu }
-        .sheet(item: $coverEditor) { item in LibraryCoverEditor(covers: model.covers, item: item) }
-        .sheet(isPresented: $librarySearch) { LibrarySearchWorkspace(library: model) }
-        .sheet(isPresented: $localRecovery) {
-            NavigationStack {
-                if let recovery = model.recoveryManagement {
-                    LocalRecoveryWorkspace(model: recovery)
-                        .toolbar { ToolbarItem { Button("完成") { localRecovery = false }.accessibilityIdentifier("local-recovery-close") } }
-                }
-            }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: 640, minHeight: 520)
-        }
-        .sheet(isPresented: $booknoPreview) { BooknoPreviewWorkspace(model: model.booknoPreview) }
-        .sheet(isPresented: $conversion) { ConversionWorkspace() }
-        .sheet(isPresented: $aiSettings) { AISettingsView(learning: model.learning, byok: model.byok, library: model) }
-        .sheet(isPresented: $aiTools) { ReadingToolsWorkspace(library: model) }
+        .onChange(of: coverEditor?.id) { _, id in if id != nil { workspaceNavigation.showTool(.cover) } }
+        .onChange(of: librarySearch) { _, value in if value { librarySearch = false; workspaceNavigation.showTool(.search) } }
+        .onChange(of: localRecovery) { _, value in if value { localRecovery = false; workspaceNavigation.showTool(.recovery) } }
+        .onChange(of: booknoPreview) { _, value in if value { booknoPreview = false; workspaceNavigation.showTool(.bookno) } }
+        .onChange(of: conversion) { _, value in if value { conversion = false; workspaceNavigation.showTool(.conversion) } }
+        .onChange(of: aiTools) { _, value in if value { aiTools = false; workspaceNavigation.showTool(.tools) } }
+        .onChange(of: settingsRequest, initial: true) { _, request in if request > 0 && !navigationBusy { workspaceNavigation.showSettings() } }
+        .onPreferenceChange(PDFnoWorkspaceBusyKey.self) { navigationBusy = $0 }
         #endif
         .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("知道了") { model.error = nil }
@@ -65,16 +82,28 @@ public struct LibraryWorkspace: View {
         #if os(macOS)
         ZStack {
             readerContent
-                .opacity(libraryMode ? 0 : 1)
-                .allowsHitTesting(!libraryMode)
-                .accessibilityHidden(libraryMode)
+                .opacity(workspaceNavigation.route == .reader ? 1 : 0)
+                .allowsHitTesting(workspaceNavigation.route == .reader)
+                .disabled(workspaceNavigation.route != .reader)
+                .accessibilityHidden(workspaceNavigation.route != .reader)
             if libraryMode {
                 ProfessionalLibraryWorkspace(model: model, grid: $grid, selectedBookID: $selectedBookID,
                     importFile: { importer = true }, search: { librarySearch = true },
                     examples: { examplesHelp = true }, editCover: { coverEditor = $0 }, openBook: { openSelectedBook($0) },
                     resume: displayedBookID == nil ? nil : { libraryMode = false })
             }
+            if workspaceNavigation.route == .tool { inlineTool }
+            if workspaceNavigation.hasOpenedSettings {
+                AISettingsView(learning: model.learning, byok: model.byok, library: model, embedded: true,
+                    active: workspaceNavigation.route == .settings,
+                    close: { workspaceNavigation.returnFromSettings(readerAvailable: displayedBookID != nil) })
+                    .opacity(workspaceNavigation.route == .settings ? 1 : 0)
+                    .allowsHitTesting(workspaceNavigation.route == .settings)
+                    .disabled(workspaceNavigation.route != .settings)
+                    .accessibilityHidden(workspaceNavigation.route != .settings)
+            }
         }.tint(.blue).navigationTitle("PDFno")
+            .environment(\.pdfnoWorkspaceNavigation, workspaceNavigation)
         #else
         legacyWorkspace
         #endif
@@ -94,27 +123,64 @@ public struct LibraryWorkspace: View {
     @ToolbarContentBuilder private var workspaceToolbar: some ToolbarContent {
         #if os(macOS)
         ToolbarItem(placement: .navigation) {
-            if !libraryMode {
+            if workspaceNavigation.route != .library {
                 Button { libraryMode = true } label: { Label("返回书库", systemImage: "books.vertical") }
-                    .accessibilityIdentifier("workspace-back-library").help("返回书库，保留当前阅读与草稿")
+                    .disabled(navigationBusy).accessibilityIdentifier("workspace-back-library").help("返回书库，保留当前阅读与草稿")
             }
         }
         ToolbarItem {
-            Button { toolsPopover.toggle() } label: { Label("工具与设置", systemImage: "slider.horizontal.3") }
-                .accessibilityIdentifier("workspace-tools")
+            Button { workspaceNavigation.showSettings() } label: { Label("设置", systemImage: "gearshape") }
+                .disabled(navigationBusy).accessibilityIdentifier("ai-settings")
+                .accessibilityValue(workspaceNavigation.route == .settings ? "已选中" : "未选中")
+        }
+        ToolbarItem {
+            Button { toolsPopover.toggle() } label: { Label("更多工具", systemImage: "square.grid.2x2") }
+                .disabled(navigationBusy).accessibilityIdentifier("workspace-tools")
                 .popover(isPresented: $toolsPopover) { toolsMenu }
         }
-        ToolbarItem { Button { examplesHelp = true } label: { Label("帮助与示例", systemImage: "questionmark.circle") }.accessibilityIdentifier("workspace-help") }
-        ToolbarItem { Button { librarySearch = true } label: { Label("书库与笔记搜索", systemImage: "magnifyingglass") }.accessibilityIdentifier("library-search").keyboardShortcut("f", modifiers: [.command, .shift]) }
+        ToolbarItem { Button { examplesHelp = true } label: { Label("帮助与示例", systemImage: "questionmark.circle") }.disabled(navigationBusy).accessibilityIdentifier("workspace-help") }
+        ToolbarItem { Button { librarySearch = true } label: { Label("书库与笔记搜索", systemImage: "magnifyingglass") }.disabled(navigationBusy).accessibilityIdentifier("library-search").keyboardShortcut("f", modifiers: [.command, .shift]) }
         #endif
+        #if !os(macOS)
         ToolbarItem { Button { about = true } label: { Label("功能状态", systemImage: "info.circle") } }
+        #endif
     }
     #if os(macOS)
+    private func finishTool() {
+        workspaceNavigation.returnFromTool(readerAvailable: displayedBookID != nil)
+        coverEditor = nil
+    }
+    private var inlineTool: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button { finishTool() } label: { Label("返回", systemImage: "chevron.left") }
+                    .disabled(navigationBusy).accessibilityIdentifier("workspace-tool-return")
+                Spacer()
+                Text("本地工具").foregroundStyle(.secondary)
+            }.padding(16).background(PDFnoDesign.Palette.surface)
+            Divider()
+            Group {
+                switch workspaceNavigation.tool {
+                case .search: LibrarySearchWorkspace(library: model)
+                case .cover: if let coverEditor { LibraryCoverEditor(covers: model.covers, item: coverEditor) }
+                case .conversion: ConversionWorkspace()
+                case .bookno: BooknoPreviewWorkspace(model: model.booknoPreview)
+                case .tools: ReadingToolsWorkspace(library: model)
+                case .recovery:
+                    NavigationStack {
+                        if let recovery = model.recoveryManagement {
+                            LocalRecoveryWorkspace(model: recovery)
+                                .toolbar { ToolbarItem { Button("完成") { finishTool() }.disabled(recovery.busy).accessibilityIdentifier("local-recovery-close") } }
+                        }
+                    }
+                }
+            }.frame(maxWidth: .infinity, maxHeight: .infinity)
+        }.environment(\.pdfnoInlineDismiss, { finishTool() })
+    }
     private var toolsMenu: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("工具与设置").font(.system(size: 16, weight: .semibold))
+            Text("更多工具").font(.system(size: 16, weight: .semibold))
             Button { toolsPopover = false; model.reader.captureSelection(); aiTools = true } label: { Label("AI 工具", systemImage: "square.grid.2x2") }.accessibilityIdentifier("ai-tools-open")
-            Button { toolsPopover = false; aiSettings = true } label: { Label("模型与 BYOK 设置", systemImage: "slider.horizontal.3") }.accessibilityIdentifier("ai-settings")
             Divider()
             Button { toolsPopover = false; booknoPreview = true } label: { Label("Bookno 离线预览", systemImage: "globe") }.accessibilityIdentifier("bookno-preview-open")
             Button { toolsPopover = false; conversion = true } label: { Label("格式转换", systemImage: "arrow.triangle.2.circlepath") }.accessibilityIdentifier("document-conversion")
@@ -379,7 +445,8 @@ public struct LibraryWorkspace: View {
 
 public struct FeatureStatusView: View {
     @Environment(\.dismiss) private var dismiss
-    public init() {}
+    private let embedded: Bool
+    public init(embedded: Bool = false) { self.embedded = embedded }
     public var body: some View {
         NavigationStack {
             List {
@@ -407,7 +474,7 @@ public struct FeatureStatusView: View {
                 }
                 Section("开源") { Text("PDFno · AGPL-3.0-or-later").font(.footnote) }
             }.navigationTitle("功能状态")
-            .toolbar { ToolbarItem { Button("完成") { dismiss() } } }
+            .toolbar { if !embedded { ToolbarItem { Button("完成") { dismiss() } } } }
         }.frame(minWidth: 300, minHeight: 420)
     }
 }
@@ -415,6 +482,9 @@ public struct FeatureStatusView: View {
 struct ReaderWorkspace: View {
     @ObservedObject var model: LibraryModel
     @ObservedObject var session: PDFReaderSession
+    #if os(macOS)
+    @Environment(\.pdfnoWorkspaceNavigation) private var workspaceNavigation
+    #endif
     @State private var navigation = false
     @State private var notesPanel = false
     @State private var panels = PDFnoReaderPanels()
@@ -698,7 +768,9 @@ struct ReaderWorkspace: View {
             PDFnoReaderRailButton(title: "整页", symbol: "doc.badge.ellipsis", identifier: "reader-page-translation", accessibilityTitle: "翻译当前页", hint: "预览当前物理页完整文字，确认后发送") { model.preparePageTranslation(); pageTranslation = true }
             PDFnoReaderRailButton(title: "BYOK", symbol: "network", identifier: "reader-byok", accessibilityTitle: "BYOK选文 · 翻译/解释") { Task { await model.prepareBYOKSelection(); byokLearning = true } }
             Divider().padding(.horizontal, 12).padding(.vertical, 4)
-            PDFnoReaderRailButton(title: "设置", symbol: "slider.horizontal.3", identifier: "reader-settings", accessibilityTitle: "模型与 BYOK 设置") { readerSettings = true }
+            PDFnoReaderRailButton(title: "设置", symbol: "slider.horizontal.3", identifier: "reader-settings", accessibilityTitle: "模型与 BYOK 设置") {
+                if let workspaceNavigation { workspaceNavigation.showSettings() } else { readerSettings = true }
+            }
         }
     }
     #endif

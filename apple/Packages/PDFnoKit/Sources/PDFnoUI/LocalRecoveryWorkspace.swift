@@ -139,6 +139,7 @@ public struct LocalRecoveryWorkspace: View {
         .overlay { if model.busy { ProgressView("正在校验本地数据…") } }
         .task { await model.refresh() }
         #if os(macOS)
+        .preference(key: PDFnoWorkspaceBusyKey.self, value: model.busy)
         .background {
             PDFnoDirectoryPicker(isPresented: $picker, initialDirectory: initialDirectory, message: pickerMessage) { url in
                 receiveDirectory(url)

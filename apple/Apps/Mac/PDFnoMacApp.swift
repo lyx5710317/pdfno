@@ -4,12 +4,19 @@ import AppKit
 import PDFnoUI
 
 @main struct PDFnoMacApp: App {
+    @State private var settingsRequest = 0
+    @Environment(\.openWindow) private var openWindow
     var body: some Scene {
-        WindowGroup("PDFno", id: "library") { LibraryWorkspace().frame(minWidth: 720, minHeight: 520) }
+        WindowGroup("PDFno", id: "library") { LibraryWorkspace(settingsRequest: settingsRequest).frame(minWidth: 720, minHeight: 520) }
             .defaultSize(width: min(1180, max(720, (NSScreen.main?.visibleFrame.width ?? 1204) - 24)),
                          height: min(780, max(520, (NSScreen.main?.visibleFrame.height ?? 804) - 24)))
             .defaultPosition(.center)
-            .commands { CommandGroup(replacing: .newItem) {} }
-        Settings { FeatureStatusView() }
+            .commands {
+                CommandGroup(replacing: .newItem) {}
+                CommandGroup(replacing: .appSettings) {
+                    Button("设置…") { settingsRequest += 1; openWindow(id: "library") }
+                        .keyboardShortcut(",", modifiers: .command)
+                }
+            }
     }
 }

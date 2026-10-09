@@ -34,6 +34,7 @@ struct ProfessionalLibraryWorkspace: View {
     let resume: (() -> Void)?
     @State private var showingExamples = false
     @State private var query = ""
+    @State private var format = "全部格式"
     private var items: [ProfessionalLibraryItem] {
         func item(_ cover: LibraryCoverItem) -> ProfessionalLibraryItem {
             let identity = BundledExampleIdentity(format: cover.identity.format.rawValue, bookID: cover.identity.bookID,
@@ -53,92 +54,79 @@ struct ProfessionalLibraryWorkspace: View {
         return result
     }
     private var filtered: [ProfessionalLibraryItem] {
-        items.filter { $0.example == showingExamples && (query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) || $0.subtitle.localizedCaseInsensitiveContains(query)) }
+        items.filter { $0.example == showingExamples && (format == "全部格式" || $0.subtitle.components(separatedBy: " · ").first == format) && (query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) || $0.subtitle.localizedCaseInsensitiveContains(query)) }
     }
+    private var formats: [String] { ["全部格式"] + Array(Set(items.map { $0.subtitle.components(separatedBy: " · ")[0] })).sorted() }
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                HStack(spacing: 10) {
-                    Image(systemName: "books.vertical.fill").foregroundStyle(.blue)
-                    Text("PDFno").font(.system(size: 15, weight: .semibold))
-                    Text("本地书库").font(.system(size: 11)).foregroundStyle(.secondary)
-                    Spacer()
+                HStack(spacing: 12) {
+                    categories
+                    Spacer(minLength: 8)
                     if let resume { Button(action: resume) { Label("继续阅读", systemImage: "arrow.right") }.accessibilityIdentifier("workspace-resume-reader") }
                     Button(action: importFile) { Label("导入书籍 / 文本", systemImage: "plus") }
                         .buttonStyle(ProfessionalLibraryActionStyle(primary: true)).accessibilityIdentifier("import-pdf").disabled(!model.canImport || model.isBusy)
-                }.buttonStyle(ProfessionalLibraryActionStyle()).padding(.horizontal, 20).frame(height: 56)
+                }.buttonStyle(ProfessionalLibraryActionStyle()).padding(.horizontal, 24).frame(height: 64)
                 Divider()
-                HStack(spacing: 0) {
-                    if geometry.size.width >= 900 { categories(vertical: true).frame(width: 184); Divider() }
-                    VStack(alignment: .leading, spacing: 18) {
-                        if geometry.size.width < 900 { categories(vertical: false) }
-                        HStack(alignment: .center) {
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text(showingExamples ? "示例文档" : "我的书库").font(.system(size: 22, weight: .semibold))
-                                Text("\(items.filter { $0.example == showingExamples }.count) 本 · " + (showingExamples ? "来自内置示例入口" : "保存在此设备"))
-                                    .font(.system(size: 12)).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if let cover = items.first(where: { $0.id == selectedBookID })?.cover {
-                                Button { editCover(cover) } label: { Label("编辑封面", systemImage: "photo") }.accessibilityIdentifier("library-edit-cover")
-                            } else {
-                                Button {} label: { Label("编辑封面", systemImage: "photo") }.disabled(true).accessibilityIdentifier("library-edit-cover")
-                            }
-                            layoutPicker
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack(alignment: .center) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(showingExamples ? "示例文档" : "我的书库").font(.system(size: 24, weight: .semibold))
+                            Text("\(items.filter { $0.example == showingExamples }.count) 本 · " + (showingExamples ? "内置原创文档" : "保存在此设备"))
+                                .font(.system(size: 12)).foregroundStyle(.secondary)
                         }
+                        Spacer()
+                        if let cover = items.first(where: { $0.id == selectedBookID })?.cover {
+                            Button { editCover(cover) } label: { Label("编辑封面", systemImage: "photo") }.accessibilityIdentifier("library-edit-cover")
+                        } else {
+                            Button {} label: { Label("编辑封面", systemImage: "photo") }.disabled(true).accessibilityIdentifier("library-edit-cover")
+                        }
+                    }
+                    HStack(spacing: 10) {
                         HStack(spacing: 8) {
                             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                            TextField("筛选书名与格式", text: $query).textFieldStyle(.plain).font(.system(size: 13)).accessibilityIdentifier("library-title-filter")
+                            TextField("筛选书名与格式", text: $query).textFieldStyle(.plain).accessibilityIdentifier("library-title-filter")
                             if !query.isEmpty { Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).accessibilityLabel("清除筛选") }
-                            Divider().frame(height: 16)
-                            Button(action: search) { Text("搜索笔记") }.accessibilityIdentifier("library-search-notes")
                         }.padding(.horizontal, 12).frame(height: 36)
-                            .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
+                            .background(PDFnoDesign.Palette.surface, in: RoundedRectangle(cornerRadius: 8))
                             .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.primary.opacity(0.08)))
-                        if filtered.isEmpty { emptyState.frame(maxWidth: .infinity, maxHeight: .infinity) }
-                        else {
-                            ScrollView {
-                                if grid {
-                                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 154, maximum: 205), alignment: .top)], alignment: .leading, spacing: 16) {
-                                        ForEach(filtered) { row($0) }
-                                    }
-                                } else { LazyVStack(spacing: 8) { ForEach(filtered) { row($0) } } }
-                            }.accessibilityElement(children: .contain).accessibilityIdentifier("professional-library-books")
-                        }
-                        HStack {
-                            Image(systemName: "externaldrive").foregroundStyle(.secondary)
-                            Text(showingExamples ? "旧记录不按标题自动分类；原文件与笔记保留。" : "导入与阅读均在本地；AI 发送需要逐次确认。")
-                                .font(.system(size: 11)).foregroundStyle(.secondary)
-                            Spacer()
-                            if showingExamples { Button(action: examples) { Label("打开内置示例", systemImage: "doc.badge.plus") }.accessibilityIdentifier("library-example-help") }
-                        }
-                    }.padding(geometry.size.width < 900 ? 18 : 28)
-                }
+                        Picker("格式", selection: $format) { ForEach(formats, id: \.self) { Text($0).tag($0) } }
+                            .labelsHidden().frame(width: 108).accessibilityIdentifier("library-format-filter")
+                        layoutPicker
+                        Button(action: search) { Label("搜索笔记", systemImage: "text.magnifyingglass") }.accessibilityIdentifier("library-search-notes")
+                    }.font(.system(size: 13))
+                    if filtered.isEmpty { emptyState.frame(maxWidth: .infinity, maxHeight: .infinity) }
+                    else {
+                        ScrollView {
+                            if grid {
+                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180, maximum: 240), spacing: 20, alignment: .top)], alignment: .leading, spacing: 20) {
+                                    ForEach(filtered) { row($0) }
+                                }.padding(1)
+                            } else { LazyVStack(spacing: 8) { ForEach(filtered) { row($0) } }.padding(1) }
+                        }.accessibilityElement(children: .contain).accessibilityIdentifier("professional-library-books")
+                    }
+                    HStack(spacing: 6) {
+                        Image(systemName: "externaldrive")
+                        Text("原件与已保存笔记保存在本地").font(.system(size: 11))
+                        Spacer()
+                        if showingExamples { Button(action: examples) { Label("打开内置示例", systemImage: "doc.badge.plus") }.accessibilityIdentifier("library-example-help") }
+                    }.foregroundStyle(.secondary)
+                }.padding(geometry.size.width < 900 ? 20 : 28)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(PDFnoDesign.Palette.chrome)
             }.background(PDFnoDesign.Palette.canvas).accessibilityElement(children: .contain).accessibilityIdentifier("professional-library-workspace")
                 .buttonStyle(ProfessionalLibraryActionStyle())
         }
     }
-    @ViewBuilder private func categories(vertical: Bool) -> some View {
-        let personal = items.filter { !$0.example }.count, examples = items.filter(\.example).count
-        if vertical {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("书籍").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary).padding(.horizontal, 10).padding(.bottom, 4)
-                category("我的书库", icon: "books.vertical", count: personal, active: !showingExamples) { showingExamples = false }.accessibilityIdentifier("library-category-personal")
-                category("示例文档", icon: "doc.text", count: examples, active: showingExamples) { showingExamples = true }.accessibilityIdentifier("library-category-examples")
-                Spacer()
-                Text("原件保留\n示例与个人书籍分开").font(.system(size: 11)).foregroundStyle(.secondary).lineSpacing(5).padding(10)
-            }.padding(14).background(PDFnoDesign.Palette.chrome)
-        } else {
-            HStack(spacing: 8) {
-                category("我的书库", icon: "books.vertical", count: personal, active: !showingExamples) { showingExamples = false }.accessibilityIdentifier("library-category-personal")
-                category("示例文档", icon: "doc.text", count: examples, active: showingExamples) { showingExamples = true }.accessibilityIdentifier("library-category-examples")
-                Spacer(minLength: 0)
-            }
-        }
+    private var categories: some View {
+        HStack(spacing: 8) {
+            category("我的书库", icon: "books.vertical", count: items.filter { !$0.example }.count, active: !showingExamples) { showingExamples = false }.accessibilityIdentifier("library-category-personal")
+            category("示例文档", icon: "doc.text", count: items.filter(\.example).count, active: showingExamples) { showingExamples = true }.accessibilityIdentifier("library-category-examples")
+        }.fixedSize(horizontal: true, vertical: false)
     }
     private func category(_ title: String, icon: String, count: Int, active: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 9) { Image(systemName: icon).frame(width: 16); Text(title); Spacer(minLength: 8); Text("\(count)").font(.system(size: 11)).monospacedDigit() }
+            HStack(spacing: 9) { Image(systemName: icon).frame(width: 16); Text(title); Text("\(count)").font(.system(size: 11)).monospacedDigit() }
                 .font(.system(size: 12, weight: active ? .semibold : .regular)).padding(10)
                 .foregroundStyle(active ? Color.blue : Color.secondary)
                 .background(active ? Color.blue.opacity(0.10) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
@@ -154,25 +142,54 @@ struct ProfessionalLibraryWorkspace: View {
     }
     private func row(_ item: ProfessionalLibraryItem) -> some View {
         Group {
-            Group {
-                if let cover = item.cover {
-                    LibraryCoverRow(covers: model.covers, item: cover, grid: grid) { editCover(cover) }
-                } else {
-                    HStack(spacing: 14) {
-                        Image(systemName: "book.closed").font(.system(size: grid ? 32 : 22)).foregroundStyle(.blue).frame(width: grid ? 60 : 44, height: grid ? 90 : 50)
-                        VStack(alignment: .leading, spacing: 5) { Text(item.title).font(.system(size: 13, weight: .semibold)).lineLimit(2); Text(item.subtitle).font(.system(size: 11)).foregroundStyle(.secondary) }
-                        if !grid { Spacer() }
-                    }.accessibilityElement(children: .contain).accessibilityIdentifier(item.accessibilityID)
+            if grid {
+                VStack(alignment: .leading, spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.025))
+                        if let cover = item.cover {
+                            LibraryCoverImage(covers: model.covers, identity: cover.identity, width: 126, height: 180)
+                                .shadow(color: .black.opacity(0.10), radius: 6, y: 3)
+                        } else { placeholder(item, width: 126, height: 180) }
+                    }.frame(height: 202)
+                    Text(item.title).font(.system(size: 13, weight: .semibold)).lineLimit(2)
+                        .frame(height: 36, alignment: .topLeading).frame(maxWidth: .infinity, alignment: .leading)
+                    HStack(spacing: 4) {
+                        Text(item.subtitle).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                        Spacer(minLength: 0)
+                        if let cover = item.cover {
+                            Menu { Button("编辑封面") { editCover(cover) } } label: { Image(systemName: "ellipsis") }
+                                .menuStyle(.borderlessButton).fixedSize().accessibilityLabel("书籍操作：" + item.title)
+                        }
+                    }.frame(height: 20)
                 }
-            }.frame(maxWidth: .infinity, alignment: grid ? .center : .leading).padding(grid ? 14 : 12)
-                .background(PDFnoDesign.Palette.surface, in: RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(selectedBookID == item.id ? Color.blue.opacity(0.35) : Color.primary.opacity(0.08)))
-        }.contentShape(Rectangle())
-            .onTapGesture { openBook(item.id) }
-            .accessibilityAction { openBook(item.id) }
-            .focusable()
+            } else {
+                HStack(spacing: 14) {
+                    if let cover = item.cover { LibraryCoverImage(covers: model.covers, identity: cover.identity, width: 40, height: 56) }
+                    else { placeholder(item, width: 40, height: 56) }
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(item.title).font(.system(size: 13, weight: .semibold)).lineLimit(2)
+                        Text(item.subtitle).font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+            }
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
+            .background(PDFnoDesign.Palette.surface, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(selectedBookID == item.id ? Color.blue.opacity(0.45) : Color.primary.opacity(0.07)))
+            .accessibilityElement(children: .contain).accessibilityIdentifier(item.accessibilityID)
+            .contextMenu { if let cover = item.cover { Button("编辑封面") { editCover(cover) } } }
+            .contentShape(Rectangle()).onTapGesture { openBook(item.id) }
+            .accessibilityAction { openBook(item.id) }.focusable()
             .onKeyPress(.return) { openBook(item.id); return .handled }
             .onKeyPress(.space) { openBook(item.id); return .handled }
+    }
+    private func placeholder(_ item: ProfessionalLibraryItem, width: CGFloat, height: CGFloat) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: "doc.text").font(.system(size: width > 60 ? 28 : 16, weight: .light))
+            Text(item.subtitle.components(separatedBy: " · ")[0]).font(.system(size: width > 60 ? 12 : 8, weight: .medium))
+        }.foregroundStyle(.secondary).frame(width: width, height: height)
+            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+            .accessibilityLabel("默认封面")
     }
     private var emptyState: some View {
         VStack(spacing: 12) {
