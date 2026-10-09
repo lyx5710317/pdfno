@@ -152,7 +152,9 @@ public final class LibraryModel: ObservableObject {
         // The sidebar reads this nested model even while its reader is inactive.
         // Forward asynchronous load/restart changes as well as routed imports.
         ebookChanges = ebook.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
-        learning.japaneseScopeDidInvalidate = { [weak self] in self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
+        // The independent BYOK owner has its own source/session/configuration fences.
+        // Hiding or cancelling the reading provider must not revoke a BYOK result.
+        learning.japaneseScopeDidInvalidate = { [weak self] in self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning() }
         epub.translationScopeDidChange = { [weak self] in self?.learning.invalidateParagraphSource(); self?.chapterTranslation.cancel(); self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
         japanesePDFSessionChanges = reader.$readerSessionID.dropFirst().sink { [weak self] _ in self?.learning.invalidateParagraphSource(); self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
         japanesePDFSelectionChanges = reader.$capturedSelection.dropFirst().sink { [weak self] anchor in

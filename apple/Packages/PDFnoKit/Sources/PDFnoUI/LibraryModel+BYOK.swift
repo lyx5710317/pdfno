@@ -31,7 +31,7 @@ extension LibraryModel {
         byok.saving = true; defer { byok.saving = false }
         guard let operation = try? storeWriteGate.beginWrite() else { return false }
         defer { operation.finish() }
-        guard let result = byok.result, ["selection-1", ParagraphExplanationPolicy.promptVersion].contains(result.promptVersion), result.canSaveSelectionResult,
+        guard let result = byok.result, ["selection-1", DeepSeekSelectionPolicy.promptVersion, ParagraphExplanationPolicy.promptVersion].contains(result.promptVersion), result.canSaveSelectionResult,
               ReadingSkillIdentity.matches(result.provider, byok.draft), isCurrentBYOKSource(result.source) else {
             byokSaveStatus = AIFailure.stale.localizedDescription; return false
         }

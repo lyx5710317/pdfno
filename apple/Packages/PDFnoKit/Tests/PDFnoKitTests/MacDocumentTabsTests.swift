@@ -183,6 +183,15 @@ private actor TabsLateResponse: AIHTTPTransport {
         #expect(b.model.byok.result == nil && b.model.byokUserText.isEmpty && a.model.hasUnsavedBYOKPresentation)
         #expect(await transport.calls == 1)
         #expect(try await catalogue.learning.repository.load().notes.isEmpty)
+        a.model.learning.cancel()
+        #expect(a.model.isCurrentBYOKSource(source))
+        #expect(result.promptVersion == DeepSeekSelectionPolicy.promptVersion)
+        #expect(await a.model.saveBYOKResult())
+        let saved = try await catalogue.learning.repository.load().notes
+        #expect(saved.count == 1 && saved.first?.result.requestID == result.requestID)
+        #expect(saved.first?.userText == "Original unsaved BYOK body")
+        #expect(!a.model.hasUnsavedBYOKPresentation && b.model.byok.result == nil)
+        #expect(await transport.calls == 1)
     }
 
     @Test func backupAndNewDirectoryRestoreKeepBothTabsAndRejectUnsavedWork() async throws {
