@@ -31,8 +31,7 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
         override func hitTest(_ point: NSPoint) -> NSView? {
             let local = convert(point, from: superview)
             guard bounds.contains(local) else { return nil }
-            // AppKit's titlebar receives empty space, including its native
-            // drag and double-click behavior. SwiftUI keeps actual controls.
+            // Handle window gestures only outside SwiftUI's actual controls.
             if isEmptySpace(local) { return self }
             return super.hitTest(point)
         }
@@ -56,6 +55,7 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
         private var resizeObserver: NSObjectProtocol?
         private var updateObserver: NSObjectProtocol?
         private var widthConstraint: NSLayoutConstraint!
+        private var frameBeforeFill: NSRect?
         init(content: AnyView, width: CGFloat) {
             host = DocumentBandHost(rootView: content); self.width = width
             super.init()
@@ -66,19 +66,29 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
             accessory.view = host; accessory.layoutAttribute = .right
             accessory.fullScreenMinHeight = 34
             setContent(content)
-            host.nativeDoubleClick = { [weak self] event in self?.forwardNativeDoubleClick(event) }
+            host.nativeDoubleClick = { [weak self] _ in self?.performTitlebarDoubleClick() }
         }
-        private func forwardNativeDoubleClick(_ up: NSEvent) {
-            guard let window, let index = window.titlebarAccessoryViewControllers.firstIndex(where: { $0 === accessory }),
-                  let down = NSEvent.mouseEvent(with: .leftMouseDown, location: up.locationInWindow,
-                    modifierFlags: up.modifierFlags, timestamp: up.timestamp, windowNumber: window.windowNumber,
-                    context: nil, eventNumber: up.eventNumber, clickCount: up.clickCount, pressure: 1) else { return }
-            // Give native event dispatch the original titlebar for this gesture.
-            // The same accessory and document state return before this call ends.
-            window.removeTitlebarAccessoryViewController(at: index)
-            defer { window.insertTitlebarAccessoryViewController(accessory, at: index) }
-            window.sendEvent(down)
-            window.sendEvent(up)
+        private func performTitlebarDoubleClick() {
+            guard let window else { return }
+            // Read the user's existing global choice; never change it. Custom
+            // titlebar accessory views do not inherit AppKit's double-click action.
+            let defaults = UserDefaults.standard
+            let action = defaults.string(forKey: "AppleActionOnDoubleClick")
+                ?? (defaults.bool(forKey: "AppleMiniaturizeOnDoubleClick") ? "Minimize" : "Maximize")
+            switch action {
+            case "Minimize": window.performMiniaturize(nil)
+            case "Maximize": window.performZoom(nil)
+            case "Fill":
+                guard let screen = window.screen else { return }
+                if let previous = frameBeforeFill, window.frame == screen.visibleFrame {
+                    window.setFrame(previous, display: true, animate: true)
+                    frameBeforeFill = nil
+                } else {
+                    frameBeforeFill = window.frame
+                    window.setFrame(screen.visibleFrame, display: true, animate: true)
+                }
+            default: break // "None" and unknown future settings preserve the window.
+            }
         }
         func setContent(_ content: AnyView) {
             host.rootView = AnyView(content.coordinateSpace(name: PDFnoTitlebarControlFrames.space)
@@ -122,6 +132,7 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
                 window.removeTitlebarAccessoryViewController(at: index)
             }
             window = nil
+            frameBeforeFill = nil
         }
     }
 }
