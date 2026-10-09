@@ -26,7 +26,7 @@ struct ReadingSelectionActions: View {
             Spacer(minLength: 0)
         }.font(.system(size: 11)).buttonStyle(ProfessionalLibraryActionStyle())
             .padding(8).background(PDFnoDesign.Palette.chrome)
-            .disabled(!available || busy).accessibilityIdentifier("selection-actions")
+            .disabled(!available || busy)
     }
     private func action(_ title: String, _ symbol: String, _ identifier: String, _ command: @escaping () -> Void) -> some View {
         Button(action: command) { Label(title, systemImage: symbol) }.accessibilityIdentifier(identifier)
