@@ -2,6 +2,7 @@
 #if os(macOS)
 import SwiftUI
 import PDFnoDomain
+import PDFnoServices
 
 struct ReadingSelectionActions: View {
     let available: Bool
@@ -37,7 +38,11 @@ struct ReadingSelectionActions: View {
 /// Both result owners stay mounted so switching providers retains their independent drafts.
 struct ReadingSelectionWorkspace: View {
     @ObservedObject var library: LibraryModel
+    @ObservedObject private var learning: AILearningModel
     let close: () -> Void
+    init(library: LibraryModel, close: @escaping () -> Void) {
+        self.library = library; learning = library.learning; self.close = close
+    }
     private enum Service: String, CaseIterable { case reading, byok }
     @State private var service = Service.reading
     @State private var consentRevision = UUID()
@@ -60,14 +65,36 @@ struct ReadingSelectionWorkspace: View {
             }
         }.onChange(of: service) { _, value in
             consentRevision = UUID()
-            if value == .byok {
-                Task {
-                    await library.byok.load()
-                    if let preview = library.byok.preview, library.isCurrentBYOKSource(preview.request.source) { return }
-                    await library.prepareBYOKSelection(kind: library.learning.kind)
-                }
+            if value == .byok { prepareBYOK() }
+        }.onChange(of: learning.kind) { _, _ in if service == .byok { prepareBYOK() } }
+            .onChange(of: learning.source) { _, _ in if service == .byok { prepareBYOK() } }
+    }
+    private func prepareBYOK() {
+        Task {
+            await library.byok.load()
+            if library.reconnectBYOKPresentation(kind: learning.kind) { return }
+            if let preview = library.byok.preview, preview.request.kind == learning.kind,
+               ReadingSkillIdentity.matches(preview.request.source, learning.source), library.isCurrentBYOKSource(preview.request.source) { return }
+            guard !library.hasUnsavedBYOKPresentation else {
+                library.byokSaveStatus = "已有 BYOK 结果或草稿尚未保存。请先保存，或关闭文件时明确放弃，再固定新的选文或任务。"
+                return
             }
+            library.byokUserText = ""
+            await library.prepareBYOKSelection(kind: learning.kind)
         }
+    }
+}
+extension LibraryModel {
+    var hasUnsavedBYOKPresentation: Bool {
+        guard let result = byok.result else { return !byokUserText.isEmpty }
+        return !learning.notes.contains { $0.result.requestID == result.requestID && $0.userText == byokUserText }
+    }
+    func reconnectBYOKPresentation(kind: AILearningKind) -> Bool {
+        guard let result = byok.result, result.kind == kind,
+              ReadingSkillIdentity.matches(result.source, learning.source),
+              ReadingSkillIdentity.matches(result.provider, byok.draft), isCurrentAISource(result.source) else { return false }
+        byokSource = result.source
+        return true
     }
 }
 #endif

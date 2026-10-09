@@ -19,6 +19,7 @@ struct AISettingsView: View {
     @State private var showTools = false
     @State private var showRecovery = false
     @State private var showBookno = false
+    @State private var backupModel: LocalRecoveryManagementModel?
     private let embedded: Bool
     private let active: Bool
     private let close: (() -> Void)?
@@ -145,12 +146,15 @@ struct AISettingsView: View {
             }
         case .backup:
             if let library {
-                if let recovery = library.recoveryManagement {
+                if let recovery = backupModel {
                     LocalRecoveryWorkspace(model: recovery, mode: .backup)
                         .frame(minHeight: 430)
                 } else {
                     ProgressView("正在准备本地备份…")
-                        .task { library.prepareRecoveryManagement() }
+                        .task {
+                            if library.recoveryManagement == nil { library.prepareRecoveryManagement() }
+                            backupModel = library.recoveryManagement
+                        }
                 }
             } else { Text("请从书库设置打开备份与恢复。") }
         case .general:

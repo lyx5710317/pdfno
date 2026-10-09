@@ -58,7 +58,7 @@ struct BYOKLearningWorkspace: View {
                         Picker("选文任务", selection: $kind) {
                             Text("翻译").tag(AILearningKind.translate)
                             Text("段落解释").tag(AILearningKind.explain)
-                        }.pickerStyle(.segmented).accessibilityIdentifier("byok-kind").disabled(model.busy || saving)
+                        }.pickerStyle(.segmented).accessibilityIdentifier("byok-kind").disabled(model.busy || saving || library.hasUnsavedBYOKPresentation)
                         BYOKSelectionConsentView(model: model, sourceIsCurrent: library.isCurrentBYOKSource, consentRevision: consentRevision)
                         if let result = model.result {
                             if let explanation = result.paragraphExplanation {
