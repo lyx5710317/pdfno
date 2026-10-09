@@ -24,16 +24,7 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
     }
     final class DocumentBandHost: NSHostingView<AnyView> {
         var controlFrames: [CGRect] = []
-        private var nativeTitlebar: NSView? {
-            guard let window else { return nil }
-            var view = window.standardWindowButton(.closeButton)?.superview
-            var titlebar: NSView?
-            while let current = view {
-                if current.frame.width >= window.frame.width - 1, current.frame.height <= 80 { titlebar = current }
-                view = current.superview
-            }
-            return titlebar
-        }
+        var nativeDoubleClick: ((NSEvent) -> Void)?
         private func isEmptySpace(_ point: NSPoint) -> Bool {
             !controlFrames.isEmpty && !controlFrames.contains(where: { $0.contains(point) })
         }
@@ -49,16 +40,11 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
             guard isEmptySpace(convert(event.locationInWindow, from: nil)), let window else {
                 super.mouseDown(with: event); return
             }
-            if event.clickCount > 1, let nativeTitlebar {
-                // The native titlebar keeps the user's macOS double-click action.
-                nativeTitlebar.mouseDown(with: event)
-            } else {
-                window.performDrag(with: event)
-            }
+            if event.clickCount == 1 { window.performDrag(with: event) }
         }
         override func mouseUp(with event: NSEvent) {
-            if event.clickCount > 1, isEmptySpace(convert(event.locationInWindow, from: nil)), let nativeTitlebar {
-                nativeTitlebar.mouseUp(with: event)
+            if event.clickCount > 1, isEmptySpace(convert(event.locationInWindow, from: nil)) {
+                nativeDoubleClick?(event)
             } else { super.mouseUp(with: event) }
         }
     }
@@ -80,6 +66,19 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
             accessory.view = host; accessory.layoutAttribute = .right
             accessory.fullScreenMinHeight = 34
             setContent(content)
+            host.nativeDoubleClick = { [weak self] event in self?.forwardNativeDoubleClick(event) }
+        }
+        private func forwardNativeDoubleClick(_ up: NSEvent) {
+            guard let window, let index = window.titlebarAccessoryViewControllers.firstIndex(where: { $0 === accessory }),
+                  let down = NSEvent.mouseEvent(with: .leftMouseDown, location: up.locationInWindow,
+                    modifierFlags: up.modifierFlags, timestamp: up.timestamp, windowNumber: window.windowNumber,
+                    context: nil, eventNumber: up.eventNumber, clickCount: up.clickCount, pressure: 1) else { return }
+            // Give native event dispatch the original titlebar for this gesture.
+            // The same accessory and document state return before this call ends.
+            window.removeTitlebarAccessoryViewController(at: index)
+            defer { window.insertTitlebarAccessoryViewController(accessory, at: index) }
+            window.sendEvent(down)
+            window.sendEvent(up)
         }
         func setContent(_ content: AnyView) {
             host.rootView = AnyView(content.coordinateSpace(name: PDFnoTitlebarControlFrames.space)
