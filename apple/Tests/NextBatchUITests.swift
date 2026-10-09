@@ -11,7 +11,13 @@ final class NextBatchUITests: XCTestCase {
     @MainActor private func navigateWorkspace(_ id: String, in app: XCUIApplication) {
         #if os(macOS)
         func target(_ name: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: name).firstMatch }
-        if target(id).exists { return }
+        // The requested list route must be selected explicitly now that home defaults to grid.
+        // Inline cover editing retains the same thumbnail; do not navigate away to find it.
+        if target("cover-select-image").exists && (id == "library-book" || id.hasPrefix("cover-image-")) { return }
+        if target(id).exists {
+            if id == "library-list-layout", target(id).value as? String != "已选中" { target(id).click() }
+            return
+        }
         let example = id.hasPrefix("open-") && id.contains("sample")
         let tools = ["ai-settings", "ai-tools-open", "bookno-preview-open", "document-conversion", "library-local-recovery"].contains(id)
         if example || tools {
