@@ -85,7 +85,7 @@ struct EPUBWorkspace: View {
         Group {
             PDFnoReaderRailButton(title: "目录", symbol: "list.bullet", identifier: "epub-contents", active: contentsVisible, disabled: session.book == nil || session.busy, hint: "显示或收起 EPUB 目录，保留阅读位置") { panels.toggle(.navigation, width: readerWidth, profile: .professional) }
             PDFnoReaderRailButton(title: "笔记", symbol: "highlighter", identifier: "epub-notes", accessibilityTitle: "高亮与笔记", active: notesVisible, action: openNotes)
-            PDFnoReaderRailButton(title: "AI", symbol: "sparkles", identifier: "epub-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.selection == nil && model.learning.source == nil) {
+            PDFnoReaderRailButton(title: "AI", symbol: "sparkles", identifier: "epub-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.selection == nil && model.learning.source == nil && !model.hasCurrentSavedLearningNotes) {
                 if panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning { panels.notes = false }
                 else { model.learning.prepare(model.captureAISource()); inspector = .learning; panels.show(.notes) }
             }

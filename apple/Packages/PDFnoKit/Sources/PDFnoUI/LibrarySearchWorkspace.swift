@@ -51,6 +51,10 @@ private struct LibrarySearchContent: View {
                         ProgressView().controlSize(.small)
                         Button("取消") { model.cancel() }.accessibilityIdentifier("library-search-cancel")
                     }
+                    if inlineDismiss != nil {
+                        Button("书目信息") { metadata = true }.disabled(opening || model.response.legacy.books.isEmpty)
+                            .accessibilityIdentifier("library-search-metadata")
+                    }
                     Button("刷新") { sourceError = nil; model.refresh() }.accessibilityIdentifier("library-search-refresh")
                     Button("清空") { query = ""; model.updateQuery("") }.accessibilityIdentifier("library-search-clear")
                 }
@@ -99,8 +103,10 @@ private struct LibrarySearchContent: View {
                 }
             }.padding().navigationTitle("查找")
                 .toolbar {
-                    ToolbarItem { Button("书目信息") { metadata = true }.disabled(opening || model.response.legacy.books.isEmpty).accessibilityIdentifier("library-search-metadata") }
-                    ToolbarItem { Button("完成") { if let inlineDismiss { inlineDismiss() } else { dismiss() } }.disabled(opening).accessibilityIdentifier("library-search-close") }
+                    if inlineDismiss == nil {
+                        ToolbarItem { Button("书目信息") { metadata = true }.disabled(opening || model.response.legacy.books.isEmpty).accessibilityIdentifier("library-search-metadata") }
+                        ToolbarItem { Button("完成") { dismiss() }.disabled(opening).accessibilityIdentifier("library-search-close") }
+                    }
                 }
             }
         }.frame(minWidth: 520, idealWidth: 640, minHeight: inlineDismiss == nil ? 480 : 0)
@@ -143,6 +149,13 @@ private struct LocalBookMetadataWorkspace: View {
     var body: some View {
         NavigationStack {
             Form {
+                if let inlineDismiss {
+                    HStack {
+                        Text("本地书目信息").font(.headline)
+                        Spacer()
+                        Button("返回查找", action: inlineDismiss).disabled(saving).accessibilityIdentifier("library-metadata-close")
+                    }
+                }
                 Picker("书籍", selection: $selectedID) {
                     Text("选择一本书").tag(String?.none)
                     ForEach(model.response.legacy.books) { book in Text(book.title + " · " + book.identity.format.rawValue).tag(Optional(book.id)) }
@@ -160,7 +173,9 @@ private struct LocalBookMetadataWorkspace: View {
                 }.disabled(saving || draftBook == nil || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .accessibilityIdentifier("library-metadata-save")
             }.padding().disabled(saving).preference(key: PDFnoWorkspaceBusyKey.self, value: saving).navigationTitle("本地书目信息")
-                .toolbar { ToolbarItem { Button("完成") { if let inlineDismiss { inlineDismiss() } else { dismiss() } }.disabled(saving).accessibilityIdentifier("library-metadata-close") } }
+                .toolbar {
+                    if inlineDismiss == nil { ToolbarItem { Button("完成") { dismiss() }.disabled(saving).accessibilityIdentifier("library-metadata-close") } }
+                }
         }.frame(minWidth: 480, minHeight: 300)
             .task { if selectedID == nil { selectedID = model.response.legacy.books.first?.id; select(selectedID) } }
     }

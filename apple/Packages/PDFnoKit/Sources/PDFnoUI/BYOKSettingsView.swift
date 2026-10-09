@@ -51,7 +51,7 @@ public struct BYOKSettingsView: View {
                     } else { Text("仅 HTTPS；不能包含 URL 用户名、密码、查询或片段。不跟随任何重定向。") }
                 }
             }.textFieldStyle(.roundedBorder).padding(PDFnoDesign.Space.section)
-        }.background(PDFnoDesign.Palette.chrome)
+        }.background(PDFnoDesign.Palette.chrome).accessibilityIdentifier("byok-settings-form")
             .preference(key: PDFnoWorkspaceBusyKey.self, value: applying)
             .task { if loadOnAppear { await model.load() } }.onDisappear { model.invalidate() }
         #else

@@ -423,6 +423,10 @@ public final class LibraryModel: ObservableObject {
         catch { self.error = error.localizedDescription }
     }
     var currentAIBookID: UUID? { if readingComic || docx.isActive || textFormats.isActive || ebook.isActive { return nil }; return readingEPUB ? epub.book?.id : reader.book?.id }
+    var hasCurrentSavedLearningNotes: Bool {
+        guard let id = currentAIBookID else { return false }
+        return learning.notes.contains { $0.result.source.bookID == id }
+    }
     func preparePageTranslation() {
         guard !readingEPUB, !readingComic, !docx.isActive, !textFormats.isActive, !ebook.isActive else { pageTranslation.rejectPreparation(PDFPageTranslationFailure.invalidSource); return }
         do { pageTranslation.prepare(try reader.currentPageTextSnapshot()) }

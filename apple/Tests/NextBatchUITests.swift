@@ -46,6 +46,13 @@ final class NextBatchUITests: XCTestCase {
     @MainActor private func element(_ id: String, _ app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
+    @MainActor private func openCurrentEnglish(_ app: XCUIApplication) {
+        click(element("document-more", app))
+        let submenu = app.menuItems.matching(identifier: "document-selection-learning").firstMatch
+        XCTAssertTrue(submenu.waitForExistence(timeout: 10)); XCTAssertTrue(submenu.isEnabled); click(submenu)
+        let action = app.menuItems.matching(identifier: "document-english-learning").firstMatch
+        XCTAssertTrue(action.waitForExistence(timeout: 10)); XCTAssertTrue(action.isEnabled); click(action)
+    }
     @MainActor private func click(_ item: XCUIElement) {
         if !item.exists { XCTAssertTrue(item.waitForExistence(timeout: 10)) }
         if !item.isEnabled || !item.isHittable {
@@ -163,7 +170,7 @@ final class NextBatchUITests: XCTestCase {
         click(app.buttons["reader-navigation"].firstMatch)
         let search = app.textFields["search-input"].firstMatch; click(search); pasteFixture("window", into: search)
         click(app.buttons["search-submit"].firstMatch); click(app.buttons["search-result"].firstMatch)
-        click(app.buttons["reader-english-learning"].firstMatch)
+        openCurrentEnglish(app)
         XCTAssertTrue(element("english-offline-fixture", app).waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["english-learning-start"].firstMatch.isEnabled)
         click(app.buttons["english-learning-close"].firstMatch)
@@ -172,7 +179,7 @@ final class NextBatchUITests: XCTestCase {
         let key = app.secureTextFields["ai-session-key"].firstMatch
         reveal(key, form: "ai-settings-form", app: app); click(key); pasteFixture("synthetic-reading-ui-credential", into: key)
         click(app.buttons["ai-settings-save"].firstMatch)
-        click(app.buttons["reader-english-learning"].firstMatch)
+        openCurrentEnglish(app)
         text(element("english-learning-fixed-source", app), contains: "window")
         let consent = element("english-learning-confirm", app), start = app.buttons["english-learning-start"].firstMatch
         reveal(consent, form: "english-learning-form", app: app); click(consent)
@@ -205,7 +212,7 @@ final class NextBatchUITests: XCTestCase {
         click(app.buttons["reader-navigation"].firstMatch)
         let repeatSearch = app.textFields["search-input"].firstMatch; click(repeatSearch); pasteFixture("window", into: repeatSearch)
         click(app.buttons["search-submit"].firstMatch); click(app.buttons["search-result"].firstMatch)
-        click(app.buttons["reader-english-learning"].firstMatch)
+        openCurrentEnglish(app)
         text(element("english-learning-fixed-source", app), contains: "window")
         XCTAssertFalse(app.buttons["english-learning-start"].firstMatch.isEnabled, "Session credential must not survive restart")
     }

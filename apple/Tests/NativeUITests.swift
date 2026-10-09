@@ -10,6 +10,7 @@ final class NativeUITests: XCTestCase {
     @MainActor private func navigateWorkspace(_ id: String, in app: XCUIApplication) {
         #if os(macOS)
         func target(_ name: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: name).firstMatch }
+        if id == "import-pdf", target("document-add").exists { return }
         // The requested list route must be selected explicitly now that home defaults to grid.
         // Inline cover editing retains the same thumbnail; do not navigate away to find it.
         if target("cover-select-image").exists && (id == "library-book" || id.hasPrefix("cover-image-")) { return }
@@ -49,6 +50,48 @@ final class NativeUITests: XCTestCase {
         #endif
     }
 
+    @MainActor private func nativeImportEntry(_ app: XCUIApplication) -> XCUIElement {
+        #if os(macOS)
+        let add = app.buttons["document-add"].firstMatch
+        if add.exists { return add }
+        #endif
+        return app.buttons["import-pdf"].firstMatch
+    }
+    @MainActor private func currentToolReturn(_ app: XCUIApplication, formerID: String) -> XCUIElement {
+        let back = app.buttons["workspace-tool-return"].firstMatch
+        return back.exists ? back : app.buttons[formerID].firstMatch
+    }
+    @MainActor private func currentLanguageLauncher(_ app: XCUIApplication, formerID: String) -> XCUIElement {
+        let former = app.buttons[formerID].firstMatch
+        if former.exists { return former }
+        if !app.descendants(matching: .any).matching(identifier: "document-more").firstMatch.exists { resumeCurrentDocument(app) }
+        return app.descendants(matching: .any).matching(identifier: "document-more").firstMatch
+    }
+    @MainActor private func chooseCurrentLanguage(_ id: String, app: XCUIApplication) {
+        let submenu = app.menuItems.matching(identifier: "document-selection-learning").firstMatch
+        XCTAssertTrue(submenu.waitForExistence(timeout: 10)); XCTAssertTrue(submenu.isEnabled); press(submenu)
+        let action = app.menuItems.matching(identifier: id).firstMatch
+        XCTAssertTrue(action.waitForExistence(timeout: 10)); XCTAssertTrue(action.isEnabled); press(action)
+    }
+    @MainActor private func openCurrentBYOK(_ app: XCUIApplication) {
+        press(app.buttons["reader-ai"].firstMatch)
+        let service = app.popUpButtons["selection-service"].firstMatch
+        XCTAssertTrue(service.waitForExistence(timeout: 10)); press(service)
+        let byok = app.menuItems["独立 HTTPS BYOK"].firstMatch
+        XCTAssertTrue(byok.waitForExistence(timeout: 10)); press(byok)
+    }
+    @MainActor private func revealCurrentBYOKSettings(_ app: XCUIApplication) {
+        let ai = app.buttons["settings-category-ai"].firstMatch
+        if ai.exists { press(ai) }
+        else {
+            let category = app.descendants(matching: .any).matching(identifier: "settings-category-picker").firstMatch
+            XCTAssertTrue(category.waitForExistence(timeout: 10)); press(category); press(app.menuItems["AI"].firstMatch)
+        }
+        if !app.textFields["byok-endpoint"].firstMatch.exists {
+            let details = app.buttons["settings-byok-details"].firstMatch
+            revealCurrentSettingsElement(details, app: app); press(details)
+        }
+    }
     @MainActor private func resumeCurrentDocument(_ app: XCUIApplication) {
         let tabs = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'document-tab-' AND NOT identifier BEGINSWITH 'document-tab-close-'"))
         XCTAssertEqual(tabs.count, 1, "Resume the scenario's single real document tab")
@@ -131,9 +174,9 @@ final class NativeUITests: XCTestCase {
         } else {
             try original.write(to: input)
             navigateWorkspace("import-pdf", in: app)
-            XCTAssertTrue(app.buttons["import-pdf"].firstMatch.waitForExistence(timeout: 15))
+            XCTAssertTrue(nativeImportEntry(app).waitForExistence(timeout: 15))
             navigateWorkspace("import-pdf", in: app)
-            try chooseInput(input, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+            try chooseInput(input, trigger: nativeImportEntry(app), app: app)
         }
         let navigation = app.buttons[prefix + "-navigation"].firstMatch
         XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
@@ -231,11 +274,12 @@ final class NativeUITests: XCTestCase {
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
         app.launch(); app.activate(); defer { app.terminate() }
         try prepareOriginalPDFNoteEditing(app)
-        press(app.buttons["reader-byok"].firstMatch)
+        openCurrentBYOK(app)
         guard japaneseElement("byok-offline-fixture", in: app).waitForExistence(timeout: 5) else {
             throw NSError(domain: "PDFno-Offline-BYOK-UI", code: 1, userInfo: [NSLocalizedDescriptionKey: "Intercepted BYOK transport required before synthetic credential"])
         }
         press(app.buttons["byok-selection-settings"].firstMatch)
+        revealCurrentBYOKSettings(app)
         let endpoint = app.textFields["byok-endpoint"].firstMatch
         XCTAssertTrue(endpoint.waitForExistence(timeout: 5)); enterSearch("https://joint-ui.example/v1", into: endpoint, replacing: true)
         enterSearch("original-ui-model", into: app.textFields["byok-model"].firstMatch, replacing: true)
@@ -243,7 +287,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(key.waitForExistence(timeout: 5)); enterSearch("synthetic-reading-ui-credential", into: key, replacing: true)
         press(app.buttons["byok-apply"].firstMatch)
         waitForText(["仅在本次会话生效"], in: japaneseElement("byok-settings-status", in: app), timeout: 5)
-        let settingsClose = app.buttons["byok-settings-close"].firstMatch
+        let settingsClose = currentSettingsReturn(app)
         press(settingsClose)
         let settingsDismissed = expectation(for: NSPredicate { _, _ in !settingsClose.exists }, evaluatedWith: app)
         wait(for: [settingsDismissed], timeout: 10)
@@ -277,7 +321,7 @@ final class NativeUITests: XCTestCase {
         navigateWorkspace("ai-settings", in: app)
         XCTAssertTrue(originalSettings.waitForExistence(timeout: 5)); waitUntilEnabled(originalSettings); press(originalSettings)
         XCTAssertTrue(app.buttons["ai-use-deepseek"].firstMatch.waitForExistence(timeout: 5))
-        press(app.buttons["byok-settings-open"].firstMatch)
+        revealCurrentBYOKSettings(app)
         XCTAssertTrue(endpoint.waitForExistence(timeout: 5)); enterSearch("https://different-ui.example/v1", into: endpoint, replacing: true)
         waitForText(["旧会话密钥已撤销"], in: japaneseElement("byok-settings-status", in: app), timeout: 5)
         XCTAssertEqual(key.value as? String, "")
@@ -375,6 +419,7 @@ final class NativeUITests: XCTestCase {
         if id == "open-ebook-sample" {
             return app.descendants(matching: .any).matching(identifier: id).firstMatch
         }
+        if id == "import-pdf" { return nativeImportEntry(app) }
         // Exact AX identifier avoids title/label alias resolution during broad snapshot queries.
         return app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", id)).firstMatch
     }
@@ -415,10 +460,11 @@ final class NativeUITests: XCTestCase {
             return
         }
         press(entry)
+        chooseCurrentLanguage("document-japanese-learning", app: app)
     }
     @MainActor private func prepareJapaneseOfflinePDF(_ app: XCUIApplication) throws {
         try prepareOriginalPDFNoteEditing(app)
-        pressJapaneseEntry(app.buttons["reader-japanese-learning"].firstMatch, in: app)
+        pressJapaneseEntry(currentLanguageLauncher(app, formerID: "reader-japanese-learning"), in: app)
         guard japaneseElement("japanese-offline-fixture", in: app).waitForExistence(timeout: 5) else {
             throw NSError(domain: "PDFno-Offline-UI", code: 1, userInfo: [NSLocalizedDescriptionKey: "Fully intercepted Japanese transport required before synthetic key entry"])
         }
@@ -431,7 +477,7 @@ final class NativeUITests: XCTestCase {
         let key = japaneseElement("ai-session-key", in: app)
         XCTAssertTrue(key.waitForExistence(timeout: 5)); enterSearch("synthetic-reading-ui-credential", into: key, replacing: true)
         press(app.buttons["ai-settings-save"].firstMatch)
-        pressJapaneseEntry(app.buttons["reader-japanese-learning"].firstMatch, in: app)
+        pressJapaneseEntry(currentLanguageLauncher(app, formerID: "reader-japanese-learning"), in: app)
         XCTAssertTrue(japaneseElement("japanese-learning-source", in: app).waitForExistence(timeout: 5))
         XCTAssertEqual(textValue(japaneseElement("japanese-learning-source", in: app)), "window")
     }
@@ -521,7 +567,7 @@ final class NativeUITests: XCTestCase {
         let returned = app.buttons["japanese-saved-return"].firstMatch
         scrollEditingElement(returned, app: app); press(returned)
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
-        pressJapaneseEntry(app.buttons["reader-japanese-learning"].firstMatch, in: app)
+        pressJapaneseEntry(currentLanguageLauncher(app, formerID: "reader-japanese-learning"), in: app)
         XCTAssertFalse(app.buttons["japanese-learning-start"].firstMatch.isEnabled, "Session key must not survive restart")
     }
     @MainActor func testMacJapaneseNativeEPUBSelectionManualSaveAndSourceReturnPreservesRuby() throws {
@@ -540,7 +586,7 @@ final class NativeUITests: XCTestCase {
         // Wait for the real native controls to settle before selecting body text.
         let tocClosed = expectation(for: NSPredicate { _, _ in !app.buttons["epub-chapter-1"].firstMatch.exists }, evaluatedWith: app)
         wait(for: [tocClosed], timeout: 10)
-        let japaneseEntry = app.buttons["epub-japanese-learning"].firstMatch
+        let japaneseEntry = currentLanguageLauncher(app, formerID: "epub-japanese-learning")
         let entryReady = expectation(for: NSPredicate { _, _ in
             japaneseEntry.exists && japaneseEntry.isEnabled && japaneseEntry.isHittable
         }, evaluatedWith: japaneseEntry)
@@ -599,7 +645,7 @@ final class NativeUITests: XCTestCase {
                 waitForText(["请求已取消", "迟到结果不会显示或保存"], in: japaneseElement("japanese-learning-status", in: app), timeout: 5)
                 XCTAssertFalse(japaneseElement("japanese-components-source", in: app).exists)
                 press(app.buttons["japanese-learning-close"].firstMatch)
-                pressJapaneseEntry(app.buttons["reader-japanese-learning"].firstMatch, in: app)
+                pressJapaneseEntry(currentLanguageLauncher(app, formerID: "reader-japanese-learning"), in: app)
                 XCTAssertFalse(japaneseElement("japanese-components-source", in: app).exists)
             }
             let budget = japaneseElement("japanese-learning-budget", in: app)
@@ -730,7 +776,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(NSDictionary(dictionary: try originalSavedNote(token, manifest: "library-v1.json")), NSDictionary(dictionary: saved))
         // Finish the current preview before navigating to its new tools entry.
         // Escape inside navigateWorkspace would otherwise dismiss this sheet.
-        press(app.buttons["bookno-preview-close"].firstMatch)
+        press(currentToolReturn(app, formerID: "bookno-preview-close"))
         navigateWorkspace("bookno-preview-open", in: app)
         press(open)
         XCTAssertTrue(enable.waitForExistence(timeout: 5)); XCTAssertEqual(booknoCheckboxState(enable), false)
@@ -1045,7 +1091,7 @@ final class NativeUITests: XCTestCase {
         press(app.buttons["library-search-clear"].firstMatch)
         XCTAssertTrue(app.staticTexts["library-search-empty"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["library-search-open-book"].firstMatch.exists)
-        press(app.buttons["library-search-close"].firstMatch)
+        press(currentToolReturn(app, formerID: "library-search-close"))
         app.terminate(); app.launch(); app.activate()
         let search = app.buttons["library-search"].firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 15)); press(search)
@@ -1129,7 +1175,7 @@ final class NativeUITests: XCTestCase {
         let search = app.textFields["library-search-input"].firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 8)); enterSearch("integrationdraftbody", into: search)
         XCTAssertTrue(app.staticTexts["library-search-no-results"].firstMatch.waitForExistence(timeout: 8))
-        press(app.buttons["library-search-close"].firstMatch); press(app.buttons["reader-notes"].firstMatch)
+        press(currentToolReturn(app, formerID: "library-search-close")); press(app.buttons["reader-notes"].firstMatch)
         XCTAssertEqual(textValue(editingInput("pdf-note", app: app)), "integrationdraftbody")
         pressEditingElement(app.buttons["pdf-note-edit-cancel"].firstMatch, app: app)
         pressEditingElement(edit, app: app)
@@ -1204,9 +1250,9 @@ final class NativeUITests: XCTestCase {
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launch(); app.activate(); defer { app.terminate() }
         navigateWorkspace("import-pdf", in: app)
-        XCTAssertTrue(app.buttons["import-pdf"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(nativeImportEntry(app).waitForExistence(timeout: 15))
         navigateWorkspace("import-pdf", in: app)
-        try chooseInput(file, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        try chooseInput(file, trigger: nativeImportEntry(app), app: app)
         let navigation = app.buttons["textformat-navigation"].firstMatch
         XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
         openCurrentFileMenu(app)
@@ -1269,9 +1315,9 @@ final class NativeUITests: XCTestCase {
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launch(); app.activate(); defer { app.terminate() }
         navigateWorkspace("import-pdf", in: app)
-        XCTAssertTrue(app.buttons["import-pdf"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(nativeImportEntry(app).waitForExistence(timeout: 15))
         navigateWorkspace("import-pdf", in: app)
-        try chooseInput(source, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        try chooseInput(source, trigger: nativeImportEntry(app), app: app)
         let navigation = app.buttons["docx-navigation"].firstMatch
         XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
         XCTAssertFalse(app.buttons["reader-ai"].firstMatch.exists)
@@ -1340,9 +1386,9 @@ final class NativeUITests: XCTestCase {
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate(); defer { app.terminate() }
         navigateWorkspace("import-pdf", in: app)
-        XCTAssertTrue(app.buttons["import-pdf"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(nativeImportEntry(app).waitForExistence(timeout: 15))
         navigateWorkspace("import-pdf", in: app)
-        try chooseInput(broken, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        try chooseInput(broken, trigger: nativeImportEntry(app), app: app)
         let dismiss = try modalButton(app, titles: ["知道了"])
         XCTAssertTrue(app.staticTexts["DOCX ZIP 无效、校验失败或含不安全路径／加密／不支持的归档结构。"].firstMatch.exists)
         press(dismiss)
@@ -1373,7 +1419,7 @@ final class NativeUITests: XCTestCase {
         let comic = root.appendingPathComponent("Original Word Transition.cbz")
         try originalZIP([("1.png", try originalPNG(width: 12, height: 20)), ("2.png", try originalPNG(width: 12, height: 20))]).write(to: comic)
         navigateWorkspace("import-pdf", in: app)
-        try chooseInput(comic, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        try chooseInput(comic, trigger: nativeImportEntry(app), app: app)
         waitForText(["1 / 2"], in: app.staticTexts["comic-position"].firstMatch, timeout: 25)
         XCTAssertFalse(navigation.exists)
         navigateWorkspace("library-docx", in: app)
@@ -1527,7 +1573,7 @@ final class NativeUITests: XCTestCase {
         // Close that popover before activating the real library import button.
         app.typeKey(.escape, modifierFlags: [])
         navigateWorkspace("import-pdf", in: app)
-        try chooseInput(archive, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        try chooseInput(archive, trigger: nativeImportEntry(app), app: app)
         let position = app.staticTexts["comic-position"].firstMatch
         waitForText(["1 / 7"], in: position, timeout: 25)
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "comic-content").firstMatch.exists)
@@ -1570,7 +1616,7 @@ final class NativeUITests: XCTestCase {
         waitForText(["5 / 7"], in: position, timeout: 25)
         XCTAssertTrue(textValue(direction).contains("从右到左")); XCTAssertTrue(textValue(layout).contains("单页"))
         navigateWorkspace("import-pdf", in: app)
-        try chooseInput(broken, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        try chooseInput(broken, trigger: nativeImportEntry(app), app: app)
         let dismissError = try modalButton(app, titles: ["知道了"])
         let archiveError = "CBZ 无效、路径不安全、校验失败或 ZIP 结构不受支持（加密、分卷、ZIP64）。"
         XCTAssertTrue(app.staticTexts[archiveError].firstMatch.exists)
@@ -1678,7 +1724,7 @@ final class NativeUITests: XCTestCase {
         // CB7, CBR and CBT share this driver and the same help popover.
         app.typeKey(.escape, modifierFlags: [])
         navigateWorkspace("import-pdf", in: app)
-        try chooseInput(archive, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        try chooseInput(archive, trigger: nativeImportEntry(app), app: app)
         let position = app.staticTexts["comic-position"].firstMatch
         waitForText(["1 / 7"], in: position, timeout: 25)
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "comic-content").firstMatch.exists)
@@ -1721,7 +1767,7 @@ final class NativeUITests: XCTestCase {
         waitForText(["5 / 7"], in: position, timeout: 25)
         XCTAssertTrue(textValue(direction).contains("从右到左")); XCTAssertTrue(textValue(layout).contains("单页"))
         navigateWorkspace("import-pdf", in: app)
-        try chooseInput(broken, trigger: app.buttons["import-pdf"].firstMatch, app: app)
+        try chooseInput(broken, trigger: nativeImportEntry(app), app: app)
         let dismissError = try modalButton(app, titles: ["知道了"])
         let archiveError: String
         switch format {
@@ -2389,8 +2435,31 @@ final class NativeUITests: XCTestCase {
         }
         return try XCTUnwrap(found, "Actual WebKit text must be exposed for user selection/ruby acceptance")
     }
+    @MainActor private func revealCurrentSettingsElement(_ element: XCUIElement, app: XCUIApplication) {
+        let outer = app.scrollViews["ai-settings-form"].firstMatch
+        XCTAssertTrue(outer.waitForExistence(timeout: 5)); XCTAssertTrue(element.waitForExistence(timeout: 5))
+        let inner = app.scrollViews["byok-settings-form"].firstMatch
+        for _ in 0..<12 {
+            let target = element.frame, viewport = outer.frame.insetBy(dx: 4, dy: 8)
+            let nested = element.identifier.hasPrefix("byok-") && inner.exists
+            let nestedVisible = !nested || inner.frame.insetBy(dx: 4, dy: 8).contains(target)
+            if !target.isEmpty, viewport.contains(target), nestedVisible, element.isHittable { return }
+            let scroll = nested && !nestedVisible ? inner : outer
+            let bounds = scroll.frame.insetBy(dx: 4, dy: 8)
+            scroll.scroll(byDeltaX: 0, deltaY: target.minY < bounds.minY ? 250 : -250)
+        }
+        XCTAssertTrue(outer.frame.insetBy(dx: 4, dy: 8).contains(element.frame)); XCTAssertTrue(element.isHittable)
+    }
+    @MainActor private func currentSettingsReturn(_ app: XCUIApplication) -> XCUIElement {
+        let back = app.buttons["settings-return"].firstMatch
+        revealCurrentSettingsElement(back, app: app); return back
+    }
     @MainActor private func press(_ element: XCUIElement) {
         #if os(macOS)
+        if ["byok-endpoint", "byok-model", "byok-session-key", "byok-apply"].contains(element.identifier),
+           XCUIApplication().scrollViews["ai-settings-form"].firstMatch.exists {
+            revealCurrentSettingsElement(element, app: XCUIApplication())
+        }
         element.click()
         #else
         element.tap()
