@@ -25,7 +25,7 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
     final class DocumentBandHost: NSHostingView<AnyView> {
         var controlFrames: [CGRect] = []
         private let nativeBackground = NativeTitlebarBackground()
-        override init(rootView: AnyView) {
+        required init(rootView: AnyView) {
             super.init(rootView: rootView)
             nativeBackground.frame = bounds
             nativeBackground.autoresizingMask = [.width, .height]
