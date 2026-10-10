@@ -60,9 +60,9 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
             host = DocumentBandHost(rootView: content); self.width = width
             super.init()
             host.sizingOptions = []; host.translatesAutoresizingMaskIntoConstraints = false
-            widthConstraint = host.widthAnchor.constraint(equalToConstant: max(260, width - 120))
+            widthConstraint = host.widthAnchor.constraint(equalToConstant: max(0, width - 80))
             NSLayoutConstraint.activate([widthConstraint, host.heightAnchor.constraint(equalToConstant: 34)])
-            host.setFrameSize(NSSize(width: max(260, width - 120), height: 34))
+            host.setFrameSize(NSSize(width: max(0, width - 80), height: 34))
             accessory.view = host; accessory.layoutAttribute = .right
             accessory.fullScreenMinHeight = 34
             setContent(content)
@@ -117,9 +117,16 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
         private func hideNativeTitle() {
             if let window, window.titleVisibility != .hidden { window.titleVisibility = .hidden }
         }
+        static func availableWidth(window: NSWindow, requested: CGFloat) -> CGFloat {
+            let controls = [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton]
+                .compactMap { window.standardWindowButton($0) }
+            let controlsEnd = controls.map { $0.convert($0.bounds,to: nil).maxX }.max() ?? 68
+            let safeLeading = max(80, controlsEnd + 12)
+            return max(0,min(requested,window.frame.width) - safeLeading)
+        }
         private func resize() {
             guard let window else { return }
-            let available = max(260, min(width, window.frame.width) - 120)
+            let available = Self.availableWidth(window: window, requested: width)
             let size = NSSize(width: available, height: 34)
             if host.frame.size != size {
                 host.setFrameSize(size); widthConstraint.constant = available

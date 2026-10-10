@@ -96,6 +96,7 @@ import PDFnoReaders
     let root: URL
     var reader: AnnotationReader?
     private var changes: AnyCancellable?
+    private var editingCheckpoint: (key: String,text: String?)?
     private let owner = "annotations:"+UUID().uuidString
     init(root: URL) {
         self.root=root; let repository=AnnotationRepository(root: root);self.repository=repository
@@ -127,14 +128,32 @@ import PDFnoReaders
         saving=true;defer { saving=false }
         do { _=try await repository.mark(bookID: bookID,anchor: anchor,kind: kind);await reload();if self.reader?.sessionID==sessionID { await reader.project(records) };status=kind.title+"已保存" } catch { self.error=error.localizedDescription }
     }
-    func begin(_ record: AnchoredAnnotation) { let snapshot=AnnotationBodySnapshot(record);editor.begin(snapshot);editing=editor.drafts[snapshot.key]?.baseline.annotation ?? record;updateDraftOwner() }
+    func begin(_ record: AnchoredAnnotation) {
+        let snapshot=AnnotationBodySnapshot(record)
+        if editing?.id != record.id { editingCheckpoint=(snapshot.key,editor.drafts[snapshot.key]?.text) }
+        editor.begin(snapshot);editing=editor.drafts[snapshot.key]?.baseline.annotation ?? record;updateDraftOwner()
+    }
     func save(_ baseline: AnchoredAnnotation) async {
         let snapshot=AnnotationBodySnapshot(baseline)
         guard let saved=await editor.save(snapshot) else { return }
         await reload();if let reader,reader.bookID==saved.bookID { await reader.project(records) }
-        if editing?.id==baseline.id && editor.drafts[snapshot.key]==nil { editing=nil };updateDraftOwner()
+        if editing?.id==baseline.id && editor.drafts[snapshot.key]==nil { editing=nil;editingCheckpoint=nil };updateDraftOwner()
     }
-    func cancel(_ baseline: AnchoredAnnotation) { let snapshot=AnnotationBodySnapshot(baseline);editor.cancel(snapshot);if editor.drafts[snapshot.key]==nil && editing?.id==baseline.id { editing=nil };updateDraftOwner() }
+    func cancel(_ baseline: AnchoredAnnotation) {
+        let snapshot=AnnotationBodySnapshot(baseline)
+        if let checkpoint=editingCheckpoint,checkpoint.key==snapshot.key,let previous=checkpoint.text {
+            // A resumed draft belongs to the previous editing session. Cancel
+            // only the new changes, using the existing journal's write fence.
+            guard !editor.saving.contains(snapshot.key) else { return }
+            editor.setText(previous,for: snapshot)
+            guard editor.journalError==nil,editor.drafts[snapshot.key]?.text.utf8.elementsEqual(previous.utf8)==true else { return }
+            if editing?.id==baseline.id { editing=nil;editingCheckpoint=nil }
+        } else {
+            editor.cancel(snapshot)
+            if editor.drafts[snapshot.key]==nil && editing?.id==baseline.id { editing=nil;editingCheckpoint=nil }
+        }
+        updateDraftOwner()
+    }
     func rebase(_ baseline: AnchoredAnnotation) async { await reload();if let fresh=records.first(where: { $0.id==baseline.id }) { editor.rebase(AnnotationBodySnapshot(fresh));editing=fresh } else { editor.reportReloadFailure(AnnotationBodySnapshot(baseline)) } }
     func navigate(_ record: AnchoredAnnotation) async { guard let reader,reader.bookID==record.bookID,await reader.navigate(record.anchor) else { error="原文无法精确定位；标注和摘录已保留。";return };status="已定位原文" }
 }
@@ -185,13 +204,18 @@ struct AnnotationCommentInput: NSViewRepresentable {
     @Binding var text: String
     let identifier: String
     let enabled: Bool
+    var borderless = false
     func makeCoordinator() -> NativeNoteBodyInput.Coordinator { NativeNoteBodyInput.Coordinator(text: $text) }
-    static func makeEditor(coordinator: NativeNoteBodyInput.Coordinator,identifier: String,enabled: Bool) -> NSScrollView {
+    static func makeEditor(coordinator: NativeNoteBodyInput.Coordinator,identifier: String,enabled: Bool,borderless: Bool = false) -> NSScrollView {
         let scroll=NativeNoteBodyInput.makeEditor(coordinator: coordinator,identifier: identifier,enabled: enabled)
+        if borderless {
+            scroll.borderType = .noBorder;scroll.drawsBackground=false;scroll.contentView.drawsBackground=false
+            (scroll.documentView as? NSTextView)?.drawsBackground=false
+        }
         (scroll.documentView as? NSTextView)?.setAccessibilityEnabled(enabled)
         return scroll
     }
-    func makeNSView(context: Context) -> NSScrollView { Self.makeEditor(coordinator: context.coordinator,identifier: identifier,enabled: enabled) }
+    func makeNSView(context: Context) -> NSScrollView { Self.makeEditor(coordinator: context.coordinator,identifier: identifier,enabled: enabled,borderless: borderless) }
     func updateNSView(_ scroll: NSScrollView,context: Context) {
         guard let view=scroll.documentView as? NSTextView else { return }
         context.coordinator.update(view,text: $text,enabled: enabled)
@@ -209,22 +233,20 @@ struct AnnotationEditor: View {
     private var snapshot: AnnotationBodySnapshot { AnnotationBodySnapshot(baseline) }
     var body: some View {
         VStack(alignment: .leading,spacing: 14) {
-            Label("编辑批注",systemImage: "note.text").font(.headline)
-            Text(baseline.anchor.quote).lineLimit(5).padding(10).frame(maxWidth: .infinity,alignment: .leading).background(.quaternary,in: RoundedRectangle(cornerRadius: 8))
             if let result=baseline.aiResult { AIResultNoteBox(result: result,identifier: "annotation-editor-ai-result") }
-            AnnotationCommentInput(text: Binding(get: { model.editor.drafts[snapshot.key]?.text ?? baseline.userText },set: { model.editor.setText($0,for: snapshot) }),identifier: "annotation-comment-input",enabled: !model.editor.saving.contains(snapshot.key)).frame(height: 168).id(snapshot.key)
-            Text("未保存草稿会保留；留空可清除批注，原文标记保留。").font(.caption).foregroundStyle(.secondary)
-            if let feedback=model.editor.feedback[snapshot.key] { Text(feedback).font(.caption).accessibilityIdentifier("annotation-editor-status") }
+            AnnotationCommentInput(text: Binding(get: { model.editor.drafts[snapshot.key]?.text ?? baseline.userText },set: { model.editor.setText($0,for: snapshot) }),identifier: "annotation-comment-input",enabled: !model.editor.saving.contains(snapshot.key),borderless: true).frame(minHeight: 200,idealHeight: 240).id(snapshot.key)
+            if let feedback=model.editor.feedback[snapshot.key],feedback != "正文未保存" { Text(feedback).font(.caption).accessibilityIdentifier("annotation-editor-status") }
             if let error=model.editor.journalError { Text(error).foregroundStyle(.red) }
             HStack {
-                Button("保留草稿并关闭") { model.editing=nil }.disabled(model.editor.saving.contains(snapshot.key)).accessibilityIdentifier("annotation-editor-close")
-                Spacer()
-                Button("取消编辑") { model.cancel(baseline) }.disabled(model.editor.saving.contains(snapshot.key)).accessibilityIdentifier("annotation-editor-cancel")
-                Button("保存批注") { Task { await model.save(baseline) } }.buttonStyle(.borderedProminent)
+                Spacer(minLength: 0)
+                Button("取消") { model.cancel(baseline) }.disabled(model.editor.saving.contains(snapshot.key)).accessibilityIdentifier("annotation-editor-cancel").keyboardShortcut(.cancelAction)
+                Button("完成") { Task { await model.save(baseline) } }.buttonStyle(.borderedProminent)
                     .disabled(model.editor.saving.contains(snapshot.key) || !(model.editor.drafts[snapshot.key]?.baseline.accepts(model.editor.drafts[snapshot.key]?.text ?? "") ?? false)).accessibilityIdentifier("annotation-editor-save")
             }
             if model.editor.conflicts.contains(snapshot.key) { Button("重新载入基线，保留草稿") { Task { await model.rebase(baseline) } } }
-        }.padding(20).frame(width: 480).interactiveDismissDisabled(model.editor.saving.contains(snapshot.key))
+        }.padding(16).frame(minWidth: 300,idealWidth: 360,maxWidth: 480)
+            .background(PDFnoDesign.Palette.surface)
+            .interactiveDismissDisabled(model.editor.saving.contains(snapshot.key))
     }
 }
 

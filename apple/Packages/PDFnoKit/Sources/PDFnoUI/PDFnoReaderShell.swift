@@ -48,7 +48,7 @@ struct PDFnoReaderPlacement: Equatable {
         self.width = max(0, width.isFinite ? width : 0)
         let m = PDFnoDesign.Metric.self
         let navigationSize: CGFloat = profile == .professional ? 210 : m.navigationWidth
-        let preferredNotesSize: CGFloat = profile == .professional ? 300 : m.notesWidth
+        let preferredNotesSize: CGFloat = profile == .professional ? navigationSize : m.notesWidth
         let bothFit = profile != .professional && self.width >= m.readerMinimum + navigationSize + preferredNotesSize
         // The professional inspector can become compact before covering the
         // native document. Keep the full-width, two-panel desktop threshold.

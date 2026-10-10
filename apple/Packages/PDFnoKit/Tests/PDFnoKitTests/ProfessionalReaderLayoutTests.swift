@@ -26,7 +26,7 @@ struct ProfessionalReaderLayoutTests {
             }
         }
         let desktop = PDFnoReaderPlacement(width: 940, navigation: true, notes: true, preferred: .notes, profile: .professional)
-        #expect(desktop.showNavigation && desktop.showNotes && desktop.canvasWidth == 430)
+        #expect(!desktop.showNavigation && desktop.showNotes && desktop.canvasWidth == 730)
     }
     @Test func explicitPanelOpeningRestoresHiddenPanelWithoutDiscardingOtherRequest() {
         var panels = PDFnoReaderPanels()

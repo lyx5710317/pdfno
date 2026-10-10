@@ -554,7 +554,7 @@ struct ReaderWorkspace: View {
                                     }
                             }
                         } navigation: {
-                            PDFnoPanel(title: "导航与搜索", icon: "list.bullet", closeIdentifier: "close-navigation", close: closeNavigation) { navigationContent }
+                            PDFnoPanel(title: "导航与搜索", icon: "list.bullet", closeIdentifier: "close-navigation", close: closeNavigation, surface: PDFnoDesign.Palette.surface) { navigationContent }
                         } notes: {
                             if inspector == .bookmarks {
                                 BookmarkList(model: model.bookmarks,close: { panels.notes=false },closeIdentifier: "reader-close-bookmarks")
@@ -702,7 +702,8 @@ struct ReaderWorkspace: View {
                 searchResults
                 contentsResults(navigationSessionID: navigationSessionID)
                 #endif
-            }.listStyle(.sidebar)
+            }.listStyle(.sidebar).scrollContentBackground(.hidden)
+                .background(PDFnoDesign.Palette.surface)
         }.buttonStyle(.borderless).font(PDFnoDesign.TypeStyle.body)
         #else
         return mobileNavigationContent

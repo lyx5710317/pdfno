@@ -192,6 +192,7 @@ struct PDFnoPanel<Content: View>: View {
     let icon: String
     let closeIdentifier: String
     let close: () -> Void
+    var surface = PDFnoDesign.Palette.chrome
     @ViewBuilder let content: () -> Content
     var body: some View {
         VStack(spacing: 0) {
@@ -207,7 +208,7 @@ struct PDFnoPanel<Content: View>: View {
             Divider()
             content().frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(PDFnoDesign.Palette.chrome)
+        .background(surface)
         .overlay { Rectangle().strokeBorder(PDFnoDesign.Palette.border) }
         .accessibilityElement(children: .contain)
     }

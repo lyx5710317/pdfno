@@ -96,7 +96,9 @@ struct PDFnoReaderNavigationPicker: View {
     @Binding var tab: PDFnoReaderNavigationTab
     var body: some View {
         HStack(spacing: 3) {
-            ForEach(PDFnoReaderNavigationTab.allCases, id: \.self) { value in
+            // The search field is the single search entry. Keep contents as the
+            // way back after showing results without another search shortcut.
+            ForEach([PDFnoReaderNavigationTab.contents], id: \.self) { value in
                 Button { tab = value } label: {
                     Text(value.rawValue).font(.system(size: 11, weight: .medium))
                         .frame(maxWidth: .infinity).padding(.vertical, 7)
@@ -105,7 +107,7 @@ struct PDFnoReaderNavigationPicker: View {
                     .accessibilityValue(tab == value ? "已选中" : "未选中")
                     .accessibilityAddTraits(tab == value ? .isSelected : [])
             }
-        }.padding(3).background(PDFnoDesign.Palette.canvas, in: RoundedRectangle(cornerRadius: 8))
+        }.padding(3)
             .padding(.horizontal, 12).padding(.vertical, 8)
     }
 }
