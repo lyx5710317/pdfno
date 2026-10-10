@@ -35,3 +35,13 @@
 预览更新脚本已有严格4/4门槛，尚未执行。真实服务/AI质量、GUI实景与完整12/68/603回归尚未验证。无本轮截图，无 Library 附件ID；未安装 Python、修改 helper 或构造附件ID。
 
 追加证据：`Evidence/GUI-CONVERSATION-QA01-SUMMARY.json`、`GUI-CONVERSATION-QA01-TESTS.json`、`GUI-CONVERSATION-QA01-BLOCKER-RECEIPT.json`、`conversation-qa1.log`、`conversation-qa1-execution.json`。
+
+## 标准自动化恢复诊断
+
+追加只读诊断：runner与测试守护进程授权成功；本次阻塞位于其后的自动化模式writer。本任务导出的unified log记录 `Writer daemon requires authentication to enable automation mode.`，随后LocalAuthentication以 `Enable UI Automation` 为原因调用本机认证，60秒内未完成。此前成功Aa QA02使用相同Xcode2700/27A259、XCTAutomationSupport25228、runner权限和标准环境变量，开启模式在约12毫秒内完成；该成功时段没有要求本机认证的记录。尚未推断认证状态改变的原因。
+
+`DevToolsSecurity -status`只读返回Developer mode disabled；守护进程明确授权成功，因此不把该状态单独当作根因，也不改动它。没有本任务runner、app、xcodebuild残留。系统testmanagerd保留，未杀死系统服务。没有清缓存、重置权限、修改系统安全设置或使用替代输入。
+
+已准备一次新的标准手动重试，`QA01/RUN-PLAN-RETRY02.json`使用新的测试/截图nonce、xctestrun与xcresult路径，沿用已验证的专用签名产品和全部四场景断言。`run-gui-retry02.py`同时要求明确的本机认证授权与新的桌面交接，尚未执行。需要用户亲自处理macOS的Enable UI Automation认证提示；不会询问、接收或代输密码。授权回复待收到，依赖GUI的验证与预览更新继续暂停。
+
+诊断依据：`Evidence/AUTOMATION-INITIALIZATION-DIAGNOSIS.json`、`QA01-OWN-PID-UNIFIED.log`、`SUCCESS-AA-QA02-AUTOMATION.log`及两次官方diagnostics导出。
