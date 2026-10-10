@@ -172,6 +172,30 @@ struct AnnotationList: View {
     }
 }
 
+/// Keep the existing native editor/delegate; expose its real edit availability
+/// explicitly because a plain NSTextView reports AXEnabled=false on this SDK.
+struct AnnotationCommentInput: NSViewRepresentable {
+    @Binding var text: String
+    let identifier: String
+    let enabled: Bool
+    func makeCoordinator() -> NativeNoteBodyInput.Coordinator { NativeNoteBodyInput.Coordinator(text: $text) }
+    static func makeEditor(coordinator: NativeNoteBodyInput.Coordinator,identifier: String,enabled: Bool) -> NSScrollView {
+        let scroll=NativeNoteBodyInput.makeEditor(coordinator: coordinator,identifier: identifier,enabled: enabled)
+        (scroll.documentView as? NSTextView)?.setAccessibilityEnabled(enabled)
+        return scroll
+    }
+    func makeNSView(context: Context) -> NSScrollView { Self.makeEditor(coordinator: context.coordinator,identifier: identifier,enabled: enabled) }
+    func updateNSView(_ scroll: NSScrollView,context: Context) {
+        guard let view=scroll.documentView as? NSTextView else { return }
+        context.coordinator.update(view,text: $text,enabled: enabled)
+        // The delegate enforces this same flag immediately while native layout settles.
+        view.setAccessibilityEnabled(enabled)
+    }
+    static func dismantleNSView(_ scroll: NSScrollView,coordinator: NativeNoteBodyInput.Coordinator) {
+        guard let view=scroll.documentView as? NSTextView else { return };coordinator.unmount(view)
+    }
+}
+
 struct AnnotationEditor: View {
     @ObservedObject var model: AnnotationModel
     let baseline: AnchoredAnnotation
@@ -180,7 +204,7 @@ struct AnnotationEditor: View {
         VStack(alignment: .leading,spacing: 14) {
             Label("编辑批注",systemImage: "note.text").font(.headline)
             Text(baseline.anchor.quote).lineLimit(5).padding(10).frame(maxWidth: .infinity,alignment: .leading).background(.quaternary,in: RoundedRectangle(cornerRadius: 8))
-            NativeNoteBodyInput(text: Binding(get: { model.editor.drafts[snapshot.key]?.text ?? baseline.userText },set: { model.editor.setText($0,for: snapshot) }),identifier: "annotation-comment-input",enabled: !model.editor.saving.contains(snapshot.key)).frame(height: 168).id(snapshot.key)
+            AnnotationCommentInput(text: Binding(get: { model.editor.drafts[snapshot.key]?.text ?? baseline.userText },set: { model.editor.setText($0,for: snapshot) }),identifier: "annotation-comment-input",enabled: !model.editor.saving.contains(snapshot.key)).frame(height: 168).id(snapshot.key)
             Text("未保存草稿会保留；留空可清除批注，原文标记保留。").font(.caption).foregroundStyle(.secondary)
             if let feedback=model.editor.feedback[snapshot.key] { Text(feedback).font(.caption).accessibilityIdentifier("annotation-editor-status") }
             if let error=model.editor.journalError { Text(error).foregroundStyle(.red) }

@@ -114,8 +114,9 @@ struct AnchoredAnnotationTests {
         let model=AnnotationModel(root: root),record=AnchoredAnnotation(bookID: book.id,anchor: anchor(book),kind: .note)
         model.begin(record);let snapshot=AnnotationBodySnapshot(record)
         let binding=Binding(get: { model.editor.drafts[snapshot.key]?.text ?? "" },set: { model.editor.setText($0,for: snapshot) })
-        let coordinator=NativeNoteBodyInput.Coordinator(text: binding),scroll=NativeNoteBodyInput.makeEditor(coordinator: coordinator,identifier: "original-annotation-input",enabled: true)
+        let coordinator=NativeNoteBodyInput.Coordinator(text: binding),scroll=AnnotationCommentInput.makeEditor(coordinator: coordinator,identifier: "original-annotation-input",enabled: true)
         let input=try #require(scroll.documentView as? NSTextView),text=" 原创粘贴\nか\u{3099} 👩🏽‍🚀 e\u{301} "
+        #expect(input.isEditable && input.isAccessibilityEnabled())
         let pasteboard=NSPasteboard(name: .init("PDFno-Original-Annotation-Paste-"+UUID().uuidString))
         defer { pasteboard.releaseGlobally() }
         pasteboard.clearContents();pasteboard.setString(text,forType: .string)
