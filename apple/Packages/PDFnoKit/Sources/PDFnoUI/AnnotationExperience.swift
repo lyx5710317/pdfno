@@ -162,6 +162,7 @@ struct AnnotationList: View {
     @ObservedObject var model: AnnotationModel
     let legacy: () -> Void
     var body: some View {
+        VStack(spacing: 0) {
         List {
             if !model.bookDrafts.isEmpty {
                 Section("未保存批注") { ForEach(model.bookDrafts,id: \.baseline.key) { draft in
@@ -192,9 +193,13 @@ struct AnnotationList: View {
                         .onTapGesture(count: 2) { model.begin(record) }
                 }
             }
-            Section { Button("旧笔记与学习记录",action: legacy).accessibilityIdentifier("annotation-legacy-records") }
             if let status=model.status { Text(status).font(.caption).accessibilityIdentifier("annotation-status") }
         }.accessibilityIdentifier("annotation-list")
+            Divider()
+            Button("旧笔记与学习记录",action: legacy)
+                .frame(maxWidth: .infinity,alignment: .leading).padding(12)
+                .accessibilityIdentifier("annotation-legacy-records")
+        }
     }
 }
 

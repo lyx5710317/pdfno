@@ -5,7 +5,16 @@ import XCTest
 
 final class ReaderConversationUITests: XCTestCase {
     @MainActor private func text(_ element: XCUIElement) -> String { (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label }
-    @MainActor private func item(_ id: String,_ app: XCUIApplication) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
+    @MainActor private func item(_ id: String,_ app: XCUIApplication) -> XCUIElement {
+        if ["settings-japanese-learning","settings-english-learning"].contains(id) { return app.checkBoxes.matching(identifier: id).firstMatch }
+        return app.descendants(matching: .any).matching(identifier: id).firstMatch
+    }
+    @MainActor private func state(_ element: XCUIElement) -> String? {
+        guard element.exists, element.elementType == .checkBox else { return nil }
+        if let value = element.value as? String, ["0","1"].contains(value) { return value }
+        if let value = element.value as? NSNumber, [0,1].contains(value.intValue) { return String(value.intValue) }
+        return nil
+    }
     @MainActor private func click(_ element: XCUIElement) throws {
         let ready = expectation(for: NSPredicate { _,_ in element.exists && element.isEnabled && element.isHittable },evaluatedWith: element)
         wait(for: [ready],timeout: 12)
@@ -82,9 +91,9 @@ final class ReaderConversationUITests: XCTestCase {
         try shot("AI-00-unified-connection-fields",app); try configureMock(app)
         try category("aiTools",title: "AI工具",app)
         let japanese = item("settings-japanese-learning",app), english = item("settings-english-learning",app)
-        XCTAssertEqual(japanese.value as? String,"0"); XCTAssertEqual(english.value as? String,"0")
+        XCTAssertEqual(state(japanese),"0"); XCTAssertEqual(state(english),"0")
         try click(japanese); try click(english)
-        XCTAssertEqual(japanese.value as? String,"1"); XCTAssertEqual(english.value as? String,"1")
+        XCTAssertEqual(state(japanese),"1"); XCTAssertEqual(state(english),"1")
         try shot("AI-01-connection-independent-tools",app); try click(item("settings-return",app))
         try select("window",app); try task("explain",app)
         let stop = item("ai-conversation-stop",app); XCTAssertTrue(stop.waitForExistence(timeout: 5)); try click(stop)
@@ -121,8 +130,8 @@ final class ReaderConversationUITests: XCTestCase {
     @MainActor func testNarrowIndependentSettingsDefaultOffAndRetainedDisabledConversation() throws {
         let app = try launch(720); defer { app.terminate() }
         try click(item("ai-settings",app)); try category("aiTools",title: "AI工具",app)
-        XCTAssertEqual(item("settings-japanese-learning",app).value as? String,"0")
-        XCTAssertEqual(item("settings-english-learning",app).value as? String,"0")
+        XCTAssertEqual(state(item("settings-japanese-learning",app)),"0")
+        XCTAssertEqual(state(item("settings-english-learning",app)),"0")
         XCTAssertFalse(item("settings-tools-source",app).exists)
         try shot("AI-07-narrow-tools-without-document",app)
         try configureMock(app); try category("aiTools",title: "AI工具",app); try click(item("settings-english-learning",app))
@@ -131,7 +140,7 @@ final class ReaderConversationUITests: XCTestCase {
         let result = try XCTUnwrap(answers(app).first), answerID = result.identifier.replacingOccurrences(of: "ai-conversation-answer-",with: "")
         try shot("AI-08-narrow-dark-dialogue",app); try click(item("ai-close",app))
         try click(item("ai-settings",app)); try category("aiTools",title: "AI工具",app); try click(item("settings-english-learning",app))
-        XCTAssertEqual(item("settings-english-learning",app).value as? String,"0")
+        XCTAssertEqual(state(item("settings-english-learning",app)),"0")
         try click(item("settings-return",app)); try click(item("epub-ai",app)); waitAnswers(1,app)
         XCTAssertTrue(item("ai-conversation-answer-" + answerID,app).exists && !item("ai-conversation-input",app).isEnabled)
         try click(item("ai-conversation-save-" + answerID,app)); try shot("AI-09-disabled-tool-answer-retained",app)
