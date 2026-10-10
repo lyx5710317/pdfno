@@ -234,7 +234,12 @@ final class EPUBVerticalEdgeUITests: XCTestCase {
             return $0.exists && f.width>100 && f.height>100 && f.minX.isFinite && f.minY.isFinite && f.maxX.isFinite && f.maxY.isFinite && bounds.contains(f)
         },"Actual comic WebKit viewport must have finite bounds inside this fixture window")
         print("OWN_COMIC_VIEWPORT",canvas.elementType.rawValue,canvas.frame)
-        return canvas.coordinate(withNormalizedOffset: CGVector(dx: x,dy: 0.5))
+        let f=canvas.frame
+        // WebKit's AX element reports finite bounds, but its relative coordinate
+        // conversion can still be infinite on macOS. Anchor the same real point
+        // to this owned native window; never issue an event to an unknown frame.
+        return window.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+            dx: f.minX-bounds.minX+f.width*x,dy: f.minY-bounds.minY+f.height*0.5))
     }
     @MainActor func testVerticalWheelCrossesPagesChaptersAndReopensInVertical() throws {
         let app=try originalApp(width: 1280,dark: false);defer { app.terminate() }
