@@ -797,9 +797,9 @@ struct ReaderWorkspace: View {
                 if inspector == .bookmarks { panels.toggle(.notes,width: readerWidth,profile: .professional) }
                 else { inspector = .bookmarks;panels.show(.notes,profile: .professional) }
             }
-            PDFnoReaderRailButton(title: "AI", symbol: "brain.head.profile", identifier: "reader-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.capturedSelection == nil && model.learning.source == nil && !model.hasCurrentSavedLearningNotes, hint: "先选择原文；固定选文后核对接收方与任务") {
+            PDFnoReaderRailButton(title: "AI", symbol: "brain.head.profile", identifier: "reader-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.capturedSelection == nil && model.conversation.current == nil, hint: "打开或收起本文件的选文对话") {
                 if panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning { panels.notes = false }
-                else { model.learning.prepare(model.captureAISource() ?? model.learning.source); inspector = .learning; panels.show(.notes, profile: .professional) }
+                else { inspector = .learning; panels.show(.notes, profile: .professional) }
             }
 
         }

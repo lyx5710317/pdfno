@@ -20,31 +20,25 @@ import PDFnoDomain
 }
 struct SettingsLearningTools: View {
     let context: SettingsAIContext?
+    var learning: AILearningModel? = nil
     var body: some View {
-        if let context { DocumentLearningTools(library: context.library,source: context.source) }
-        else { PDFnoEmptyState(title: "先选择阅读原文",detail: "打开 PDF 或 EPUB，选择要学习的文字，再进入设置 → AI工具。这里不会默认处理整本书。",icon: "text.cursor") }
+        if let learning = learning ?? context?.library.learning {
+            ReadingToolsPreferencesView(tools: learning.tools)
+        } else { Text("请从书库设置打开 AI工具。") }
     }
 }
-private struct DocumentLearningTools: View {
-    @ObservedObject var library: LibraryModel
-    let source: AISourceSnapshot?
-    @State private var japanese=false
-    @State private var english=false
-    private var available: Bool { source.map { library.isCurrentAISource($0) } == true }
+private struct ReadingToolsPreferencesView: View {
+    @ObservedObject var tools: AIReadingToolsPreferences
     var body: some View {
-        VStack(alignment: .leading,spacing: 16) {
-            PDFnoSettingsCard("本次学习来源",symbol: "text.quote") {
-                Text(library.displayedDocumentTitle).font(.headline)
-                if let source { Text(source.anchor.locationLabel);PDFnoTextViewport(text: source.anchor.quote,identifier: "settings-tools-source",height: 150) }
-                if !available { Text("请返回 PDF 或 EPUB 选择原文，再打开 AI工具。来源改变后需要重新固定；不会发送其他书籍或整本书。").foregroundStyle(.secondary) }
-            }
-            PDFnoSettingsCard("选文语言学习",symbol: "textformat.abc") {
-                Button("日语学习") { guard let source,available else { return };library.prepareJapaneseLearning(source: source);japanese=true }.accessibilityIdentifier("settings-japanese-learning")
-                Button("英语学习") { guard let source,available else { return };library.prepareEnglishLearning(source: source);english=true }.accessibilityIdentifier("settings-english-learning")
-                Text("使用 AI 栏目中已应用的阅读配置。每次先核对固定原文和服务，再手动开始。")
-            }.disabled(!available)
-        }.sheet(isPresented: $japanese) { JapaneseLearningSheet(library: library) }
-            .sheet(isPresented: $english) { EnglishLearningSheet(library: library) }
+        PDFnoSettingsCard("选文学习工具",symbol: "textformat.abc") {
+            Toggle("日语学习",isOn: Binding(get: { tools.japanese },set: { tools.set(.japanese,enabled: $0) }))
+                .accessibilityIdentifier("settings-japanese-learning")
+            Toggle("英语学习",isOn: Binding(get: { tools.english },set: { tools.set(.english,enabled: $0) }))
+                .accessibilityIdentifier("settings-english-learning")
+            Text("开启后，在选文 AI 菜单中使用。关闭不会删除已有回答或笔记。").font(.callout).foregroundStyle(.secondary)
+            Text("解释、翻译与总结始终可用；连接在设置 → AI 中配置。").font(.caption).foregroundStyle(.secondary)
+            if let error = tools.error { Text(error).font(.caption).foregroundStyle(.red) }
+        }
     }
 }
 #endif

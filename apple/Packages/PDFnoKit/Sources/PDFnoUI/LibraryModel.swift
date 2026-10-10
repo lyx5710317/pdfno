@@ -56,6 +56,7 @@ public final class LibraryModel: ObservableObject {
     lazy var japaneseLearning = makeJapaneseLearningModel()
     let annotations: AnnotationModel
     lazy var bookmarks = BookmarkModel(root: recordRoot,library: self)
+    lazy var conversation = ReadingConversationModel(library: self)
     @Published var showingSelectionAI = false
     @Published var addingAIToNotes = false
     let recordRoot: URL
@@ -160,13 +161,15 @@ public final class LibraryModel: ObservableObject {
         // The independent BYOK owner has its own source/session/configuration fences.
         // Hiding or cancelling the reading provider must not revoke a BYOK result.
         learning.japaneseScopeDidInvalidate = { [weak self] in self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning() }
-        epub.translationScopeDidChange = { [weak self] in self?.learning.invalidateParagraphSource(); self?.chapterTranslation.cancel(); self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
-        japanesePDFSessionChanges = reader.$readerSessionID.dropFirst().sink { [weak self] _ in self?.learning.invalidateParagraphSource(); self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
+        epub.translationScopeDidChange = { [weak self] in self?.conversation.sourceDidChange(); self?.learning.invalidateParagraphSource(); self?.chapterTranslation.cancel(); self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
+        japanesePDFSessionChanges = reader.$readerSessionID.dropFirst().sink { [weak self] _ in self?.conversation.sourceDidChange(); self?.learning.invalidateParagraphSource(); self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
         japanesePDFSelectionChanges = reader.$capturedSelection.dropFirst().sink { [weak self] anchor in
+            self?.conversation.selectionDidChange(anchor.map(AISelectionAnchor.pdf))
             self?.japaneseSelectionDidChange(anchor.map(AISelectionAnchor.pdf)); self?.byokSelectionDidChange(anchor.map(AISelectionAnchor.pdf))
             self?.englishSelectionDidChange(anchor.map(AISelectionAnchor.pdf)); self?.paragraphSelectionDidChange(anchor.map(AISelectionAnchor.pdf))
         }
         japaneseEPUBSelectionChanges = epub.$selection.dropFirst().sink { [weak self] anchor in
+            self?.conversation.selectionDidChange(anchor.map(AISelectionAnchor.epub))
             self?.japaneseSelectionDidChange(anchor.map(AISelectionAnchor.epub)); self?.byokSelectionDidChange(anchor.map(AISelectionAnchor.epub))
             self?.englishSelectionDidChange(anchor.map(AISelectionAnchor.epub)); self?.paragraphSelectionDidChange(anchor.map(AISelectionAnchor.epub))
         }

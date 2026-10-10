@@ -54,7 +54,7 @@ public struct AnchoredAnnotation: Codable, Sendable, Equatable, Identifiable {
         self.aiResult=aiResult
         self.revision = revision; self.createdAt = createdAt; self.updatedAt = updatedAt
     }
-    public var displayTitle: String { aiResult.map { "AI " + $0.kind.title } ?? kind.title }
+    public var displayTitle: String { aiResult.map { "AI " + $0.taskTitle } ?? kind.title }
     public var isValid: Bool {
         guard (origin == .manual ? sourceRecordID == nil && aiResult == nil : sourceRecordID != nil), anchor.isValid, userText.utf16.count <= 16000, revision >= 0, revision < Int.max, createdAt.timeIntervalSince1970.isFinite, updatedAt.timeIntervalSince1970.isFinite else { return false }
         guard let result=aiResult else { return true } // Older records remain readable without a migration.
@@ -90,6 +90,13 @@ extension AIResult {
     public var isValidAnnotationResult: Bool {
         guard source.isValid, provider.isValid, provider.mode != .unconfigured, !text.isEmpty, text.utf16.count <= 16000 else { return false }
         switch source.anchor { case .pdf, .epub: break; default: return false }
+        if let conversation {
+            return promptVersion == ReadingConversationPlan.promptVersion && conversation.isValid &&
+                conversation.answerID == requestID && conversation.task.legacyKind == kind && !fromCache &&
+                source.anchor.quote.utf16.count <= DeepSeekSelectionPolicy.maxSourceUTF16 &&
+                (provider.mode == .mock || (try? BYOKSelectionPolicy.finalURL(provider)) != nil)
+        }
+        guard promptVersion != ReadingConversationPlan.promptVersion else { return false }
         if kind == .summarize { return promptVersion == "selection-summary-1" }
         if promptVersion == ParagraphExplanationPolicy.promptVersion { return kind == .explain && paragraphExplanation?.canSave == true }
         return ["selection-1", DeepSeekSelectionPolicy.promptVersion].contains(promptVersion)

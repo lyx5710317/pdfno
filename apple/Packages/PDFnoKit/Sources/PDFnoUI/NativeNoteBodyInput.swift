@@ -94,6 +94,7 @@ struct NativeNoteBodyInput: NSViewRepresentable {
         view.isAutomaticQuoteSubstitutionEnabled = false
         view.isAutomaticDashSubstitutionEnabled = false
         view.isAutomaticTextReplacementEnabled = false
+        view.isAutomaticTextCompletionEnabled = false
         view.isAutomaticSpellingCorrectionEnabled = false
         view.font = .systemFont(ofSize: NSFont.systemFontSize)
         view.textContainerInset = NSSize(width: 6, height: 8)

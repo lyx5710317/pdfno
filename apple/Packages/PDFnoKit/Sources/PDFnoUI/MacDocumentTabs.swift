@@ -150,7 +150,7 @@ extension LibraryModel {
         return reader.book?.title ?? "PDFno"
     }
     var hasDocumentSaveInFlight: Bool {
-        addingAIToNotes || bookmarks.saving || learning.saving || byok.saving || japaneseLearning.saving || englishLearning.saving ||
+        !conversation.savingAnswers.isEmpty || addingAIToNotes || bookmarks.saving || learning.saving || byok.saving || japaneseLearning.saving || englishLearning.saving ||
         !noteEditing.saving.isEmpty || !recordEditing.editor.saving.isEmpty || annotations.saving || !annotations.editor.saving.isEmpty
     }
     var hasDocumentEditorChanges: Bool {
@@ -160,10 +160,10 @@ extension LibraryModel {
         recordEditing.editor.drafts.values.contains { $0.baseline.bookID == displayedDocumentID && $0.text != $0.baseline.userText }
     }
     var hasDocumentRunningTasks: Bool {
-        learning.busy || byok.busy || pageTranslation.busy || chapterTranslation.busy || japaneseLearning.busy || englishLearning.busy
+        conversation.busy || learning.busy || byok.busy || pageTranslation.busy || chapterTranslation.busy || japaneseLearning.busy || englishLearning.busy
     }
     var hasUnsavedDocumentLearning: Bool {
-        learning.hasRetainedUserDraft || englishLearning.hasRetainedUserDraft || japaneseLearning.hasRetainedUserDraft ||
+        conversation.hasUnsavedWork || learning.hasRetainedUserDraft || englishLearning.hasRetainedUserDraft || japaneseLearning.hasRetainedUserDraft ||
         (!byokUserText.isEmpty && !learning.notes.contains { $0.result.requestID == byok.result?.requestID && $0.userText == byokUserText }) ||
         learning.result.map { result in !learning.savedAnnotationRequests.contains(result.requestID) && !learning.notes.contains { $0.result.requestID == result.requestID } } == true ||
         byok.result.map { result in !learning.notes.contains { $0.result.requestID == result.requestID } } == true ||
@@ -188,12 +188,14 @@ extension LibraryModel {
         else if let book = ebook.books.first(where: { $0.id == id }) { await openEbook(book) }
     }
     func discardDocumentPresentation() {
+        conversation.discard()
         learning.discardDocumentPresentation(); byok.discardDocumentPresentation()
         englishLearning.discardDocumentPresentation(); japaneseLearning.discardDocumentPresentation()
         byokUserText = ""; pageTranslation.cancel(); pageTranslation.segments = []
         chapterTranslation.cancel(); chapterTranslation.segments = []; chapterTranslation.retainedBatches = []
     }
     func cancelDocumentTasks() {
+        conversation.stop()
         learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
         englishLearning.cancel(); japaneseLearning.cancel(); invalidateBYOKSelection()
     }

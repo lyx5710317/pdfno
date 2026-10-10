@@ -345,8 +345,8 @@ extension View { func annotationExperience(_ model: AnnotationModel,reader: Anno
                 }
                 if let library=self.aiLibrary {
                     Menu {
-                        ForEach([AILearningKind.explain,.translate,.summarize],id: \.self) { kind in
-                            Button(kind.title) { self.popover.close();library.openSelectionAI(kind,anchor: anchor,sessionID: session) }.accessibilityIdentifier("selection-ai-"+kind.rawValue)
+                        ForEach(ReadingConversationTask.allCases.filter { library.learning.tools.isEnabled($0) },id: \.self) { task in
+                            Button(task.title) { self.popover.close();library.openConversationAI(task,anchor: anchor,sessionID: session) }.accessibilityIdentifier("selection-ai-"+task.rawValue)
                         }
                     } label: { Label("AI",systemImage: "sparkles") }.menuStyle(.borderlessButton).fixedSize().accessibilityIdentifier("selection-ai-menu")
                 }

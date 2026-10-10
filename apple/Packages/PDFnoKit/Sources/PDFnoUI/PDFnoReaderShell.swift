@@ -92,7 +92,7 @@ struct PDFnoReaderShell<Reader: View, Navigation: View, Notes: View>: View {
                         .accessibilityIdentifier("reader-navigation-panel")
                 }
                 if layout.showNotes {
-                    notes().frame(width: layout.notesWidth, height: geometry.size.height)
+                    VStack(spacing: 0) { notes() }.frame(width: layout.notesWidth, height: geometry.size.height)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
                         .zIndex(2)
                         // Foreground controls precede the reader in the AX tree.

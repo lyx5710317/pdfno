@@ -107,9 +107,9 @@ struct EPUBWorkspace: View {
                 if inspector == .bookmarks { panels.toggle(.notes,width: readerWidth,profile: .professional) }
                 else { inspector = .bookmarks;panels.show(.notes,profile: .professional) }
             }
-            PDFnoReaderRailButton(title: "AI", symbol: "brain.head.profile", identifier: "epub-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.selection == nil && model.learning.source == nil && !model.hasCurrentSavedLearningNotes) {
+            PDFnoReaderRailButton(title: "AI", symbol: "brain.head.profile", identifier: "epub-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.selection == nil && model.conversation.current == nil) {
                 if panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning { panels.notes = false }
-                else { model.learning.prepare(model.captureAISource() ?? model.learning.source); inspector = .learning; panels.show(.notes, profile: .professional) }
+                else { inspector = .learning; panels.show(.notes, profile: .professional) }
             }
 
         }

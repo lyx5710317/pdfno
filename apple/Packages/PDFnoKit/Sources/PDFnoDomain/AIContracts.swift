@@ -94,10 +94,16 @@ public struct AIResult: Codable, Sendable, Equatable {
     public let text: String
     public let promptVersion: String
     public let fromCache: Bool
+    public let conversation: ReadingConversationMetadata?
     public init(request: AIRequest, text: String, fromCache: Bool) {
         requestID = request.id; source = request.source; provider = request.provider; kind = request.kind
-        self.text = text; promptVersion = request.promptVersion; self.fromCache = fromCache
+        self.text = text; promptVersion = request.promptVersion; self.fromCache = fromCache; conversation = nil
     }
+    public init(conversation: ReadingConversationMetadata, source: AISourceSnapshot, provider: AIProviderConfig, text: String) {
+        requestID = conversation.answerID; self.source = source; self.provider = provider; kind = conversation.task.legacyKind
+        self.text = text; promptVersion = ReadingConversationPlan.promptVersion; fromCache = false; self.conversation = conversation
+    }
+    public var taskTitle: String { conversation?.task.title ?? kind.title }
 }
 public struct AILearningNote: Codable, Sendable, Identifiable, Equatable {
     public let id: UUID

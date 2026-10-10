@@ -36,55 +36,11 @@ struct ReadingSelectionActions: View {
     }
 }
 
-/// Provider choice changes presentation and a consent revision, never sends or applies settings.
-/// Both result owners stay mounted so switching providers retains their independent drafts.
+/// A rail and a selection sheet present the same document-owned conversation.
 struct ReadingSelectionWorkspace: View {
     @ObservedObject var library: LibraryModel
-    @ObservedObject private var learning: AILearningModel
     let close: () -> Void
-    init(library: LibraryModel, close: @escaping () -> Void) {
-        self.library = library; learning = library.learning; self.close = close
-    }
-    private enum Service: String, CaseIterable { case reading, byok }
-    @State private var service = Service.reading
-    @State private var consentRevision = UUID()
-    var body: some View {
-        VStack(spacing: 0) {
-            Picker("服务来源", selection: $service) {
-                Text("阅读配置").tag(Service.reading)
-                Text("独立 HTTPS BYOK").tag(Service.byok)
-            }.font(.system(size: 12)).padding(10).accessibilityIdentifier("selection-service")
-                .disabled(library.learning.busy || library.learning.saving || library.byok.busy || library.byok.saving)
-            Divider()
-            ZStack {
-                AILearningWorkspace(library: library, learning: library.learning, embedded: true,
-                    close: close, consentRevision: consentRevision)
-                    .opacity(service == .reading ? 1 : 0).allowsHitTesting(service == .reading)
-                    .disabled(service != .reading).accessibilityHidden(service != .reading)
-                BYOKLearningWorkspace(library: library, model: library.byok, embedded: true, close: close, consentRevision: consentRevision)
-                    .opacity(service == .byok ? 1 : 0).allowsHitTesting(service == .byok)
-                    .disabled(service != .byok).accessibilityHidden(service != .byok)
-            }
-        }.onChange(of: service) { _, value in
-            consentRevision = UUID()
-            if value == .byok { prepareBYOK() }
-        }.onChange(of: learning.kind) { _, _ in if service == .byok { prepareBYOK() } }
-            .onChange(of: learning.source) { _, _ in if service == .byok { prepareBYOK() } }
-    }
-    private func prepareBYOK() {
-        Task {
-            await library.byok.load()
-            if library.reconnectBYOKPresentation(kind: learning.kind) { return }
-            if let preview = library.byok.preview, preview.request.kind == learning.kind,
-               ReadingSkillIdentity.matches(preview.request.source, learning.source), library.isCurrentBYOKSource(preview.request.source) { return }
-            guard !library.hasUnsavedBYOKPresentation else {
-                library.byokSaveStatus = "已有 BYOK 结果或草稿尚未保存。请先保存，或关闭文件时明确放弃，再固定新的选文或任务。"
-                return
-            }
-            library.byokUserText = ""
-            await library.prepareBYOKSelection(kind: learning.kind)
-        }
-    }
+    var body: some View { ReadingConversationWorkspace(library: library, close: close) }
 }
 extension LibraryModel {
     var hasUnsavedBYOKPresentation: Bool {

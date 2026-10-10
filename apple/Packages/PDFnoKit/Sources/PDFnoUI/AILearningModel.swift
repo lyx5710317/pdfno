@@ -18,6 +18,7 @@ struct AILearningAttempt: Identifiable, Equatable {
 public final class AILearningModel: ObservableObject {
     #if os(macOS)
     let deepSeekTest: DeepSeekTestModel
+    lazy var tools = AIReadingToolsPreferences.shared(root: storageRoot)
     #endif
     @Published var config = AIProviderConfig()
     @Published var source: AISourceSnapshot?
@@ -35,6 +36,11 @@ public final class AILearningModel: ObservableObject {
     @Published var status = "未配置 · 未发送请求"
     @Published var error: String?
     @Published private(set) var hasSessionCredential = false
+    @Published private(set) var connectionBusy = false
+    @Published private(set) var connectionStatus = "尚未测试连接"
+    private let connectionProbe = ReadingConnectionProbe()
+    private var connectionTask: Task<Void, Never>?
+    private var connectionGeneration = UUID()
     @Published private(set) var remoteAttemptsUsed = 0
     @Published private(set) var attempts: [AILearningAttempt] = []
     let offlineTransport: Bool
@@ -51,7 +57,7 @@ public final class AILearningModel: ObservableObject {
     private let timeoutSeconds: Double
     private var ownTemporaryCredentialReference: UUID?
     private var temporaryCredentialReference: UUID? {
-        get { configurationOwner?.temporaryCredentialReference ?? ownTemporaryCredentialReference }
+        get { if let configurationOwner { return configurationOwner.temporaryCredentialReference }; return ownTemporaryCredentialReference }
         set { ownTemporaryCredentialReference = newValue }
     }
     /// UI document owners share applied settings and the in-memory credential owner,
@@ -138,9 +144,77 @@ public final class AILearningModel: ObservableObject {
     }
     func clearSessionCredential() async {
         if let configurationOwner { await configurationOwner.clearSessionCredential(); return }
+        cancelConnectionProbe()
         invalidateParagraphSource(); cancel()
         if let reference = temporaryCredentialReference { await sessionCredentials.remove(reference) }
         temporaryCredentialReference = nil; hasSessionCredential = false; status = "会话密钥已清除 · 已有结果与笔记保留"
+    }
+    /// Central connection supports the existing finite HTTPS chat-completions policy.
+    /// No credential read, test request or prompt execution occurs while applying settings.
+    func applyConnection(_ candidate: AIProviderConfig, temporarySecret: String) async -> Bool {
+        if let configurationOwner { return await configurationOwner.applyConnection(candidate, temporarySecret: temporarySecret) }
+        cancelConnectionProbe()
+        let endpointChanged = !candidate.endpoint.utf8.elementsEqual(config.endpoint.utf8) || candidate.mode != config.mode
+        if endpointChanged { await clearSessionCredential() }
+        do {
+            guard candidate.isValid else { throw AIFailure.configuration }
+            if candidate.mode == .openAICompatible { _ = try BYOKSelectionPolicy.finalURL(candidate) }
+            guard temporarySecret.isEmpty || CredentialValidation.valid(temporarySecret) else { throw AIFailure.credentials }
+            cancel()
+            let saved = try await repository.saveConfig(candidate)
+            if !temporarySecret.isEmpty || saved.mode != .openAICompatible {
+                if let reference = temporaryCredentialReference { await sessionCredentials.remove(reference) }
+                temporaryCredentialReference = nil; hasSessionCredential = false
+                if saved.mode == .openAICompatible, !temporarySecret.isEmpty {
+                    let reference = UUID(); try await sessionCredentials.put(temporarySecret, reference: reference)
+                    temporaryCredentialReference = reference; hasSessionCredential = true
+                }
+            }
+            config = saved; error = nil; connectionStatus = "配置已应用 · 尚未测试"
+            status = saved.mode == .mock ? "本地 mock · 未联网" : "连接配置已应用"
+            return true
+        } catch { self.error = AIJobCoordinator.safeError(error).localizedDescription; return false }
+    }
+    var conversationConnectionAvailable: Bool {
+        config.mode == .mock || (config.mode == .openAICompatible && hasSessionCredential && (try? BYOKSelectionPolicy.finalURL(config)) != nil)
+    }
+    var connectionSettingsOwner: AILearningModel { configurationOwner?.connectionSettingsOwner ?? self }
+    func conversationProvider() throws -> any ReadingConversationProvider {
+        if config.mode == .mock {
+            #if DEBUG
+            let isolated = offlineTransport && Bundle.main.bundleIdentifier?.hasPrefix("org.pdfno.integration.professionala20261007.qa") == true &&
+                UUID(uuidString: ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"] ?? "") != nil
+            return LocalReadingConversationProvider(delaySeconds: isolated ? 2 : 0)
+            #else
+            return LocalReadingConversationProvider()
+            #endif
+        }
+        _ = try BYOKSelectionPolicy.finalURL(config)
+        guard hasSessionCredential, let reference = temporaryCredentialReference else { throw AIFailure.credentials }
+        return ReadingConversationHTTPProvider(transport: transport, credentials: sessionCredentials, reference: reference, budget: configurationOwner?.remoteBudget ?? remoteBudget)
+    }
+    func cancelConnectionProbe() {
+        connectionGeneration = UUID(); connectionTask?.cancel(); connectionTask = nil
+        if connectionBusy { connectionStatus = "测试已停止" }; connectionBusy = false
+    }
+    func testConnection(confirmed: Bool) {
+        guard !connectionBusy else { return }
+        if config.mode == .mock { connectionStatus = "本地 mock 可用 · 未测试网络"; return }
+        guard confirmed, hasSessionCredential, let reference = temporaryCredentialReference else { connectionStatus = "请先应用连接与 API Key"; return }
+        let candidate = config, generation = UUID(); connectionGeneration = generation
+        connectionBusy = true; connectionStatus = "正在测试…"
+        connectionTask = Task { [weak self, connectionProbe, transport, aiSession, sessionCredentials] in
+            do {
+                _ = try await connectionProbe.run(configuration: candidate, credentials: sessionCredentials, reference: reference,
+                    transport: transport, budget: aiSession.probe, confirmed: confirmed,
+                    current: { [weak self] config in await MainActor.run { self.map { ReadingSkillIdentity.matches($0.config, config) && $0.connectionGeneration == generation } == true } })
+                guard let self, connectionGeneration == generation, ReadingSkillIdentity.matches(config, candidate) else { return }
+                connectionStatus = "连接成功 · 已验证本次模型与返回格式"; connectionBusy = false; connectionTask = nil
+            } catch {
+                guard let self, connectionGeneration == generation else { return }
+                connectionStatus = AIJobCoordinator.safeError(error).localizedDescription; connectionBusy = false; connectionTask = nil
+            }
+        }
     }
     func prepare(_ source: AISourceSnapshot?) {
         if ReadingSkillIdentity.matches(self.source, source) && !paragraphSourceIsStale { return } // Reopening the same selection retains its visible outcome.
