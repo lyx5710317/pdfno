@@ -194,56 +194,75 @@ struct AnnotationEditor: View {
 struct AnnotationExperience: ViewModifier {
     @ObservedObject var model: AnnotationModel
     let reader: AnnotationReader
+    @StateObject private var gestures=AnnotationGestureController()
+    init(model: AnnotationModel,reader: AnnotationReader) { self.model=model;self.reader=reader }
     func body(content: Content) -> some View {
-        content.background(AnnotationSelectionMonitor(model: model).frame(width: 0,height: 0))
-            .task(id: reader.sessionID.uuidString+String(reader.ready)) { if reader.ready { await model.bind(reader) } }
+        content
+            .onAppear { gestures.attach(model) }
+            .onChange(of: reader.scopeID) { _,_ in gestures.refresh(model) }
+            .onDisappear { gestures.stop() }
+            .task(id: reader.sessionID.uuidString+String(reader.ready)) { if reader.ready { await model.bind(reader);gestures.attach(model) } }
             .sheet(item: $model.editing) { AnnotationEditor(model: model,baseline: $0) }
             .alert("标注未完成",isPresented: Binding(get: { model.error != nil },set: { if !$0 { model.error=nil } })) { Button("知道了") { model.error=nil } } message: { Text(model.error ?? "") }
     }
 }
 extension View { func annotationExperience(_ model: AnnotationModel,reader: AnnotationReader) -> some View { modifier(AnnotationExperience(model: model,reader: reader)) } }
 
-private struct AnnotationSelectionMonitor: NSViewRepresentable {
-    let model: AnnotationModel
-    func makeNSView(context: Context) -> AnnotationGestureHost { AnnotationGestureHost(model: model) }
-    func updateNSView(_ view: AnnotationGestureHost,context: Context) { view.refresh(model) }
-    static func dismantleNSView(_ view: AnnotationGestureHost,coordinator: ()) { view.stop() }
-}
-@MainActor private final class AnnotationGestureHost: NSView {
+/// Event observation belongs to SwiftUI state, independent of a zero-sized view.
+@MainActor private final class AnnotationGestureController: ObservableObject {
     private weak var model: AnnotationModel?
     private var monitor: Any?
     private var resizeObserver: AnyCancellable?
     private var scope: String?
     private var pending: Task<Void,Never>?
     private let popover=NSPopover()
-    init(model: AnnotationModel) {
-        self.model=model;super.init(frame: .zero);popover.behavior = .transient
+    init() { popover.behavior = .transient;popover.contentSize=NSSize(width: 270,height: 48) }
+    private func trace(_ stage: String) {
+        #if DEBUG
+        let env=ProcessInfo.processInfo.environment
+        guard env["PDFNO_A_QA_SCOPE"]=="a-regression",Bundle.main.bundleIdentifier?.hasPrefix("org.pdfno.integration.professionala20261007.qa")==true,
+              let raw=env["PDFNO_UI_TEST_SESSION"],let id=UUID(uuidString: raw) else { return }
+        let file=URL(fileURLWithPath: "/tmp/PDFno-AnnotationGestureTrace-"+id.uuidString+".log")
+        let bytes=Data((stage+"\n").utf8)
+        if FileManager.default.fileExists(atPath: file.path),let handle=try? FileHandle(forWritingTo: file) { defer { try? handle.close() };if let size=try? handle.seekToEnd(),size<16_384 { try? handle.write(contentsOf: bytes) } }
+        else { try? bytes.write(to: file,options: .atomic) }
+        #endif
+    }
+    func attach(_ model: AnnotationModel) {
+        self.model=model;refresh(model)
+        guard monitor==nil else { return }
+        trace("attached-reader="+String(model.reader != nil))
         resizeObserver=NotificationCenter.default.publisher(for: NSWindow.didResizeNotification).receive(on: RunLoop.main).sink { [weak self] notification in
             guard let self,notification.object as? NSWindow === self.model?.reader?.view?.window else { return }
             self.pending?.cancel();self.popover.close()
         }
         monitor=NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown,.leftMouseUp,.scrollWheel,.keyDown]) { [weak self] event in self?.observe(event);return event }
     }
-    required init?(coder: NSCoder) { fatalError("Programmatic host only") }
-    func refresh(_ model: AnnotationModel) { let next=model.reader?.scopeID;if scope != next { pending?.cancel();popover.close();scope=next };self.model=model }
-    func stop() { pending?.cancel();popover.close();popover.contentViewController=nil;resizeObserver?.cancel();resizeObserver=nil;if let monitor { NSEvent.removeMonitor(monitor) };monitor=nil }
+    func refresh(_ model: AnnotationModel) { let next=model.reader?.scopeID;if scope != next { trace("scope-reset");pending?.cancel();popover.close();scope=next };self.model=model }
+    func stop() { trace("stopped");pending?.cancel();popover.close();popover.contentViewController=nil;resizeObserver?.cancel();resizeObserver=nil;if let monitor { NSEvent.removeMonitor(monitor) };monitor=nil }
     private func observe(_ event: NSEvent) {
+        if event.type == .leftMouseUp { trace("mouse-up-reader="+String(model?.reader != nil)) }
         guard let model,let reader=model.reader,let view=reader.view,let window=view.window,event.window===window,window.isKeyWindow else { return }
         if event.type != .leftMouseUp { pending?.cancel();popover.close();return }
-        guard let content=window.contentView,let hit=content.hitTest(content.convert(event.locationInWindow,from: nil)),hit===view || hit.isDescendant(of: view) else { return }
+        guard let content=window.contentView else { return }
+        let point=content.superview?.convert(event.locationInWindow,from: nil) ?? event.locationInWindow
+        guard let hit=content.hitTest(point),hit===view || hit.isDescendant(of: view) else { trace("reader-surface-miss");return }
+        trace("reader-mouse-up")
         let session=reader.sessionID;pending?.cancel()
         pending=Task { [weak self,weak model,weak view] in
             try? await Task.sleep(for: .milliseconds(120))
-            guard !Task.isCancelled,let self,let model,let view,model.reader?.sessionID==session,let bookID=reader.bookID,
-                  let anchor=await reader.capture(),reader.accepts(anchor),let rect=await reader.selectionRect(),!Task.isCancelled,
-                  model.reader?.sessionID==session,view.window?.isKeyWindow==true else { return }
+            guard !Task.isCancelled,let self,let model,let view,model.reader?.sessionID==session,let bookID=reader.bookID else { return }
+            guard let anchor=await reader.capture(),reader.accepts(anchor) else { self.trace("capture-empty");return }
+            guard let rect=await reader.selectionRect() else { self.trace("rect-empty");return }
+            guard !Task.isCancelled,model.reader?.sessionID==session,view.window?.isKeyWindow==true else { self.trace("scope-cancelled");return }
             self.popover.contentViewController=NSHostingController(rootView: HStack(spacing: 12) {
                 ForEach(AnnotationKind.allCases,id: \.self) { kind in
                     Button { self.popover.close();Task { await model.apply(kind,anchor: anchor,bookID: bookID,sessionID: session) } } label: { Label(kind.title,systemImage: kind.symbol) }
                         .buttonStyle(.borderless).accessibilityIdentifier("selection-annotation-"+kind.rawValue)
                 }
-            }.padding(12))
+            }.font(.system(size: 13)).padding(12).frame(width: 270,height: 48))
             self.popover.show(relativeTo: rect,of: view,preferredEdge: view.isFlipped ? .minY : .maxY)
+            self.trace("shown="+String(self.popover.isShown))
         }
     }
 }

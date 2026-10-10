@@ -27,7 +27,11 @@ import PDFnoServices
         let web=try #require(reader.view as? WKWebView)
         let script=epub ? "const d=document.querySelector('iframe').contentDocument,b=d.querySelector('[data-pdfno-spine=\"0\"] p');const w=d.createTreeWalker(b,NodeFilter.SHOW_TEXT),n=w.nextNode(),r=d.createRange();r.setStart(n,0);r.setEnd(n,Math.min(n.length,8));const s=d.getSelection();s.removeAllRanges();s.addRange(r);return true;" : "const b=document.querySelector('[data-block]'),w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT),n=w.nextNode(),r=document.createRange();r.setStart(n,0);r.setEnd(n,Math.min(n.length,8));const s=getSelection();s.removeAllRanges();s.addRange(r);return true;"
         _=try await web.callAsyncJavaScript(script,arguments: [:],in: nil,contentWorld: .page)
-        return try #require(await reader.capture())
+        let captured=try #require(await reader.capture())
+        let rect=try #require(await reader.selectionRect())
+        let bounds=try #require(reader.view).bounds
+        #expect(rect.width>0 && rect.height>0 && rect.intersects(bounds))
+        return captured
     }
     private func semanticProjection(_ reader: AnnotationReader) async throws {
         try await ready(reader)
