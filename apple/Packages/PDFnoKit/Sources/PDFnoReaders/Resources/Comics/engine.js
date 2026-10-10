@@ -130,8 +130,10 @@ window.PDFnoComic={async command(message) {
   const frame=document.elementFromPoint(x,y);
   if(frame?.tagName!=='IFRAME')return false;
   const d=frame.contentDocument,r=frame.getBoundingClientRect(),target=d?.elementFromPoint(x-r.left,y-r.top);
-  if(!target || target.closest('a,button,input,select,textarea,[contenteditable]') || !d.getSelection()?.isCollapsed)return false;
-  return target.tagName==='IMG' || target===d.body || target===d.documentElement;
+  const selected=d?.getSelection();
+  if(!target || target.closest('a,button,input,select,textarea,[contenteditable]') || (selected?.rangeCount>0 && !selected.isCollapsed))return false;
+  const imageContainer=target.tagName==='DIV' && target.childElementCount===1 && target.firstElementChild?.tagName==='IMG';
+  return imageContainer || target.tagName==='IMG' || target===d.body || target===d.documentElement;
 },close(){document.getElementById('pages').replaceChildren();dispose();book=null;identity=null;}};
 window.webkit?.messageHandlers.comic.postMessage('ready');
 

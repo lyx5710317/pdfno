@@ -57,6 +57,12 @@ test('edge hit checks exclude links, controls, text selection and coordinates ou
  const d=h.element.children[0].contentDocument;
  d.elementFromPoint=()=>({tagName:'IMG',closest:()=>({tagName:'A'})});assert.equal(h.reader.canTurnAt(10,100),false);
  d.elementFromPoint=()=>({tagName:'BUTTON',closest:()=>({tagName:'BUTTON'})});assert.equal(h.reader.canTurnAt(10,100),false);
- d.elementFromPoint=()=>({tagName:'IMG',closest:()=>null});d.getSelection=()=>({isCollapsed:false});assert.equal(h.reader.canTurnAt(10,100),false);
+ d.elementFromPoint=()=>({tagName:'IMG',closest:()=>null});d.getSelection=()=>({rangeCount:1,isCollapsed:false});assert.equal(h.reader.canTurnAt(10,100),false);
  assert.equal(h.reader.canTurnAt(NaN,100),false);h.reader.close();assert.equal(h.reader.canTurnAt(10,100),false);
+});
+
+test('the original image-only wrapper is a clickable edge and absent selection does not block it',async()=>{
+ const h=host();await h.reader.command({...h.base,pages:[page(0)]});const d=h.element.children[0].contentDocument;
+ d.elementFromPoint=()=>({tagName:'DIV',childElementCount:1,firstElementChild:{tagName:'IMG'},closest:()=>null});d.getSelection=()=>null;
+ assert.equal(h.reader.canTurnAt(10,100),true);d.elementFromPoint=()=>({tagName:'DIV',childElementCount:2,firstElementChild:{tagName:'IMG'},closest:()=>null});assert.equal(h.reader.canTurnAt(10,100),false);h.reader.close();
 });
