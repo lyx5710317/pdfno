@@ -22,7 +22,7 @@ let package = Package(
                             .define("PDFNO_BOUNDED_CODECS", to: "1")],
                 linkerSettings: [.linkedLibrary("z")]),
         .target(name: "PDFnoServices", dependencies: ["PDFnoDomain", "PDFnoDOCXZIP", "PDFnoComicCodecs"], resources: [.copy("Resources/ComicCodecs")]),
-        .target(name: "PDFnoReaders", dependencies: ["PDFnoDomain", "PDFnoServices"], resources: [.copy("Resources/EPUB"), .copy("Resources/Comics"), .copy("Resources/DOCX"), .copy("Resources/TextFormats"), .copy("Resources/Ebooks")]),
+        .target(name: "PDFnoReaders", dependencies: ["PDFnoDomain", "PDFnoServices"], resources: [.copy("Resources/EPUB"), .copy("Resources/Comics"), .copy("Resources/DOCX"), .copy("Resources/TextFormats"), .copy("Resources/Ebooks"), .copy("Resources/Reflow")]),
         .target(name: "PDFnoUI", dependencies: ["PDFnoDomain", "PDFnoServices", "PDFnoReaders"],
                 resources: [.copy("Resources/study-sample.pdf"), .copy("Resources/study-sample.epub"), .copy("Resources/study-sample.docx"), .copy("Resources/Ebooks")]),
         .testTarget(name: "PDFnoKitTests", dependencies: ["PDFnoDomain", "PDFnoServices", "PDFnoReaders", "PDFnoUI"],

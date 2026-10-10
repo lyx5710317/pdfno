@@ -24,28 +24,22 @@ struct EPUBWorkspace: View {
     var body: some View {
         VStack(spacing: 0) {
             PDFnoProfessionalReaderChrome(title: session.book?.title ?? "EPUB", format: "EPUB") {
-                Button { Task { _ = await session.command("previous") } } label: { Label("上一页", systemImage: "chevron.left") }
-                    .disabled(session.book == nil || session.busy).accessibilityIdentifier("epub-previous")
-                Button { Task { _ = await session.command("next") } } label: { Label("下一页", systemImage: "chevron.right") }
-                    .disabled(session.book == nil || session.busy).accessibilityIdentifier("epub-next")
-                EPUBReturnToPreviousLocationButton(session: session)
-                if session.writingLanguage.permitsVerticalReflow {
-                Button { Task { _ = await session.command("vertical") } } label: {
-                    Label(session.vertical ? "横排" : "竖排", systemImage: session.vertical ? "text.alignleft" : "textformat.abc")
-                }.accessibilityIdentifier("epub-orientation")
-                    .accessibilityLabel(session.vertical ? "切换为横排" : "切换为竖排")
-                    .accessibilityValue(session.vertical ? "当前竖排" : "当前横排")
-                    .help(session.vertical ? "恢复横排连续滚动" : "竖排上下连续滚动")
-                }
             } actions: { professionalActions } content: {
                 PDFnoReaderShell(panels: panels, profile: .professional) {
                     VStack(spacing: 0) {
                         EPUBCanvas(session: session).background(PDFnoDesign.Palette.canvas)
+                            .overlay(alignment: .bottom) {
+                                if session.readingLayout.mode != .scroll {
+                                    ReadingPageButtons(previousEnabled: !session.busy && session.hasPreviousPage,nextEnabled: !session.busy && session.hasNextPage,previous: { Task { _=await session.command("previous") } },next: { Task { _=await session.command("next") } })
+                                }
+                            }
                     }
                 } navigation: {
-                    PDFnoPanel(title: "目录", icon: "list.bullet", closeIdentifier: "epub-close-contents", close: { panels.navigation = false }, surface: PDFnoDesign.Palette.surface) { contentsContent }
+                    PDFnoPanel(title: "目录", icon: "list.bullet", closeIdentifier: "epub-close-contents", close: { panels.navigation = false }, surface: PDFnoDesign.Palette.surface,showsHeading: false) { contentsContent }
                 } notes: {
-                    if inspector == .bookmarks {
+                    if inspector == .layout {
+                        ReadingLayoutPanel(layout: session.readingLayout,language: session.writingLanguage,busy: session.busy,close: { panels.notes=false }) { value in Task { _=await session.applyReadingLayout(value) } }
+                    } else if inspector == .bookmarks {
                         BookmarkList(model: model.bookmarks,close: { panels.notes=false },closeIdentifier: "epub-close-bookmarks")
                     } else if inspector == .learning {
                         ReadingSelectionWorkspace(library: model) { panels.notes = false }
@@ -93,6 +87,12 @@ struct EPUBWorkspace: View {
     }
     private var professionalActions: some View {
         Group {
+            if session.readingCapability.allowsAa {
+            PDFnoReaderRailButton(title: "Aa",symbol: "textformat",identifier: "epub-aa",accessibilityTitle: "Aa 排版",active: panels.placement(width: readerWidth,profile: .professional).showNotes && inspector == .layout,disabled: session.book == nil || session.busy,hint: session.writingLanguage.permitsVerticalReflow ? "字号、横竖排与翻页模式":"字号与翻页模式") {
+                if inspector == .layout { panels.toggle(.notes,width: readerWidth,profile: .professional) }
+                else { inspector = .layout;panels.show(.notes,profile: .professional) }
+            }
+            }
             PDFnoReaderRailButton(title: "目录", symbol: "list.bullet", identifier: "epub-contents", active: contentsVisible, disabled: session.book == nil || session.busy, hint: "显示或收起 EPUB 目录，保留阅读位置") { panels.toggle(.navigation, width: readerWidth, profile: .professional) }
             PDFnoReaderRailButton(title: "笔记", symbol: "note.text", identifier: "epub-notes", accessibilityTitle: "高亮与笔记", active: notesVisible, action: openNotes)
             PDFnoReaderRailButton(title: "书签",symbol: "bookmark",identifier: "epub-bookmarks",active: panels.placement(width: readerWidth,profile: .professional).showNotes && inspector == .bookmarks,hint: "显示或收起当前文档书签") {
@@ -108,7 +108,7 @@ struct EPUBWorkspace: View {
     }
     private var contentsContent: some View {
         List {
-            if session.outline.isEmpty { PDFnoEmptyState(title: "此 EPUB 没有内置目录", detail: "仍可使用上一页和下一页继续阅读。") }
+            if session.outline.isEmpty { PDFnoEmptyState(title: "此 EPUB 没有内置目录", detail: "仍可在正文中继续滚动阅读。") }
             ForEach(session.outline) { item in
                 Button { Task { if await session.jump(to: item) { panels.navigation = false } } } label: {
                     Text(item.title).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())

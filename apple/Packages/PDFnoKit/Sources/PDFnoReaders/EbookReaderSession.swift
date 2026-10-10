@@ -33,6 +33,13 @@ private final class EbookAssets: NSObject, WKURLSchemeHandler {
     @Published public private(set) var error: String?
     @Published public private(set) var ready = false
     @Published public private(set) var highlightsSupported = false
+    @Published public private(set) var readingLayout = ReadingLayout()
+    @Published public private(set) var writingLanguage = DocumentWritingLanguage.unknown
+    @Published public private(set) var layoutBusy = false
+    @Published public private(set) var hasPreviousPage = false
+    @Published public private(set) var hasNextPage = false
+    private var retainedLayouts: [String: ReadingLayout] = [:]
+    public var readingCapability: ReadingFormatCapability { if ready,let book,document != nil { return .ebook(book.format) };return .unavailable }
     public private(set) var readerSessionID = UUID()
     private var notes: [EbookNote] = []
     private var readinessTimeout: Task<Void, Never>?
@@ -41,6 +48,8 @@ private final class EbookAssets: NSObject, WKURLSchemeHandler {
     private var waitingReady: CheckedContinuation<Void, Error>?
     private var waitingConversion: CheckedContinuation<String, Error>?
     public func close() {
+        if let book { retainedLayouts[book.editionID.uuidString+book.fileSHA256]=readingLayout }
+        readingLayout=ReadingLayout();writingLanguage = .unknown;layoutBusy=false;hasPreviousPage=false;hasNextPage=false
         readinessTimeout?.cancel(); readinessTimeout = nil; readerSessionID = UUID()
         let readyRequest = waitingReady; waitingReady = nil; readyRequest?.resume(throwing: EbookError.cancelled)
         let conversion = waitingConversion; waitingConversion = nil; conversion?.resume(throwing: EbookError.cancelled)
@@ -116,6 +125,9 @@ private final class EbookAssets: NSObject, WKURLSchemeHandler {
             let installed = try await web.callAsyncJavaScript("return window.pdfnoEbook.install(html, expected)", arguments: ["html": html, "expected": converted.text], in: nil, contentWorld: .page)
             guard token == readerSessionID, (installed as? Bool) == true else { throw EbookError.bridge }
             document = converted; ready = true; readinessTimeout?.cancel(); readinessTimeout = nil
+            writingLanguage = .classify(text: converted.text)
+            readingLayout=(retainedLayouts[book.editionID.uuidString+book.fileSHA256] ?? ReadingLayout()).permitted(for: writingLanguage)
+            guard await applyReadingLayout(readingLayout) else { throw EbookError.bridge }
             project(notes)
             if let anchor = book.progress {
                 guard book.accepts(anchor), converted.resolves(anchor), await navigate(to: anchor) else { throw EbookError.sourceMismatch }
@@ -139,10 +151,11 @@ private final class EbookAssets: NSObject, WKURLSchemeHandler {
             guard let start = payload["start"] as? Int, let end = payload["end"] as? Int,
                   let quote = payload["quote"] as? String, let anchor = document.anchor(book: book, start: start, end: end),
                   anchor.quote.utf16.elementsEqual(quote.utf16) else { selection = nil; return }; selection = anchor
+        case "layout":
+            if let state=SemanticReflowState(payload,language: writingLanguage) { acceptLayout(state,updatePosition: false) }
         case "progress":
-            guard let start = payload["start"] as? Int, let block = document.blocks.first(where: { $0.start == start }),
-                  let scalar = block.text.unicodeScalars.first else { return }
-            progress = document.anchor(book: book, start: start, end: start + (scalar.value > 0xffff ? 2 : 1))
+            guard let start=payload["start"] as? Int else { return }
+            updateLayoutProgress(start,book: book,document: document)
         default: break
         }
     }
@@ -160,6 +173,39 @@ private final class EbookAssets: NSObject, WKURLSchemeHandler {
                   anchor.quote.utf16.elementsEqual(quote.utf16) else { selection = nil; return nil }
             selection = anchor; return anchor
         } catch { if token == readerSessionID { selection = nil }; return nil }
+    }
+    private func updateLayoutProgress(_ start: Int,book: EbookBook,document: EbookDocument) {
+        guard start>=0,start<document.text.utf16.count,let index=String.Index(utf16Offset: start,in: document.text).samePosition(in: document.text.unicodeScalars),let scalar=document.text.unicodeScalars[index...].first else { return }
+        if let anchor=document.anchor(book: book,start: start,end: start+(scalar.value>0xffff ? 2:1)) { progress=anchor }
+    }
+    private func acceptLayout(_ state: SemanticReflowState,updatePosition: Bool) {
+        readingLayout=state.layout;hasPreviousPage=state.hasPrevious;hasNextPage=state.hasNext
+        if updatePosition,let start=state.sourceStart,let book,let document { updateLayoutProgress(start,book: book,document: document) }
+    }
+    @discardableResult public func applyReadingLayout(_ requested: ReadingLayout) async -> Bool {
+        guard ready,!layoutBusy,requested.isValid,let web=webView else { return false }
+        let token=readerSessionID,value=requested.permitted(for: writingLanguage),before=progress
+        layoutBusy=true;defer { if token==readerSessionID { layoutBusy=false } }
+        let selected=await captureSelection()
+        guard token==readerSessionID,ready else { return false }
+        do {
+            let settings=try JSONSerialization.jsonObject(with: JSONEncoder().encode(value))
+            let position=try before.map { try JSONSerialization.jsonObject(with: JSONEncoder().encode($0)) } ?? NSNull()
+            let selection=try selected.map { try JSONSerialization.jsonObject(with: JSONEncoder().encode($0)) } ?? NSNull()
+            let result=try await web.callAsyncJavaScript("return window.pdfnoEbook.configureReflow(settings,position,selected)",arguments: ["settings":settings,"position":position,"selected":selection],in: nil,contentWorld: .page)
+            guard token==readerSessionID,let object=result as? [String: Any],let state=SemanticReflowState(object,language: writingLanguage),state.layout==value else { return false }
+            acceptLayout(state,updatePosition: before==nil);self.selection=selected
+            project(notes);error=nil;return true
+        } catch { if token==readerSessionID { self.error=EbookError.bridge.localizedDescription };return false }
+    }
+    @discardableResult public func turnPage(next: Bool) async -> Bool {
+        guard ready,!layoutBusy,readingLayout.mode != .scroll,let web=webView else { return false }
+        let token=readerSessionID;layoutBusy=true;defer { if token==readerSessionID { layoutBusy=false } }
+        do {
+            let result=try await web.callAsyncJavaScript("const moved=window.pdfnoEbook.turnReflow(delta);return {moved,state:window.pdfnoEbook.reflowState()}",arguments: ["delta":next ? 1:-1],in: nil,contentWorld: .page)
+            guard token==readerSessionID,let object=result as? [String: Any],object["moved"] as? Bool==true,let payload=object["state"] as? [String: Any],let state=SemanticReflowState(payload,language: writingLanguage) else { return false }
+            acceptLayout(state,updatePosition: true);selection=nil;return true
+        }catch { if token==readerSessionID { self.error=EbookError.bridge.localizedDescription };return false }
     }
     public func navigate(to anchor: EbookAnchor) async -> Bool {
         guard ready, let book, book.accepts(anchor), document?.resolves(anchor) == true,

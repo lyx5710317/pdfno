@@ -193,6 +193,7 @@ struct PDFnoPanel<Content: View>: View {
     let closeIdentifier: String
     let close: () -> Void
     var surface = PDFnoDesign.Palette.chrome
+    var showsHeading = true
     @ViewBuilder let content: () -> Content
     var body: some View {
         VStack(spacing: 0) {
@@ -202,7 +203,7 @@ struct PDFnoPanel<Content: View>: View {
                     .accessibilityLabel("完成")
                     .accessibilityIdentifier(closeIdentifier)
                     .help("关闭" + title)
-                Label(title, systemImage: icon).font(PDFnoDesign.TypeStyle.section)
+                if showsHeading { Label(title, systemImage: icon).font(PDFnoDesign.TypeStyle.section) }
                 Spacer(minLength: 0)
             }.padding(PDFnoDesign.Space.small)
             Divider()

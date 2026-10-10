@@ -9,6 +9,7 @@ public struct TextFormatWorkspace: View {
     @ObservedObject var session: TextFormatReaderSession
     @State private var navigation = false
     @State private var notes = false
+    @State private var layoutPanel = false
     @State private var legacyNotes = false
     @StateObject private var annotations: AnnotationModel
     private let editing: RecordEditingAdapter?
@@ -17,11 +18,17 @@ public struct TextFormatWorkspace: View {
     public var body: some View {
         VStack(spacing: 0) {
             PDFnoProfessionalReaderChrome(title: session.book?.title ?? "文档", format: "") {} actions: {
-                PDFnoReaderRailButton(title: "目录", symbol: "list.bullet", identifier: "textformat-navigation", active: navigation, disabled: !session.ready) { navigation.toggle(); notes = false }
+                PDFnoReaderRailButton(title: "目录", symbol: "list.bullet", identifier: "textformat-navigation", active: navigation, disabled: !session.ready) { navigation.toggle(); notes = false;layoutPanel=false }
                 PDFnoReaderRailButton(title: "笔记", symbol: "note.text", identifier: "textformat-notes", active: notes, disabled: !session.ready) {
+                    layoutPanel=false
                     if notes { notes = false } else {
                         notes.toggle(); navigation = false
                     }
+                }
+                if session.readingCapability.allowsAa {
+                PDFnoReaderRailButton(title: "Aa",symbol: "textformat",identifier: "textformat-aa",accessibilityTitle: "Aa 排版",active: layoutPanel,disabled: !session.ready || session.layoutBusy,hint: session.writingLanguage.permitsVerticalReflow ? "字号、横竖排与翻页模式":"字号与翻页模式") {
+                    layoutPanel.toggle();navigation=false;notes=false
+                }
                 }
                 Menu {
 VStack(alignment: .leading, spacing: 4) {
@@ -50,7 +57,11 @@ VStack(alignment: .leading, spacing: 4) {
                     }
                 }
             }
-            else { TextFormatCanvas(session: session).frame(maxWidth: .infinity, maxHeight: .infinity).accessibilityIdentifier("textformat-content") }
+            else { TextFormatCanvas(session: session).frame(maxWidth: .infinity, maxHeight: .infinity).accessibilityIdentifier("textformat-content").overlay(alignment: .bottom) {
+                if session.readingLayout.mode != .scroll {
+                    ReadingPageButtons(previousEnabled: !session.layoutBusy && session.hasPreviousPage,nextEnabled: !session.layoutBusy && session.hasNextPage,previous: { Task { _=await session.turnPage(next: false) } },next: { Task { _=await session.turnPage(next: true) } })
+                }
+            } }
                 } navigation: { navigationSheet } notes: { notesSheet }
             }
             if session.ready, let document = session.document {
@@ -74,7 +85,7 @@ VStack(alignment: .leading, spacing: 4) {
     private var readerPanels: PDFnoReaderPanels {
         var result = PDFnoReaderPanels()
         if navigation { result.show(.navigation, profile: .professional) }
-        else if notes { result.show(.notes, profile: .professional) }
+        else if notes || layoutPanel { result.show(.notes, profile: .professional) }
         return result
     }
     private var navigationSheet: some View {
@@ -88,10 +99,13 @@ VStack(alignment: .leading, spacing: 4) {
                     } } label: { Text(verbatim: block.text).padding(.leading, CGFloat((block.headingLevel ?? 1) - 1) * 12) }
                         .accessibilityIdentifier("textformat-chapter-\(block.id)")
                 }
-            }.navigationTitle("标题目录").toolbar { ToolbarItem { Button("完成") { navigation = false } } }
+            }.scrollContentBackground(.hidden).background(PDFnoDesign.Palette.surface).toolbar { ToolbarItem { Button("完成") { navigation = false } } }
         }
     }
-    private var notesSheet: some View { AnnotationList(model: annotations,legacy: { legacyNotes = true }) }
+    @ViewBuilder private var notesSheet: some View {
+        if layoutPanel { ReadingLayoutPanel(layout: session.readingLayout,language: session.writingLanguage,busy: session.layoutBusy,close: { layoutPanel=false }) { value in Task { _=await session.applyReadingLayout(value) } } }
+        else { AnnotationList(model: annotations,legacy: { legacyNotes = true }) }
+    }
     private var legacyNotesSheet: some View {
         NavigationStack {
             List {

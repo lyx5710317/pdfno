@@ -80,7 +80,7 @@ VStack(alignment: .leading, spacing: 4) {
                     } } label: { Text(block.text).padding(.leading, CGFloat((block.headingLevel ?? 1) - 1) * 12) }
                         .accessibilityIdentifier("docx-chapter-\(block.id)")
                 }
-            }.navigationTitle("标题目录").toolbar { ToolbarItem { Button("完成") { navigation = false } } }
+            }.scrollContentBackground(.hidden).background(PDFnoDesign.Palette.surface).toolbar { ToolbarItem { Button("完成") { navigation = false } } }
         }
     }
     private var notesSheet: some View { AnnotationList(model: annotations,legacy: { legacyNotes = true }) }

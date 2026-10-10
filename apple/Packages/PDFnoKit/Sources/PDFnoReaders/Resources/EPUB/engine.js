@@ -12653,7 +12653,7 @@
     let engagedCorner = null;
     let isAutoTurning = false;
     let pinnedScrollLeft = null;
-    let pinnedScrollTop = null;
+    let pinnedScrollTop2 = null;
     let pointerPos = null;
     let isTextSelected = false;
     let outerTouchCleanup = null;
@@ -12775,7 +12775,7 @@
         const turning = corner === "br" ? render.next() : render.prev();
         Promise.resolve(turning).finally(() => {
           pinnedScrollLeft = doc2.body.scrollLeft;
-          pinnedScrollTop = doc2.body.scrollTop;
+          pinnedScrollTop2 = doc2.body.scrollTop;
           isAutoTurning = false;
           engagedCorner = corner;
           pointerOnlyUntilClear = true;
@@ -12799,7 +12799,7 @@
     };
     const onSelectStart = () => {
       pinnedScrollLeft = doc2.body.scrollLeft;
-      pinnedScrollTop = doc2.body.scrollTop;
+      pinnedScrollTop2 = doc2.body.scrollTop;
       pointerPos = null;
       isTextSelected = false;
       pointerOnlyUntilClear = false;
@@ -12812,7 +12812,7 @@
         isTextSelected = true;
         if (pinnedScrollLeft === null) {
           pinnedScrollLeft = doc2.body.scrollLeft;
-          pinnedScrollTop = doc2.body.scrollTop;
+          pinnedScrollTop2 = doc2.body.scrollTop;
         }
         if (!outerTouchCleanup) {
           attachOuterTouch();
@@ -12834,7 +12834,7 @@
       cancelAutoTurn();
       detachOuterTouch();
       pinnedScrollLeft = null;
-      pinnedScrollTop = null;
+      pinnedScrollTop2 = null;
       pointerPos = null;
     };
     const applyScrollPin = () => {
@@ -12844,9 +12844,9 @@
       if (doc2.body.scrollLeft !== pinnedScrollLeft) {
         doc2.body.scrollLeft = pinnedScrollLeft;
       }
-      if (pinnedScrollTop !== null && pinnedScrollTop > 0) {
-        if (doc2.body.scrollTop !== pinnedScrollTop) {
-          doc2.body.scrollTop = pinnedScrollTop;
+      if (pinnedScrollTop2 !== null && pinnedScrollTop2 > 0) {
+        if (doc2.body.scrollTop !== pinnedScrollTop2) {
+          doc2.body.scrollTop = pinnedScrollTop2;
         }
       }
     };
@@ -18064,6 +18064,10 @@
   var flowHeight = 0;
   var annotationRecords = [];
   var writingLanguageEvidence = null;
+  var readingLayout = { fontSize: 20, mode: "scroll", vertical: false };
+  var flowLayouts = /* @__PURE__ */ new Map();
+  var pinnedProgress = null;
+  var pinnedScrollTop = 0;
   var post = (value) => window.webkit?.messageHandlers.epub.postMessage(JSON.stringify(value));
   var envelope = (payload, requestID = "event") => ({ ...identity2, v: 1, documentVersion: version, requestID, payload });
   var doc = () => renderer.getDocument();
@@ -18224,8 +18228,11 @@
         if (!preserveVersion) version++;
       }
       current = index;
+      pinnedProgress = null;
       lastSelection = "";
-      renderer.element.scrollTo(0, flowFrames.get(index).offsetTop);
+      sizeFlow();
+      if (readingLayout.mode !== "scroll") flowLayouts.get(current)?.show(0);
+      renderer.element.scrollTo(0, readingLayout.mode === "scroll" ? flowFrames.get(index).offsetTop : 0);
     } finally {
       initialising = false;
     }
@@ -18235,6 +18242,10 @@
     return [...range2.getClientRects()].some((r) => r.width > 0 && r.height > 0 && r.left < width && r.right > 0 && r.top - top < height && r.bottom - top > 0);
   }
   function progress() {
+    if (pinnedProgress) {
+      rangeFor(pinnedProgress);
+      return pinnedProgress;
+    }
     const { nodes } = canonical();
     const range2 = doc().createRange();
     const visible = nodes.find((x) => {
@@ -18255,9 +18266,12 @@
     return makeAnchor(start, Math.min(visible.end, start + 128));
   }
   function state() {
-    const page = flow ? Math.max(1, Math.floor((renderer.element.scrollTop - flowFrames.get(current).offsetTop) / Math.max(1, renderer.element.clientHeight - (renderer.isVertical() ? 0 : 50))) + 1) : progressInfo(renderer.readerMode, doc(), renderer.element)?.currentPage ?? 1;
+    const page = flow && readingLayout.mode !== "scroll" ? flowLayouts.get(current)?.state().page ?? 1 : flow ? Math.max(1, Math.floor((renderer.element.scrollTop - flowFrames.get(current).offsetTop) / Math.max(1, renderer.element.clientHeight - (renderer.isVertical() ? 0 : 50))) + 1) : progressInfo(renderer.readerMode, doc(), renderer.element)?.currentPage ?? 1;
     return {
       kind: "state",
+      readingLayout: { ...readingLayout, vertical: renderer.isVertical() },
+      hasPreviousPage: current > 0 || flowLayouts.get(current)?.state().hasPrevious === true,
+      hasNextPage: current < renderer.book.sections.length - 1 || flowLayouts.get(current)?.state().hasNext === true,
       spineIndex: current,
       chapterCount: renderer.book.sections.length,
       page: String(page),
@@ -18279,6 +18293,7 @@
     d.body.replaceChildren();
     flowRoots.clear();
     flowFrames.clear();
+    flowLayouts.clear();
     const stack = d.createElement("main");
     stack.id = "pdfno-flow-stack";
     d.body.appendChild(stack);
@@ -18320,11 +18335,13 @@
     lastViewport = "";
     decorate();
     layoutFlow(false);
+    for (const [index, root2] of flowRoots) flowLayouts.set(index, new window.PDFnoReflow.Layout(root2));
   }
   function layoutFlow(vertical) {
     const d = doc(), frame = renderer.getIframe();
     frame.style.removeProperty("height");
     frame.removeAttribute("height");
+    readingLayout.vertical = vertical;
     renderer.textOrientation = vertical ? "vertical" : "horizontal";
     window.textOrientation = renderer.textOrientation;
     let style = d.getElementById("pdfno-continuous-layout");
@@ -18337,7 +18354,7 @@
     body{width:100%!important;height:auto!important;overflow:visible!important;writing-mode:${vertical ? "vertical-rl" : "horizontal-tb"}!important;column-count:auto!important;column-width:auto!important;margin:0!important;padding:0!important}
     #pdfno-flow-stack{writing-mode:horizontal-tb!important;width:100%;height:auto}
     [data-pdfno-chapter]{display:block;box-sizing:border-box;width:100%;border-bottom:1px solid #e5e5e5}
-    [data-pdfno-spine]{display:block;box-sizing:border-box;padding:24px;min-height:160px;overflow-wrap:anywhere;${vertical ? "writing-mode:vertical-rl!important;text-orientation:mixed;column-fill:auto;column-gap:48px;" : "writing-mode:horizontal-tb!important;height:auto!important;width:100%!important;column-width:auto!important;"}}`;
+    [data-pdfno-spine]{font-size:${readingLayout.fontSize}px!important;display:block;box-sizing:border-box;padding:24px;min-height:160px;overflow-wrap:anywhere;${vertical ? "writing-mode:vertical-rl!important;text-orientation:mixed;column-fill:auto;column-gap:48px;" : "writing-mode:horizontal-tb!important;height:auto!important;width:100%!important;column-width:auto!important;"}}`;
     flowWidth = 0;
     flowHeight = 0;
     sizeFlow();
@@ -18345,7 +18362,42 @@
   }
   function sizeFlow() {
     if (!flow || !doc()?.body) return;
-    const width = renderer.element.clientWidth, height = renderer.element.clientHeight;
+    const width = renderer.element.clientWidth || 640, height = renderer.element.clientHeight || 480;
+    if (readingLayout.mode !== "scroll") {
+      const anchor = progress();
+      for (const [index, frame2] of flowFrames) {
+        frame2.style.display = index === current ? "block" : "none";
+        frame2.style.height = height + "px";
+      }
+      renderer.element.style.overflowY = "hidden";
+      const layout = flowLayouts.get(current), key = JSON.stringify([readingLayout, width, height]);
+      if (layout && layout.cacheKey !== key) {
+        const chosen = selectedAnchor();
+        layout.configure(readingLayout, width, height);
+        layout.cacheKey = key;
+        if (anchor) scrollToSource(anchor);
+        if (chosen) {
+          const selected = doc().getSelection();
+          selected.removeAllRanges();
+          selected.addRange(rangeFor(chosen));
+        }
+      }
+      renderer.getIframe().style.height = height + "px";
+      renderer.element.scrollTo(0, 0);
+      return;
+    }
+    renderer.element.style.overflowY = "auto";
+    for (const [index, frame2] of flowFrames) {
+      frame2.style.removeProperty("display");
+      const layout = flowLayouts.get(index);
+      if (layout?.paged) {
+        layout.restore();
+        layout.settings = { ...readingLayout };
+        layout.remap();
+        layout.cacheKey = null;
+      }
+      flowRoots.get(index).style.fontSize = readingLayout.fontSize + "px";
+    }
     if (width !== flowWidth || height !== flowHeight) {
       const anchor = flowWidth > 0 ? progress() : null;
       flowWidth = width;
@@ -18369,10 +18421,20 @@
     if (frame.style.height !== heightValue) frame.style.height = heightValue;
   }
   function scrollToSource(anchor) {
-    const range2 = rangeFor(anchor), glyph = range2.cloneRange();
+    const range2 = rangeFor(anchor);
+    if (readingLayout.mode !== "scroll") {
+      flowLayouts.get(current).navigate(range2.startContainer);
+      renderer.element.scrollTo(0, 0);
+      pinnedProgress = { ...anchor };
+      pinnedScrollTop = 0;
+      return;
+    }
+    const glyph = range2.cloneRange();
     glyph.setEnd(range2.startContainer, Math.min(range2.startContainer.length, range2.startOffset + (range2.startContainer.data.codePointAt(range2.startOffset) > 65535 ? 2 : 1)));
     const r = glyph.getBoundingClientRect();
     renderer.element.scrollTo(0, Math.max(0, r.top - 24));
+    pinnedProgress = { ...anchor };
+    pinnedScrollTop = renderer.element.scrollTop;
   }
   function publishViewport() {
     if (initialising || !renderer?.getDocument()) return;
@@ -18385,8 +18447,13 @@
   }
   function trackFlowViewport() {
     if (!flow || initialising) return;
+    if (pinnedProgress && renderer.element.scrollTop !== pinnedScrollTop) pinnedProgress = null;
     sizeFlow();
     projectAnnotations();
+    if (readingLayout.mode !== "scroll") {
+      publishViewport();
+      return;
+    }
     const top = renderer.element.scrollTop;
     const visible = [...flowFrames].find(([, root2]) => root2.offsetTop + root2.offsetHeight > top + 24);
     if (visible && visible[0] !== current) {
@@ -18415,11 +18482,22 @@
       const buffer = Uint8Array.from(raw, (c) => c.charCodeAt(0));
       renderer = new EpubRender(buffer.buffer, message.payload.names);
       notes = message.payload.notes;
+      if (message.payload.readingLayout) readingLayout = { ...message.payload.readingLayout };
       await renderer.renderTo(document.getElementById("page-area"));
       await chapter(0, false);
       if (message.payload.progress) await navigate(message.payload.progress);
     } else if (message.command === "next" || message.command === "previous") {
-      if (flow) {
+      pinnedProgress = null;
+      if (flow && readingLayout.mode !== "scroll") {
+        const delta = message.command === "next" ? 1 : -1, layout = flowLayouts.get(current);
+        if (!layout.turn(delta)) {
+          const target = current + delta;
+          if (target >= 0 && target < renderer.book.sections.length) {
+            await chapter(target, renderer.isVertical());
+            if (delta < 0) flowLayouts.get(current).show(flowLayouts.get(current).spreads.length - 1);
+          }
+        }
+      } else if (flow) {
         const delta = (message.command === "next" ? 1 : -1) * Math.max(1, renderer.element.clientHeight - (renderer.isVertical() ? 0 : 50));
         renderer.element.scrollBy(0, delta);
         trackFlowViewport();
@@ -18437,6 +18515,23 @@
           initialising = false;
         }
       }
+    } else if (message.command === "layout") {
+      const value = message.payload.readingLayout;
+      if (!value || !Number.isSafeInteger(value.fontSize) || value.fontSize < 12 || value.fontSize > 36 || !["single", "double", "scroll"].includes(value.mode) || typeof value.vertical !== "boolean") throw Error("Invalid reflow settings");
+      const chosen = selectedAnchor() ?? message.payload.selectionAnchor ?? null, anchor = message.payload.positionAnchor ?? progress();
+      if (anchor) rangeFor(anchor);
+      if (chosen) rangeFor(chosen);
+      readingLayout = { ...value };
+      pinnedProgress = null;
+      flowWidth = 0;
+      flowHeight = 0;
+      for (const layout of flowLayouts.values()) layout.cacheKey = null;
+      layoutFlow(value.vertical);
+      sizeFlow();
+      if (anchor) await navigate({ ...anchor, vertical: value.vertical }, true);
+      const selected = doc().getSelection();
+      selected.removeAllRanges();
+      if (chosen) selected.addRange(rangeFor({ ...chosen, vertical: value.vertical }));
     } else if (message.command === "chapter") await chapter(message.payload.index, renderer.isVertical());
     else if (message.command === "vertical") {
       const selected = selectedAnchor() ?? message.payload.selectionAnchor ?? null, anchor = progress();
@@ -18493,6 +18588,7 @@
     if (message.command === "annotations") response.annotationSelection = selectedAnchor();
     if (message.command === "resize") response.resizeSelection = selectedAnchor();
     if (message.command === "vertical") response.orientationSelection = selectedAnchor();
+    if (message.command === "layout") response.layoutSelection = selectedAnchor();
     return JSON.stringify(envelope(response, message.requestID));
   } };
   post({ v: 1, payload: { kind: "ready" } });

@@ -9,10 +9,11 @@ public enum TextFormatHTML {
             DOCXBlock(id: $0.id, runs: $0.runs.map { DOCXRun($0.text, bold: $0.bold, italic: $0.italic) },
                       headingLevel: $0.headingLevel, listLevel: $0.listLevel, table: $0.table, row: $0.row, cell: $0.cell, start: $0.start)
         })
-        return DOCXHTML.render(semantic, sessionID: sessionID, usesMammoth: usesEngine)
+        let html = DOCXHTML.render(semantic, sessionID: sessionID, usesMammoth: usesEngine)
             .replacingOccurrences(of: "pdfno-docx", with: "pdfno-text")
             .replacingOccurrences(of: "messageHandlers.docx", with: "messageHandlers.textformat")
             .replacingOccurrences(of: "pdfnoDOCX", with: "pdfnoText")
+        return SemanticReflowHTML.enable(html,bridge: "pdfnoText",sessionID: sessionID)
     }
     public static func fragment(_ document: TextFormatDocument) -> String {
         let html = render(document, sessionID: UUID())

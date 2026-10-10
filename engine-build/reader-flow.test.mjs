@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {JSDOM} from 'jsdom';
 const source=(await readFile(new URL('./reader.js',import.meta.url),'utf8')).replace(/^import .*;$/gm,'');
+const layout=await readFile(new URL('../apple/Packages/PDFnoKit/Sources/PDFnoReaders/Resources/Reflow/layout.js',import.meta.url),'utf8');
 function host(){
  const dom=new JSDOM('<!doctype html><main id="page-area"></main>',{runScripts:'outside-only'}),w=dom.window,d=w.document;
  w.messages=[];w.webkit={messageHandlers:{epub:{postMessage:m=>w.messages.push(JSON.parse(m))}}};
@@ -20,7 +21,7 @@ function host(){
   async goToChapterDocIndex(i){this.getDocument().body.innerHTML=html[i]}
  };
  w.handleOneChapterDoc=async item=>'<html><head><title>Metadata'+html.indexOf(item.text)+'</title></head><body>'+item.text+'</body></html>';w.handleLayout=()=>{};w.progressInfo=()=>({currentPage:1});
- w.eval(source+'\nwindow.flowTest={canonical,selectedAnchor,rangeFor,trackFlowViewport,getDoc:doc};');
+ w.eval(layout);w.eval(source+'\nwindow.flowTest={canonical,selectedAnchor,rangeFor,trackFlowViewport,getDoc:doc};');
  const identity={v:1,session:'session',bookID:'book',editionID:'edition',fileSHA256:'sha'};
  let id=0;const command=async(command,payload={})=>{const version=w.messages.filter(m=>m.documentVersion!==undefined).at(-1)?.documentVersion??0;
   const result=JSON.parse(await w.PDFno.command({...identity,requestID:String(++id),documentVersion:version,command,payload}));w.messages.push(result);return result.payload};

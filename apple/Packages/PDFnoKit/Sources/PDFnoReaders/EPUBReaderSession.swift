@@ -13,8 +13,8 @@ public struct EPUBOutlineItem: Identifiable {
 }
 private final class EPUBAssets: NSObject, WKURLSchemeHandler {
     func webView(_ webView: WKWebView, start task: any WKURLSchemeTask) {
-        guard let url = task.request.url, url.host == "app", ["/index.html", "/engine.js"].contains(url.path),
-              let root = Bundle.module.url(forResource: "EPUB", withExtension: nil),
+        guard let url = task.request.url, url.host == "app", ["/index.html", "/engine.js", "/layout.js"].contains(url.path),
+              let root = Bundle.module.url(forResource: url.path == "/layout.js" ? "Reflow" : "EPUB", withExtension: nil),
               let data = try? Data(contentsOf: root.appendingPathComponent(String(url.path.dropFirst()))) else {
             task.didFailWithError(EPUBError.bridge); return
         }
@@ -42,6 +42,11 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
     @Published public private(set) var position = ""
     @Published public private(set) var writingLanguage = DocumentWritingLanguage.unknown
     @Published public private(set) var vertical = false
+    @Published public private(set) var readingLayout = ReadingLayout()
+    @Published public private(set) var hasPreviousPage = false
+    @Published public private(set) var hasNextPage = false
+    private var retainedLayouts: [String: ReadingLayout] = [:]
+    public var readingCapability: ReadingFormatCapability { book != nil && progress != nil ? .reflowEPUB : .unavailable }
     @Published public private(set) var busy = false
     @Published public private(set) var error: String?
     @Published public private(set) var canReturnToPreviousLocation = false
@@ -55,6 +60,8 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
     private var pendingOpen: [String: Any]?
     private var pending: [UUID: CheckedContinuation<String, Error>] = [:]
     public func close() {
+        if let book { retainedLayouts[book.editionID.uuidString+book.fileSHA256]=readingLayout }
+        readingLayout=ReadingLayout();hasPreviousPage=false;hasNextPage=false;vertical=false
         translationScopeDidChange?()
         generation = UUID(); pendingOpen = nil
         navigationHistory.clear(); canReturnToPreviousLocation = false; returningToPreviousLocation = false
@@ -87,7 +94,8 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = self; view.setAccessibilityIdentifier("epub-content")
         webView = view
-        pendingOpen = ["data": data.base64EncodedString(), "names": names,
+        readingLayout=retainedLayouts[book.editionID.uuidString+book.fileSHA256] ?? ReadingLayout()
+        pendingOpen = ["data": data.base64EncodedString(), "names": names,"readingLayout": try json(readingLayout),
                        "notes": try json(notes.filter { $0.bookID == book.id }), "progress": try book.progress.map(json) ?? NSNull()]
         view.load(URLRequest(url: URL(string: "pdfno-reader://app/index.html")!))
         Task { [weak self] in
@@ -144,6 +152,12 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
         else { throw EPUBError.bridge }
         if let evidence = state["writingLanguageEvidence"] as? [String: Any], let text = evidence["sample"] as? String { writingLanguage = .classify(metadata: evidence["metadata"] as? String,text: text) }
         vertical = state["vertical"] as? Bool ?? false
+        if let value=state["readingLayout"] as? [String: Any] {
+            let layout=try JSONDecoder().decode(ReadingLayout.self,from: JSONSerialization.data(withJSONObject: value))
+            guard layout.isValid,layout.vertical==vertical else { throw EPUBError.bridge }
+            readingLayout=layout
+        }
+        hasPreviousPage=state["hasPreviousPage"] as? Bool ?? false;hasNextPage=state["hasNextPage"] as? Bool ?? false
         let chapter = state["spineIndex"] as? Int ?? 0, page = state["page"] as? String ?? "1"
         spineIndex = chapter
         position = "第 \(chapter + 1) 章 · 第 \(page) 页" + (vertical ? " · 竖排" : "")
@@ -229,6 +243,8 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
             if documentVersion != version { translationScopeDidChange?(); selection = nil }
             documentVersion = version; spineIndex = chapter; progress = anchor
             vertical = payload["vertical"] as? Bool ?? false
+            if let value=payload["readingLayout"] as? [String: Any],let layout=try? JSONDecoder().decode(ReadingLayout.self,from: JSONSerialization.data(withJSONObject: value)),layout.isValid,layout.vertical==vertical { readingLayout=layout }
+            hasPreviousPage=payload["hasPreviousPage"] as? Bool ?? false;hasNextPage=payload["hasNextPage"] as? Bool ?? false
             position = "第 \(chapter + 1) 章 · 第 \(page) 页" + (vertical ? " · 竖排" : "")
         } else if !busy, matches(object), object["documentVersion"] as? Int == documentVersion,
                   payload["kind"] as? String == "selection", let value = payload["anchor"] as? [String: Any] {
@@ -257,11 +273,11 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
         if let state=try? await request("annotations",payload: ["annotations":items]),generation==token,
            let value=state["annotationSelection"] as? [String: Any],let captured=try? anchorValue(value) { selection=captured }
     }
-    public func command(_ name: String, index: Int? = nil, anchor: EPUBAnchor? = nil, notes: [EPUBNote]? = nil) async -> Bool {
+    public func command(_ name: String, index: Int? = nil, anchor: EPUBAnchor? = nil, notes: [EPUBNote]? = nil, layout: ReadingLayout? = nil) async -> Bool {
         guard !busy, name != "vertical" || writingLanguage.permitsVerticalReflow else { return false }; let token = generation
         var effectiveAnchor=anchor
         if !writingLanguage.permitsVerticalReflow { effectiveAnchor=effectiveAnchor?.withVertical(false) }
-        let selectionBeforeResize = ["resize", "vertical"].contains(name) ? selection : nil
+        let selectionBeforeResize = ["resize", "vertical", "layout"].contains(name) ? selection : nil
         let origin = progress, recordsJump = !returningToPreviousLocation && ["chapter", "navigate"].contains(name)
         busy = true; defer { if generation == token { busy = false } }
         do {
@@ -276,6 +292,10 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
                 payload["selectionAnchor"] = try json(selectionBeforeResize)
             }
             if let notes { payload["notes"] = try json(notes) }
+            if name=="layout",let layout,layout.isValid {
+                payload["readingLayout"]=try json(layout.permitted(for: writingLanguage))
+                if let progress { payload["positionAnchor"]=try json(progress) }
+            }
             let state = try await request(name, payload: payload)
             if name == "navigate" {
                 guard let requested = effectiveAnchor, let value = state["navigationSelection"] as? [String: Any] else {
@@ -313,8 +333,9 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
                     guard selectionBeforeResize == nil else { throw EPUBError.sourceMismatch }
                 } else { throw EPUBError.sourceMismatch }
             }
-            if name == "vertical" {
-                if let value = state["orientationSelection"] as? [String: Any] {
+            if name == "vertical" || name == "layout" {
+                let field=name=="layout" ? "layoutSelection":"orientationSelection"
+                if let value = state[field] as? [String: Any] {
                     let selected = try anchorValue(value)
                     guard selected.spineIndex == spineIndex, selected.vertical == vertical,
                           selected.resourceHref == progress?.resourceHref else { throw EPUBError.sourceMismatch }
@@ -326,7 +347,7 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
                         guard selected == expected else { throw EPUBError.sourceMismatch }
                     }
                     selection = selected
-                } else if state["orientationSelection"] is NSNull {
+                } else if state[field] is NSNull {
                     guard selectionBeforeResize == nil else { throw EPUBError.sourceMismatch }
                 } else { throw EPUBError.sourceMismatch }
             }
@@ -339,6 +360,11 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
             if generation == token { self.error = (error as? EPUBError)?.localizedDescription ?? EPUBError.bridge.localizedDescription }
             return false
         }
+    }
+    @discardableResult public func applyReadingLayout(_ layout: ReadingLayout) async -> Bool {
+        guard book != nil,!busy,layout.isValid else { return false }
+        _ = await captureSelection()
+        return await command("layout",layout: layout)
     }
     /// Uses the existing canonical quote/context resolver, also after reflow. No page geometry is invented.
     @discardableResult public func returnToPreviousLocation() async -> Bool {

@@ -19,17 +19,17 @@ struct ComicWorkspace: View {
                 Picker("页面布局", selection: Binding(get: { session.layout }, set: { value in Task { await session.setLayout(value) } })) {
                     Text("自动").tag(ComicLayout.automatic); Text("单页").tag(ComicLayout.single); Text("双页").tag(ComicLayout.double)
                 }.disabled(session.busy).accessibilityIdentifier("comic-layout")
-                Button { Task { await session.previous() } } label: { Label("上一页", systemImage: session.direction == .rightToLeft ? "chevron.right" : "chevron.left") }
-                    .disabled(session.busy || !session.hasPrevious).accessibilityIdentifier("comic-previous")
-                Button { Task { await session.next() } } label: { Label("下一页", systemImage: session.direction == .rightToLeft ? "chevron.left" : "chevron.right") }
-                    .disabled(session.busy || !session.hasNext).accessibilityIdentifier("comic-next")
                 Button("关闭漫画") { close() }.accessibilityIdentifier("comic-close")
             }.padding(10)
                 } label: { Image(systemName: "slider.horizontal.3") }.help("漫画页面设置").accessibilityLabel("漫画页面设置").accessibilityIdentifier("comic-settings")
             } actions: {
                 PDFnoReaderRailButton(title: "页面", symbol: "list.bullet", identifier: "comic-pages", active: pages, disabled: session.book == nil) { pages.toggle() }
             } content: {
-                PDFnoReaderShell(panels: readerPanels, profile: .professional) { ComicCanvas(session: session) }
+                PDFnoReaderShell(panels: readerPanels, profile: .professional) {
+                    ComicCanvas(session: session).overlay(alignment: .bottom) {
+                        ReadingPageButtons(previousEnabled: !session.busy && session.hasPrevious,nextEnabled: !session.busy && session.hasNext,previous: { Task { await session.previous() } },next: { Task { await session.next() } })
+                    }
+                }
                     navigation: { pagesContent } notes: { EmptyView() }
             }
             HStack { Text(session.position).accessibilityIdentifier("comic-position"); Spacer(); Text("点击阅读区边缘翻页 · 单页／双页") }.font(.caption).padding(10)
@@ -43,7 +43,7 @@ struct ComicWorkspace: View {
         return result
     }
     private var pagesContent: some View {
-        PDFnoPanel(title: "漫画页面", icon: "list.bullet", closeIdentifier: "comic-pages-close", close: { pages = false }) {
+        PDFnoPanel(title: "漫画页面", icon: "list.bullet", closeIdentifier: "comic-pages-close", close: { pages = false },surface: PDFnoDesign.Palette.surface,showsHeading: false) {
             List(Array((session.book?.pages ?? []).enumerated()), id: \.offset) { index, page in
                 Button("\(index + 1). \(page.path)") { Task { await session.go(to: index); pages = false } }
                     .disabled(session.busy).accessibilityIdentifier("comic-page-\(index)")

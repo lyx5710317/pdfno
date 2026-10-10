@@ -529,11 +529,6 @@ struct ReaderWorkspace: View {
                 VStack(spacing: 0) {
                     #if os(macOS)
                     PDFnoProfessionalReaderChrome(title: book.title, format: "PDF") {
-                        Button { session.go(to: session.pageIndex - 1) } label: { Label("上一页", systemImage: "chevron.left") }
-                            .disabled(session.pageIndex == 0).accessibilityIdentifier("previous-page").help("阅读上一页")
-                        Button { session.go(to: session.pageIndex + 1) } label: { Label("下一页", systemImage: "chevron.right") }
-                            .disabled(session.pageIndex >= book.pageCount - 1).accessibilityIdentifier("next-page").help("阅读下一页")
-                        PDFReturnToPreviousLocationButton(session: session)
                     } actions: { professionalActions } content: {
                         PDFnoReaderShell(panels: panels, profile: .professional) {
                             VStack(spacing: 0) {
@@ -554,7 +549,7 @@ struct ReaderWorkspace: View {
                                     }
                             }
                         } navigation: {
-                            PDFnoPanel(title: "导航与搜索", icon: "list.bullet", closeIdentifier: "close-navigation", close: closeNavigation, surface: PDFnoDesign.Palette.surface) { navigationContent }
+                            PDFnoPanel(title: "导航与搜索", icon: "list.bullet", closeIdentifier: "close-navigation", close: closeNavigation, surface: PDFnoDesign.Palette.surface,showsHeading: false) { navigationContent }
                         } notes: {
                             if inspector == .bookmarks {
                                 BookmarkList(model: model.bookmarks,close: { panels.notes=false },closeIdentifier: "reader-close-bookmarks")
@@ -679,12 +674,9 @@ struct ReaderWorkspace: View {
         #if os(macOS)
         let navigationSessionID = session.readerSessionID
         return VStack(spacing: 0) {
-            #if os(macOS)
-            PDFnoReaderNavigationPicker(tab: $navigationTab)
-            #endif
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
-                TextField("输入关键词", text: $searchText).accessibilityIdentifier("search-input")
+                TextField("输入关键词", text: $searchText).onChange(of: searchText) { _, value in if value.isEmpty { navigationTab = .contents; searched = false } }.accessibilityIdentifier("search-input")
                     .onSubmit(performSearch)
                     #if os(macOS)
                     .focused($searchFocused).autocorrectionDisabled()
@@ -778,7 +770,7 @@ struct ReaderWorkspace: View {
         }
     }
     @ViewBuilder private func contentsResults(navigationSessionID: UUID) -> some View {
-        Section("目录") {
+        Section {
             if session.outline.isEmpty { PDFnoEmptyState(title: "此 PDF 没有内置目录", detail: "可以从下方页码或文本搜索定位。") }
             ForEach(session.outline) { item in
                 Button { if session.jump(to: item) { closeNavigation() } } label: {

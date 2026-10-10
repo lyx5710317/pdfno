@@ -43,7 +43,7 @@ public enum EbookHTML {
         let nonce = sessionID.uuidString
         let body = self.body(document)
         let engineScript = usesEngine ? "<script nonce=\"\(nonce)\" src=\"pdfno-ebook://app/engine.js\"></script>" : ""
-        return """
+        let html = """
         <!doctype html><html lang="zh"><head><meta charset="utf-8">
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-\(nonce)'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
         <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -117,5 +117,6 @@ public enum EbookHTML {
         post('ready',{highlights:!!(window.Highlight&&window.CSS?.highlights)});
         </script></body></html>
         """
+        return SemanticReflowHTML.enable(html,bridge: "pdfnoEbook",sessionID: sessionID)
     }
 }

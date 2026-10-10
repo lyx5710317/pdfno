@@ -4,6 +4,9 @@ import {handleOneChapterDoc,handleLayout,progressInfo} from './vendor/kookit/src
 let identity, renderer, version=0, current=0, notes=[], initialising=false, lastSelection='', flow=false, lastViewport='';
 const flowRoots=new Map(), flowFrames=new Map();
 let flowWidth=0, flowHeight=0, annotationRecords=[], writingLanguageEvidence=null;
+let readingLayout={fontSize:20,mode:'scroll',vertical:false};
+const flowLayouts=new Map();
+let pinnedProgress=null,pinnedScrollTop=0;
 const post = value => window.webkit?.messageHandlers.epub.postMessage(JSON.stringify(value));
 const envelope = (payload,requestID='event') => ({...identity,v:1,documentVersion:version,requestID,payload});
 const doc = () => renderer.getDocument();
@@ -118,8 +121,10 @@ async function chapter(index,vertical=renderer.isVertical(),preserveVersion=fals
     if (renderer.isVertical()!==vertical) layoutFlow(vertical);
     else sizeFlow();
     if (current!==index) { doc().getSelection()?.removeAllRanges(); if(!preserveVersion)version++; }
-    current=index; lastSelection='';
-    renderer.element.scrollTo(0,flowFrames.get(index).offsetTop);
+    current=index; pinnedProgress=null;lastSelection='';
+    sizeFlow();
+    if(readingLayout.mode!=='scroll')flowLayouts.get(current)?.show(0);
+    renderer.element.scrollTo(0,readingLayout.mode==='scroll'?flowFrames.get(index).offsetTop:0);
   } finally { initialising=false; }
 }
 function visibleRects(range) {
@@ -127,6 +132,7 @@ function visibleRects(range) {
   return [...range.getClientRects()].some(r=>r.width>0 && r.height>0 && r.left<width && r.right>0 && r.top-top<height && r.bottom-top>0);
 }
 function progress() {
+  if(pinnedProgress){rangeFor(pinnedProgress);return pinnedProgress;}
   const {nodes}=canonical();
   const range=doc().createRange();
   const visible=nodes.find(x=>{range.selectNodeContents(x.node);return visibleRects(range);});
@@ -144,8 +150,10 @@ function progress() {
   return makeAnchor(start,Math.min(visible.end,start+128));
 }
 function state() {
-  const page=flow ? Math.max(1,Math.floor((renderer.element.scrollTop-flowFrames.get(current).offsetTop)/Math.max(1,renderer.element.clientHeight-(renderer.isVertical()?0:50)))+1) : (progressInfo(renderer.readerMode,doc(),renderer.element)?.currentPage ?? 1);
-  return {kind:'state',spineIndex:current,chapterCount:renderer.book.sections.length,page:String(page),
+  const page=flow&&readingLayout.mode!=='scroll'?flowLayouts.get(current)?.state().page??1:flow ? Math.max(1,Math.floor((renderer.element.scrollTop-flowFrames.get(current).offsetTop)/Math.max(1,renderer.element.clientHeight-(renderer.isVertical()?0:50)))+1) : (progressInfo(renderer.readerMode,doc(),renderer.element)?.currentPage ?? 1);
+  return {kind:'state',readingLayout:{...readingLayout,vertical:renderer.isVertical()},
+    hasPreviousPage:current>0||flowLayouts.get(current)?.state().hasPrevious===true,
+    hasNextPage:current<renderer.book.sections.length-1||flowLayouts.get(current)?.state().hasNext===true,spineIndex:current,chapterCount:renderer.book.sections.length,page:String(page),
     vertical:renderer.isVertical(),progress:progress(),outline:renderer.flattenChapters.map(x=>({title:x.label,index:x.index})).slice(0,1000)};
 }
 
@@ -156,7 +164,7 @@ async function buildFlow() {
   await renderer.goToChapterDocIndex(0);
   const d=doc(); d.documentElement.removeAttribute('style'); d.body.removeAttribute('style'); d.body.replaceChildren();
   // Reuse the bounded, sanitised publication loader. Book scripts remain disabled in the original iframe.
-  flowRoots.clear();flowFrames.clear();
+  flowRoots.clear();flowFrames.clear();flowLayouts.clear();
   const stack=d.createElement('main');stack.id='pdfno-flow-stack';d.body.appendChild(stack);
   for(let index=0;index<renderer.book.sections.length;index++) {
     const html=await handleOneChapterDoc(renderer.book.sections[index],false);
@@ -177,12 +185,14 @@ async function buildFlow() {
   for(const text of texts){for(let i=(stride-offset%stride)%stride;i<text.length;i+=stride){const code=text.charCodeAt(i);if(code>=0xd800&&code<=0xdbff&&i+1<text.length)sample+=text.slice(i,i+2);else if(code<0xdc00||code>0xdfff)sample+=text[i];}offset+=text.length;}
   writingLanguageEvidence={metadata:typeof metadata==='string'?metadata:null,sample:sample.slice(0,200000)};
   flow=true; current=0; version++; lastSelection=''; lastViewport=''; decorate(); layoutFlow(false);
+  for(const [index,root] of flowRoots)flowLayouts.set(index,new window.PDFnoReflow.Layout(root));
 }
 function layoutFlow(vertical) {
   const d=doc(),frame=renderer.getIframe();
   // An old inline height overrides the vendor's iframe height attribute. Clear
   // both before measuring the new orientation, and replace one exact flow height.
   frame.style.removeProperty('height');frame.removeAttribute('height');
+  readingLayout.vertical=vertical;
   renderer.textOrientation=vertical?'vertical':'horizontal';window.textOrientation=renderer.textOrientation;
   let style=d.getElementById('pdfno-continuous-layout');
   if(!style){style=d.createElement('style');style.id='pdfno-continuous-layout';d.head.appendChild(style);}
@@ -190,12 +200,30 @@ function layoutFlow(vertical) {
     body{width:100%!important;height:auto!important;overflow:visible!important;writing-mode:${vertical?'vertical-rl':'horizontal-tb'}!important;column-count:auto!important;column-width:auto!important;margin:0!important;padding:0!important}
     #pdfno-flow-stack{writing-mode:horizontal-tb!important;width:100%;height:auto}
     [data-pdfno-chapter]{display:block;box-sizing:border-box;width:100%;border-bottom:1px solid #e5e5e5}
-    [data-pdfno-spine]{display:block;box-sizing:border-box;padding:24px;min-height:160px;overflow-wrap:anywhere;${vertical?'writing-mode:vertical-rl!important;text-orientation:mixed;column-fill:auto;column-gap:48px;':'writing-mode:horizontal-tb!important;height:auto!important;width:100%!important;column-width:auto!important;'}}`;
+    [data-pdfno-spine]{font-size:${readingLayout.fontSize}px!important;display:block;box-sizing:border-box;padding:24px;min-height:160px;overflow-wrap:anywhere;${vertical?'writing-mode:vertical-rl!important;text-orientation:mixed;column-fill:auto;column-gap:48px;':'writing-mode:horizontal-tb!important;height:auto!important;width:100%!important;column-width:auto!important;'}}`;
   flowWidth=0;flowHeight=0;sizeFlow();lastViewport='';
 }
 function sizeFlow() {
   if(!flow || !doc()?.body)return;
-  const width=renderer.element.clientWidth,height=renderer.element.clientHeight;
+  const width=renderer.element.clientWidth||640,height=renderer.element.clientHeight||480;
+  if(readingLayout.mode!=='scroll') {
+    const anchor=progress();
+    for(const [index,frame] of flowFrames){frame.style.display=index===current?'block':'none';frame.style.height=height+'px';}
+    renderer.element.style.overflowY='hidden';
+    const layout=flowLayouts.get(current),key=JSON.stringify([readingLayout,width,height]);
+    if(layout&&layout.cacheKey!==key){
+      const chosen=selectedAnchor();layout.configure(readingLayout,width,height);layout.cacheKey=key;
+      if(anchor)scrollToSource(anchor);
+      if(chosen){const selected=doc().getSelection();selected.removeAllRanges();selected.addRange(rangeFor(chosen));}
+    }
+    renderer.getIframe().style.height=height+'px';renderer.element.scrollTo(0,0);return;
+  }
+  renderer.element.style.overflowY='auto';
+  for(const [index,frame] of flowFrames){
+    frame.style.removeProperty('display');const layout=flowLayouts.get(index);
+    if(layout?.paged){layout.restore();layout.settings={...readingLayout};layout.remap();layout.cacheKey=null;}
+    flowRoots.get(index).style.fontSize=readingLayout.fontSize+'px';
+  }
   if(width!==flowWidth || height!==flowHeight) {
     const anchor=flowWidth>0 ? progress() : null;
     flowWidth=width;flowHeight=height;
@@ -215,9 +243,15 @@ function sizeFlow() {
   if(frame.style.height!==heightValue)frame.style.height=heightValue;
 }
 function scrollToSource(anchor) {
-  const range=rangeFor(anchor),glyph=range.cloneRange();
+  const range=rangeFor(anchor);
+  if(readingLayout.mode!=='scroll'){
+    flowLayouts.get(current).navigate(range.startContainer);renderer.element.scrollTo(0,0);
+    pinnedProgress={...anchor};pinnedScrollTop=0;return;
+  }
+  const glyph=range.cloneRange();
   glyph.setEnd(range.startContainer,Math.min(range.startContainer.length,range.startOffset+(range.startContainer.data.codePointAt(range.startOffset)>65535?2:1)));
   const r=glyph.getBoundingClientRect();renderer.element.scrollTo(0,Math.max(0,r.top-24));
+  pinnedProgress={...anchor};pinnedScrollTop=renderer.element.scrollTop;
 }
 function publishViewport() {
   if(initialising || !renderer?.getDocument())return;
@@ -227,7 +261,9 @@ function publishViewport() {
 }
 function trackFlowViewport() {
   if(!flow || initialising)return;
+  if(pinnedProgress&&renderer.element.scrollTop!==pinnedScrollTop)pinnedProgress=null;
   sizeFlow();projectAnnotations();
+  if(readingLayout.mode!=='scroll'){publishViewport();return;}
   const top=renderer.element.scrollTop;
   const visible=[...flowFrames].find(([,root])=>root.offsetTop+root.offsetHeight>top+24);
   if(visible && visible[0]!==current){doc().getSelection()?.removeAllRanges();current=visible[0];version++;lastSelection='';}
@@ -247,11 +283,22 @@ window.PDFno = {async command(message) {
     identity={session:message.session,bookID:message.bookID,editionID:message.editionID,fileSHA256:message.fileSHA256};
     const raw=atob(message.payload.data); const buffer=Uint8Array.from(raw,c=>c.charCodeAt(0));
     renderer=new EpubRender(buffer.buffer,message.payload.names); notes=message.payload.notes;
+    if(message.payload.readingLayout)readingLayout={...message.payload.readingLayout};
     await renderer.renderTo(document.getElementById('page-area'));
     await chapter(0,false);
     if (message.payload.progress) await navigate(message.payload.progress);
   } else if (message.command==='next' || message.command==='previous') {
-    if(flow) {
+    pinnedProgress=null;
+    if(flow&&readingLayout.mode!=='scroll'){
+      const delta=message.command==='next'?1:-1,layout=flowLayouts.get(current);
+      if(!layout.turn(delta)){
+        const target=current+delta;
+        if(target>=0&&target<renderer.book.sections.length){
+          await chapter(target,renderer.isVertical());
+          if(delta<0)flowLayouts.get(current).show(flowLayouts.get(current).spreads.length-1);
+        }
+      }
+    }else if(flow) {
       const delta=(message.command==='next'?1:-1)*Math.max(1,renderer.element.clientHeight-(renderer.isVertical()?0:50));
       renderer.element.scrollBy(0,delta);trackFlowViewport();
     } else {
@@ -262,6 +309,17 @@ window.PDFno = {async command(message) {
       if (target!==current) { current=target; version++; decorate(); }
     } finally { initialising=false; }
     }
+  } else if(message.command==='layout'){
+    const value=message.payload.readingLayout;
+    if(!value||!Number.isSafeInteger(value.fontSize)||value.fontSize<12||value.fontSize>36||!['single','double','scroll'].includes(value.mode)||typeof value.vertical!=='boolean')throw Error('Invalid reflow settings');
+    const chosen=selectedAnchor()??message.payload.selectionAnchor??null,anchor=message.payload.positionAnchor??progress();
+    if(anchor)rangeFor(anchor);if(chosen)rangeFor(chosen);
+    readingLayout={...value};pinnedProgress=null;flowWidth=0;flowHeight=0;
+    for(const layout of flowLayouts.values())layout.cacheKey=null;
+    layoutFlow(value.vertical);sizeFlow();
+    if(anchor)await navigate({...anchor,vertical:value.vertical},true);
+    const selected=doc().getSelection();selected.removeAllRanges();
+    if(chosen)selected.addRange(rangeFor({...chosen,vertical:value.vertical}));
   } else if (message.command==='chapter') await chapter(message.payload.index,renderer.isVertical());
   else if (message.command==='vertical') {
     const selected=selectedAnchor() ?? message.payload.selectionAnchor ?? null, anchor=progress();
@@ -310,6 +368,7 @@ window.PDFno = {async command(message) {
   if(message.command==='annotations') response.annotationSelection=selectedAnchor();
   if(message.command==='resize') response.resizeSelection=selectedAnchor();
   if(message.command==='vertical') response.orientationSelection=selectedAnchor();
+  if(message.command==='layout') response.layoutSelection=selectedAnchor();
   return JSON.stringify(envelope(response,message.requestID));
 }};
 post({v:1,payload:{kind:'ready'}});
