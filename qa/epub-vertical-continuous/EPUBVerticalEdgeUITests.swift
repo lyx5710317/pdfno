@@ -2,6 +2,7 @@
 #if os(macOS)
 import XCTest
 import AppKit
+import CoreGraphics
 
 /// Added only to the guarded local QA project. Never launches the product bundle.
 final class EPUBVerticalEdgeUITests: XCTestCase {
@@ -225,7 +226,7 @@ final class EPUBVerticalEdgeUITests: XCTestCase {
         }
         try click(app.menuItems[title].firstMatch)
     }
-    @MainActor private func edge(_ x: CGFloat, app: XCUIApplication) throws -> XCUICoordinate {
+    @MainActor private func edge(_ x: CGFloat, app: XCUIApplication) throws -> OwnComicPoint {
         let marker=item("comic-content",app);XCTAssertTrue(marker.waitForExistence(timeout: 15))
         let window=app.windows.firstMatch, bounds=window.frame
         let candidates=app.webViews.allElementsBoundByIndex + app.descendants(matching: .any).matching(identifier: "comic-content").allElementsBoundByIndex
@@ -234,12 +235,56 @@ final class EPUBVerticalEdgeUITests: XCTestCase {
             return $0.exists && f.width>100 && f.height>100 && f.minX.isFinite && f.minY.isFinite && f.maxX.isFinite && f.maxY.isFinite && bounds.contains(f)
         },"Actual comic WebKit viewport must have finite bounds inside this fixture window")
         print("OWN_COMIC_VIEWPORT",canvas.elementType.rawValue,canvas.frame)
-        let f=canvas.frame
-        // WebKit's AX element reports finite bounds, but its relative coordinate
-        // conversion can still be infinite on macOS. Anchor the same real point
-        // to this owned native window; never issue an event to an unknown frame.
-        return window.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
-            dx: f.minX-bounds.minX+f.width*x,dy: f.minY-bounds.minY+f.height*0.5))
+        let f=canvas.frame,point=CGPoint(x: f.minX+f.width*x,y: f.minY+f.height*0.5)
+        let front=try XCTUnwrap(NSWorkspace.shared.frontmostApplication)
+        XCTAssertEqual(front.bundleIdentifier,ProcessInfo.processInfo.environment["PDFNO_A_QA_EXPECTED_BUNDLE"])
+        return OwnComicPoint(point: point,bundle: try XCTUnwrap(front.bundleIdentifier),pid: front.processIdentifier)
+
+    }
+    @MainActor private struct OwnComicPoint {
+        let point: CGPoint, bundle: String, pid: pid_t
+        private static let admittedDisplay = CGMainDisplayID()
+        private func admit(_ position: CGPoint) throws {
+            let front=NSWorkspace.shared.frontmostApplication
+            let windows=CGWindowListCopyWindowInfo([.optionOnScreenOnly,.excludeDesktopElements],kCGNullWindowID) as? [[String: Any]] ?? []
+            let ownsPoint=windows.contains { record in
+                guard record[kCGWindowOwnerPID as String] as? Int == Int(pid),record[kCGWindowLayer as String] as? Int == 0,
+                      let value=record[kCGWindowBounds as String] as? NSDictionary,
+                      let rect=CGRect(dictionaryRepresentation: value) else { return false }
+                return rect.contains(position)
+            }
+            guard position.x.isFinite,position.y.isFinite,front?.processIdentifier == pid,front?.bundleIdentifier == bundle,
+                  bundle == ProcessInfo.processInfo.environment["PDFNO_A_QA_EXPECTED_BUNDLE"],ownsPoint,
+                  CGMainDisplayID() == Self.admittedDisplay,CGDisplayIsActive(Self.admittedDisplay) != 0,
+                  CGDisplayIsAsleep(Self.admittedDisplay) == 0 else {
+                print("EXPERIENCE_DESKTOP_CHANGED native comic input stopped; no activation")
+                XCTFail("Own comic window/display/input boundary changed");throw NSError(domain: "OwnComicInput",code: 1)
+            }
+            guard CGPreflightPostEventAccess() else {
+                XCTFail("Existing Runner event access unavailable; no permission request");throw NSError(domain: "OwnComicInput",code: 2)
+            }
+        }
+        private func pause(_ seconds: Double) { RunLoop.current.run(until: Date().addingTimeInterval(seconds)) }
+        private func send(_ type: CGEventType,at position: CGPoint,count: Int64=1) throws {
+            try admit(position)
+            let event=try XCTUnwrap(CGEvent(mouseEventSource: nil,mouseType: type,mouseCursorPosition: position,mouseButton: .left))
+            event.flags=[];event.setIntegerValueField(.mouseEventClickState,value: count)
+            event.post(tap: .cghidEventTap);pause(0.04)
+        }
+        func click() throws { try send(.mouseMoved,at: point);try send(.leftMouseDown,at: point);try send(.leftMouseUp,at: point) }
+        func doubleClick() throws {
+            try send(.mouseMoved,at: point)
+            for count in Int64(1)...2 { try send(.leftMouseDown,at: point,count: count);try send(.leftMouseUp,at: point,count: count) }
+        }
+        func press(forDuration duration: Double,thenDragTo destination: OwnComicPoint) throws {
+            guard destination.pid == pid && destination.bundle == bundle else { throw NSError(domain: "OwnComicInput",code: 3) }
+            try send(.mouseMoved,at: point);try send(.leftMouseDown,at: point);pause(duration)
+            for step in 1...12 {
+                let part=CGFloat(step)/12
+                try send(.leftMouseDragged,at: CGPoint(x: point.x+(destination.point.x-point.x)*part,y: point.y+(destination.point.y-point.y)*part))
+            }
+            try send(.leftMouseUp,at: destination.point)
+        }
     }
     @MainActor func testVerticalWheelCrossesPagesChaptersAndReopensInVertical() throws {
         let app=try originalApp(width: 1280,dark: false);defer { app.terminate() }
