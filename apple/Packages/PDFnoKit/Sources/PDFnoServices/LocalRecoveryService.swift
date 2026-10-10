@@ -148,7 +148,8 @@ public actor LocalRecoveryService {
         // Libraries which have never used annotations retain the exact audited
         // pre-annotation backup profile. A saved or trashed annotation requires it.
         let containsAnnotations=snapshot.files.keys.contains { $0 == AnnotationRepository.filename || $0 == AnnotationRepository.filename+".backup" } || snapshot.state.tombstones.contains { $0.fragments.contains { $0.manifest == AnnotationRepository.filename } }
-        let declared=registry.adapters.keys.filter { containsAnnotations || $0 != AnnotationRepository.filename }.sorted()
+        let containsBookmarks=snapshot.files.keys.contains { $0 == BookmarkRepository.filename || $0 == BookmarkRepository.filename+".backup" } || snapshot.state.tombstones.contains { $0.fragments.contains { $0.manifest == BookmarkRepository.filename } }
+        let declared=registry.adapters.keys.filter { (containsAnnotations || $0 != AnnotationRepository.filename) && (containsBookmarks || $0 != BookmarkRepository.filename) }.sorted()
         let inventory = LocalRecoveryInventory(adapters: declared, entries: snapshot.entries, omittedDrafts: snapshot.omittedDrafts.sorted())
         let bytes = try JSONEncoder().encode(inventory), stage = try staging(for: destination)
         defer { try? FileManager.default.removeItem(at: stage) }

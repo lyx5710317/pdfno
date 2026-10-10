@@ -55,6 +55,9 @@ public final class LibraryModel: ObservableObject {
     @Published var japaneseStoreError: String?
     lazy var japaneseLearning = makeJapaneseLearningModel()
     let annotations: AnnotationModel
+    lazy var bookmarks = BookmarkModel(root: recordRoot,library: self)
+    @Published var showingSelectionAI = false
+    @Published var addingAIToNotes = false
     let recordRoot: URL
     lazy var recordEditing = RecordEditingAdapter(root: recordRoot, library: self)
     let byok: BYOKSettingsModel

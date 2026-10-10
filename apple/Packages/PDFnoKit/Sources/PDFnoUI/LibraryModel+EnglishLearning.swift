@@ -23,8 +23,8 @@ extension LibraryModel {
             englishNotes = try await englishRepository.load().notes
         })
     }
-    func prepareEnglishLearning() {
-        guard !storageMaintenance, let source = captureAISource() else { englishLearning.prepare(nil); return }
+    func prepareEnglishLearning(source fixedSource: AISourceSnapshot? = nil) {
+        guard !storageMaintenance, let source = fixedSource ?? captureAISource(),isCurrentAISource(source) else { englishLearning.prepare(nil); return }
         let request = EnglishLearningRequest(source: source, provider: learning.config)
         do {
             let provider = try learning.englishLearningProvider()

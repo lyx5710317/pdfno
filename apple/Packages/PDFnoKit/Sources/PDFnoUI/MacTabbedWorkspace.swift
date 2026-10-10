@@ -17,6 +17,8 @@ struct MacTabbedWorkspace: View {
     @State private var navigationBusy = false
     @State private var windowWidth: CGFloat = 1180
     @State private var filePanel: MacDocumentFilePanel?
+    @State private var settingsContext: SettingsAIContext?
+    @State private var settingsContextCaptured = false
     init(model: LibraryModel, navigation: PDFnoWorkspaceNavigation, settingsRequest: Int) {
         self.model = model; self.navigation = navigation; self.settingsRequest = settingsRequest
         _documents = StateObject(wrappedValue: MacDocumentTabs(catalogue: model))
@@ -45,7 +47,7 @@ struct MacTabbedWorkspace: View {
                     if navigation.hasOpenedSettings {
                         AISettingsView(learning: model.learning, byok: model.byok, library: model, embedded: true,
                             active: navigation.route == .settings,
-                            close: { navigation.returnFromSettings(readerAvailable: documents.active != nil) })
+                            close: { navigation.returnFromSettings(readerAvailable: documents.active != nil) },toolContext: settingsContext)
                             .opacity(navigation.route == .settings ? 1 : 0)
                             .allowsHitTesting(navigation.route == .settings).disabled(navigation.route != .settings)
                             .accessibilityHidden(navigation.route != .settings)
@@ -74,7 +76,11 @@ struct MacTabbedWorkspace: View {
             .onChange(of: model.storageMaintenance) { _, paused in
                 if !paused { documents.reconcileAfterMaintenance(); if documents.active == nil && navigation.route == .reader { navigation.showLibrary() } }
             }
-            .onChange(of: settingsRequest, initial: true) { _, value in if value > 0 && !navigationBusy { navigation.showSettings() } }
+            .onChange(of: settingsRequest, initial: true) { _, value in if value > 0 && !navigationBusy { openSettings() } }
+            .onChange(of: navigation.route) { old,new in if new == .settings && old != .settings {
+                if !settingsContextCaptured { settingsContext=SettingsAIContext.capture(documents.active?.model) }
+                settingsContextCaptured=false
+            } }
             .onPreferenceChange(PDFnoWorkspaceBusyKey.self) { navigationBusy = $0 }
             .fileImporter(isPresented: $importer, allowedContentTypes: importTypes) { result in
                 switch result {
@@ -202,7 +208,7 @@ struct MacTabbedWorkspace: View {
             }
             Spacer()
             Divider().padding(.horizontal, 10)
-            sidebarButton("设置", "gearshape", "ai-settings", selected: navigation.route == .settings) { navigation.showSettings() }
+            sidebarButton("设置", "gearshape", "ai-settings", selected: navigation.route == .settings) { openSettings() }
             sidebarButton("帮助与示例", "questionmark.circle", "workspace-help", selected: false) { examples = true }
             if sidebar { Text("本地阅读").font(.system(size: 11)).foregroundStyle(.secondary).padding(12) }
             else { Spacer().frame(height: 12) }
@@ -220,6 +226,7 @@ struct MacTabbedWorkspace: View {
             .background(selected ? Color.blue.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 8))
             .accessibilityIdentifier(id).accessibilityLabel(title).accessibilityValue(selected ? "已选中" : "未选中").help(title)
     }
+    private func openSettings() { if navigation.route != .settings { settingsContext=SettingsAIContext.capture(documents.active?.model);settingsContextCaptured=true };navigation.showSettings() }
     private func selected(_ tool: PDFnoWorkspaceTool) -> Bool { navigation.route == .tool && navigation.tool == tool }
     private func showTool(_ tool: PDFnoWorkspaceTool) { navigation.showTool(tool) }
     private func openBook(_ id: UUID) { selectedBookID = id; Task { if await documents.open(id) { navigation.showReader() } } }

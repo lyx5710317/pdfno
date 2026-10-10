@@ -57,7 +57,7 @@ public struct ReadingSkillInputPlan: Sendable {
         case .text(let value):
             switch value.source.anchor { case .pdf, .epub: break; case .pdfPage, .epubChapter: throw ReadingSkillFailure.scope }
             if value.profile == .paragraphExplanation { try ParagraphExplanationPolicy.validate(value) }
-            id = value.profile == .paragraphExplanation ? .paragraphExplanation : value.kind == .translate ? .translateSelection : .explainSelection
+            id = value.profile == .paragraphExplanation ? .paragraphExplanation : value.kind == .translate ? .translateSelection : value.kind == .summarize ? .summarizeSelection : .explainSelection
             taskID = value.id; provider = value.provider; promptVersion = value.promptVersion
             snapshots = [value.source]; timeout = value.timeoutSeconds; readings = []; language = sourceLanguage
             if provider.mode == .openAICompatible { try BYOKSelectionPolicy.validate(value) }

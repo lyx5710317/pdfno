@@ -45,7 +45,9 @@ struct EPUBWorkspace: View {
                 } navigation: {
                     PDFnoPanel(title: "目录", icon: "list.bullet", closeIdentifier: "epub-close-contents", close: { panels.navigation = false }) { contentsContent }
                 } notes: {
-                    if inspector == .learning {
+                    if inspector == .bookmarks {
+                        BookmarkList(model: model.bookmarks,close: { panels.notes=false },closeIdentifier: "epub-close-bookmarks")
+                    } else if inspector == .learning {
                         ReadingSelectionWorkspace(library: model) { panels.notes = false }
                     } else {
                         PDFnoPanel(title: "文档标注", icon: "note.text", closeIdentifier: "epub-close-notes", close: closeNotes) { notesContent }
@@ -65,7 +67,7 @@ struct EPUBWorkspace: View {
                 .background(PDFnoDesign.Palette.chrome)
             if let error = session.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "epub-error") }
         }.navigationTitle(session.book?.title ?? "EPUB")
-        .annotationExperience(model.annotations,reader: .epub(session))
+        .annotationExperience(model.annotations,reader: .epub(session),aiLibrary: model)
         .sheet(isPresented: $legacyNotes) { NavigationStack { legacyNotesContent.navigationTitle("旧笔记与学习记录").toolbar { ToolbarItem { Button("完成") { legacyNotes = false } } } } }
         .overlay { if session.busy { PDFnoStatusMessage(text: "正在排版…", kind: .busy).frame(maxWidth: 320).pdfnoCard() } }
         .onChange(of: session.progress) { _, anchor in if let anchor { Task { await model.saveEPUBProgress(anchor) } } }
@@ -91,27 +93,18 @@ struct EPUBWorkspace: View {
     }
     private var professionalActions: some View {
         Group {
-            selectionActions
             PDFnoReaderRailButton(title: "目录", symbol: "list.bullet", identifier: "epub-contents", active: contentsVisible, disabled: session.book == nil || session.busy, hint: "显示或收起 EPUB 目录，保留阅读位置") { panels.toggle(.navigation, width: readerWidth, profile: .professional) }
             PDFnoReaderRailButton(title: "笔记", symbol: "note.text", identifier: "epub-notes", accessibilityTitle: "高亮与笔记", active: notesVisible, action: openNotes)
+            PDFnoReaderRailButton(title: "书签",symbol: "bookmark",identifier: "epub-bookmarks",active: panels.placement(width: readerWidth,profile: .professional).showNotes && inspector == .bookmarks,hint: "显示或收起当前文档书签") {
+                if inspector == .bookmarks { panels.toggle(.notes,width: readerWidth,profile: .professional) }
+                else { inspector = .bookmarks;panels.show(.notes,profile: .professional) }
+            }
             PDFnoReaderRailButton(title: "AI", symbol: "brain.head.profile", identifier: "epub-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.selection == nil && model.learning.source == nil && !model.hasCurrentSavedLearningNotes) {
                 if panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning { panels.notes = false }
-                else { model.learning.prepare(model.captureAISource()); inspector = .learning; panels.show(.notes, profile: .professional) }
+                else { model.learning.prepare(model.captureAISource() ?? model.learning.source); inspector = .learning; panels.show(.notes, profile: .professional) }
             }
 
         }
-    }
-    private var selectionActions: some View {
-        ReadingSelectionActions(includeNote: false, includeHighlight: false, available: session.selection != nil && !session.busy, busy: model.hasDocumentSaveInFlight,
-            highlight: { if let anchor = session.selection { Task { _ = await model.saveEPUBNote(anchor, text: "") } } },
-            note: { inspector = .notes; panels.show(.notes, profile: .professional) },
-            translate: { openSelection(.translate) }, explain: { openSelection(.explain) },
-            japanese: { model.prepareJapaneseLearning(); japaneseLearning = true },
-            english: { model.prepareEnglishLearning(); englishLearning = true })
-    }
-    private func openSelection(_ kind: AILearningKind) {
-        model.learning.kind = kind; model.learning.prepare(model.captureAISource())
-        inspector = .learning; panels.show(.notes, profile: .professional)
     }
     private var contentsContent: some View {
         List {

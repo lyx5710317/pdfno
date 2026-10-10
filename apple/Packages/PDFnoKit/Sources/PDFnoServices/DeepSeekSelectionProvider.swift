@@ -57,7 +57,9 @@ public struct DeepSeekSelectionProvider: AIProvider {
             guard request.kind == .translate else { throw AIFailure.configuration }
             pageTranslation = true
         } else { pageTranslation = false }
-        let instruction = request.kind == .translate
+        let instruction = request.kind == .summarize
+            ? "Summarize only the supplied selection concisely in Simplified Chinese. Preserve its key claims and qualifications; add no outside facts or citations."
+            : request.kind == .translate
             ? "Translate the supplied selection into Simplified Chinese, preserving its meaning."
             : "Explain the supplied selection briefly in Simplified Chinese, including its meaning and relevant English or Japanese grammar when applicable. Do not invent rules."
         let system: String

@@ -25,11 +25,6 @@ struct MacDocumentMoreMenu: View {
             Button("文件设置…") { open(.settings) }.disabled(model.currentDocumentCover == nil)
                 .accessibilityIdentifier("document-file-settings")
             Button("阅读与 AI 工具…") { open(.tools) }.accessibilityIdentifier("document-reading-tools")
-            Menu("选文学习") {
-                Button("日语选文学习…") { open(.japanese) }.accessibilityIdentifier("document-japanese-learning")
-                Button("英语选文学习…") { open(.english) }.accessibilityIdentifier("document-english-learning")
-            }.disabled(model.currentAIBookID == nil || epub.busy)
-                .accessibilityIdentifier("document-selection-learning")
             Divider()
             Button("翻译当前 PDF 物理页…") { open(.page) }
                 .disabled(PDFnoReadingToolContext(library: model).format != .pdf || model.reader.book == nil)

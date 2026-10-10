@@ -113,7 +113,7 @@ struct ReadingToolsWorkspace: View {
                         Text("全部").tag(false); Text("现有入口").tag(true)
                     }.pickerStyle(.segmented).accessibilityIdentifier("ai-tools-filter")
                     PDFnoSettingsCard("阅读与语言", symbol: "book") {
-                        ForEach(PDFnoReadingTool.allCases.filter { $0 != .savedSearch }) { tool in toolRow(tool) }
+                        ForEach(PDFnoReadingTool.allCases.filter { $0 != .savedSearch && $0 != .japanese && $0 != .english }) { tool in toolRow(tool) }
                     }
                     PDFnoSettingsCard("知识与模板", symbol: "note.text") {
                         toolRow(.savedSearch)

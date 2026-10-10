@@ -14,7 +14,9 @@ public struct LocalMockAIProvider: AIProvider {
             return AIProviderOutput(sourceQuote: request.source.anchor.quote, text: String(decoding: try ParagraphExplanationPrompt.mockPayload(source: request.source), as: UTF8.self))
         }
         // Fixed synthetic demonstrations, never a claim of model translation quality.
-        let text = request.kind == .translate
+        let text = request.kind == .summarize
+            ? "[本地 mock 总结示例] 阅读选文，保留要点和来源。此内容仅演示总结流程，不是选文的真实总结。"
+            : request.kind == .translate
             ? "[本地 mock 示例] 窗边的一段阅读时光。此内容仅演示结果与来源闭环，不是选文的真实译文。"
             : "[本地 mock 示例] 英语可观察主谓结构；日语可观察助词与接续。此内容不判断选文语法，只演示解释、引用与保存。"
         return AIProviderOutput(sourceQuote: request.source.anchor.quote, text: text)

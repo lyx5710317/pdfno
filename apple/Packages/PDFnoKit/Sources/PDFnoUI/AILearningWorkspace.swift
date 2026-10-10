@@ -13,6 +13,7 @@ struct AISettingsView: View {
     @State private var showDeepSeekTest = false
     private let byok: BYOKSettingsModel?
     private let library: LibraryModel?
+    private let toolContext: SettingsAIContext?
     @State private var showBYOKSettings = false
     @State private var hasLoadedBYOK = false
     @State private var childBusy = false
@@ -25,9 +26,10 @@ struct AISettingsView: View {
     private let close: (() -> Void)?
     init(learning: AILearningModel, byok: BYOKSettingsModel? = nil, library: LibraryModel? = nil,
          initialCategory: PDFnoSettingsCategory = .ai, embedded: Bool = false, active: Bool = true,
-         close: (() -> Void)? = nil) {
+         close: (() -> Void)? = nil, toolContext: SettingsAIContext? = nil) {
         self.learning = learning; self.byok = byok; self.library = library
         self.embedded = embedded; self.active = active; self.close = close
+        self.toolContext=toolContext
         _draft = State(initialValue: learning.config)
         _category = State(initialValue: initialCategory)
     }
@@ -130,9 +132,10 @@ struct AISettingsView: View {
     @ViewBuilder private var categoryContent: some View {
         switch category {
         case .ai: aiContent
+        case .aiTools: SettingsLearningTools(context: toolContext)
         case .tools:
-            PDFnoSettingsCard("选文与语言学习", detail: "从阅读器的选文工具栏进入；结果与原文并排查看。", symbol: "book") {
-                Text("选文翻译、解释、日语与英语沿用 AI 分类中的阅读配置。每次先核对来源、接收方和预算，再手动开始；生成结果由你决定是否保存。")
+            PDFnoSettingsCard("选文与语言学习", detail: "从选文浮动工具条进入翻译、解释与总结；日语和英语从 AI工具进入。", symbol: "book") {
+                Text("选文翻译、解释、总结、日语与英语沿用 AI 分类中的阅读配置。每次先核对来源、接收方和预算，再手动开始；生成结果由你决定是否保存。")
                 Text("日语保留作者 ruby、生成读音建议与用户修正；英语保留结构与语法候选。当前没有额外的持久阅读辅助开关。")
                 Button("查看现有阅读配置") { category = .ai }.accessibilityIdentifier("settings-reading-configuration")
             }
@@ -181,7 +184,7 @@ struct AISettingsView: View {
     }
     private var aiContent: some View {
         Group {
-            PDFnoStatusMessage(text: "选文翻译／解释支持本地 mock 或官方 DeepSeek；配置和输入密钥不会发送请求，选文窗口确认后由你点击开始。", identifier: "ai-network-status")
+            PDFnoStatusMessage(text: "选文翻译／解释／总结支持本地 mock 或官方 DeepSeek；配置和输入密钥不会发送请求，选文窗口确认后由你点击开始。", identifier: "ai-network-status")
             PDFnoSettingsCard("官方 DeepSeek 与现有阅读配置", detail: "此配置供原有选文、日语与英语入口；页与 spine 仍手动输入本次密钥。", symbol: "sparkles") {
                 Picker("服务类型", selection: $draft.mode) {
                     Text("未配置").tag(AIProviderMode.unconfigured)
@@ -277,8 +280,8 @@ struct AILearningWorkspace: View {
                     } else { PDFnoEmptyState(title: "尚未固定选文", detail: "先在 PDF / EPUB 原文中选择文字，再打开选文学习。") }
                 }
                 PDFnoSettingsCard("任务与处理范围") {
-                    Picker("任务", selection: $learning.kind) {
-                        Text("选文翻译").tag(AILearningKind.translate); Text("选文解释").tag(AILearningKind.explain)
+                    Picker("任务", selection: Binding(get: { learning.kind },set: { learning.chooseTask($0,source: learning.source) })) {
+                        ForEach(AILearningKind.allCases,id: \.self) { Text("选文"+$0.title).tag($0) }
                     }.accessibilityIdentifier("ai-kind")
                     Text(verbatim: learning.config.mode == .mock ? "本地 mock · 不联网 · 费用 0" : DeepSeekSelectionPolicy.supports(learning.config) ? "接收方：DeepSeek 官方 API · 只发送显示的选文及固定任务指令" : "未配置或仅配置预览 · 不会发送")
                         .accessibilityIdentifier("ai-provider-status")
@@ -292,10 +295,11 @@ struct AILearningWorkspace: View {
                         if let source = learning.source, source.anchor.quote.utf16.count > DeepSeekSelectionPolicy.maxSourceUTF16 { Text(AIFailure.remoteInputLimit.localizedDescription).foregroundStyle(.red) }
                     }
                     if learning.offlineTransport { Text("自动测试离线替身 · 不联网 · 虚构凭据").accessibilityIdentifier("ai-offline-fixture") }
+                    if learning.kind == .summarize { Text("总结仅处理本次选文，最多500 UTF-16；保留原文主张与限定条件，不自动扩大范围。") }
                     if learning.kind == .explain { Text("段落解释 Skill 1.0.1 / schema 1：仅简体中文、最多500 UTF-16；释义／术语／模型推断分开，原文依据可核对。证据不足或结构错误不保存。真实解释质量待人工审阅。") }
                     Toggle("确认上方选文、任务、接收方及费用范围", isOn: $confirmed).accessibilityIdentifier("ai-scope-consent")
                     Button("开始") { learning.start(confirmed: confirmed, sourceIsCurrent: library.isCurrentAISource); confirmed = false }
-                        .disabled(!confirmed || learning.source == nil || learning.busy || learning.saving || (learning.kind == .explain && (learning.source?.anchor.quote.utf16.count ?? 0) > 500) ||
+                        .disabled(!confirmed || learning.source == nil || learning.busy || learning.saving || (learning.kind != .translate && (learning.source?.anchor.quote.utf16.count ?? 0) > 500) ||
                             (DeepSeekSelectionPolicy.supports(learning.config) && (!learning.hasSessionCredential || learning.remoteAttemptsUsed >= DeepSeekSelectionPolicy.maxAttempts || (learning.source?.anchor.quote.utf16.count ?? 0) > DeepSeekSelectionPolicy.maxSourceUTF16)))
                         .buttonStyle(PDFnoActionStyle(role: .primary)).accessibilityIdentifier("ai-start")
                     if learning.busy { Button("取消请求") { learning.cancel() }.accessibilityIdentifier("ai-cancel") }
@@ -305,20 +309,14 @@ struct AILearningWorkspace: View {
                 }.id("ai-task-state")
                 if let result = learning.result {
                     PDFnoSettingsCard("结果 · \(result.provider.mode == .mock ? "本地 mock" : "模型生成")") {
-                        if let explanation = result.paragraphExplanation {
-                            ParagraphExplanationResultView(explanation: explanation, source: result.source, library: library) { finish() }
-                        } else { PDFnoTextViewport(text: result.displayText, identifier: "ai-result", height: 220) }
+                        AIResultNoteBox(result: result)
                         Button("引用 · 回到原文") { Task { if result.paragraphExplanation != nil && !library.isCurrentParagraphSource(result.source) { learning.error = AIFailure.stale.localizedDescription; return }; learning.cancel(); if await library.returnToAISource(result.source) { finish() } } }
                             .accessibilityIdentifier("ai-result-source")
-                        TextField("你的笔记（独立保存）", text: $learning.userText, axis: .vertical).lineLimit(3...8).accessibilityIdentifier("ai-user-note")
-                        Button("保存学习笔记") { Task { _ = await learning.save(sourceIsCurrent: library.isCurrentAISource, validateSource: library.validateParagraphSourceForSave, makeCommitFence: library.makeParagraphCommitFence) } }
-                            .buttonStyle(PDFnoActionStyle(role: .primary)).disabled(learning.saving || !result.canSaveSelectionResult || (result.paragraphExplanation != nil && !library.isCurrentParagraphSource(result.source)) || !library.isCurrentAISource(result.source) || result.provider != learning.config || learning.notes.contains { $0.result.requestID == result.requestID }).accessibilityIdentifier("ai-save-note")
-                        let savedNote = learning.notes.first { $0.result.requestID == result.requestID }
-                        let changed = savedNote.map { $0.userText != learning.userText } ?? false
-                        PDFnoStatusMessage(text: savedNote == nil ? "结果与笔记尚未保存 · 点击保存才写入本地" : changed
-                            ? "已保存版本保留 · 当前正文改动尚未保存，请在下方已保存笔记中编辑正文" : "学习笔记已保存到本地",
-                            kind: savedNote != nil && !changed ? .success : .information, identifier: "ai-result-save-state")
-                        Text("只有你点击保存才写入学习笔记；关闭窗口只取消未完成请求，不自动保存结果。")
+                        AnnotationCommentInput(text: $learning.userText,identifier: "ai-user-note",enabled: !library.addingAIToNotes).frame(height: 120)
+                        let savedNote=library.annotations.records.first { $0.sourceRecordID==result.requestID && $0.origin == .explicitlySavedAI }
+                        Button(savedNote == nil ? "添加到笔记" : "已添加到笔记") { Task { _=await library.addAIResultToNotes() } }
+                            .buttonStyle(PDFnoActionStyle(role: .primary)).disabled(library.addingAIToNotes || savedNote != nil || !result.canSaveSelectionResult || !library.isCurrentParagraphSource(result.source) || result.provider != learning.config).accessibilityIdentifier("ai-save-note")
+                        PDFnoStatusMessage(text: savedNote == nil ? "临时结果 · 只有点击添加到笔记才写入当前文档" : "已添加到当前文档笔记 · 可在笔记列表跳回原文和编辑批注",kind: savedNote == nil ? .information : .success,identifier: "ai-result-save-state")
                     }.id("ai-current-result")
                 }
                 PDFnoSettingsCard("本次应用的请求记录 · 当前书籍 · 最近10项") {
@@ -327,7 +325,7 @@ struct AILearningWorkspace: View {
                     ForEach(attempts) { attempt in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(verbatim: attempt.source.anchor.quote).textSelection(.enabled)
-                            Text(attempt.source.anchor.locationLabel + " · " + (attempt.kind == .translate ? "翻译" : "解释"))
+                            Text(attempt.source.anchor.locationLabel + " · " + attempt.kind.title)
                             switch attempt.outcome {
                             case .requesting: PDFnoStatusMessage(text: "正在等待", kind: .busy)
                             case .completed(let result): Text(verbatim: result.displayText).textSelection(.enabled).accessibilityIdentifier("ai-history-result")

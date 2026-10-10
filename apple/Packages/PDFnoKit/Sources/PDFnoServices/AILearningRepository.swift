@@ -42,6 +42,7 @@ public actor AILearningRepository {
         return state
     }
     private static func validPrompt(_ result: AIResult) -> Bool {
+        if result.kind == .summarize { return result.isValidAnnotationResult }
         if case .pdfPage = result.source.anchor {
             return result.promptVersion == PDFPageTranslationPolicy.promptVersion && result.kind == .translate && DeepSeekSelectionPolicy.supports(result.provider)
         }

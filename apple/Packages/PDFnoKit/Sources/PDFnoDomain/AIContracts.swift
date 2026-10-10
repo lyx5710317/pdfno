@@ -52,7 +52,10 @@ public struct AISourceSnapshot: Codable, Sendable, Equatable {
     }
     public var isValid: Bool { anchor.isValid && documentVersion >= 0 && !anchor.quote.isEmpty && anchor.quote.utf16.count <= 8000 }
 }
-public enum AILearningKind: String, Codable, Sendable, CaseIterable { case translate, explain }
+public enum AILearningKind: String, Codable, Sendable, CaseIterable {
+    case translate, explain, summarize
+    public var title: String { switch self { case .translate: "翻译"; case .explain: "解释"; case .summarize: "总结" } }
+}
 public struct AIRequest: Sendable {
     public let id: UUID
     public let source: AISourceSnapshot
@@ -67,6 +70,7 @@ public struct AIRequest: Sendable {
 extension AIRequest {
     public var promptVersion: String {
         if profile == .paragraphExplanation { return ParagraphExplanationPolicy.promptVersion }
+        if kind == .summarize { return "selection-summary-1" }
         if case .pdfPage = source.anchor { return PDFPageTranslationPolicy.promptVersion }
         if case .epubChapter = source.anchor { return EPUBChapterTranslationPolicy.promptVersion }
         return DeepSeekSelectionPolicy.supports(provider) ? DeepSeekSelectionPolicy.promptVersion : "selection-1"

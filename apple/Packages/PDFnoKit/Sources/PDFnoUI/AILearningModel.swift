@@ -69,13 +69,13 @@ public final class AILearningModel: ObservableObject {
     }
     var hasRetainedUserDraft: Bool {
         func saved(_ key: String, _ body: String) -> Bool {
-            notes.contains { draftKey($0.result.source) == key && $0.userText == body }
+            savedAnnotationBodies[key] == body || notes.contains { draftKey($0.result.source, kind: $0.result.kind) == key && $0.userText == body }
         }
-        if !userText.isEmpty, source.flatMap(draftKey).map({ saved($0, userText) }) != true { return true }
+        if !userText.isEmpty, source.flatMap({ draftKey($0) }).map({ saved($0, userText) }) != true { return true }
         return drafts.contains { !$0.value.isEmpty && !saved($0.key, $0.value) }
     }
     func discardDocumentPresentation() {
-        cancel(); drafts.removeAll(); userText = ""; source = nil; result = nil; attempts.removeAll()
+        cancel(); drafts.removeAll(); savedAnnotationBodies.removeAll(); savedAnnotationRequests.removeAll(); userText = ""; source = nil; result = nil; attempts.removeAll()
         paragraphSourceIsStale = false; error = nil; status = "文件已关闭 · 未保存内容已明确放弃"
     }
     private var task: Task<Void, Never>?
@@ -83,17 +83,23 @@ public final class AILearningModel: ObservableObject {
     @Published private(set) var paragraphSourceIsStale = false
     private var paragraphCommitFence: EnglishLearningSourceCommitFence?
     private var drafts: [String: String] = [:]
-    private func draftKey(_ source: AISourceSnapshot) -> String? {
+    private var savedAnnotationBodies: [String: String] = [:]
+    private(set) var savedAnnotationRequests: Set<UUID> = []
+    func didAddToAnnotations(_ result: AIResult, comment: String) {
+        savedAnnotationRequests.insert(result.requestID)
+        if let key = draftKey(result.source, kind: result.kind) { savedAnnotationBodies[key] = comment }
+    }
+    private func draftKey(_ source: AISourceSnapshot, kind: AILearningKind? = nil) -> String? {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         // Reader identity/version fences requests; drafts belong to immutable source text.
-        struct DraftSource: Encodable { let bookID: UUID; let anchor: AISelectionAnchor }
+        struct DraftSource: Encodable { let bookID: UUID; let anchor: AISelectionAnchor; let kind: AILearningKind }
         let anchor: AISelectionAnchor
         if case .epub(let value) = source.anchor {
             anchor = .epub(EPUBAnchor(editionID: value.editionID, fileSHA256: value.fileSHA256,
                 resourceHref: value.resourceHref, spineIndex: value.spineIndex, start: value.start, end: value.end,
                 quote: value.quote, prefix: value.prefix, suffix: value.suffix, vertical: false))
         } else { anchor = source.anchor }
-        return (try? encoder.encode(DraftSource(bookID: source.bookID, anchor: anchor))).map(LibraryRepository.digest)
+        return (try? encoder.encode(DraftSource(bookID: source.bookID, anchor: anchor,kind: kind ?? self.kind))).map(LibraryRepository.digest)
     }
     public init(root: URL, transport: any AIHTTPTransport = URLSessionAITransport(), timeoutSeconds: Double = 30, offlineTransport: Bool = false, aiSession: AppAISession = .shared) {
         storageRoot = root
@@ -144,6 +150,12 @@ public final class AILearningModel: ObservableObject {
         cancel(); self.source = source; result = nil; error = nil; paragraphSourceIsStale = false
         status = source == nil ? "请先在原文中选择文字" : "来源已固定 · 确认范围后开始"
     }
+    func chooseTask(_ kind: AILearningKind,source: AISourceSnapshot?) {
+        guard self.kind != kind else { prepare(source);return }
+        if let previous=self.source,let key=draftKey(previous) { drafts[key]=userText }
+        cancel();self.kind=kind;self.source=nil;result=nil;userText="";paragraphSourceIsStale=false
+        prepare(source)
+    }
     func invalidateParagraphSource() {
         guard kind == .explain, source != nil else { return }
         paragraphSourceIsStale = true; cancel()
@@ -187,7 +199,7 @@ public final class AILearningModel: ObservableObject {
     func start(confirmed: Bool, sourceIsCurrent: @escaping @MainActor (AISourceSnapshot) -> Bool) {
         guard let source, source.isValid else { error = AIFailure.inputLimit.localizedDescription; return }
         if kind == .explain, paragraphSourceIsStale { error = AIFailure.stale.localizedDescription; return }
-        if kind == .explain, source.anchor.quote.utf16.count > 500 { error = AIFailure.remoteInputLimit.localizedDescription; return }
+        if kind != .translate, source.anchor.quote.utf16.count > 500 { error = AIFailure.remoteInputLimit.localizedDescription; return }
         guard confirmed else { error = AIFailure.consent.localizedDescription; return }
         guard sourceIsCurrent(source) else { error = AIFailure.stale.localizedDescription; return }
         guard config.mode != .unconfigured else { error = AIFailure.unconfigured.localizedDescription; return }
@@ -228,7 +240,7 @@ public final class AILearningModel: ObservableObject {
                 self.result = result; readingSkillResult = envelope
                 if let index = attempts.firstIndex(where: { $0.id == request.id }) { attempts[index].outcome = .completed(result) }
                 status = result.fromCache ? "本次来自已校验内存缓存 · 没有发送网络请求" :
-                    result.provider.mode == .mock ? "本地 mock 结果 · 不代表真实翻译或解释质量" : result.paragraphExplanation != nil ? "段落解释结构与引文已核验 · 解释与推断待人工审阅 · 未自动保存" : "收到 DeepSeek 结果并核验原文 · 未自动保存学习笔记"
+                    result.provider.mode == .mock ? "本地 mock 结果 · 不代表真实翻译、解释或总结质量" : result.paragraphExplanation != nil ? "段落解释结构与引文已核验 · 解释与推断待人工审阅 · 未自动保存" : "收到 DeepSeek 结果并核验原文 · 未自动保存学习笔记"
             } catch {
                 guard generation == token else { return }
                 let failure = ReadingSkillSelectionAdapter.hostFailure(error)

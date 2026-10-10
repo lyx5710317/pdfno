@@ -5,6 +5,7 @@ public enum ReadingSkillID: String, Codable, Sendable, CaseIterable {
     case translateSelection = "pdfno.reading.translate-selection"
     case paragraphExplanation = "pdfno.reading.paragraph-explanation"
     case explainSelection = "pdfno.reading.explain-selection"
+    case summarizeSelection = "pdfno.reading.summarize-selection"
     case japaneseSelection = "pdfno.reading.japanese-selection"
     case englishSelection = "pdfno.reading.english-selection"
     case translatePDFPage = "pdfno.reading.translate-pdf-page"
@@ -160,7 +161,7 @@ public struct ReadingSkillRegistry: Sendable {
         guard provider.isValid else { return .unavailable(.configuration) }
         if provider.mode == .unconfigured { return .unavailable(.unconfigured) }
         if provider.mode == .mock { return manifest.routing == .selectionAdapter ? .localSynthetic : .unavailable(.configuration) }
-        if id == .translateSelection || id == .explainSelection || id == .paragraphExplanation {
+        if id == .translateSelection || id == .explainSelection || id == .summarizeSelection || id == .paragraphExplanation {
             return (try? BYOKSelectionPolicy.finalURL(provider)) != nil ? .boundedRemote : .unavailable(.configuration)
         }
         return DeepSeekSelectionPolicy.supports(provider) ? .boundedRemote : .unavailable(.configuration)
@@ -175,6 +176,9 @@ public struct ReadingSkillRegistry: Sendable {
                 scope = .selection; formats = [.pdf, .epub]; languages = ReadingSkillLanguage.allCases; pool = .selection
                 title = id == .translateSelection ? "选文翻译" : "选文简短解释"
                 result = .init(kind: .selectionText, validatorID: "legacy-selection-text-1", promptVersions: ["selection-1", DeepSeekSelectionPolicy.promptVersion])
+            case .summarizeSelection:
+                scope = .selection; formats = [.pdf, .epub]; languages = ReadingSkillLanguage.allCases; pool = .selection; title = "选文总结"
+                result = .init(kind: .selectionText, validatorID: "legacy-selection-text-1", promptVersions: ["selection-summary-1"])
             case .paragraphExplanation:
                 scope = .selection; formats = [.pdf, .epub]; languages = ReadingSkillLanguage.allCases; pool = .selection; title = "段落解释"
                 result = .init(kind: .paragraphExplanation, validatorID: "paragraph-explanation-1", promptVersions: [ParagraphExplanationPolicy.promptVersion])

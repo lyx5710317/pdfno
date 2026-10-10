@@ -3,7 +3,7 @@
 import SwiftUI
 
 enum PDFnoReaderNavigationTab: String, CaseIterable { case contents = "目录", search = "查找" }
-enum PDFnoReaderInspector { case notes, learning }
+enum PDFnoReaderInspector { case notes, learning, bookmarks }
 
 private struct ReaderRailExpandedKey: EnvironmentKey { static let defaultValue = false }
 extension EnvironmentValues {

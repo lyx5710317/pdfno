@@ -13,12 +13,13 @@ enum PDFnoTemporaryLayout {
 }
 
 enum PDFnoSettingsCategory: String, CaseIterable, Identifiable {
-    case general, ai, tools, backup, shortcuts, diagnostics, about
+    case general, ai, aiTools, tools, backup, shortcuts, diagnostics, about
     var id: String { rawValue }
     var title: String {
         switch self {
         case .general: "通用"
         case .ai: "AI"
+        case .aiTools: "AI工具"
         case .tools: "阅读辅助"
         case .backup: "备份与恢复"
         case .shortcuts: "快捷键"
@@ -30,6 +31,7 @@ enum PDFnoSettingsCategory: String, CaseIterable, Identifiable {
         switch self {
         case .general: "slider.horizontal.3"
         case .ai: "sparkles"
+        case .aiTools: "square.grid.2x2"
         case .tools: "book"
         case .backup: "archivebox"
         case .shortcuts: "keyboard"

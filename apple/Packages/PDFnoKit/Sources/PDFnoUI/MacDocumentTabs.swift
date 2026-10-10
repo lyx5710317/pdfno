@@ -150,7 +150,7 @@ extension LibraryModel {
         return reader.book?.title ?? "PDFno"
     }
     var hasDocumentSaveInFlight: Bool {
-        learning.saving || byok.saving || japaneseLearning.saving || englishLearning.saving ||
+        addingAIToNotes || bookmarks.saving || learning.saving || byok.saving || japaneseLearning.saving || englishLearning.saving ||
         !noteEditing.saving.isEmpty || !recordEditing.editor.saving.isEmpty || annotations.saving || !annotations.editor.saving.isEmpty
     }
     var hasDocumentEditorChanges: Bool {
@@ -165,7 +165,7 @@ extension LibraryModel {
     var hasUnsavedDocumentLearning: Bool {
         learning.hasRetainedUserDraft || englishLearning.hasRetainedUserDraft || japaneseLearning.hasRetainedUserDraft ||
         (!byokUserText.isEmpty && !learning.notes.contains { $0.result.requestID == byok.result?.requestID && $0.userText == byokUserText }) ||
-        learning.result.map { result in !learning.notes.contains { $0.result.requestID == result.requestID } } == true ||
+        learning.result.map { result in !learning.savedAnnotationRequests.contains(result.requestID) && !learning.notes.contains { $0.result.requestID == result.requestID } } == true ||
         byok.result.map { result in !learning.notes.contains { $0.result.requestID == result.requestID } } == true ||
         pageTranslation.segments.contains { segment in segment.result.map { result in !learning.notes.contains { $0.result.requestID == result.requestID && $0.userText == segment.userText } } ?? !segment.userText.isEmpty } ||
         (chapterTranslation.segments + chapterTranslation.retainedBatches.flatMap(\.segments)).contains { segment in segment.result.map { result in !learning.notes.contains { $0.result.requestID == result.requestID && $0.userText == segment.userText } } ?? !segment.userText.isEmpty } ||

@@ -61,6 +61,24 @@ public actor AnnotationRepository {
         var mark = AnchoredAnnotation(bookID: bookID, anchor: anchor, kind: kind); mark.revision = 1
         state.notes.append(mark); try commit(state); return mark
     }
+    /// An immutable generated result and a separately editable comment, added only by user action.
+    public func addAIResult(_ result: AIResult, comment: String, commitFence: EnglishLearningSourceCommitFence? = nil) throws -> AnchoredAnnotation {
+        let operation = try LocalStoreWriteGate.shared(root: root).beginWrite(); defer { operation.finish() }
+        let lock = AnnotationTransactions.shared.lock(for: root); lock.lock(); defer { lock.unlock() }
+        let anchor: AnnotationAnchor
+        switch result.source.anchor { case .pdf(let value): anchor = .pdf(value); case .epub(let value): anchor = .epub(value); default: throw LibraryError.sourceMismatch }
+        var record=AnchoredAnnotation(bookID: result.source.bookID,anchor: anchor,kind: .note,userText: comment,origin: .explicitlySavedAI,sourceRecordID: result.requestID,aiResult: result)
+        guard record.isValid else { throw LibraryError.sourceMismatch }
+        var state=try load()
+        if let existing=state.notes.first(where: { $0.origin == .explicitlySavedAI && $0.sourceRecordID == result.requestID }) {
+            guard existing.aiResult == result && existing.bookID == record.bookID else { throw NoteBodyEditError.conflict }
+            return existing
+        }
+        record.revision=1;state.notes.append(record)
+        if let commitFence { try commitFence.withValidatedCommit(root: root,source: result.source) { try commit(state) } }
+        else { try commit(state) }
+        return record
+    }
     private func commit(_ state: AnnotationState) throws {
         let file = root.appendingPathComponent(Self.filename); _ = try load()
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted,.sortedKeys]; let bytes = try encoder.encode(state); _ = try Self.decode(bytes)

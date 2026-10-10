@@ -32,7 +32,7 @@ public enum AnnotationAnchor: Codable, Sendable, Equatable {
         return first==second
     }
 }
-/// AI results enter this sidecar only through a future explicit user-save flow.
+/// AI results enter this sidecar only through an explicit user-save flow.
 /// No legacy record is inferred, migrated or relabelled by the manual tools.
 public enum AnnotationOrigin: String, Codable, Sendable { case manual, explicitlySavedAI }
 public struct AnchoredAnnotation: Codable, Sendable, Equatable, Identifiable {
@@ -41,18 +41,30 @@ public struct AnchoredAnnotation: Codable, Sendable, Equatable, Identifiable {
     public let anchor: AnnotationAnchor
     public let origin: AnnotationOrigin
     public let sourceRecordID: UUID?
+    public let aiResult: AIResult?
     public var kind: AnnotationKind
     public var userText: String
     public var revision: Int
     public let createdAt: Date
     public var updatedAt: Date
     /// Revision zero exists only as an unsaved, source-bound editor baseline.
-    public init(id: UUID = UUID(), bookID: UUID, anchor: AnnotationAnchor, kind: AnnotationKind, userText: String = "", origin: AnnotationOrigin = .manual, sourceRecordID: UUID? = nil, revision: Int = 0, createdAt: Date = Date(), updatedAt: Date = Date()) {
+    public init(id: UUID = UUID(), bookID: UUID, anchor: AnnotationAnchor, kind: AnnotationKind, userText: String = "", origin: AnnotationOrigin = .manual, sourceRecordID: UUID? = nil, aiResult: AIResult? = nil, revision: Int = 0, createdAt: Date = Date(), updatedAt: Date = Date()) {
         self.id = id; self.bookID = bookID; self.anchor = anchor; self.kind = kind; self.userText = userText
         self.origin=origin;self.sourceRecordID=sourceRecordID
+        self.aiResult=aiResult
         self.revision = revision; self.createdAt = createdAt; self.updatedAt = updatedAt
     }
-    public var isValid: Bool { (origin == .manual ? sourceRecordID == nil : sourceRecordID != nil) && anchor.isValid && userText.utf16.count <= 16000 && revision >= 0 && revision < Int.max && createdAt.timeIntervalSince1970.isFinite && updatedAt.timeIntervalSince1970.isFinite }
+    public var displayTitle: String { aiResult.map { "AI " + $0.kind.title } ?? kind.title }
+    public var isValid: Bool {
+        guard (origin == .manual ? sourceRecordID == nil && aiResult == nil : sourceRecordID != nil), anchor.isValid, userText.utf16.count <= 16000, revision >= 0, revision < Int.max, createdAt.timeIntervalSince1970.isFinite, updatedAt.timeIntervalSince1970.isFinite else { return false }
+        guard let result=aiResult else { return true } // Older records remain readable without a migration.
+        guard origin == .explicitlySavedAI, sourceRecordID == result.requestID, bookID == result.source.bookID, result.source.isValid, result.provider.isValid, result.provider.mode != .unconfigured, result.isValidAnnotationResult, !result.text.isEmpty, result.text.utf16.count <= 16000 else { return false }
+        switch (anchor,result.source.anchor) {
+        case (.pdf(let a),.pdf(let b)): return a == b
+        case (.epub(let a),.epub(let b)): return AnnotationAnchor.epub(a).isSameSource(as: .epub(b))
+        default: return false
+        }
+    }
 }
 public struct AnnotationBodySnapshot: SavedBodySnapshot {
     public let annotation: AnchoredAnnotation
@@ -70,5 +82,16 @@ extension EPUBAnchor {
     public func withVertical(_ vertical: Bool) -> EPUBAnchor {
         var value=EPUBAnchor(editionID: editionID,fileSHA256: fileSHA256,resourceHref: resourceHref,spineIndex: spineIndex,start: start,end: end,quote: quote,prefix: prefix,suffix: suffix,vertical: vertical)
         value.schemaVersion=schemaVersion;value.extractionVersion=extractionVersion;return value
+    }
+}
+
+// Saved AI annotations accept only validated selected-text task contracts.
+extension AIResult {
+    public var isValidAnnotationResult: Bool {
+        guard source.isValid, provider.isValid, provider.mode != .unconfigured, !text.isEmpty, text.utf16.count <= 16000 else { return false }
+        switch source.anchor { case .pdf, .epub: break; default: return false }
+        if kind == .summarize { return promptVersion == "selection-summary-1" }
+        if promptVersion == ParagraphExplanationPolicy.promptVersion { return kind == .explain && paragraphExplanation?.canSave == true }
+        return ["selection-1", DeepSeekSelectionPolicy.promptVersion].contains(promptVersion)
     }
 }

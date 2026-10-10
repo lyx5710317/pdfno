@@ -57,6 +57,14 @@ struct RecoveryRegistry: Sendable {
                     .init(recordID: n.id, bookID: n.bookID, editionID: n.anchor.editionID, fileSHA256: n.anchor.fileSHA256, format: n.anchor.format)
                 }
             }),
+            .init(BookmarkRepository.filename, collections: ["bookmarks"], validate: { _ = try BookmarkRepository.decode($0) }, extraAssociations: { bytes in
+                try BookmarkRepository.decode(bytes).bookmarks.map { record in
+                    switch record.location {
+                    case .pdf(let p): return .init(recordID: record.id, bookID: record.bookID, editionID: p.editionID, fileSHA256: p.fileSHA256, format: "pdf")
+                    case .epub(let a): return .init(recordID: record.id, bookID: record.bookID, editionID: a.editionID, fileSHA256: a.fileSHA256, format: "epub")
+                    }
+                }
+            }),
             .init("japanese-learning-v1.json", collections: ["notes"]) { _ = try JapaneseLearningRepository.decode($0) },
             .init("book-metadata-v1.json", collections: ["records"]) { _ = try LocalBookMetadataRepository.decode($0) },
             .init("bundled-examples-v1.json", collections: ["records"]) { _ = try BundledExampleRepository.decode($0) },
@@ -78,8 +86,11 @@ struct RecoveryRegistry: Sendable {
         if declared == current { return self }
         // Audited pre-annotation profile: original records remain valid without
         // requiring a newly introduced sidecar to appear in an older backup.
-        if declared == current.subtracting([AnnotationRepository.filename]) {
-            var previous = self; previous.adapters.removeValue(forKey: AnnotationRepository.filename); return previous
+        let optionalSidecars: Set<String> = [AnnotationRepository.filename, BookmarkRepository.filename]
+        if declared.subtracting(optionalSidecars) == current.subtracting(optionalSidecars), declared.isSubset(of: current) {
+            var previous = self
+            for name in optionalSidecars.subtracting(declared) { previous.adapters.removeValue(forKey: name) }
+            return previous
         }
         var legacy: Set<String> = ["library-v1.json", "epub-v1.json", "comics-v1.json", "comics-cbt-v1.json",
             "comics-cb7-v1.json", "comics-cbr-v1.json", "docx-mammoth-v1.json", "text-formats-v1.json",
@@ -87,11 +98,12 @@ struct RecoveryRegistry: Sendable {
         if adapters["english-learning-v1.json"] != nil { legacy.insert("english-learning-v1.json") }
         // Future registry growth must define a new audited compatibility rule,
         // rather than implicitly accepting every subset of its current adapters.
-        guard current == legacy.union(["bundled-examples-v1.json", AnnotationRepository.filename]), declared == legacy else {
+        guard current == legacy.union(["bundled-examples-v1.json", AnnotationRepository.filename, BookmarkRepository.filename]), declared == legacy else {
             throw LocalRecoveryError.invalidPackage
         }
         var previous = self
         previous.adapters.removeValue(forKey: "bundled-examples-v1.json")
+        previous.adapters.removeValue(forKey: BookmarkRepository.filename)
         previous.adapters.removeValue(forKey: AnnotationRepository.filename)
         return previous
     }
@@ -110,7 +122,7 @@ struct RecoveryRegistry: Sendable {
         let object = try Self.object(data); try adapter.validate(data)
         for key in adapter.collections { guard let rows = object[key] as? [[String: Any]], rows.count <= 10000 else { throw LocalRecoveryError.limit } }
         if let associations = adapter.extraAssociations {
-            let links = try associations(data), rows = object["notes"] as! [[String: Any]]
+            let links = try associations(data), rows = adapter.collections.flatMap { object[$0] as? [[String: Any]] ?? [] }
             guard links.count == rows.count, Set(links.map(\.recordID)).count == links.count,
                   Set(links.map(\.recordID)) == Set(try rows.map { try Self.id($0) }),
                   links.allSatisfy({ LibraryRepository.isDigest($0.fileSHA256) }) else { throw LocalRecoveryError.integrity }

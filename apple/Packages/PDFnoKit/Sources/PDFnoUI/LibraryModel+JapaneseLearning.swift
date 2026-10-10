@@ -29,8 +29,8 @@ extension LibraryModel {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         return (try? encoder.encode(config)) == (try? encoder.encode(learning.config))
     }
-    func prepareJapaneseLearning() {
-        guard let source = captureAISource() else { japaneseLearning.prepare(nil); return }
+    func prepareJapaneseLearning(source fixedSource: AISourceSnapshot? = nil) {
+        guard let source = fixedSource ?? captureAISource(),isCurrentAISource(source) else { japaneseLearning.prepare(nil); return }
         let request = JapaneseLearningRequest(source: source, provider: learning.config)
         do {
             let provider = try learning.japaneseLearningProvider()

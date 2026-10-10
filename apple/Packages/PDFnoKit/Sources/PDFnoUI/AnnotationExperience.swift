@@ -157,10 +157,11 @@ struct AnnotationList: View {
                     VStack(alignment: .leading,spacing: 8) {
                         Button { Task { await model.navigate(record) } } label: {
                             VStack(alignment: .leading,spacing: 8) {
-                                Label(record.kind.title,systemImage: record.kind.symbol).font(.caption).foregroundStyle(.secondary)
+                                Label(record.displayTitle,systemImage: record.aiResult == nil ? record.kind.symbol : "sparkles").font(.caption).foregroundStyle(.secondary)
                                 Text(verbatim: record.anchor.quote).lineLimit(5).accessibilityIdentifier("annotation-excerpt")
                             }.frame(maxWidth: .infinity,alignment: .leading).contentShape(Rectangle())
                         }.buttonStyle(.plain).accessibilityIdentifier("annotation-row-"+record.id.uuidString)
+                        if let result=record.aiResult { AIResultNoteBox(result: result,identifier: "annotation-ai-result") }
                         if model.editor.drafts[AnnotationBodySnapshot(record).key] != nil { Text("未保存批注 · 右键继续编辑").font(.caption).foregroundStyle(.orange) }
                         if !record.userText.isEmpty {
                             Text(verbatim: record.userText).foregroundStyle(.secondary).accessibilityIdentifier("annotation-comment")
@@ -210,6 +211,7 @@ struct AnnotationEditor: View {
         VStack(alignment: .leading,spacing: 14) {
             Label("编辑批注",systemImage: "note.text").font(.headline)
             Text(baseline.anchor.quote).lineLimit(5).padding(10).frame(maxWidth: .infinity,alignment: .leading).background(.quaternary,in: RoundedRectangle(cornerRadius: 8))
+            if let result=baseline.aiResult { AIResultNoteBox(result: result,identifier: "annotation-editor-ai-result") }
             AnnotationCommentInput(text: Binding(get: { model.editor.drafts[snapshot.key]?.text ?? baseline.userText },set: { model.editor.setText($0,for: snapshot) }),identifier: "annotation-comment-input",enabled: !model.editor.saving.contains(snapshot.key)).frame(height: 168).id(snapshot.key)
             Text("未保存草稿会保留；留空可清除批注，原文标记保留。").font(.caption).foregroundStyle(.secondary)
             if let feedback=model.editor.feedback[snapshot.key] { Text(feedback).font(.caption).accessibilityIdentifier("annotation-editor-status") }
@@ -229,22 +231,27 @@ struct AnnotationEditor: View {
 struct AnnotationExperience: ViewModifier {
     @ObservedObject var model: AnnotationModel
     let reader: AnnotationReader
+    var aiLibrary: LibraryModel? = nil
     @StateObject private var gestures=AnnotationGestureController()
-    init(model: AnnotationModel,reader: AnnotationReader) { self.model=model;self.reader=reader }
+    init(model: AnnotationModel,reader: AnnotationReader,aiLibrary: LibraryModel? = nil) { self.model=model;self.reader=reader;self.aiLibrary=aiLibrary }
     func body(content: Content) -> some View {
         content
-            .onAppear { gestures.attach(model,reader: reader) }
-            .onChange(of: reader.sessionID) { _,_ in gestures.attach(model,reader: reader) }
+            .onAppear { gestures.attach(model,reader: reader,aiLibrary: aiLibrary) }
+            .onChange(of: reader.sessionID) { _,_ in gestures.attach(model,reader: reader,aiLibrary: aiLibrary) }
             .onDisappear { gestures.stop() }
             .sheet(item: $model.editing) { AnnotationEditor(model: model,baseline: $0) }
+            .sheet(isPresented: Binding(get: { aiLibrary?.showingSelectionAI == true },set: { aiLibrary?.showingSelectionAI=$0 })) {
+                if let aiLibrary { ReadingSelectionWorkspace(library: aiLibrary) { aiLibrary.showingSelectionAI=false }.frame(minWidth: 420,idealWidth: 500,minHeight: 540) }
+            }
             .alert("标注未完成",isPresented: Binding(get: { model.error != nil },set: { if !$0 { model.error=nil } })) { Button("知道了") { model.error=nil } } message: { Text(model.error ?? "") }
     }
 }
-extension View { func annotationExperience(_ model: AnnotationModel,reader: AnnotationReader) -> some View { modifier(AnnotationExperience(model: model,reader: reader)) } }
+extension View { func annotationExperience(_ model: AnnotationModel,reader: AnnotationReader,aiLibrary: LibraryModel? = nil) -> some View { modifier(AnnotationExperience(model: model,reader: reader,aiLibrary: aiLibrary)) } }
 
 /// Event observation belongs to SwiftUI state, independent of a zero-sized view.
 @MainActor private final class AnnotationGestureController: ObservableObject {
     private weak var model: AnnotationModel?
+    private weak var aiLibrary: LibraryModel?
     private var monitor: Any?
     private var resizeObserver: AnyCancellable?
     private var readerObserver: AnyCancellable?
@@ -266,10 +273,10 @@ extension View { func annotationExperience(_ model: AnnotationModel,reader: Anno
         else { try? bytes.write(to: file,options: .atomic) }
         #endif
     }
-    func attach(_ model: AnnotationModel,reader: AnnotationReader) {
+    func attach(_ model: AnnotationModel,reader: AnnotationReader,aiLibrary: LibraryModel? = nil) {
         // Bind synchronously before the first mouse event. Reader readiness arrives
         // through its publisher even when a parent cancels a SwiftUI task.
-        self.model=model;model.reader=reader
+        self.model=model;model.reader=reader;self.aiLibrary=aiLibrary
         if observedSession != reader.sessionID || readerObserver==nil {
             observedSession=reader.sessionID;readerObserver?.cancel()
             readerObserver=reader.changes.receive(on: RunLoop.main).sink { [weak self] in self?.refreshReader() }
@@ -314,7 +321,15 @@ extension View { func annotationExperience(_ model: AnnotationModel,reader: Anno
                     Button { self.popover.close();Task { await model.apply(kind,anchor: anchor,bookID: bookID,sessionID: session) } } label: { Label(kind.title,systemImage: kind.symbol) }
                         .buttonStyle(.borderless).accessibilityIdentifier("selection-annotation-"+kind.rawValue)
                 }
-            }.font(.system(size: 13)).padding(12).frame(width: 270,height: 48))
+                if let library=self.aiLibrary {
+                    Menu {
+                        ForEach([AILearningKind.explain,.translate,.summarize],id: \.self) { kind in
+                            Button(kind.title) { self.popover.close();library.openSelectionAI(kind,anchor: anchor,sessionID: session) }.accessibilityIdentifier("selection-ai-"+kind.rawValue)
+                        }
+                    } label: { Label("AI",systemImage: "sparkles") }.menuStyle(.borderlessButton).fixedSize().accessibilityIdentifier("selection-ai-menu")
+                }
+            }.font(.system(size: 13)).padding(12).frame(width: self.aiLibrary == nil ? 270 : 325,height: 48))
+            self.popover.contentSize=NSSize(width: self.aiLibrary == nil ? 270 : 325,height: 48)
             self.popover.show(relativeTo: rect,of: view,preferredEdge: view.isFlipped ? .minY : .maxY)
             self.trace("shown="+String(self.popover.isShown))
         }

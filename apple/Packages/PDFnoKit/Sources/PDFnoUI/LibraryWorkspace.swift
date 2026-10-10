@@ -556,7 +556,9 @@ struct ReaderWorkspace: View {
                         } navigation: {
                             PDFnoPanel(title: "导航与搜索", icon: "list.bullet", closeIdentifier: "close-navigation", close: closeNavigation) { navigationContent }
                         } notes: {
-                            if inspector == .learning {
+                            if inspector == .bookmarks {
+                                BookmarkList(model: model.bookmarks,close: { panels.notes=false },closeIdentifier: "reader-close-bookmarks")
+                            } else if inspector == .learning {
                                 ReadingSelectionWorkspace(library: model) { panels.notes = false }
                             } else {
                                 PDFnoPanel(title: "文档标注", icon: "note.text", closeIdentifier: "close-notes", close: closeNotes) { notesContent }
@@ -618,7 +620,7 @@ struct ReaderWorkspace: View {
         .sheet(isPresented: $readerSettings) { AISettingsView(learning: model.learning, byok: model.byok, library: model) }
         .sheet(isPresented: $pageTranslation) { PDFPageTranslationWorkspace(library: model, translation: model.pageTranslation, learning: model.learning) }
         #if os(macOS)
-        .annotationExperience(model.annotations,reader: .pdf(session))
+        .annotationExperience(model.annotations,reader: .pdf(session),aiLibrary: model)
         .sheet(isPresented: $legacyNotes) { NavigationStack { List { savedNotesContent }.navigationTitle("旧笔记与学习记录").toolbar { ToolbarItem { Button("完成") { legacyNotes = false } } } } }
         #endif
         .sheet(isPresented: $byokLearning) { BYOKLearningWorkspace(library: model, model: model.byok) }
@@ -794,32 +796,23 @@ struct ReaderWorkspace: View {
     #if os(macOS)
     private var professionalActions: some View {
         Group {
-            selectionActions
             PDFnoReaderRailButton(title: "目录", symbol: "list.bullet", identifier: "reader-navigation", accessibilityTitle: "导航与搜索", active: navigationVisible && navigationTab == .contents, hint: "显示或收起目录与页码", action: openNavigation)
                 .accessibilityValue(navigationVisible ? "已展开" : "已收起")
 
             PDFnoReaderRailButton(title: "笔记", symbol: "note.text", identifier: "reader-notes", accessibilityTitle: "高亮与笔记", active: notesVisible, hint: "显示或收起高亮与笔记，保留草稿和选区", action: openNotes)
+            PDFnoReaderRailButton(title: "书签",symbol: "bookmark",identifier: "reader-bookmarks",active: panels.placement(width: readerWidth,profile: .professional).showNotes && inspector == .bookmarks,hint: "显示或收起当前文档书签") {
+                if inspector == .bookmarks { panels.toggle(.notes,width: readerWidth,profile: .professional) }
+                else { inspector = .bookmarks;panels.show(.notes,profile: .professional) }
+            }
             PDFnoReaderRailButton(title: "AI", symbol: "brain.head.profile", identifier: "reader-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.capturedSelection == nil && model.learning.source == nil && !model.hasCurrentSavedLearningNotes, hint: "先选择原文；固定选文后核对接收方与任务") {
                 if panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning { panels.notes = false }
-                else { model.learning.prepare(model.captureAISource()); inspector = .learning; panels.show(.notes, profile: .professional) }
+                else { model.learning.prepare(model.captureAISource() ?? model.learning.source); inspector = .learning; panels.show(.notes, profile: .professional) }
             }
 
         }
     }
     #endif
     #if os(macOS)
-    private var selectionActions: some View {
-        ReadingSelectionActions(includeNote: false, includeHighlight: false, available: session.capturedSelection != nil, busy: model.hasDocumentSaveInFlight,
-            highlight: { session.captureSelection(); if let anchor = session.capturedSelection { _ = model.savePDFNoteImmediately(anchor: anchor, text: "") } },
-            note: { session.captureSelection(); inspector = .notes; panels.show(.notes, profile: .professional) },
-            translate: { openSelection(.translate) }, explain: { openSelection(.explain) },
-            japanese: { model.prepareJapaneseLearning(); japaneseLearning = true },
-            english: { model.prepareEnglishLearning(); englishLearning = true })
-    }
-    private func openSelection(_ kind: AILearningKind) {
-        model.learning.kind = kind; model.learning.prepare(model.captureAISource())
-        inspector = .learning; panels.show(.notes, profile: .professional)
-    }
     #endif
     private var notesSheet: some View {
         NavigationStack {
