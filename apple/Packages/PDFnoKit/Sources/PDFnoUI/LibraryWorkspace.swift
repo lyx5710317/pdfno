@@ -788,8 +788,8 @@ struct ReaderWorkspace: View {
             PDFnoReaderRailButton(title: "目录", symbol: "list.bullet", identifier: "reader-navigation", accessibilityTitle: "导航与搜索", active: navigationVisible && navigationTab == .contents, hint: "显示或收起目录与页码", action: openNavigation)
                 .accessibilityValue(navigationVisible ? "已展开" : "已收起")
 
-            PDFnoReaderRailButton(title: "笔记", symbol: "highlighter", identifier: "reader-notes", accessibilityTitle: "高亮与笔记", active: notesVisible, hint: "显示或收起高亮与笔记，保留草稿和选区", action: openNotes)
-            PDFnoReaderRailButton(title: "AI", symbol: "sparkles", identifier: "reader-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.capturedSelection == nil && model.learning.source == nil && !model.hasCurrentSavedLearningNotes, hint: "先选择原文；固定选文后核对接收方与任务") {
+            PDFnoReaderRailButton(title: "笔记", symbol: "note.text", identifier: "reader-notes", accessibilityTitle: "高亮与笔记", active: notesVisible, hint: "显示或收起高亮与笔记，保留草稿和选区", action: openNotes)
+            PDFnoReaderRailButton(title: "AI", symbol: "brain.head.profile", identifier: "reader-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.capturedSelection == nil && model.learning.source == nil && !model.hasCurrentSavedLearningNotes, hint: "先选择原文；固定选文后核对接收方与任务") {
                 if panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning { panels.notes = false }
                 else { model.learning.prepare(model.captureAISource()); inspector = .learning; panels.show(.notes, profile: .professional) }
             }

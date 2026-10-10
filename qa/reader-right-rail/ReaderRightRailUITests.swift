@@ -156,12 +156,21 @@ final class ReaderRightRailUITests: XCTestCase {
     }
 
 
+    @MainActor private func pdfViewport(_ app: XCUIApplication) throws -> XCUIElement {
+        // PDFKit exposes the actual native scroll view through its document child,
+        // rather than the representable's private NSView identifier.
+        let views = app.scrollViews.allElementsBoundByIndex.filter {
+            $0.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "document")).firstMatch.exists
+        }
+        XCTAssertEqual(views.count, 1, "Use the unique native PDF document scroller")
+        return try XCTUnwrap(views.first)
+    }
     @MainActor func testPDFRightRailHasOnePanelAndRetainsDraft() throws {
         let app = try originalApp(width: 1280, dark: false); defer { app.terminate() }
         navigateWorkspace("open-sample", in: app); try click(item("open-sample", app)); try searchOriginal(app)
         XCTAssertFalse(item("professional-reader-title", app).exists)
-        let rail = item("professional-reader-tool-rail", app), canvas = item("pdf-canvas", app)
-        XCTAssertGreaterThanOrEqual(rail.frame.minX, canvas.frame.maxX - 1)
+        let rail = item("professional-reader-tool-rail", app), canvas = try pdfViewport(app)
+        XCTAssertGreaterThanOrEqual(rail.frame.minX, canvas.frame.maxX - 2, "Native scrollbar AX frame may extend by two points at the divider")
         let collapsed = rail.frame.width
         try click(item("reader-rail-toggle", app)); XCTAssertGreaterThan(rail.frame.width, collapsed)
         try capture("R-01-pdf-expanded", app: app)
@@ -177,12 +186,13 @@ final class ReaderRightRailUITests: XCTestCase {
     @MainActor func testPDFWheelUpdatesPageAndReopenRestoresPosition() throws {
         let app = try originalApp(width: 1280, dark: false); defer { app.terminate() }
         navigateWorkspace("open-sample", in: app); try click(item("open-sample", app)); contains(item("page-position", app), "1 / 2")
-        item("pdf-canvas", app).scroll(byDeltaX: 0, deltaY: -1600)
+        try pdfViewport(app).scroll(byDeltaX: 0, deltaY: -1600)
         contains(item("page-position", app), "2 / 2")
         try capture("R-03-pdf-wheel-page2", app: app)
         try click(item("previous-page", app)); contains(item("page-position", app), "1 / 2")
         try click(item("next-page", app)); contains(item("page-position", app), "2 / 2")
         app.terminate();app.launch();app.activate()
+        navigateWorkspace("library-list-layout", in: app)
         navigateWorkspace("library-book", in: app);try click(item("library-book", app));contains(item("page-position", app), "2 / 2")
     }
     @MainActor func testNarrowDarkRightPanelSelectionAndManualNoteSave() throws {
@@ -204,7 +214,7 @@ final class ReaderRightRailUITests: XCTestCase {
         try capture("R-05-epub-continuous-chapter2",app:app)
         try click(item("epub-contents",app));try click(item("epub-chapter-0",app));contains(item("epub-position",app),"第 1 章")
         try click(item("epub-contents",app));try click(item("epub-chapter-1",app));contains(item("epub-position",app),"第 2 章")
-        app.terminate();app.launch();app.activate();navigateWorkspace("library-book",in:app);try click(item("library-book",app));contains(item("epub-position",app),"第 2 章")
+        app.terminate();app.launch();app.activate();navigateWorkspace("library-list-layout",in:app);navigateWorkspace("library-book",in:app);try click(item("library-book",app));contains(item("epub-position",app),"第 2 章")
     }
     @MainActor func testEPUBOrientationAndNarrowPanelKeepActualSource() throws {
         let app=try originalApp(width:720,dark:true);defer{app.terminate()}

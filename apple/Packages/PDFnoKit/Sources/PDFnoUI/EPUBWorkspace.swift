@@ -28,8 +28,12 @@ struct EPUBWorkspace: View {
                 Button { Task { _ = await session.command("next") } } label: { Label("下一页", systemImage: "chevron.right") }
                     .disabled(session.book == nil || session.busy).accessibilityIdentifier("epub-next")
                 EPUBReturnToPreviousLocationButton(session: session)
-                Button(session.vertical ? "横排" : "竖排") { Task { _ = await session.command("vertical") } }
-                    .accessibilityIdentifier("epub-orientation")
+                Button { Task { _ = await session.command("vertical") } } label: {
+                    Label(session.vertical ? "横排" : "竖排", systemImage: session.vertical ? "text.alignleft" : "textformat.abc")
+                }.accessibilityIdentifier("epub-orientation")
+                    .accessibilityLabel(session.vertical ? "切换为横排" : "切换为竖排")
+                    .accessibilityValue(session.vertical ? "当前竖排" : "当前横排")
+                    .help(session.vertical ? "恢复横排连续滚动" : "竖排按页排版，暂不支持连续跨章滚动")
             } actions: { professionalActions } content: {
                 PDFnoReaderShell(panels: panels, profile: .professional) {
                     VStack(spacing: 0) {
@@ -84,8 +88,8 @@ struct EPUBWorkspace: View {
         Group {
             selectionActions
             PDFnoReaderRailButton(title: "目录", symbol: "list.bullet", identifier: "epub-contents", active: contentsVisible, disabled: session.book == nil || session.busy, hint: "显示或收起 EPUB 目录，保留阅读位置") { panels.toggle(.navigation, width: readerWidth, profile: .professional) }
-            PDFnoReaderRailButton(title: "笔记", symbol: "highlighter", identifier: "epub-notes", accessibilityTitle: "高亮与笔记", active: notesVisible, action: openNotes)
-            PDFnoReaderRailButton(title: "AI", symbol: "sparkles", identifier: "epub-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.selection == nil && model.learning.source == nil && !model.hasCurrentSavedLearningNotes) {
+            PDFnoReaderRailButton(title: "笔记", symbol: "note.text", identifier: "epub-notes", accessibilityTitle: "高亮与笔记", active: notesVisible, action: openNotes)
+            PDFnoReaderRailButton(title: "AI", symbol: "brain.head.profile", identifier: "epub-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.selection == nil && model.learning.source == nil && !model.hasCurrentSavedLearningNotes) {
                 if panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning { panels.notes = false }
                 else { model.learning.prepare(model.captureAISource()); inspector = .learning; panels.show(.notes, profile: .professional) }
             }
