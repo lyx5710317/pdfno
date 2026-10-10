@@ -47,7 +47,12 @@ import PDFnoServices
         try await ready(session, host: host)
         let original = try #require(session.progress)
         #expect(await session.command("vertical")); #expect(session.vertical && session.spineIndex == original.spineIndex)
+        let web = try #require(session.webView)
+        let verticalMode = try await web.callAsyncJavaScript("const d=document.querySelector('iframe').contentDocument;return d.defaultView.getComputedStyle(d.documentElement).writingMode;", arguments: [:], in: nil, contentWorld: .page) as? String
+        #expect(verticalMode == "vertical-rl")
         #expect(await session.command("vertical")); #expect(!session.vertical && session.spineIndex == original.spineIndex)
+        let horizontalMode = try await web.callAsyncJavaScript("const d=document.querySelector('iframe').contentDocument;return d.defaultView.getComputedStyle(d.documentElement).writingMode;", arguments: [:], in: nil, contentWorld: .page) as? String
+        #expect(horizontalMode == "horizontal-tb")
         #expect(session.progress?.resourceHref == original.resourceHref && session.error == nil)
         #expect(!window.isVisible && !window.isKeyWindow)
     }

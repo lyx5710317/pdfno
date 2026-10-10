@@ -18192,6 +18192,7 @@
         initialising = false;
       }
     }
+    doc().getElementById("pdfno-continuous-layout")?.remove();
     flow = false;
     flowRoots.clear();
     renderer.readerMode = "single";
@@ -18271,6 +18272,7 @@
       flowRoots.set(index, section);
     }
     const style = d.createElement("style");
+    style.id = "pdfno-continuous-layout";
     style.textContent = "html,body{width:100%!important;height:auto!important;overflow:visible!important;writing-mode:horizontal-tb!important;column-count:auto!important;column-width:auto!important}body{margin:0!important;padding:0!important}.pdfno-flow-unused{display:none}[data-pdfno-spine]{display:block;box-sizing:border-box;padding:24px;min-height:160px;border-bottom:1px solid #e5e5e5;writing-mode:horizontal-tb;overflow-wrap:anywhere}";
     d.head.appendChild(style);
     flow = true;
