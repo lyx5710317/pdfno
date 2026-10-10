@@ -17,7 +17,15 @@ public struct TextFormatWorkspace: View {
     init(model: TextFormatLibraryModel, editing: RecordEditingAdapter) { self.model = model; session = model.reader; self.editing = editing }
     public var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
+            PDFnoProfessionalReaderChrome(title: session.book?.title ?? "文档", format: "") {} actions: {
+                PDFnoReaderRailButton(title: "目录", symbol: "list.bullet", identifier: "textformat-navigation", active: navigation, disabled: !session.ready) { navigation.toggle(); notes = false }
+                PDFnoReaderRailButton(title: "笔记", symbol: "note.text", identifier: "textformat-notes", active: notes, disabled: !session.ready) {
+                    if notes { notes = false } else {
+                        Task { if draft.isEmpty { captured = await session.captureSelection() }; notes = true; navigation = false }
+                    }
+                }
+                Menu {
+VStack(alignment: .leading, spacing: 4) {
                 Text((session.book?.format.label ?? "文本") + " · 本地阅读").font(.headline)
                 Text("TXT 章节为自动识别；标记文档按实际标题导航。网页归档仅离线正文，图片与样式不显示。链接仅显示文字。引文定位于规范化显示正文，原文件保持不变。")
                     .font(.caption).foregroundStyle(.secondary)
@@ -30,11 +38,9 @@ public struct TextFormatWorkspace: View {
                     }.font(.caption)
                 }
             }.padding(12).frame(maxWidth: .infinity, alignment: .leading).background(.bar)
-            HStack(spacing: 12) {
-            Button { navigation = true } label: { Label("标题目录", systemImage: "list.bullet") }.disabled(!session.ready).accessibilityIdentifier("textformat-navigation")
-            Button { Task { captured = await session.captureSelection(); notes = true } } label: { Label("选文与笔记", systemImage: "highlighter") }.disabled(!session.ready).accessibilityIdentifier("textformat-notes")
-                Spacer()
-            }.padding(.horizontal, 12).padding(.vertical, 8).background(.bar)
+                } label: { Image(systemName: "info.circle") }.help("文档显示限制").accessibilityIdentifier("textformat-display-info")
+            } content: {
+                PDFnoReaderShell(panels: readerPanels, profile: .professional) {
             if let error = session.error {
                 VStack {
                     ContentUnavailableView("文本无法显示", systemImage: "exclamationmark.triangle", description: Text(error))
@@ -46,6 +52,8 @@ public struct TextFormatWorkspace: View {
                 }
             }
             else { TextFormatCanvas(session: session).frame(maxWidth: .infinity, maxHeight: .infinity).accessibilityIdentifier("textformat-content") }
+                } navigation: { navigationSheet } notes: { notesSheet }
+            }
             if session.ready, let document = session.document {
                 HStack {
                     if let anchor = session.progress { Text("段落 \(anchor.blockID + 1) / \(document.blocks.count)").monospacedDigit() }
@@ -59,11 +67,16 @@ public struct TextFormatWorkspace: View {
         .onChange(of: draft) { _, value in LibraryMaintenanceOwners.setDraft(root: model.storageRoot, owner: draftOwner, dirty: !value.isEmpty) }
         .onDisappear { LibraryMaintenanceOwners.setDraft(root: model.storageRoot, owner: draftOwner, dirty: false) }
         .onChange(of: session.progress) { _, anchor in if let anchor { Task { await model.saveProgress(anchor) } } }
-        .sheet(isPresented: $navigation) { navigationSheet }
-        .sheet(isPresented: $notes) { notesSheet }
+
         .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("知道了") { model.error = nil }
         } message: { Text(model.error ?? "") }
+    }
+    private var readerPanels: PDFnoReaderPanels {
+        var result = PDFnoReaderPanels()
+        if navigation { result.show(.navigation, profile: .professional) }
+        else if notes { result.show(.notes, profile: .professional) }
+        return result
     }
     private var navigationSheet: some View {
         NavigationStack {
@@ -77,7 +90,7 @@ public struct TextFormatWorkspace: View {
                         .accessibilityIdentifier("textformat-chapter-\(block.id)")
                 }
             }.navigationTitle("标题目录").toolbar { ToolbarItem { Button("完成") { navigation = false } } }
-        }.frame(minWidth: 320, minHeight: 400)
+        }
     }
     private var notesSheet: some View {
         NavigationStack {
@@ -110,7 +123,7 @@ public struct TextFormatWorkspace: View {
                 }
             }.accessibilityIdentifier("textformat-notes-list").navigationTitle("选文与笔记")
                 .toolbar { ToolbarItem { Button("完成") { notes = false }.accessibilityIdentifier("textformat-close-notes") } }
-        }.frame(minWidth: 340, minHeight: 440)
+        }
     }
 }
 #endif

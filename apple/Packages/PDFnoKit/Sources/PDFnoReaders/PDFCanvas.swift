@@ -21,7 +21,7 @@ public struct PDFCanvas: NSViewRepresentable {
     public init(session: PDFReaderSession) { self.session = session }
     public func makeCoordinator() -> PDFCanvasCoordinator { PDFCanvasCoordinator(session) }
     public func makeNSView(context: Context) -> PDFView {
-        let view = PDFView(); view.autoScales = true; view.displayMode = .singlePageContinuous
+        let view = PDFView(); view.autoScales = true; view.displayMode = .singlePageContinuous; view.displayDirection = .vertical
         view.setAccessibilityIdentifier("pdf-canvas")
         context.coordinator.observe(view); session.attach(view); return view
     }
@@ -37,7 +37,7 @@ public struct PDFCanvas: UIViewRepresentable {
     public init(session: PDFReaderSession) { self.session = session }
     public func makeCoordinator() -> PDFCanvasCoordinator { PDFCanvasCoordinator(session) }
     public func makeUIView(context: Context) -> PDFView {
-        let view = PDFView(); view.autoScales = true; view.displayMode = .singlePageContinuous
+        let view = PDFView(); view.autoScales = true; view.displayMode = .singlePageContinuous; view.displayDirection = .vertical
         view.accessibilityIdentifier = "pdf-canvas"
         context.coordinator.observe(view); session.attach(view); return view
     }

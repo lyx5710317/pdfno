@@ -10,31 +10,44 @@ struct ComicWorkspace: View {
     @State private var pages = false
     var body: some View {
         VStack(spacing: 0) {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), alignment: .leading)], alignment: .leading, spacing: 8) {
+            PDFnoProfessionalReaderChrome(title: session.book?.title ?? "漫画", format: "") {
+                Menu {
+            VStack(spacing: 8) {
                 Picker("阅读方向", selection: Binding(get: { session.direction }, set: { value in Task { await session.setDirection(value) } })) {
                     Text("从左到右").tag(ComicDirection.leftToRight); Text("从右到左").tag(ComicDirection.rightToLeft)
                 }.disabled(session.busy).accessibilityIdentifier("comic-direction")
                 Picker("页面布局", selection: Binding(get: { session.layout }, set: { value in Task { await session.setLayout(value) } })) {
                     Text("自动").tag(ComicLayout.automatic); Text("单页").tag(ComicLayout.single); Text("双页").tag(ComicLayout.double)
                 }.disabled(session.busy).accessibilityIdentifier("comic-layout")
-                Button("页面") { pages = true }.disabled(session.book == nil).accessibilityIdentifier("comic-pages")
                 Button { Task { await session.previous() } } label: { Label("上一页", systemImage: session.direction == .rightToLeft ? "chevron.right" : "chevron.left") }
                     .disabled(session.busy || !session.hasPrevious).accessibilityIdentifier("comic-previous")
                 Button { Task { await session.next() } } label: { Label("下一页", systemImage: session.direction == .rightToLeft ? "chevron.left" : "chevron.right") }
                     .disabled(session.busy || !session.hasNext).accessibilityIdentifier("comic-next")
                 Button("关闭漫画") { close() }.accessibilityIdentifier("comic-close")
             }.padding(10)
-            ComicCanvas(session: session)
-            HStack { Text(session.position).accessibilityIdentifier("comic-position"); Spacer(); Text("CBZ · 本地") }.font(.caption).padding(10)
+                } label: { Image(systemName: "slider.horizontal.3") }.help("漫画页面设置")
+            } actions: {
+                PDFnoReaderRailButton(title: "页面", symbol: "list.bullet", identifier: "comic-pages", active: pages, disabled: session.book == nil) { pages.toggle() }
+            } content: {
+                PDFnoReaderShell(panels: readerPanels, profile: .professional) { ComicCanvas(session: session) }
+                    navigation: { pagesContent } notes: { EmptyView() }
+            }
+            HStack { Text(session.position).accessibilityIdentifier("comic-position"); Spacer(); Text("漫画：保留单页／双页，连续滚动暂不支持") }.font(.caption).padding(10)
             if let error = session.error { Text(error).foregroundStyle(.red).padding().accessibilityIdentifier("comic-error") }
         }.navigationTitle(session.book?.title ?? "漫画")
         .overlay { if session.busy { ProgressView("正在打开漫画…").padding().background(.regularMaterial) } }
-        .sheet(isPresented: $pages) {
-            NavigationStack {
-                List(Array((session.book?.pages ?? []).enumerated()), id: \.offset) { index, page in
-                    Button("\(index + 1). \(page.path)") { Task { await session.go(to: index); pages = false } }.disabled(session.busy).accessibilityIdentifier("comic-page-\(index)")
-                }.navigationTitle("漫画页面").toolbar { ToolbarItem { Button("完成") { pages = false } } }
-            }.frame(minWidth: 350, minHeight: 400)
+    }
+    private var readerPanels: PDFnoReaderPanels {
+        var result = PDFnoReaderPanels()
+        if pages { result.show(.navigation, profile: .professional) }
+        return result
+    }
+    private var pagesContent: some View {
+        PDFnoPanel(title: "漫画页面", icon: "list.bullet", closeIdentifier: "comic-pages-close", close: { pages = false }) {
+            List(Array((session.book?.pages ?? []).enumerated()), id: \.offset) { index, page in
+                Button("\(index + 1). \(page.path)") { Task { await session.go(to: index); pages = false } }
+                    .disabled(session.busy).accessibilityIdentifier("comic-page-\(index)")
+            }
         }
     }
 }

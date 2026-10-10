@@ -1,12 +1,14 @@
 // Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
 import {EpubRender} from './kookit-adapter';
-import {handleLayout,progressInfo} from './vendor/kookit/src/utils/layoutUtil';
-let identity, renderer, version=0, current=0, notes=[], initialising=false, lastSelection='';
+import {handleOneChapterDoc,handleLayout,progressInfo} from './vendor/kookit/src/utils/layoutUtil';
+let identity, renderer, version=0, current=0, notes=[], initialising=false, lastSelection='', flow=false, lastViewport='';
+const flowRoots=new Map();
 const post = value => window.webkit?.messageHandlers.epub.postMessage(JSON.stringify(value));
 const envelope = (payload,requestID='event') => ({...identity,v:1,documentVersion:version,requestID,payload});
 const doc = () => renderer.getDocument();
 function canonical() {
-  const root=doc().body, nodes=[]; let text='';
+  const root=flow ? flowRoots.get(current) : doc().body, nodes=[]; let text='';
+  if (!root) throw Error('Chapter outside verified flow');
   const walker=doc().createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(node) {
     return node.parentElement?.closest('rt,rp,script,style,noscript') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
   }});
@@ -42,7 +44,15 @@ function selectedAnchor() {
   if (initialising || !renderer?.getDocument()) return null;
   const selected=doc().getSelection();
   if (!selected?.rangeCount || selected.isCollapsed) return null;
-  const range=selected.getRangeAt(0), {nodes}=canonical();
+  const range=selected.getRangeAt(0);
+  if (flow) {
+    const first=range.startContainer.parentElement?.closest('[data-pdfno-spine]');
+    const last=range.endContainer.parentElement?.closest('[data-pdfno-spine]');
+    if (!first || first!==last) return null; // A stored source always belongs to one canonical spine resource.
+    const index=Number(first.dataset.pdfnoSpine);
+    if (index!==current) { current=index; version++; lastSelection=''; publishViewport(); }
+  }
+  const {nodes}=canonical();
   const included=nodes.filter(x=>range.intersectsNode(x.node));
   if (!included.length) return null;
   const first=included[0], last=included[included.length-1];
@@ -56,8 +66,10 @@ function selection() {
 }
 function project() {
   const css=doc().defaultView.CSS;
-  const ranges=[];
-  for (const note of notes) if (note.anchor.spineIndex===current) { try { ranges.push(rangeFor(note.anchor)); } catch {} }
+  const ranges=[], original=current;
+  for (const note of notes) if (flow || note.anchor.spineIndex===current) {
+    try { current=note.anchor.spineIndex; ranges.push(rangeFor(note.anchor)); } catch {} finally { current=original; }
+  }
   for (const old of doc().querySelectorAll('[data-pdfno-overlay]')) old.remove();
   if (css?.highlights) {
     const Highlight=doc().defaultView.Highlight;
@@ -84,6 +96,18 @@ function decorate() {
 }
 async function chapter(index,vertical=false,preserveVersion=false) {
   if (!Number.isSafeInteger(index) || index<0 || index>=renderer.book.sections.length) throw Error('Invalid chapter');
+  if (!vertical) {
+    initialising=true;
+    try {
+      if (!flow) await buildFlow();
+      if (current!==index && !preserveVersion) version++;
+      current=index; lastSelection='';
+      renderer.element.scrollTo(0,flowRoots.get(index).offsetTop);
+      return;
+    } finally { initialising=false; }
+  }
+  flow=false; flowRoots.clear(); renderer.readerMode='single'; window.readerMode='single';
+  renderer.element.scrollTop=0;
   initialising=true;
   try {
     current=index; renderer.textOrientation=vertical?'vertical':'horizontal'; window.textOrientation=renderer.textOrientation;
@@ -95,7 +119,7 @@ function progress() {
   const {nodes}=canonical(), width=renderer.element.clientWidth, height=renderer.element.clientHeight;
   const visible=nodes.find(x => {
     const range=doc().createRange(); range.selectNodeContents(x.node);
-    return [...range.getClientRects()].some(r=>r.width>0 && r.height>0 && r.left<width && r.right>0 && r.top<height && r.bottom>0);
+    return [...range.getClientRects()].some(raw=>{ const r=flow ? {width:raw.width,height:raw.height,left:raw.left,right:raw.right,top:raw.top-renderer.element.scrollTop,bottom:raw.bottom-renderer.element.scrollTop} : raw; return r.width>0 && r.height>0 && r.left<width && r.right>0 && r.top<height && r.bottom>0; });
   });
   if (!visible) return null;
   // Pagination translates preceding columns outside the viewport. Find the
@@ -105,22 +129,63 @@ function progress() {
   const rectAt=offset=>{
     if(offset>0&&/[\uDC00-\uDFFF]/.test(visible.node.data[offset]))offset--;
     range.setStart(visible.node,offset);range.setEnd(visible.node,Math.min(visible.node.length,offset+(visible.node.data.codePointAt(offset)>65535?2:1)));
-    return range.getBoundingClientRect();
+    const r=range.getBoundingClientRect(); return flow ? {top:r.top-renderer.element.scrollTop,bottom:r.bottom-renderer.element.scrollTop,right:r.right} : r;
   };
   while(low<high){const middle=Math.floor((low+high)/2),r=rectAt(middle);
-    if(vertical?r.bottom<=0:r.right<=0)low=middle+1;else high=middle;
+    if(flow?r.bottom<=0:(vertical?r.bottom<=0:r.right<=0))low=middle+1;else high=middle;
   }
   const start=visible.start+low;
   return makeAnchor(start,Math.min(visible.end,start+128));
 }
 function state() {
-  const page=progressInfo(renderer.readerMode,doc(),renderer.element)?.currentPage ?? 1;
+  const page=flow ? Math.max(1,Math.floor((renderer.element.scrollTop-flowRoots.get(current).offsetTop)/Math.max(1,renderer.element.clientHeight-50))+1) : (progressInfo(renderer.readerMode,doc(),renderer.element)?.currentPage ?? 1);
   return {kind:'state',spineIndex:current,chapterCount:renderer.book.sections.length,page:String(page),
     vertical:renderer.isVertical(),progress:progress(),outline:renderer.flattenChapters.map(x=>({title:x.label,index:x.index})).slice(0,1000)};
 }
+
+async function buildFlow() {
+  renderer.readerMode='scroll'; window.readerMode='scroll';
+  renderer.textOrientation='horizontal'; window.textOrientation='horizontal';
+  await renderer.goToChapterDocIndex(0);
+  const d=doc(); d.documentElement.removeAttribute('style'); d.body.removeAttribute('style'); d.body.replaceChildren();
+  // Reuse the bounded, sanitised publication loader. Book scripts remain disabled in the original iframe.
+  flowRoots.clear();
+  for(let index=0;index<renderer.book.sections.length;index++) {
+    const html=await handleOneChapterDoc(renderer.book.sections[index],false);
+    const section=d.createElement('section'); section.dataset.pdfnoSpine=String(index);
+    // Match the original Kookit body-fragment insertion exactly. Invisible title
+    // text remains part of the existing canonical offsets used by saved notes.
+    section.innerHTML=html;
+    d.body.appendChild(section);flowRoots.set(index,section);
+  }
+  const style=d.createElement('style');style.textContent='html,body{width:100%!important;height:auto!important;overflow:visible!important;writing-mode:horizontal-tb!important;column-count:auto!important;column-width:auto!important}body{margin:0!important;padding:0!important}.pdfno-flow-unused{display:none}[data-pdfno-spine]{display:block;box-sizing:border-box;padding:24px;min-height:160px;border-bottom:1px solid #e5e5e5;writing-mode:horizontal-tb;overflow-wrap:anywhere}';d.head.appendChild(style);
+  flow=true; current=0; version++; lastSelection=''; lastViewport=''; decorate(); sizeFlow();
+}
+function sizeFlow() {
+  if(flow && doc()?.body) renderer.getIframe().style.height=Math.ceil(doc().body.scrollHeight)+'px';
+}
+function publishViewport() {
+  if(initialising || !renderer?.getDocument())return;
+  const value=state(),anchor=value.progress;
+  const key=anchor ? version+':'+anchor.spineIndex+':'+anchor.start+':'+anchor.vertical : '';
+  if(key!==lastViewport){lastViewport=key;post(envelope({...value,kind:'viewport'}));}
+}
+function trackFlowViewport() {
+  if(!flow || initialising)return;
+  sizeFlow();
+  const top=renderer.element.scrollTop;
+  const visible=[...flowRoots].find(([,root])=>root.offsetTop+root.offsetHeight>top+24);
+  if(visible && visible[0]!==current){current=visible[0];version++;lastSelection='';}
+  publishViewport();
+}
 async function navigate(anchor,preserveVersion=false) {
   await chapter(anchor.spineIndex,anchor.vertical,preserveVersion);
-  const range=rangeFor(anchor),glyph=range.cloneRange();
+  const range=rangeFor(anchor);
+  if(flow) {
+    const r=range.getBoundingClientRect();renderer.element.scrollTo(0,Math.max(0,r.top-24));
+    const selection=doc().getSelection(); selection.removeAllRanges();selection.addRange(range);return;
+  }
+  const glyph=range.cloneRange();
   glyph.setEnd(range.startContainer,Math.min(range.startContainer.length,range.startOffset+(range.startContainer.data.codePointAt(range.startOffset)>65535?2:1)));
   const r=glyph.getBoundingClientRect(),d=doc(),vertical=renderer.isVertical();
   const section=Math.floor((vertical?renderer.element.clientHeight:renderer.element.clientWidth)/12),gap=section%2===0?section:section-1;
@@ -144,12 +209,17 @@ window.PDFno = {async command(message) {
     await chapter(0,false);
     if (message.payload.progress) await navigate(message.payload.progress);
   } else if (message.command==='next' || message.command==='previous') {
+    if(flow) {
+      const delta=(message.command==='next'?1:-1)*Math.max(1,renderer.element.clientHeight-50);
+      renderer.element.scrollBy(0,delta);trackFlowViewport();
+    } else {
     initialising=true;
     try {
       await renderer[message.command==='next'?'next':'prev']();
       const target=Number(renderer.getPosition().chapterDocIndex??current);
       if (target!==current) { current=target; version++; decorate(); }
     } finally { initialising=false; }
+    }
   } else if (message.command==='chapter') await chapter(message.payload.index,false);
   else if (message.command==='vertical') {
     const anchor=progress(); if(!anchor)throw Error('No visible source position');anchor.vertical=!renderer.isVertical(); await navigate(anchor);
@@ -193,4 +263,4 @@ window.PDFno = {async command(message) {
 post({v:1,payload:{kind:'ready'}});
 // WebKit can suppress listeners in a script-disabled book frame. Poll from
 // the trusted parent realm; keep the sandbox rather than enabling book scripts.
-setInterval(selection,100);
+setInterval(()=>{trackFlowViewport();selection();},100);

@@ -536,13 +536,21 @@ struct ReaderWorkspace: View {
                     } actions: { professionalActions } content: {
                         PDFnoReaderShell(panels: panels, profile: .professional) {
                             VStack(spacing: 0) {
-                                if session.capturedSelection != nil { selectionActions }
                                 PDFCanvas(session: session).background(PDFnoDesign.Palette.canvas)
                                     .onReceive(NotificationCenter.default.publisher(for: .PDFViewSelectionChanged)) { notification in
                                         guard let view = notification.object as? PDFView, view === session.view else { return }
                                         session.captureSelection()
                                     }
                                     .background { PDFReaderNavigationShortcuts(session: session) }
+                                    .background {
+                                        Button {
+                                            navigationTab = .search
+                                            panels.show(.navigation, profile: .professional)
+                                            searchFocused = true
+                                        } label: { EmptyView() }
+                                        .keyboardShortcut("f", modifiers: .command)
+                                        .hidden().accessibilityHidden(true)
+                                    }
                             }
                         } navigation: {
                             PDFnoPanel(title: "导航与搜索", icon: "list.bullet", closeIdentifier: "close-navigation", close: closeNavigation) { navigationContent }
@@ -637,7 +645,7 @@ struct ReaderWorkspace: View {
     private func openNotes() {
         #if os(macOS)
         if inspector == .notes { panels.toggle(.notes, width: readerWidth, profile: .professional) }
-        else { inspector = .notes; panels.show(.notes) }
+        else { inspector = .notes; panels.show(.notes, profile: .professional) }
         #else
         notesPanel = true
         #endif
@@ -776,15 +784,14 @@ struct ReaderWorkspace: View {
     #if os(macOS)
     private var professionalActions: some View {
         Group {
+            selectionActions
             PDFnoReaderRailButton(title: "目录", symbol: "list.bullet", identifier: "reader-navigation", accessibilityTitle: "导航与搜索", active: navigationVisible && navigationTab == .contents, hint: "显示或收起目录与页码", action: openNavigation)
                 .accessibilityValue(navigationVisible ? "已展开" : "已收起")
-            PDFnoReaderRailButton(title: "查找", symbol: "magnifyingglass", identifier: "reader-search", active: navigationVisible && navigationTab == .search, hint: "查找 PDF 文本 · ⌘F") {
-                navigationTab = .search; panels.show(.navigation); searchFocused = true
-            }.keyboardShortcut("f", modifiers: .command)
+
             PDFnoReaderRailButton(title: "笔记", symbol: "highlighter", identifier: "reader-notes", accessibilityTitle: "高亮与笔记", active: notesVisible, hint: "显示或收起高亮与笔记，保留草稿和选区", action: openNotes)
             PDFnoReaderRailButton(title: "AI", symbol: "sparkles", identifier: "reader-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.capturedSelection == nil && model.learning.source == nil && !model.hasCurrentSavedLearningNotes, hint: "先选择原文；固定选文后核对接收方与任务") {
                 if panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning { panels.notes = false }
-                else { model.learning.prepare(model.captureAISource()); inspector = .learning; panels.show(.notes) }
+                else { model.learning.prepare(model.captureAISource()); inspector = .learning; panels.show(.notes, profile: .professional) }
             }
 
         }
@@ -792,16 +799,16 @@ struct ReaderWorkspace: View {
     #endif
     #if os(macOS)
     private var selectionActions: some View {
-        ReadingSelectionActions(available: session.capturedSelection != nil, busy: model.hasDocumentSaveInFlight,
+        ReadingSelectionActions(includeNote: false, available: session.capturedSelection != nil, busy: model.hasDocumentSaveInFlight,
             highlight: { session.captureSelection(); if let anchor = session.capturedSelection { _ = model.savePDFNoteImmediately(anchor: anchor, text: "") } },
-            note: { session.captureSelection(); inspector = .notes; panels.show(.notes) },
+            note: { session.captureSelection(); inspector = .notes; panels.show(.notes, profile: .professional) },
             translate: { openSelection(.translate) }, explain: { openSelection(.explain) },
             japanese: { model.prepareJapaneseLearning(); japaneseLearning = true },
             english: { model.prepareEnglishLearning(); englishLearning = true })
     }
     private func openSelection(_ kind: AILearningKind) {
         model.learning.kind = kind; model.learning.prepare(model.captureAISource())
-        inspector = .learning; panels.show(.notes)
+        inspector = .learning; panels.show(.notes, profile: .professional)
     }
     #endif
     private var notesSheet: some View {

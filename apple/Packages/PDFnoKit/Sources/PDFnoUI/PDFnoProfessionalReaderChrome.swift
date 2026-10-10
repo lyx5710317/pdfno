@@ -5,43 +5,60 @@ import SwiftUI
 enum PDFnoReaderNavigationTab: String, CaseIterable { case contents = "目录", search = "查找" }
 enum PDFnoReaderInspector { case notes, learning }
 
-/// Presentation only. The canvas and its original session remain inside one stable shell.
+private struct ReaderRailExpandedKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    var pdfnoReaderRailExpanded: Bool {
+        get { self[ReaderRailExpandedKey.self] }
+        set { self[ReaderRailExpandedKey.self] = newValue }
+    }
+}
+
+struct PDFnoReaderRailLabelStyle: LabelStyle {
+    let expanded: Bool
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 6) {
+            configuration.icon
+            if expanded { configuration.title.font(.system(size: 11)).lineLimit(1) }
+        }
+    }
+}
+
+/// Keep the native canvas in the same stable child while the right rail changes width.
 struct PDFnoProfessionalReaderChrome<Actions: View, Controls: View, Content: View>: View {
     let title: String
     let format: String
     @ViewBuilder let controls: () -> Controls
     @ViewBuilder let actions: () -> Actions
     @ViewBuilder let content: () -> Content
+    @State private var expanded = false
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Image(systemName: "doc.text").foregroundStyle(.blue).accessibilityHidden(true)
-                Text(title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                    .truncationMode(.middle).accessibilityIdentifier("professional-reader-title")
-                Text(format).font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary)
-                    .padding(.horizontal, 6).padding(.vertical, 4)
-                    .background(PDFnoDesign.Palette.canvas, in: RoundedRectangle(cornerRadius: 5))
-                Spacer(minLength: 8)
-                HStack(spacing: 2) { controls() }
-                    .labelStyle(.iconOnly).buttonStyle(PDFnoActionStyle(role: .quiet))
-            }.padding(.horizontal, 14).frame(height: 46)
-                .background(PDFnoDesign.Palette.surface)
+        HStack(spacing: 0) {
+            content().frame(maxWidth: .infinity, maxHeight: .infinity)
             Divider()
-            HStack(spacing: 0) {
-                ScrollView(.vertical) {
-                    VStack(spacing: 4) { actions() }.padding(.vertical, 8)
-                }.scrollIndicators(.hidden).frame(width: 58)
-                    .background(PDFnoDesign.Palette.surface)
-                    .accessibilityElement(children: .contain)
-                    .accessibilityIdentifier("professional-reader-tool-rail")
+            VStack(spacing: 0) {
+                Button { expanded.toggle() } label: {
+                    Label(expanded ? "收缩工具栏" : "展开工具栏", systemImage: expanded ? "chevron.right" : "chevron.left")
+                        .labelStyle(.iconOnly).frame(maxWidth: .infinity).frame(height: 36)
+                }.buttonStyle(.plain).accessibilityIdentifier("reader-rail-toggle")
+                    .accessibilityLabel(expanded ? "收缩工具栏" : "展开工具栏")
+                    .accessibilityValue(expanded ? "已展开" : "已收缩")
+                    .help(expanded ? "收缩工具栏，保留图标" : "展开工具栏，显示工具名称")
                 Divider()
-                content().frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+                ScrollView(.vertical) {
+                    VStack(spacing: 5) {
+                        actions()
+                        Divider().padding(.vertical, 6)
+                        controls().labelStyle(PDFnoReaderRailLabelStyle(expanded: expanded))
+                            .buttonStyle(PDFnoActionStyle(role: .quiet))
+                    }.padding(.horizontal, 5).padding(.vertical, 8)
+                }.scrollIndicators(.hidden)
+            }.frame(width: expanded ? 104 : 46)
+                .background(PDFnoDesign.Palette.surface)
+                .environment(\.pdfnoReaderRailExpanded, expanded)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("professional-reader-tool-rail")
         }.background(PDFnoDesign.Palette.chrome).tint(.blue)
             .accessibilityElement(children: .contain)
-        // An identifier on this composite root can replace the identifiers of
-        // native reader controls and panel containers on macOS. Name the real
-        // title, rail, buttons and panels individually instead.
     }
 }
 
@@ -56,12 +73,13 @@ struct PDFnoReaderRailButton: View {
     var hint = ""
     let action: () -> Void
     @FocusState private var focused: Bool
+    @Environment(\.pdfnoReaderRailExpanded) private var expanded
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
-                Image(systemName: symbol).font(.system(size: 14))
-                Text(title).font(.system(size: 9, weight: active ? .semibold : .regular)).lineLimit(1)
-            }.frame(width: 46, height: 40).contentShape(Rectangle())
+            HStack(spacing: 7) {
+                Image(systemName: symbol).font(.system(size: 14)).frame(width: 22)
+                if expanded { Text(title).font(.system(size: 11, weight: active ? .semibold : .regular)).lineLimit(1) }
+            }.frame(maxWidth: .infinity).frame(height: 36).contentShape(Rectangle())
                 .foregroundStyle(active ? Color.blue : Color.secondary)
                 .background(active ? Color.blue.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 8))
                 .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(focused ? Color.blue : .clear) }

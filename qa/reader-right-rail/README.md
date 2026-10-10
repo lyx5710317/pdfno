@@ -1,0 +1,1 @@
+Six targeted offline reader UI scenarios for the 2026-10-10 right rail changes. Add to the isolated QA snapshot only; never launch the production bundle. Original full matrix remains paused. The original wide-screen two-panel assertion is retained unchanged and conflicts with the newer single-panel requirement.

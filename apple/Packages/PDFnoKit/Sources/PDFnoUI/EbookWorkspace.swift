@@ -17,7 +17,15 @@ public struct EbookWorkspace: View {
     init(model: EbookLibraryModel, editing: RecordEditingAdapter) { self.model = model; session = model.reader; self.editing = editing }
     public var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
+            PDFnoProfessionalReaderChrome(title: session.book?.title ?? "文档", format: "") {} actions: {
+                PDFnoReaderRailButton(title: "目录", symbol: "list.bullet", identifier: "ebook-navigation", active: navigation, disabled: !session.ready) { navigation.toggle(); notes = false }
+                PDFnoReaderRailButton(title: "笔记", symbol: "note.text", identifier: "ebook-notes", active: notes, disabled: !session.ready) {
+                    if notes { notes = false } else {
+                        Task { if draft.isEmpty { captured = await session.captureSelection() }; notes = true; navigation = false }
+                    }
+                }
+                Menu {
+VStack(alignment: .leading, spacing: 4) {
                 Text("\(session.book?.format.rawValue.uppercased() ?? "电子书") · 正文重排阅读").font(.headline)
                 Text("无 DRM MOBI6/KF8、UTF-8 FB2。保留正文与作者读音；图片、字体、链接目标和原始分页不显示。")
                     .font(.caption).foregroundStyle(.secondary)
@@ -30,11 +38,9 @@ public struct EbookWorkspace: View {
                     }.font(.caption)
                 }
             }.padding(12).frame(maxWidth: .infinity, alignment: .leading).background(.bar)
-            HStack(spacing: 12) {
-            Button { navigation = true } label: { Label("标题目录", systemImage: "list.bullet") }.disabled(!session.ready).accessibilityIdentifier("ebook-navigation")
-            Button { Task { captured = await session.captureSelection(); notes = true } } label: { Label("选文与笔记", systemImage: "highlighter") }.disabled(!session.ready).accessibilityIdentifier("ebook-notes")
-                Spacer()
-            }.padding(.horizontal, 12).padding(.vertical, 8).background(.bar)
+                } label: { Image(systemName: "info.circle") }.help("文档显示限制").accessibilityIdentifier("ebook-display-info")
+            } content: {
+                PDFnoReaderShell(panels: readerPanels, profile: .professional) {
             if let error = session.error {
                 VStack {
                     ContentUnavailableView("Ebook 无法显示", systemImage: "exclamationmark.triangle", description: Text(error))
@@ -46,17 +52,24 @@ public struct EbookWorkspace: View {
                 }
             }
             else { EbookCanvas(session: session).frame(maxWidth: .infinity, maxHeight: .infinity).accessibilityIdentifier("ebook-content") }
+                } navigation: { navigationSheet } notes: { notesSheet }
+            }
         }
         .navigationTitle(session.book?.title ?? "Ebook")
 
         .onChange(of: draft) { _, value in LibraryMaintenanceOwners.setDraft(root: model.storageRoot, owner: draftOwner, dirty: !value.isEmpty) }
         .onDisappear { LibraryMaintenanceOwners.setDraft(root: model.storageRoot, owner: draftOwner, dirty: false) }
         .onChange(of: session.progress) { _, anchor in if let anchor { Task { await model.saveProgress(anchor) } } }
-        .sheet(isPresented: $navigation) { navigationSheet }
-        .sheet(isPresented: $notes) { notesSheet }
+
         .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("知道了") { model.error = nil }
         } message: { Text(model.error ?? "") }
+    }
+    private var readerPanels: PDFnoReaderPanels {
+        var result = PDFnoReaderPanels()
+        if navigation { result.show(.navigation, profile: .professional) }
+        else if notes { result.show(.notes, profile: .professional) }
+        return result
     }
     private var navigationSheet: some View {
         NavigationStack {
@@ -70,7 +83,7 @@ public struct EbookWorkspace: View {
                         .accessibilityIdentifier("ebook-chapter-\(block.id)")
                 }
             }.navigationTitle("标题目录").toolbar { ToolbarItem { Button("完成") { navigation = false } } }
-        }.frame(minWidth: 320, minHeight: 400)
+        }
     }
     private var notesSheet: some View {
         NavigationStack {
@@ -103,7 +116,7 @@ public struct EbookWorkspace: View {
                 }
             }.accessibilityIdentifier("ebook-notes-list").navigationTitle("选文与笔记")
                 .toolbar { ToolbarItem { Button("完成") { notes = false }.accessibilityIdentifier("ebook-close-notes") } }
-        }.frame(minWidth: 340, minHeight: 440)
+        }
     }
 }
 #endif

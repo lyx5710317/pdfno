@@ -9,7 +9,8 @@ struct PDFnoReaderPanels: Equatable {
     var navigation = false
     var notes = false
     private(set) var lastOpened: PDFnoReaderPanel = .navigation
-    mutating func show(_ panel: PDFnoReaderPanel) {
+    mutating func show(_ panel: PDFnoReaderPanel, profile: PDFnoReaderLayoutProfile = .standard) {
+        if profile == .professional { navigation = false; notes = false }
         if panel == .navigation { navigation = true } else { notes = true }
         lastOpened = panel
     }
@@ -20,6 +21,9 @@ struct PDFnoReaderPanels: Equatable {
             navigation = !layout.showNavigation
         case .notes:
             notes = !layout.showNotes
+        }
+        if profile == .professional {
+            if panel == .navigation { notes = false } else { navigation = false }
         }
         lastOpened = panel
     }
@@ -45,7 +49,7 @@ struct PDFnoReaderPlacement: Equatable {
         let m = PDFnoDesign.Metric.self
         let navigationSize: CGFloat = profile == .professional ? 210 : m.navigationWidth
         let preferredNotesSize: CGFloat = profile == .professional ? 300 : m.notesWidth
-        let bothFit = self.width >= m.readerMinimum + navigationSize + preferredNotesSize
+        let bothFit = profile != .professional && self.width >= m.readerMinimum + navigationSize + preferredNotesSize
         // The professional inspector can become compact before covering the
         // native document. Keep the full-width, two-panel desktop threshold.
         let notesSize: CGFloat = profile == .professional
@@ -57,8 +61,8 @@ struct PDFnoReaderPlacement: Equatable {
         overlay = requestedWidth > 0 && self.width < m.readerMinimum + requestedWidth
         navigationWidth = min(navigationSize, max(0, self.width - (overlay ? m.overlayInset : 0)))
         notesWidth = min(notesSize, max(0, self.width - (overlay ? m.overlayInset : 0)))
-        leading = showNavigation && !overlay ? navigationWidth : 0
-        trailing = showNotes && !overlay ? notesWidth : 0
+        leading = profile == .professional ? 0 : (showNavigation && !overlay ? navigationWidth : 0)
+        trailing = !overlay ? ((profile == .professional && showNavigation ? navigationWidth : 0) + (showNotes ? notesWidth : 0)) : 0
     }
 }
 
@@ -83,6 +87,7 @@ struct PDFnoReaderShell<Reader: View, Navigation: View, Notes: View>: View {
                     .zIndex(0)
                 if layout.showNavigation {
                     navigation().frame(width: layout.navigationWidth, height: geometry.size.height)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: profile == .professional ? .trailing : .leading)
                         .zIndex(1)
                         .accessibilityIdentifier("reader-navigation-panel")
                 }

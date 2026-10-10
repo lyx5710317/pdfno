@@ -5,6 +5,7 @@ import PDFnoDomain
 import PDFnoServices
 
 struct ReadingSelectionActions: View {
+    var includeNote = true
     let available: Bool
     let busy: Bool
     let highlight: () -> Void
@@ -13,10 +14,11 @@ struct ReadingSelectionActions: View {
     let explain: () -> Void
     let japanese: () -> Void
     let english: () -> Void
+    @Environment(\.pdfnoReaderRailExpanded) private var expanded
     var body: some View {
-        HStack(spacing: 6) {
+        VStack(spacing: 5) {
             action("高亮", "highlighter", "selection-highlight", highlight)
-            action("笔记", "note.text", "selection-note", note)
+            if includeNote { action("笔记", "note.text", "selection-note", note) }
             action("翻译", "character.bubble", "selection-translate", translate)
             action("解释", "sparkles", "selection-explain", explain)
             Menu {
@@ -24,13 +26,12 @@ struct ReadingSelectionActions: View {
                 Button("英语结构与语法", action: english).accessibilityIdentifier("selection-english")
             } label: { Image(systemName: "ellipsis") }.accessibilityLabel("更多选文操作")
                 .accessibilityIdentifier("selection-more").menuStyle(.borderlessButton).fixedSize()
-            Spacer(minLength: 0)
-        }.font(.system(size: 11)).buttonStyle(ProfessionalLibraryActionStyle())
-            .padding(8).background(PDFnoDesign.Palette.chrome)
+        }.font(.system(size: 11)).buttonStyle(PDFnoActionStyle(role: .quiet))
+            .labelStyle(PDFnoReaderRailLabelStyle(expanded: expanded))
             .disabled(!available || busy)
     }
     private func action(_ title: String, _ symbol: String, _ identifier: String, _ command: @escaping () -> Void) -> some View {
-        Button(action: command) { Label(title, systemImage: symbol) }.accessibilityIdentifier(identifier)
+        Button(action: command) { Label(title, systemImage: symbol).frame(maxWidth: .infinity).frame(minHeight: 32) }.accessibilityIdentifier(identifier).help(title)
     }
 }
 

@@ -212,6 +212,15 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
                 do { try await request("open", payload: initial); if generation == token { busy = false } }
                 catch { if generation == token { fail(error) } }
             }
+        } else if !busy, matches(object), payload["kind"] as? String == "viewport",
+                  let version = object["documentVersion"] as? Int, version >= documentVersion,
+                  let chapter = payload["spineIndex"] as? Int, (0..<1000).contains(chapter),
+                  let value = payload["progress"] as? [String: Any], let anchor = try? anchorValue(value),
+                  anchor.spineIndex == chapter, let page = payload["page"] as? String, Int(page) != nil {
+            if documentVersion != version { translationScopeDidChange?(); selection = nil }
+            documentVersion = version; spineIndex = chapter; progress = anchor
+            vertical = payload["vertical"] as? Bool ?? false
+            position = "第 \(chapter + 1) 章 · 第 \(page) 页" + (vertical ? " · 竖排" : "")
         } else if !busy, matches(object), object["documentVersion"] as? Int == documentVersion,
                   payload["kind"] as? String == "selection", let value = payload["anchor"] as? [String: Any] {
             selection = try? anchorValue(value)

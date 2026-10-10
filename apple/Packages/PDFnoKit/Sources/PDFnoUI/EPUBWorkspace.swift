@@ -33,7 +33,6 @@ struct EPUBWorkspace: View {
             } actions: { professionalActions } content: {
                 PDFnoReaderShell(panels: panels, profile: .professional) {
                     VStack(spacing: 0) {
-                        if session.selection != nil { selectionActions }
                         EPUBCanvas(session: session).background(PDFnoDesign.Palette.canvas)
                     }
                 } navigation: {
@@ -54,7 +53,7 @@ struct EPUBWorkspace: View {
             HStack {
                 Text(session.position).accessibilityIdentifier("epub-position")
                 Spacer()
-                Text("EPUB · 本地 · 原书未改写")
+                Text(session.vertical ? "竖排：按页排版 · 连续跨章滚动暂不支持" : "上下连续滚动 · 原书未改写")
             }.font(PDFnoDesign.TypeStyle.metadata).foregroundStyle(.secondary).padding(PDFnoDesign.Space.regular)
                 .background(PDFnoDesign.Palette.chrome)
             if let error = session.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "epub-error") }
@@ -79,30 +78,31 @@ struct EPUBWorkspace: View {
     private func closeNotes() { panels.notes = false }
     private func openNotes() {
         if inspector == .notes { panels.toggle(.notes, width: readerWidth, profile: .professional) }
-        else { inspector = .notes; panels.show(.notes) }
+        else { inspector = .notes; panels.show(.notes, profile: .professional) }
     }
     private var professionalActions: some View {
         Group {
+            selectionActions
             PDFnoReaderRailButton(title: "目录", symbol: "list.bullet", identifier: "epub-contents", active: contentsVisible, disabled: session.book == nil || session.busy, hint: "显示或收起 EPUB 目录，保留阅读位置") { panels.toggle(.navigation, width: readerWidth, profile: .professional) }
             PDFnoReaderRailButton(title: "笔记", symbol: "highlighter", identifier: "epub-notes", accessibilityTitle: "高亮与笔记", active: notesVisible, action: openNotes)
             PDFnoReaderRailButton(title: "AI", symbol: "sparkles", identifier: "epub-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.selection == nil && model.learning.source == nil && !model.hasCurrentSavedLearningNotes) {
                 if panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning { panels.notes = false }
-                else { model.learning.prepare(model.captureAISource()); inspector = .learning; panels.show(.notes) }
+                else { model.learning.prepare(model.captureAISource()); inspector = .learning; panels.show(.notes, profile: .professional) }
             }
 
         }
     }
     private var selectionActions: some View {
-        ReadingSelectionActions(available: session.selection != nil && !session.busy, busy: model.hasDocumentSaveInFlight,
+        ReadingSelectionActions(includeNote: false, available: session.selection != nil && !session.busy, busy: model.hasDocumentSaveInFlight,
             highlight: { if let anchor = session.selection { Task { _ = await model.saveEPUBNote(anchor, text: "") } } },
-            note: { inspector = .notes; panels.show(.notes) },
+            note: { inspector = .notes; panels.show(.notes, profile: .professional) },
             translate: { openSelection(.translate) }, explain: { openSelection(.explain) },
             japanese: { model.prepareJapaneseLearning(); japaneseLearning = true },
             english: { model.prepareEnglishLearning(); englishLearning = true })
     }
     private func openSelection(_ kind: AILearningKind) {
         model.learning.kind = kind; model.learning.prepare(model.captureAISource())
-        inspector = .learning; panels.show(.notes)
+        inspector = .learning; panels.show(.notes, profile: .professional)
     }
     private var contentsContent: some View {
         List {
