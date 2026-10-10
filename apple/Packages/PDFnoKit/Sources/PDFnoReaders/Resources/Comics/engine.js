@@ -125,6 +125,13 @@ window.PDFnoComic={async command(message) {
     return JSON.stringify({...identity,v:1,requestID:message.requestID,indices:visible});
   } catch(error) { document.getElementById('pages').replaceChildren(); dispose(); throw error; }
   finally { rendering=false; }
+},canTurnAt(x,y){
+  if(rendering || !Number.isFinite(x) || !Number.isFinite(y))return false;
+  const frame=document.elementFromPoint(x,y);
+  if(frame?.tagName!=='IFRAME')return false;
+  const d=frame.contentDocument,r=frame.getBoundingClientRect(),target=d?.elementFromPoint(x-r.left,y-r.top);
+  if(!target || target.closest('a,button,input,select,textarea,[contenteditable]') || !d.getSelection()?.isCollapsed)return false;
+  return target.tagName==='IMG' || target===d.body || target===d.documentElement;
 },close(){document.getElementById('pages').replaceChildren();dispose();book=null;identity=null;}};
 window.webkit?.messageHandlers.comic.postMessage('ready');
 

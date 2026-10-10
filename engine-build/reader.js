@@ -2,7 +2,8 @@
 import {EpubRender} from './kookit-adapter';
 import {handleOneChapterDoc,handleLayout,progressInfo} from './vendor/kookit/src/utils/layoutUtil';
 let identity, renderer, version=0, current=0, notes=[], initialising=false, lastSelection='', flow=false, lastViewport='';
-const flowRoots=new Map();
+const flowRoots=new Map(), flowFrames=new Map();
+let flowWidth=0, flowHeight=0;
 const post = value => window.webkit?.messageHandlers.epub.postMessage(JSON.stringify(value));
 const envelope = (payload,requestID='event') => ({...identity,v:1,documentVersion:version,requestID,payload});
 const doc = () => renderer.getDocument();
@@ -94,52 +95,41 @@ function decorate() {
   d.addEventListener('click',event => { if (event.target.closest?.('a')) event.preventDefault(); },true);
   project();
 }
-async function chapter(index,vertical=false,preserveVersion=false) {
+async function chapter(index,vertical=renderer.isVertical(),preserveVersion=false) {
   if (!Number.isSafeInteger(index) || index<0 || index>=renderer.book.sections.length) throw Error('Invalid chapter');
-  if (!vertical) {
-    initialising=true;
-    try {
-      if (!flow) await buildFlow();
-      if (current!==index && !preserveVersion) version++;
-      current=index; lastSelection='';
-      renderer.element.scrollTo(0,flowRoots.get(index).offsetTop);
-      return;
-    } finally { initialising=false; }
-  }
-  doc().getElementById('pdfno-continuous-layout')?.remove();
-  flow=false; flowRoots.clear(); renderer.readerMode='single'; window.readerMode='single';
-  renderer.element.scrollTop=0;
   initialising=true;
   try {
-    current=index; renderer.textOrientation=vertical?'vertical':'horizontal'; window.textOrientation=renderer.textOrientation;
-    handleLayout(renderer.element,renderer.readerMode,doc());
-    await renderer.goToChapterDocIndex(index); if (!preserveVersion) version++; lastSelection=''; decorate();
+    if (!flow) await buildFlow();
+    if (renderer.isVertical()!==vertical) layoutFlow(vertical);
+    else sizeFlow();
+    if (current!==index) { doc().getSelection()?.removeAllRanges(); if(!preserveVersion)version++; }
+    current=index; lastSelection='';
+    renderer.element.scrollTo(0,flowFrames.get(index).offsetTop);
   } finally { initialising=false; }
 }
+function visibleRects(range) {
+  const width=renderer.element.clientWidth,height=renderer.element.clientHeight,top=renderer.element.scrollTop;
+  return [...range.getClientRects()].some(r=>r.width>0 && r.height>0 && r.left<width && r.right>0 && r.top-top<height && r.bottom-top>0);
+}
 function progress() {
-  const {nodes}=canonical(), width=renderer.element.clientWidth, height=renderer.element.clientHeight;
-  const visible=nodes.find(x => {
-    const range=doc().createRange(); range.selectNodeContents(x.node);
-    return [...range.getClientRects()].some(raw=>{ const r=flow ? {width:raw.width,height:raw.height,left:raw.left,right:raw.right,top:raw.top-renderer.element.scrollTop,bottom:raw.bottom-renderer.element.scrollTop} : raw; return r.width>0 && r.height>0 && r.left<width && r.right>0 && r.top<height && r.bottom>0; });
-  });
+  const {nodes}=canonical();
+  const range=doc().createRange();
+  const visible=nodes.find(x=>{range.selectNodeContents(x.node);return visibleRects(range);});
   if (!visible) return null;
-  // Pagination translates preceding columns outside the viewport. Find the
-  // first visible scalar inside this text node, including a long single paragraph.
+  // A vertical paragraph can wrap from bottom to top many times on a page.
+  // Bisect ranges by *intersection*, rather than assuming glyph Y is monotonic.
   let low=0,high=visible.node.length;
-  const range=doc().createRange(),vertical=renderer.isVertical();
-  const rectAt=offset=>{
-    if(offset>0&&/[\uDC00-\uDFFF]/.test(visible.node.data[offset]))offset--;
-    range.setStart(visible.node,offset);range.setEnd(visible.node,Math.min(visible.node.length,offset+(visible.node.data.codePointAt(offset)>65535?2:1)));
-    const r=range.getBoundingClientRect(); return flow ? {top:r.top-renderer.element.scrollTop,bottom:r.bottom-renderer.element.scrollTop,right:r.right} : r;
-  };
-  while(low<high){const middle=Math.floor((low+high)/2),r=rectAt(middle);
-    if(flow?r.bottom<=0:(vertical?r.bottom<=0:r.right<=0))low=middle+1;else high=middle;
+  while(high-low>1) {
+    const middle=Math.floor((low+high)/2);
+    range.setStart(visible.node,low);range.setEnd(visible.node,middle);
+    if(visibleRects(range))high=middle;else low=middle;
   }
+  if(low>0 && /[\uDC00-\uDFFF]/.test(visible.node.data[low]))low--;
   const start=visible.start+low;
   return makeAnchor(start,Math.min(visible.end,start+128));
 }
 function state() {
-  const page=flow ? Math.max(1,Math.floor((renderer.element.scrollTop-flowRoots.get(current).offsetTop)/Math.max(1,renderer.element.clientHeight-50))+1) : (progressInfo(renderer.readerMode,doc(),renderer.element)?.currentPage ?? 1);
+  const page=flow ? Math.max(1,Math.floor((renderer.element.scrollTop-flowFrames.get(current).offsetTop)/Math.max(1,renderer.element.clientHeight-(renderer.isVertical()?0:50)))+1) : (progressInfo(renderer.readerMode,doc(),renderer.element)?.currentPage ?? 1);
   return {kind:'state',spineIndex:current,chapterCount:renderer.book.sections.length,page:String(page),
     vertical:renderer.isVertical(),progress:progress(),outline:renderer.flattenChapters.map(x=>({title:x.label,index:x.index})).slice(0,1000)};
 }
@@ -147,23 +137,63 @@ function state() {
 async function buildFlow() {
   renderer.readerMode='scroll'; window.readerMode='scroll';
   renderer.textOrientation='horizontal'; window.textOrientation='horizontal';
+  renderer.getIframe().style.removeProperty('height');
   await renderer.goToChapterDocIndex(0);
   const d=doc(); d.documentElement.removeAttribute('style'); d.body.removeAttribute('style'); d.body.replaceChildren();
   // Reuse the bounded, sanitised publication loader. Book scripts remain disabled in the original iframe.
-  flowRoots.clear();
+  flowRoots.clear();flowFrames.clear();
+  const stack=d.createElement('main');stack.id='pdfno-flow-stack';d.body.appendChild(stack);
   for(let index=0;index<renderer.book.sections.length;index++) {
     const html=await handleOneChapterDoc(renderer.book.sections[index],false);
     const section=d.createElement('section'); section.dataset.pdfnoSpine=String(index);
     // Match the original Kookit body-fragment insertion exactly. Invisible title
     // text remains part of the existing canonical offsets used by saved notes.
     section.innerHTML=html;
-    d.body.appendChild(section);flowRoots.set(index,section);
+    const frame=d.createElement('div');frame.dataset.pdfnoChapter=String(index);
+    frame.appendChild(section);stack.appendChild(frame);flowRoots.set(index,section);flowFrames.set(index,frame);
   }
-  const style=d.createElement('style');style.id='pdfno-continuous-layout';style.textContent='html,body{width:100%!important;height:auto!important;overflow:visible!important;writing-mode:horizontal-tb!important;column-count:auto!important;column-width:auto!important}body{margin:0!important;padding:0!important}.pdfno-flow-unused{display:none}[data-pdfno-spine]{display:block;box-sizing:border-box;padding:24px;min-height:160px;border-bottom:1px solid #e5e5e5;writing-mode:horizontal-tb;overflow-wrap:anywhere}';d.head.appendChild(style);
-  flow=true; current=0; version++; lastSelection=''; lastViewport=''; decorate(); sizeFlow();
+  flow=true; current=0; version++; lastSelection=''; lastViewport=''; decorate(); layoutFlow(false);
+}
+function layoutFlow(vertical) {
+  const d=doc(),frame=renderer.getIframe();
+  // An old inline height overrides the vendor's iframe height attribute. Clear
+  // both before measuring the new orientation, and replace one exact flow height.
+  frame.style.removeProperty('height');frame.removeAttribute('height');
+  renderer.textOrientation=vertical?'vertical':'horizontal';window.textOrientation=renderer.textOrientation;
+  let style=d.getElementById('pdfno-continuous-layout');
+  if(!style){style=d.createElement('style');style.id='pdfno-continuous-layout';d.head.appendChild(style);}
+  style.textContent=`html{width:100%!important;height:auto!important;overflow:visible!important;writing-mode:${vertical?'vertical-rl':'horizontal-tb'}!important;column-count:auto!important;column-width:auto!important}
+    body{width:100%!important;height:auto!important;overflow:visible!important;writing-mode:${vertical?'vertical-rl':'horizontal-tb'}!important;column-count:auto!important;column-width:auto!important;margin:0!important;padding:0!important}
+    #pdfno-flow-stack{writing-mode:horizontal-tb!important;width:100%;height:auto}
+    [data-pdfno-chapter]{display:block;box-sizing:border-box;width:100%;border-bottom:1px solid #e5e5e5}
+    [data-pdfno-spine]{display:block;box-sizing:border-box;padding:24px;min-height:160px;overflow-wrap:anywhere;${vertical?'writing-mode:vertical-rl!important;text-orientation:mixed;column-fill:auto;column-gap:48px;':'writing-mode:horizontal-tb!important;height:auto!important;width:100%!important;column-width:auto!important;'}}`;
+  flowWidth=0;flowHeight=0;sizeFlow();lastViewport='';
 }
 function sizeFlow() {
-  if(flow && doc()?.body) renderer.getIframe().style.height=Math.ceil(doc().body.scrollHeight)+'px';
+  if(!flow || !doc()?.body)return;
+  const width=renderer.element.clientWidth,height=renderer.element.clientHeight;
+  if(width!==flowWidth || height!==flowHeight) {
+    const anchor=flowWidth>0 ? progress() : null;
+    flowWidth=width;flowHeight=height;
+    for(const [index,root] of flowRoots) {
+      if(renderer.isVertical()) {
+        root.style.width=Math.max(100,width)+'px';root.style.height=Math.max(100,height)+'px';
+        root.style.columnWidth=Math.max(52,height-48)+'px';
+        flowFrames.get(index).style.height=Math.max(height,Math.ceil(root.scrollHeight))+'px';
+      } else {
+        root.style.removeProperty('height');root.style.removeProperty('width');root.style.removeProperty('column-width');
+        flowFrames.get(index).style.removeProperty('height');
+      }
+    }
+    if(anchor) scrollToSource(anchor);
+  }
+  const frame=renderer.getIframe(),heightValue=Math.ceil(doc().body.scrollHeight)+'px';
+  if(frame.style.height!==heightValue)frame.style.height=heightValue;
+}
+function scrollToSource(anchor) {
+  const range=rangeFor(anchor),glyph=range.cloneRange();
+  glyph.setEnd(range.startContainer,Math.min(range.startContainer.length,range.startOffset+(range.startContainer.data.codePointAt(range.startOffset)>65535?2:1)));
+  const r=glyph.getBoundingClientRect();renderer.element.scrollTo(0,Math.max(0,r.top-24));
 }
 function publishViewport() {
   if(initialising || !renderer?.getDocument())return;
@@ -175,28 +205,15 @@ function trackFlowViewport() {
   if(!flow || initialising)return;
   sizeFlow();
   const top=renderer.element.scrollTop;
-  const visible=[...flowRoots].find(([,root])=>root.offsetTop+root.offsetHeight>top+24);
-  if(visible && visible[0]!==current){current=visible[0];version++;lastSelection='';}
+  const visible=[...flowFrames].find(([,root])=>root.offsetTop+root.offsetHeight>top+24);
+  if(visible && visible[0]!==current){doc().getSelection()?.removeAllRanges();current=visible[0];version++;lastSelection='';}
   publishViewport();
 }
 async function navigate(anchor,preserveVersion=false) {
   await chapter(anchor.spineIndex,anchor.vertical,preserveVersion);
   const range=rangeFor(anchor);
-  if(flow) {
-    const r=range.getBoundingClientRect();renderer.element.scrollTo(0,Math.max(0,r.top-24));
-    const selection=doc().getSelection(); selection.removeAllRanges();selection.addRange(range);return;
-  }
-  const glyph=range.cloneRange();
-  glyph.setEnd(range.startContainer,Math.min(range.startContainer.length,range.startOffset+(range.startContainer.data.codePointAt(range.startOffset)>65535?2:1)));
-  const r=glyph.getBoundingClientRect(),d=doc(),vertical=renderer.isVertical();
-  const section=Math.floor((vertical?renderer.element.clientHeight:renderer.element.clientWidth)/12),gap=section%2===0?section:section-1;
-  const stride=(vertical?d.body.clientHeight:d.body.clientWidth)+gap;
-  if(!Number.isFinite(stride)||stride<=0)throw Error('Reader viewport unavailable');
-  const absolute=vertical?r.top+d.body.scrollTop:r.left+d.body.scrollLeft;
-  const offset=Math.max(0,Math.floor((absolute+0.5)/stride)*stride);
-  d.body.scrollTo(vertical?0:offset,vertical?offset:0);
-  await renderer.record();renderer.trigger('rendered');
-  const selection=d.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+  scrollToSource(anchor);
+  const selection=doc().getSelection();selection.removeAllRanges();selection.addRange(range);
 }
 window.PDFno = {async command(message) {
   if (message.v!==1 || typeof message.requestID!=='string') throw Error('Invalid bridge version');
@@ -211,7 +228,7 @@ window.PDFno = {async command(message) {
     if (message.payload.progress) await navigate(message.payload.progress);
   } else if (message.command==='next' || message.command==='previous') {
     if(flow) {
-      const delta=(message.command==='next'?1:-1)*Math.max(1,renderer.element.clientHeight-50);
+      const delta=(message.command==='next'?1:-1)*Math.max(1,renderer.element.clientHeight-(renderer.isVertical()?0:50));
       renderer.element.scrollBy(0,delta);trackFlowViewport();
     } else {
     initialising=true;
@@ -221,9 +238,14 @@ window.PDFno = {async command(message) {
       if (target!==current) { current=target; version++; decorate(); }
     } finally { initialising=false; }
     }
-  } else if (message.command==='chapter') await chapter(message.payload.index,false);
+  } else if (message.command==='chapter') await chapter(message.payload.index,renderer.isVertical());
   else if (message.command==='vertical') {
-    const anchor=progress(); if(!anchor)throw Error('No visible source position');anchor.vertical=!renderer.isVertical(); await navigate(anchor);
+    const selected=selectedAnchor() ?? message.payload.selectionAnchor ?? null, anchor=progress();
+    if(!anchor)throw Error('No visible source position');
+    if(selected)rangeFor(selected);
+    anchor.vertical=!renderer.isVertical();await navigate(anchor);
+    const selection=doc().getSelection();selection.removeAllRanges();
+    if(selected)selection.addRange(rangeFor({...selected,vertical:anchor.vertical}));
   } else if (message.command==='navigate') await navigate(message.payload.anchor);
   else if (message.command==='notes') { notes=message.payload.notes; project(); }
   else if (message.command==='resize') {
@@ -259,6 +281,7 @@ window.PDFno = {async command(message) {
   if(message.command==='navigate') response.navigationSelection=selectedAnchor();
   if(message.command==='notes') response.noteSelection=selectedAnchor();
   if(message.command==='resize') response.resizeSelection=selectedAnchor();
+  if(message.command==='vertical') response.orientationSelection=selectedAnchor();
   return JSON.stringify(envelope(response,message.requestID));
 }};
 post({v:1,payload:{kind:'ready'}});

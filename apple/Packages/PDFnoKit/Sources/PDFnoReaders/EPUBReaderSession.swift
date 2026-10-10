@@ -232,7 +232,7 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
     }
     public func command(_ name: String, index: Int? = nil, anchor: EPUBAnchor? = nil, notes: [EPUBNote]? = nil) async -> Bool {
         guard !busy else { return false }; let token = generation
-        let selectionBeforeResize = name == "resize" ? selection : nil
+        let selectionBeforeResize = ["resize", "vertical"].contains(name) ? selection : nil
         let origin = progress, recordsJump = !returningToPreviousLocation && ["chapter", "navigate"].contains(name)
         busy = true; defer { if generation == token { busy = false } }
         do {
@@ -281,6 +281,23 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
                     selection = selected
                 } else if state["resizeSelection"] is NSNull {
                     selection = nil
+                    guard selectionBeforeResize == nil else { throw EPUBError.sourceMismatch }
+                } else { throw EPUBError.sourceMismatch }
+            }
+            if name == "vertical" {
+                if let value = state["orientationSelection"] as? [String: Any] {
+                    let selected = try anchorValue(value)
+                    guard selected.spineIndex == spineIndex, selected.vertical == vertical,
+                          selected.resourceHref == progress?.resourceHref else { throw EPUBError.sourceMismatch }
+                    if let previous = selectionBeforeResize {
+                        var expected = EPUBAnchor(editionID: previous.editionID, fileSHA256: previous.fileSHA256,
+                            resourceHref: previous.resourceHref, spineIndex: previous.spineIndex, start: previous.start, end: previous.end,
+                            quote: previous.quote, prefix: previous.prefix, suffix: previous.suffix, vertical: vertical)
+                        expected.schemaVersion = previous.schemaVersion; expected.extractionVersion = previous.extractionVersion
+                        guard selected == expected else { throw EPUBError.sourceMismatch }
+                    }
+                    selection = selected
+                } else if state["orientationSelection"] is NSNull {
                     guard selectionBeforeResize == nil else { throw EPUBError.sourceMismatch }
                 } else { throw EPUBError.sourceMismatch }
             }

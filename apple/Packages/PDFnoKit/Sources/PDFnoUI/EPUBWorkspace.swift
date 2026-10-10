@@ -33,7 +33,7 @@ struct EPUBWorkspace: View {
                 }.accessibilityIdentifier("epub-orientation")
                     .accessibilityLabel(session.vertical ? "切换为横排" : "切换为竖排")
                     .accessibilityValue(session.vertical ? "当前竖排" : "当前横排")
-                    .help(session.vertical ? "恢复横排连续滚动" : "竖排按页排版，暂不支持连续跨章滚动")
+                    .help(session.vertical ? "恢复横排连续滚动" : "竖排上下连续滚动")
             } actions: { professionalActions } content: {
                 PDFnoReaderShell(panels: panels, profile: .professional) {
                     VStack(spacing: 0) {
@@ -57,7 +57,7 @@ struct EPUBWorkspace: View {
             HStack {
                 Text(session.position).accessibilityIdentifier("epub-position")
                 Spacer()
-                Text(session.vertical ? "竖排：按页排版 · 连续跨章滚动暂不支持" : "上下连续滚动 · 原书未改写")
+                Text(session.vertical ? "竖排 · 上下连续滚动 · 原书未改写" : "上下连续滚动 · 原书未改写")
             }.font(PDFnoDesign.TypeStyle.metadata).foregroundStyle(.secondary).padding(PDFnoDesign.Space.regular)
                 .background(PDFnoDesign.Palette.chrome)
             if let error = session.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "epub-error") }

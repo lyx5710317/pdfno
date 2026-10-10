@@ -12,6 +12,9 @@ export class EpubRender extends GeneralRender {
       bookLayout:'', codeHighlight:'', fullTranslationMode:'no', textRules:[]});
     this.buffer=buffer; this.names=names;
   }
+  // PDFno scroll flow can contain real vertical columns. Upstream excludes
+  // scroll mode here because its original scroll renderer supports horizontal only.
+  isVertical() { return this.textOrientation === 'vertical'; }
   async renderTo(element) {
     this.element=element;
     this.book=await new EPUB(await makeLoader(this.buffer,this.names)).init();

@@ -7,9 +7,9 @@ const script=await readFile(new URL('../apple/Packages/PDFnoKit/Sources/PDFnoRea
 function host({imageFails=false}={}) {
   let serial=0, ready=0, highWater=0;
   const live=new Map(), revoked=[], element={dataset:{},children:[],replaceChildren(){this.children=[];},appendChild(frame){this.children.push(frame);queueMicrotask(()=>frame.onload());}};
-  const document={getElementById:id=>{assert.equal(id,'pages');return element;},createElement:tag=>{
+  const document={elementFromPoint:()=>element.children[0],getElementById:id=>{assert.equal(id,'pages');return element;},createElement:tag=>{
     assert.equal(tag,'iframe');return {setAttribute(k,v){assert.equal(k,'sandbox');assert.equal(v,'allow-same-origin');},
-      contentDocument:{documentElement:{style:{}},body:{style:{}},querySelector:()=>({naturalWidth:imageFails?0:12})}};
+      contentDocument:{documentElement:{style:{}},body:{style:{}},getSelection:()=>({isCollapsed:true}),elementFromPoint:()=>({tagName:'IMG',closest:()=>null}),querySelector:()=>({naturalWidth:imageFails?0:12})},tagName:'IFRAME',getBoundingClientRect:()=>({left:0,top:0})};
   }};
   const window={webkit:{messageHandlers:{comic:{postMessage(value){assert.equal(value,'ready');ready++;}}}}};
   const context=vm.createContext({window,document,Blob,Uint8Array,atob,setTimeout,clearTimeout,URL:{
@@ -50,4 +50,13 @@ test('concurrent render is rejected while current render completes',async()=>{
   const h=host(), first=h.reader.command({...h.base,pages:[page(0)]});
   await assert.rejects(h.reader.command({...h.base,requestID:'racing',pages:[page(1)]}),/Invalid comic request/);
   assert.deepEqual(JSON.parse(await first).indices,[0]);h.reader.close();assert.equal(h.live.size,0);
+});
+
+test('edge hit checks exclude links, controls, text selection and coordinates outside the rendered spread',async()=>{
+ const h=host();await h.reader.command({...h.base,pages:[page(0)]});assert.equal(h.reader.canTurnAt(10,100),true);
+ const d=h.element.children[0].contentDocument;
+ d.elementFromPoint=()=>({tagName:'IMG',closest:()=>({tagName:'A'})});assert.equal(h.reader.canTurnAt(10,100),false);
+ d.elementFromPoint=()=>({tagName:'BUTTON',closest:()=>({tagName:'BUTTON'})});assert.equal(h.reader.canTurnAt(10,100),false);
+ d.elementFromPoint=()=>({tagName:'IMG',closest:()=>null});d.getSelection=()=>({isCollapsed:false});assert.equal(h.reader.canTurnAt(10,100),false);
+ assert.equal(h.reader.canTurnAt(NaN,100),false);h.reader.close();assert.equal(h.reader.canTurnAt(10,100),false);
 });

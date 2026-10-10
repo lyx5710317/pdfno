@@ -43,6 +43,9 @@ private struct ComicThumbnail: Sendable { let index: Int; let data: String }
     private var width = 1000.0, height = 700.0
     private var requestTask: Task<Void, Never>?
     private var decodeTask: Task<[ComicThumbnail], Error>?
+    private var edgeMonitor: Any?
+    private var edgeClick = ComicEdgeClick()
+    private var edgeTurnTask: Task<Void, Never>?
     public var hasPrevious: Bool { (visibleIndices.min() ?? pageIndex) > 0 }
     public var hasNext: Bool { (visibleIndices.max() ?? pageIndex) + 1 < (book?.pages.count ?? 0) }
     public var position: String {
@@ -53,6 +56,8 @@ private struct ComicThumbnail: Sendable { let index: Int; let data: String }
         return "第 \(text) / \(book?.pages.count ?? 0) 页"
     }
     public func close() {
+        edgeTurnTask?.cancel(); edgeTurnTask = nil; edgeClick.cancel()
+        if let edgeMonitor { NSEvent.removeMonitor(edgeMonitor) }; edgeMonitor = nil
         generation = UUID(); requestTask?.cancel(); requestTask = nil; decodeTask?.cancel(); decodeTask = nil
         let requests = pending; pending.removeAll()
         for continuation in requests.values { continuation.resume(throwing: ComicError.cancelled) }
@@ -85,6 +90,7 @@ private struct ComicThumbnail: Sendable { let index: Int; let data: String }
             config.userContentController.add(list)
             let view = WKWebView(frame: .zero, configuration: config); view.navigationDelegate = self
             view.setAccessibilityIdentifier("comic-content"); webView = view; waitingForReady = true
+            installEdgeMonitor()
             view.load(URLRequest(url: URL(string: "pdfno-comic://app/index.html")!))
             requestTask = Task { [weak self] in
                 do { try await Task.sleep(for: .seconds(20)) } catch { return }
@@ -155,6 +161,49 @@ private struct ComicThumbnail: Sendable { let index: Int; let data: String }
                 guard let self, self.generation == token, self.pending[id] != nil else { return }
                 self.fail(ComicError.bridge)
             }
+        }
+    }
+    private func installEdgeMonitor() {
+        edgeMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .scrollWheel, .magnify, .rightMouseDown, .keyDown]) { [weak self] event in
+            MainActor.assumeIsolated { self?.handleEdgeEvent(event) }
+            return event // Never consume or replace a canvas/drag/tool/keyboard event.
+        }
+    }
+    private func handleEdgeEvent(_ event: NSEvent) {
+        if event.type != .leftMouseUp && event.type != .leftMouseDragged {
+            edgeTurnTask?.cancel(); edgeTurnTask = nil; edgeClick.cancel()
+        }
+        guard let view = webView, let window = view.window, window.isKeyWindow,
+              event.window === window, !busy, !view.isHiddenOrHasHiddenAncestor,
+              let content = window.contentView else { edgeClick.cancel(); return }
+        let windowPoint = event.locationInWindow, point = view.convert(windowPoint, from: nil)
+        let hit = content.hitTest(content.convert(windowPoint, from: nil))
+        guard hit === view || hit?.isDescendant(of: view) == true else { edgeClick.cancel(); return }
+        let unmodified = event.modifierFlags.intersection([.shift, .control, .option, .command]).isEmpty
+        switch event.type {
+        case .leftMouseDown:
+            edgeClick.begin(point: point, size: view.bounds.size, time: event.timestamp,
+                single: event.clickCount == 1, unmodified: unmodified)
+        case .leftMouseDragged: edgeClick.move(to: point)
+        case .leftMouseUp:
+            guard let turn = edgeClick.end(point: point, time: event.timestamp, single: event.clickCount == 1,
+                unmodified: unmodified, direction: direction) else { return }
+            let token = generation, expectedDirection = direction
+            edgeTurnTask = Task { [weak self, weak view] in
+                do { try await Task.sleep(for: .seconds(NSEvent.doubleClickInterval)) } catch { return }
+                guard let self, let view, self.generation == token, self.webView === view, !self.busy,
+                      self.direction == expectedDirection, view.window?.isKeyWindow == true, NSApp.isActive,
+                      !Task.isCancelled else { return }
+                // The trusted parent checks the underlying page. Future links,
+                // controls or a text selection keep their own interaction too.
+                let allowed = try? await view.callAsyncJavaScript("return window.PDFnoComic.canTurnAt(x,y)",
+                    arguments: ["x": point.x, "y": view.isFlipped ? point.y : view.bounds.height - point.y], in: nil, contentWorld: .page)
+                guard allowed as? Bool == true, self.generation == token, self.webView === view,
+                      !self.busy, !Task.isCancelled, view.window?.isKeyWindow == true else { return }
+                switch turn { case .previous: await self.previous(); case .next: await self.next() }
+            }
+        default:
+            edgeClick.cancel(); edgeTurnTask?.cancel(); edgeTurnTask = nil
         }
     }
     public func next() async {

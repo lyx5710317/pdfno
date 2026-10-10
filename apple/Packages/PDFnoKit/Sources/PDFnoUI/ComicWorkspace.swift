@@ -25,14 +25,14 @@ struct ComicWorkspace: View {
                     .disabled(session.busy || !session.hasNext).accessibilityIdentifier("comic-next")
                 Button("关闭漫画") { close() }.accessibilityIdentifier("comic-close")
             }.padding(10)
-                } label: { Image(systemName: "slider.horizontal.3") }.help("漫画页面设置")
+                } label: { Image(systemName: "slider.horizontal.3") }.help("漫画页面设置").accessibilityLabel("漫画页面设置").accessibilityIdentifier("comic-settings")
             } actions: {
                 PDFnoReaderRailButton(title: "页面", symbol: "list.bullet", identifier: "comic-pages", active: pages, disabled: session.book == nil) { pages.toggle() }
             } content: {
                 PDFnoReaderShell(panels: readerPanels, profile: .professional) { ComicCanvas(session: session) }
                     navigation: { pagesContent } notes: { EmptyView() }
             }
-            HStack { Text(session.position).accessibilityIdentifier("comic-position"); Spacer(); Text("漫画：保留单页／双页，连续滚动暂不支持") }.font(.caption).padding(10)
+            HStack { Text(session.position).accessibilityIdentifier("comic-position"); Spacer(); Text("点击阅读区边缘翻页 · 单页／双页") }.font(.caption).padding(10)
             if let error = session.error { Text(error).foregroundStyle(.red).padding().accessibilityIdentifier("comic-error") }
         }.navigationTitle(session.book?.title ?? "漫画")
         .overlay { if session.busy { ProgressView("正在打开漫画…").padding().background(.regularMaterial) } }

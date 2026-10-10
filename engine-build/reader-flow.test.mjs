@@ -26,7 +26,7 @@ function host(){
   const result=JSON.parse(await w.PDFno.command({...identity,requestID:String(++id),documentVersion:version,command,payload}));w.messages.push(result);return result.payload};
  return {w,area,command,close:()=>w.close()};
 }
-function positions(h){const roots=h.w.flowTest.getDoc().querySelectorAll('[data-pdfno-spine]');for(let i=0;i<roots.length;i++)Object.defineProperties(roots[i],{offsetTop:{value:i*900},offsetHeight:{value:900}})}
+function positions(h){const roots=h.w.flowTest.getDoc().querySelectorAll('[data-pdfno-spine]');for(let i=0;i<roots.length;i++){Object.defineProperties(roots[i],{offsetTop:{value:i*900},offsetHeight:{value:900}});Object.defineProperties(roots[i].parentElement,{offsetTop:{value:i*900},offsetHeight:{value:900}})}}
 test('horizontal EPUB keeps consecutive chapters mounted and canonical ruby/Unicode sources separate',async()=>{
  const h=host();try{await h.command('open',{data:'',names:[],notes:[]});positions(h);
  const doc=h.w.flowTest.getDoc();assert.equal(doc.querySelectorAll('[data-pdfno-spine]').length,2);
@@ -52,5 +52,15 @@ test('an inspector resize preserves the actual selection and canonical source in
  const h=host();try{await h.command('open',{data:'',names:[],notes:[]});positions(h);
  const d=h.w.flowTest.getDoc(),node=d.querySelector('p').firstChild,r=d.createRange();r.setStart(node,6);r.setEnd(node,10);d.getSelection().addRange(r);const selected=h.w.flowTest.selectedAnchor();
  const reply=await h.command('resize',{selectionAnchor:selected});assert.equal(reply.resizeSelection.quote,'same');assert.equal(reply.resizeSelection.start,15);assert.equal(d.querySelectorAll('[data-pdfno-spine]').length,2);
+ }finally{h.close()}
+});
+
+test('vertical flow mounts the same original sources, preserves selection and keeps directory jumps vertical',async()=>{
+ const h=host();try{await h.command('open',{data:'',names:[],notes:[]});positions(h);
+ const d=h.w.flowTest.getDoc(),before=[...d.querySelectorAll('[data-pdfno-spine]')].map(r=>r.textContent),node=d.querySelector('p').firstChild,r=d.createRange();r.setStart(node,6);r.setEnd(node,10);d.getSelection().addRange(r);
+ const reply=await h.command('vertical');assert.equal(reply.vertical,true);assert.equal(reply.orientationSelection.quote,'same');assert.equal(reply.orientationSelection.start,15);assert.equal(reply.orientationSelection.vertical,true);
+ assert.deepEqual([...d.querySelectorAll('[data-pdfno-spine]')].map(r=>r.textContent),before);
+ const chapter=await h.command('chapter',{index:1});assert.equal(chapter.vertical,true);assert.equal(chapter.spineIndex,1);
+ const horizontal=await h.command('vertical');assert.equal(horizontal.vertical,false);assert.equal(horizontal.spineIndex,1);
  }finally{h.close()}
 });
