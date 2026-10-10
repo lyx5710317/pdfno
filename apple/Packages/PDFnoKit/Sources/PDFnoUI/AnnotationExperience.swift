@@ -12,6 +12,7 @@ import PDFnoReaders
 @MainActor enum AnnotationReader {
     case pdf(PDFReaderSession), epub(EPUBReaderSession), text(TextFormatReaderSession), ebook(EbookReaderSession), docx(DOCXReaderSession)
     var bookID: UUID? { switch self { case .pdf(let r): r.book?.id; case .epub(let r): r.book?.id; case .text(let r): r.book?.id; case .ebook(let r): r.book?.id; case .docx(let r): r.book?.id } }
+    var changes: AnyPublisher<Void,Never> { switch self { case .pdf(let r): r.objectWillChange.eraseToAnyPublisher();case .epub(let r): r.objectWillChange.eraseToAnyPublisher();case .text(let r): r.objectWillChange.eraseToAnyPublisher();case .ebook(let r): r.objectWillChange.eraseToAnyPublisher();case .docx(let r): r.objectWillChange.eraseToAnyPublisher() } }
     var ready: Bool { switch self { case .pdf(let r): r.book != nil; case .epub(let r): r.book != nil && !r.busy; case .text(let r): r.ready; case .ebook(let r): r.ready; case .docx(let r): r.ready } }
     var sessionID: UUID { switch self { case .pdf(let r): r.readerSessionID; case .epub(let r): r.readerSessionID; case .text(let r): r.readerSessionID; case .ebook(let r): r.readerSessionID; case .docx(let r): r.readerSessionID } }
     var scopeID: String { switch self { case .epub(let r): sessionID.uuidString+":"+String(r.documentVersion)+":"+String(r.busy);case .pdf(let r): sessionID.uuidString+":"+String(r.pageIndex);default: sessionID.uuidString } }
@@ -107,7 +108,11 @@ import PDFnoReaders
     var bookRecords: [AnchoredAnnotation] { records.filter { $0.bookID == reader?.bookID } }
     var bookDrafts: [SavedBodyDraft<AnnotationBodySnapshot>] { editor.drafts.values.filter { draft in draft.baseline.bookID == reader?.bookID && !bookRecords.contains(where: { $0.id == draft.baseline.noteID }) }.sorted { $0.baseline.key<$1.baseline.key } }
     private func updateDraftOwner() { LibraryMaintenanceOwners.setDraft(root: root,owner: owner,dirty: !editor.drafts.isEmpty || !editor.saving.isEmpty) }
-    func bind(_ reader: AnnotationReader) async { self.reader=reader; updateDraftOwner(); await reload(); await reader.project(records) }
+    func bind(_ reader: AnnotationReader) async {
+        self.reader=reader;updateDraftOwner();let scope=reader.scopeID
+        await reload()
+        guard self.reader?.scopeID==scope else { return };await reader.project(records)
+    }
     func reload() async { do { records=try await repository.load().notes } catch { self.error=error.localizedDescription } }
     func apply(_ kind: AnnotationKind,anchor: AnnotationAnchor,bookID: UUID,sessionID: UUID) async {
         guard !saving,let reader,reader.bookID==bookID,reader.sessionID==sessionID,reader.accepts(anchor) else { error="原文来源已经变化，请重新选择。";return }
@@ -198,10 +203,9 @@ struct AnnotationExperience: ViewModifier {
     init(model: AnnotationModel,reader: AnnotationReader) { self.model=model;self.reader=reader }
     func body(content: Content) -> some View {
         content
-            .onAppear { gestures.attach(model) }
-            .onChange(of: reader.scopeID) { _,_ in gestures.refresh(model) }
+            .onAppear { gestures.attach(model,reader: reader) }
+            .onChange(of: reader.sessionID) { _,_ in gestures.attach(model,reader: reader) }
             .onDisappear { gestures.stop() }
-            .task(id: reader.sessionID.uuidString+String(reader.ready)) { if reader.ready { await model.bind(reader);gestures.attach(model) } }
             .sheet(item: $model.editing) { AnnotationEditor(model: model,baseline: $0) }
             .alert("标注未完成",isPresented: Binding(get: { model.error != nil },set: { if !$0 { model.error=nil } })) { Button("知道了") { model.error=nil } } message: { Text(model.error ?? "") }
     }
@@ -213,6 +217,10 @@ extension View { func annotationExperience(_ model: AnnotationModel,reader: Anno
     private weak var model: AnnotationModel?
     private var monitor: Any?
     private var resizeObserver: AnyCancellable?
+    private var readerObserver: AnyCancellable?
+    private var observedSession: UUID?
+    private var projection: Task<Void,Never>?
+    private var projectionScope: String?
     private var scope: String?
     private var pending: Task<Void,Never>?
     private let popover=NSPopover()
@@ -228,8 +236,15 @@ extension View { func annotationExperience(_ model: AnnotationModel,reader: Anno
         else { try? bytes.write(to: file,options: .atomic) }
         #endif
     }
-    func attach(_ model: AnnotationModel) {
-        self.model=model;refresh(model)
+    func attach(_ model: AnnotationModel,reader: AnnotationReader) {
+        // Bind synchronously before the first mouse event. Reader readiness arrives
+        // through its publisher even when a parent cancels a SwiftUI task.
+        self.model=model;model.reader=reader
+        if observedSession != reader.sessionID || readerObserver==nil {
+            observedSession=reader.sessionID;readerObserver?.cancel()
+            readerObserver=reader.changes.receive(on: RunLoop.main).sink { [weak self] in self?.refreshReader() }
+        }
+        refreshReader()
         guard monitor==nil else { return }
         trace("attached-reader="+String(model.reader != nil))
         resizeObserver=NotificationCenter.default.publisher(for: NSWindow.didResizeNotification).receive(on: RunLoop.main).sink { [weak self] notification in
@@ -238,8 +253,17 @@ extension View { func annotationExperience(_ model: AnnotationModel,reader: Anno
         }
         monitor=NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown,.leftMouseUp,.scrollWheel,.keyDown]) { [weak self] event in self?.observe(event);return event }
     }
-    func refresh(_ model: AnnotationModel) { let next=model.reader?.scopeID;if scope != next { trace("scope-reset");pending?.cancel();popover.close();scope=next };self.model=model }
-    func stop() { trace("stopped");pending?.cancel();popover.close();popover.contentViewController=nil;resizeObserver?.cancel();resizeObserver=nil;if let monitor { NSEvent.removeMonitor(monitor) };monitor=nil }
+    private func refreshReader() {
+        guard let model,let reader=model.reader else { return };let next=reader.scopeID
+        if scope != next { trace("scope-reset");pending?.cancel();popover.close();scope=next }
+        guard reader.ready else { projection?.cancel();projectionScope=nil;return }
+        guard projectionScope != next else { return };projectionScope=next;projection?.cancel()
+        projection=Task { [weak model] in
+            guard !Task.isCancelled,let model,model.reader?.scopeID==next else { return }
+            await model.bind(reader)
+        }
+    }
+    func stop() { trace("stopped");pending?.cancel();projection?.cancel();projectionScope=nil;readerObserver?.cancel();readerObserver=nil;observedSession=nil;popover.close();popover.contentViewController=nil;resizeObserver?.cancel();resizeObserver=nil;if let monitor { NSEvent.removeMonitor(monitor) };monitor=nil }
     private func observe(_ event: NSEvent) {
         if event.type == .leftMouseUp { trace("mouse-up-reader="+String(model?.reader != nil)) }
         guard let model,let reader=model.reader,let view=reader.view,let window=view.window,event.window===window,window.isKeyWindow else { return }
