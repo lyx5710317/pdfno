@@ -56,7 +56,8 @@ struct EPUBWorkspace: View {
             HStack {
                 Text(session.position).accessibilityIdentifier("epub-position")
                 Spacer()
-                Text(session.vertical ? "竖排 · 上下连续滚动 · 原书未改写" : "上下连续滚动 · 原书未改写")
+                Text((session.vertical ? "竖排 · " : "") + readingModeDescription + " · 原书未改写")
+                    .accessibilityIdentifier("epub-reading-mode-description")
             }.font(PDFnoDesign.TypeStyle.metadata).foregroundStyle(.secondary).padding(PDFnoDesign.Space.regular)
                 .background(PDFnoDesign.Palette.chrome)
             if let error = session.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "epub-error") }
@@ -77,6 +78,13 @@ struct EPUBWorkspace: View {
         .sheet(isPresented: $byokLearning) { BYOKLearningWorkspace(library: model, model: model.byok) }
         .sheet(isPresented: $aiTools) { ReadingToolsWorkspace(library: model) }
         .sheet(isPresented: $readerSettings) { AISettingsView(learning: model.learning, byok: model.byok, library: model) }
+    }
+    private var readingModeDescription: String {
+        switch session.readingLayout.mode {
+        case .single: "单栏分页阅读"
+        case .double: "双栏分页阅读"
+        case .scroll: "上下连续滚动"
+        }
     }
     private var contentsVisible: Bool { panels.placement(width: readerWidth, profile: .professional).showNavigation }
     private var notesVisible: Bool { panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .notes }

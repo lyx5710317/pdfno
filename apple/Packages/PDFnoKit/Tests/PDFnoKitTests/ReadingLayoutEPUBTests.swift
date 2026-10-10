@@ -59,6 +59,9 @@ import PDFnoServices
                 #expect(value["font"] as? String == "24px")
                 #expect(reader.hasNextPage && !reader.hasPreviousPage)
                 #expect(await reader.command("next")); #expect(reader.progress?.start ?? 0 > source.start)
+                let advanced = reader.progress, position = reader.position
+                #expect(await reader.command("resize"))
+                #expect(reader.progress == advanced && reader.position == position)
                 #expect(await reader.command("previous")); #expect(reader.spineIndex == 0)
                 #expect(await reader.command("navigate", anchor: source))
             }

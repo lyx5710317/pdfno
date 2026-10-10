@@ -8,6 +8,11 @@ final class ReadingLayoutUITests: XCTestCase {
     @MainActor private func item(_ id: String, _ app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
+    @MainActor private func textValue(_ element: XCUIElement) -> String {
+        // macOS StaticText exposes displayed text through AXValue. Match the
+        // existing NativeUITests reader without changing the position assertion.
+        (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label
+    }
     @MainActor private func click(_ element: XCUIElement) throws {
         let ready = expectation(for: NSPredicate { _, _ in element.exists && element.isEnabled && element.isHittable }, evaluatedWith: element)
         wait(for: [ready], timeout: 15)
@@ -62,10 +67,14 @@ final class ReadingLayoutUITests: XCTestCase {
         try click(item("reading-mode-single", app)); selected("reading-mode-single", app)
         try shot("AA-01-wide-single-panel", app)
         try click(item("reading-aa-close", app))
-        let old = item("epub-position", app).label
+        let old = textValue(item("epub-position", app))
+        XCTAssertTrue(old.contains("第 1 页"))
         try click(item("reading-bottom-next", app))
-        let moved = expectation(for: NSPredicate { _, _ in self.item("epub-position", app).label != old }, evaluatedWith: app)
+        let moved = expectation(for: NSPredicate { _, _ in self.textValue(self.item("epub-position", app)) != old }, evaluatedWith: app)
         wait(for: [moved], timeout: 12)
+        XCTAssertTrue(textValue(item("epub-position", app)).contains("第 2 页"))
+        XCTAssertTrue(textValue(item("epub-reading-mode-description", app)).contains("单栏分页阅读"))
+        try shot("AA-08-wide-single-next-page", app)
         try click(item("reading-bottom-previous", app))
         try click(item("epub-aa", app)); try click(item("reading-mode-double", app)); selected("reading-mode-double", app)
         try click(item("reading-aa-close", app)); try shot("AA-02-wide-double-body", app)
