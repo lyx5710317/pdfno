@@ -214,7 +214,7 @@ final class ReaderRightRailUITests: XCTestCase {
         try capture("R-05-epub-continuous-chapter2",app:app)
         try click(item("epub-contents",app));try click(item("epub-chapter-0",app));contains(item("epub-position",app),"第 1 章")
         try click(item("epub-contents",app));try click(item("epub-chapter-1",app));contains(item("epub-position",app),"第 2 章")
-        app.terminate();app.launch();app.activate();navigateWorkspace("library-list-layout",in:app);navigateWorkspace("library-book",in:app);try click(item("library-book",app));contains(item("epub-position",app),"第 2 章")
+        app.terminate();app.launch();app.activate();navigateWorkspace("library-list-layout",in:app);navigateWorkspace("library-epub",in:app);try click(item("library-epub",app));contains(item("epub-position",app),"第 2 章")
     }
     @MainActor func testEPUBOrientationAndNarrowPanelKeepActualSource() throws {
         let app=try originalApp(width:720,dark:true);defer{app.terminate()}
