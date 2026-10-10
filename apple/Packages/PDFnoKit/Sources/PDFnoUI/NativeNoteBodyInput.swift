@@ -22,11 +22,57 @@ struct NativeNoteBodyInput: NSViewRepresentable {
             }
         }
     }
-    final class Coordinator: NSObject, NSTextViewDelegate {
+    @MainActor final class Coordinator: NSObject, NSTextViewDelegate {
         var text: Binding<String>
+        private weak var mountedView: NSTextView?
+        private var allowsEditing = true
+        private var generation = 0
+        private var updatePending = false
         init(text: Binding<String>) { self.text = text }
+        func mount(_ view: NSTextView, enabled: Bool) {
+            generation += 1
+            mountedView = view
+            allowsEditing = enabled
+            updatePending = false
+        }
+        func unmount(_ view: NSTextView) {
+            guard mountedView === view else { return }
+            generation += 1
+            mountedView = nil
+            allowsEditing = false
+            updatePending = false
+            view.delegate = nil
+        }
+        func update(_ view: NSTextView, text: Binding<String>, enabled: Bool) {
+            guard mountedView === view else { return }
+            self.text = text
+            // Enforce the saving fence immediately, before the native update runs.
+            allowsEditing = enabled
+            guard !updatePending,
+                  view.isEditable != enabled || !view.string.utf8.elementsEqual(text.wrappedValue.utf8) else { return }
+            updatePending = true
+            let scheduledGeneration = generation
+            // setEditable can flush AppKit's cursor/display transaction and enter
+            // SwiftUI hit testing. Run it after the representable graph update.
+            DispatchQueue.main.async { [weak self, weak view] in
+                guard let self, let view, self.generation == scheduledGeneration,
+                      self.mountedView === view else { return }
+                self.updatePending = false
+                if view.isEditable != self.allowsEditing { view.isEditable = self.allowsEditing }
+                let latestText = self.text.wrappedValue
+                guard !view.string.utf8.elementsEqual(latestText.utf8) else { return }
+                let selection = view.selectedRange()
+                view.string = latestText
+                let start = min(selection.location, latestText.utf16.count)
+                view.setSelectedRange(NSRange(location: start, length: min(selection.length, latestText.utf16.count - start)))
+            }
+        }
+        func textView(_ textView: NSTextView, shouldChangeTextIn affectedCharRange: NSRange, replacementString: String?) -> Bool {
+            mountedView === textView && allowsEditing
+        }
         func textDidChange(_ notification: Notification) {
-            guard let view = notification.object as? NSTextView else { return }
+            guard let view = notification.object as? NSTextView,
+                  mountedView === view, allowsEditing else { return }
             text.wrappedValue = view.string
         }
     }
@@ -58,6 +104,7 @@ struct NativeNoteBodyInput: NSViewRepresentable {
         view.textContainer?.containerSize = NSSize(width: scroll.contentSize.width, height: CGFloat.greatestFiniteMagnitude)
         view.textContainer?.widthTracksTextView = true
         view.string = coordinator.text.wrappedValue
+        coordinator.mount(view, enabled: enabled)
         view.delegate = coordinator
         view.setAccessibilityIdentifier(identifier)
         view.setAccessibilityLabel(label)
@@ -65,14 +112,12 @@ struct NativeNoteBodyInput: NSViewRepresentable {
         return scroll
     }
     func updateNSView(_ scroll: NSScrollView, context: Context) {
-        context.coordinator.text = $text
         guard let view = scroll.documentView as? NSTextView else { return }
-        view.isEditable = enabled
-        guard !view.string.utf8.elementsEqual(text.utf8) else { return }
-        let selection = view.selectedRange()
-        view.string = text
-        let start = min(selection.location, text.utf16.count)
-        view.setSelectedRange(NSRange(location: start, length: min(selection.length, text.utf16.count - start)))
+        context.coordinator.update(view, text: $text, enabled: enabled)
+    }
+    static func dismantleNSView(_ scroll: NSScrollView, coordinator: Coordinator) {
+        guard let view = scroll.documentView as? NSTextView else { return }
+        coordinator.unmount(view)
     }
 }
 #endif
