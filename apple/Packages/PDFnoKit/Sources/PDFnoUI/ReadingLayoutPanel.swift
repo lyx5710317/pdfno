@@ -10,7 +10,7 @@ struct ReadingLayoutPanel: View {
     let close: () -> Void
     let change: (ReadingLayout) -> Void
     var body: some View {
-        PDFnoPanel(title: "排版",icon: "textformat",closeIdentifier: "reading-aa-close",close: close,surface: PDFnoDesign.Palette.surface) {
+        PDFnoPanel(title: "排版",icon: "textformat",closeIdentifier: "reading-aa-close",close: close,surface: PDFnoDesign.Palette.surface,showsHeader: false) {
             VStack(alignment: .leading,spacing: 18) {
                 if language.permitsVerticalReflow {
                     HStack(spacing: 8) {

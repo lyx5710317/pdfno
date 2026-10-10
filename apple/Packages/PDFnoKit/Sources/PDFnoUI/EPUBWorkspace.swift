@@ -35,7 +35,7 @@ struct EPUBWorkspace: View {
                             }
                     }
                 } navigation: {
-                    PDFnoPanel(title: "目录", icon: "list.bullet", closeIdentifier: "epub-close-contents", close: { panels.navigation = false }, surface: PDFnoDesign.Palette.surface,showsHeading: false) { contentsContent }
+                    PDFnoPanel(title: "目录", icon: "list.bullet", closeIdentifier: "epub-close-contents", close: { panels.navigation = false }, surface: PDFnoDesign.Palette.surface,showsHeading: false,showsHeader: false) { contentsContent }
                 } notes: {
                     if inspector == .layout {
                         ReadingLayoutPanel(layout: session.readingLayout,language: session.writingLanguage,busy: session.busy,close: { panels.notes=false }) { value in Task { _=await session.applyReadingLayout(value) } }
@@ -44,7 +44,7 @@ struct EPUBWorkspace: View {
                     } else if inspector == .learning {
                         ReadingSelectionWorkspace(library: model) { panels.notes = false }
                     } else {
-                        PDFnoPanel(title: "文档标注", icon: "note.text", closeIdentifier: "epub-close-notes", close: closeNotes) { notesContent }
+                        PDFnoPanel(title: "文档标注", icon: "note.text", closeIdentifier: "epub-close-notes", close: closeNotes,showsHeader: false) { notesContent }
                     }
                 }.background {
                     GeometryReader { geometry in

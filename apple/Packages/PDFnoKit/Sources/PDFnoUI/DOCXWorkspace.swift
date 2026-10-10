@@ -70,7 +70,6 @@ VStack(alignment: .leading, spacing: 4) {
         return result
     }
     private var navigationSheet: some View {
-        NavigationStack {
             List {
                 if session.document?.outline.isEmpty != false { Text("此 DOCX 没有语义标题；字号大小不会自动当作标题。") }
                 ForEach(session.document?.outline ?? []) { block in
@@ -80,8 +79,7 @@ VStack(alignment: .leading, spacing: 4) {
                     } } label: { Text(block.text).padding(.leading, CGFloat((block.headingLevel ?? 1) - 1) * 12) }
                         .accessibilityIdentifier("docx-chapter-\(block.id)")
                 }
-            }.scrollContentBackground(.hidden).background(PDFnoDesign.Palette.surface).toolbar { ToolbarItem { Button("完成") { navigation = false } } }
-        }
+            }.scrollContentBackground(.hidden).background(PDFnoDesign.Palette.surface)
     }
     private var notesSheet: some View { AnnotationList(model: annotations,legacy: { legacyNotes = true }) }
     private var legacyNotesSheet: some View {

@@ -82,7 +82,6 @@ VStack(alignment: .leading, spacing: 4) {
         return result
     }
     private var navigationSheet: some View {
-        NavigationStack {
             List {
                 if session.document?.outline.isEmpty != false { Text("此电子书没有语义标题；可通过下方章节入口导航。") }
                 ForEach(session.document?.navigationBlocks ?? []) { block in
@@ -92,8 +91,7 @@ VStack(alignment: .leading, spacing: 4) {
                     } } label: { Text(block.text).padding(.leading, CGFloat((block.headingLevel ?? 1) - 1) * 12) }
                         .accessibilityIdentifier("ebook-chapter-\(block.id)")
                 }
-            }.scrollContentBackground(.hidden).background(PDFnoDesign.Palette.surface).toolbar { ToolbarItem { Button("完成") { navigation = false } } }
-        }
+            }.scrollContentBackground(.hidden).background(PDFnoDesign.Palette.surface)
     }
     @ViewBuilder private var notesSheet: some View {
         if layoutPanel { ReadingLayoutPanel(layout: session.readingLayout,language: session.writingLanguage,busy: session.layoutBusy,close: { layoutPanel=false }) { value in Task { _=await session.applyReadingLayout(value) } } }

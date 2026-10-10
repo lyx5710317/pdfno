@@ -194,9 +194,11 @@ struct PDFnoPanel<Content: View>: View {
     let close: () -> Void
     var surface = PDFnoDesign.Palette.chrome
     var showsHeading = true
+    var showsHeader = true
     @ViewBuilder let content: () -> Content
     var body: some View {
         VStack(spacing: 0) {
+            if showsHeader {
             HStack(spacing: PDFnoDesign.Space.small) {
                 Button(action: close) { Label("完成", systemImage: "xmark").labelStyle(.iconOnly) }
                     .buttonStyle(PDFnoActionStyle(role: .quiet))
@@ -207,6 +209,7 @@ struct PDFnoPanel<Content: View>: View {
                 Spacer(minLength: 0)
             }.padding(PDFnoDesign.Space.small)
             Divider()
+            }
             content().frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(surface)

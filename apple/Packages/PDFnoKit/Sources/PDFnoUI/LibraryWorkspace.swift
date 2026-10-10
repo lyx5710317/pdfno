@@ -200,7 +200,7 @@ public struct LibraryWorkspace: View {
             Text("更多工具").font(.system(size: 16, weight: .semibold))
             Button { toolsPopover = false; model.reader.captureSelection(); aiTools = true } label: { Label("AI 工具", systemImage: "square.grid.2x2") }.accessibilityIdentifier("ai-tools-open")
             Divider()
-            Button { toolsPopover = false; booknoPreview = true } label: { Label("Bookno 离线预览", systemImage: "globe") }.accessibilityIdentifier("bookno-preview-open")
+            Button { toolsPopover = false; booknoPreview = true } label: { Label("bookno", systemImage: "globe") }.accessibilityIdentifier("bookno-preview-open")
             Button { toolsPopover = false; conversion = true } label: { Label("格式转换", systemImage: "arrow.triangle.2.circlepath") }.accessibilityIdentifier("document-conversion")
             Button { toolsPopover = false; model.prepareRecoveryManagement(); localRecovery = model.recoveryManagement != nil } label: { Label("回收站与备份", systemImage: "archivebox") }.accessibilityIdentifier("library-local-recovery").disabled(!model.canImport || model.isBusy)
         }.buttonStyle(ProfessionalLibraryActionStyle()).padding(20).frame(width: 280)
@@ -344,7 +344,7 @@ public struct LibraryWorkspace: View {
                             .disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-docx-sample")
                         Button("打开示例 EPUB") { Task { await model.openEPUBSample(); compactColumn = .detail } }
                             .disabled(!model.canImport || model.isBusy).accessibilityIdentifier("open-epub-sample")
-                        Button("Bookno 离线预览") { booknoPreview = true }
+                        Button("bookno") { booknoPreview = true }
                             .disabled(!model.canImport || model.isBusy).accessibilityIdentifier("bookno-preview-open")
                         #endif
                         #if os(macOS)
@@ -549,14 +549,14 @@ struct ReaderWorkspace: View {
                                     }
                             }
                         } navigation: {
-                            PDFnoPanel(title: "导航与搜索", icon: "list.bullet", closeIdentifier: "close-navigation", close: closeNavigation, surface: PDFnoDesign.Palette.surface,showsHeading: false) { navigationContent }
+                            PDFnoPanel(title: "导航与搜索", icon: "list.bullet", closeIdentifier: "close-navigation", close: closeNavigation, surface: PDFnoDesign.Palette.surface,showsHeading: false,showsHeader: false) { navigationContent }
                         } notes: {
                             if inspector == .bookmarks {
                                 BookmarkList(model: model.bookmarks,close: { panels.notes=false },closeIdentifier: "reader-close-bookmarks")
                             } else if inspector == .learning {
                                 ReadingSelectionWorkspace(library: model) { panels.notes = false }
                             } else {
-                                PDFnoPanel(title: "文档标注", icon: "note.text", closeIdentifier: "close-notes", close: closeNotes) { notesContent }
+                                PDFnoPanel(title: "文档标注", icon: "note.text", closeIdentifier: "close-notes", close: closeNotes,showsHeader: false) { notesContent }
                             }
                         }
                         .background {

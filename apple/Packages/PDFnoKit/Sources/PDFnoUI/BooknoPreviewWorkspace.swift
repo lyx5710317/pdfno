@@ -83,7 +83,7 @@ struct BooknoPreviewWorkspace: View {
                         }
                     }
                 }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            }.accessibilityIdentifier("bookno-preview-scroll").navigationTitle("Bookno 离线预览")
+            }.accessibilityIdentifier("bookno-preview-scroll").navigationTitle("bookno")
                 .toolbar { ToolbarItem { Button("完成（清除本次模拟）") { model.close(); if let inlineDismiss { inlineDismiss() } else { dismiss() } }.accessibilityIdentifier("bookno-preview-close") } }
         }.frame(minWidth: inlineDismiss == nil ? 620 : 0, minHeight: inlineDismiss == nil ? 600 : 0)
             .task { await model.refresh() }.onDisappear { model.close() }

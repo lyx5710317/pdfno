@@ -9,6 +9,7 @@ struct MacTabbedWorkspace: View {
     @ObservedObject var navigation: PDFnoWorkspaceNavigation
     let settingsRequest: Int
     @StateObject private var documents: MacDocumentTabs
+    @State private var documentTabsWidth: CGFloat = 0
     @State private var sidebar = true
     @State private var grid = true
     @State private var selectedBookID: UUID?
@@ -140,12 +141,23 @@ struct MacTabbedWorkspace: View {
                             .background(isVisible(tab) ? PDFnoDesign.Palette.surface : Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
                             .overlay(RoundedRectangle(cornerRadius: 8).stroke(isVisible(tab) ? Color.blue.opacity(0.4) : Color.primary.opacity(0.06)))
                     }
-                }.padding(.vertical, 2)
+                }.fixedSize(horizontal: true, vertical: false)
+                    .padding(.vertical, 2)
+                    .background {
+                        GeometryReader { geometry in
+                            Color.clear.preference(key: MacDocumentTabsWidthKey.self, value: geometry.size.width)
+                        }
+                    }
             }.scrollIndicators(.hidden).accessibilityIdentifier("document-tabs")
+                .frame(maxWidth: documentTabsWidth)
+                .onPreferenceChange(MacDocumentTabsWidthKey.self) { width in
+                    if abs(documentTabsWidth - width) > 0.5 { documentTabsWidth = width }
+                }
             Button { importer = true } label: { Image(systemName: "plus").frame(width: 28, height: 30) }
                 .disabled(!model.canImport).accessibilityIdentifier("document-add").accessibilityLabel("导入文件到新标签")
                 .help("选择本地文件；已打开的文件会激活原标签")
                 .pdfnoTitlebarControl()
+            Spacer(minLength: 0)
             if let active = documents.active, navigation.route == .reader {
                 MacDocumentMoreMenu(model: active.model) { action in
                     Task {
@@ -202,7 +214,7 @@ struct MacTabbedWorkspace: View {
             sidebarButton("书库", "books.vertical", "workspace-library", selected: navigation.route == .library) { navigation.showLibrary() }
             sidebarButton("查找", "magnifyingglass", "library-search", selected: selected(.search)) { showTool(.search) }
             sidebarButton("格式转换", "arrow.triangle.2.circlepath", "document-conversion", selected: selected(.conversion)) { showTool(.conversion) }
-            sidebarButton("Bookno 离线预览", "globe", "bookno-preview-open", selected: selected(.bookno)) { showTool(.bookno) }
+            sidebarButton("bookno", "globe", "bookno-preview-open", selected: selected(.bookno)) { showTool(.bookno) }
             sidebarButton("回收站", "trash", "library-local-recovery", selected: selected(.recovery)) {
                 model.prepareRecoveryManagement(); if model.recoveryManagement != nil { showTool(.recovery) }
             }
@@ -234,7 +246,7 @@ struct MacTabbedWorkspace: View {
         switch navigation.tool {
         case .search: "查找"
         case .conversion: "格式转换"
-        case .bookno: "Bookno 离线预览"
+        case .bookno: "bookno"
         case .recovery: "回收站"
         default: "帮助"
         }
@@ -303,4 +315,8 @@ struct MacDocumentReader: View {
     }
 }
 
+private struct MacDocumentTabsWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
 #endif

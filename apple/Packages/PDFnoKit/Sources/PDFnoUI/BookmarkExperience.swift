@@ -69,11 +69,10 @@ struct BookmarkList: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Text("书签").font(.headline);Spacer()
+                Spacer(minLength: 0)
                 Button { Task { await model.addCurrent() } } label: { Image(systemName: "plus") }.help("添加当前阅读位置").accessibilityLabel("添加书签").accessibilityIdentifier("bookmark-add")
                 Button { searchShown.toggle();if !searchShown { search="" } } label: { Image(systemName: "magnifyingglass") }.help("搜索书签标题").accessibilityLabel("搜索书签").accessibilityIdentifier("bookmark-search-toggle")
                 Button(editing ? "完成" : "编辑") { editing.toggle() }.accessibilityIdentifier("bookmark-edit-toggle")
-                Button(action: close) { Image(systemName: "xmark") }.accessibilityLabel("关闭书签").accessibilityIdentifier(closeIdentifier)
             }.buttonStyle(.plain).padding(12).disabled(model.saving)
             if searchShown { TextField("搜索书签标题",text: $search).textFieldStyle(.roundedBorder).padding(.horizontal,12).padding(.bottom,8).accessibilityIdentifier("bookmark-search") }
             Divider()

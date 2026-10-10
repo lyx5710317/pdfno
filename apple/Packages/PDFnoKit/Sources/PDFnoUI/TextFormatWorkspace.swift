@@ -89,7 +89,6 @@ VStack(alignment: .leading, spacing: 4) {
         return result
     }
     private var navigationSheet: some View {
-        NavigationStack {
             List {
                 if session.document?.outline.isEmpty != false { Text("此文件没有识别到标题；可以阅读、选文和保存进度。") }
                 ForEach(session.document?.outline ?? []) { block in
@@ -99,8 +98,7 @@ VStack(alignment: .leading, spacing: 4) {
                     } } label: { Text(verbatim: block.text).padding(.leading, CGFloat((block.headingLevel ?? 1) - 1) * 12) }
                         .accessibilityIdentifier("textformat-chapter-\(block.id)")
                 }
-            }.scrollContentBackground(.hidden).background(PDFnoDesign.Palette.surface).toolbar { ToolbarItem { Button("完成") { navigation = false } } }
-        }
+            }.scrollContentBackground(.hidden).background(PDFnoDesign.Palette.surface)
     }
     @ViewBuilder private var notesSheet: some View {
         if layoutPanel { ReadingLayoutPanel(layout: session.readingLayout,language: session.writingLanguage,busy: session.layoutBusy,close: { layoutPanel=false }) { value in Task { _=await session.applyReadingLayout(value) } } }

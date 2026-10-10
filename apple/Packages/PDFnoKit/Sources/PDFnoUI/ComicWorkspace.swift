@@ -43,7 +43,7 @@ struct ComicWorkspace: View {
         return result
     }
     private var pagesContent: some View {
-        PDFnoPanel(title: "漫画页面", icon: "list.bullet", closeIdentifier: "comic-pages-close", close: { pages = false },surface: PDFnoDesign.Palette.surface,showsHeading: false) {
+        PDFnoPanel(title: "漫画页面", icon: "list.bullet", closeIdentifier: "comic-pages-close", close: { pages = false },surface: PDFnoDesign.Palette.surface,showsHeading: false,showsHeader: false) {
             List(Array((session.book?.pages ?? []).enumerated()), id: \.offset) { index, page in
                 Button("\(index + 1). \(page.path)") { Task { await session.go(to: index); pages = false } }
                     .disabled(session.busy).accessibilityIdentifier("comic-page-\(index)")
