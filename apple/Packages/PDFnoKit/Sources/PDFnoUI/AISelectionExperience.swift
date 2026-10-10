@@ -36,6 +36,19 @@ extension LibraryModel {
     }
 }
 
+/// Observe the presentation owner directly. The annotation modifier observes a
+/// different model, so a menu action must invalidate this sheet's own host.
+struct SelectionAISheetPresenter: View {
+    @ObservedObject var library: LibraryModel
+    var body: some View {
+        Color.clear.frame(width: 0,height: 0).accessibilityHidden(true)
+            .sheet(isPresented: $library.showingSelectionAI) {
+                ReadingSelectionWorkspace(library: library) { library.showingSelectionAI=false }
+                    .frame(minWidth: 420,idealWidth: 500,minHeight: 540)
+            }
+    }
+}
+
 /// Uses the same native text control as comments. Generated content is selectable and copyable.
 struct AIResultNoteBox: View {
     let result: AIResult

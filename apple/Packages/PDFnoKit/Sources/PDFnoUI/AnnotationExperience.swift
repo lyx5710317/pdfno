@@ -240,8 +240,8 @@ struct AnnotationExperience: ViewModifier {
             .onChange(of: reader.sessionID) { _,_ in gestures.attach(model,reader: reader,aiLibrary: aiLibrary) }
             .onDisappear { gestures.stop() }
             .sheet(item: $model.editing) { AnnotationEditor(model: model,baseline: $0) }
-            .sheet(isPresented: Binding(get: { aiLibrary?.showingSelectionAI == true },set: { aiLibrary?.showingSelectionAI=$0 })) {
-                if let aiLibrary { ReadingSelectionWorkspace(library: aiLibrary) { aiLibrary.showingSelectionAI=false }.frame(minWidth: 420,idealWidth: 500,minHeight: 540) }
+            .background {
+                if let aiLibrary { SelectionAISheetPresenter(library: aiLibrary) }
             }
             .alert("标注未完成",isPresented: Binding(get: { model.error != nil },set: { if !$0 { model.error=nil } })) { Button("知道了") { model.error=nil } } message: { Text(model.error ?? "") }
     }
