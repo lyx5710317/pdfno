@@ -43,7 +43,7 @@ struct EPUBWorkspace: View {
                         EPUBCanvas(session: session).background(PDFnoDesign.Palette.canvas)
                     }
                 } navigation: {
-                    PDFnoPanel(title: "目录", icon: "list.bullet", closeIdentifier: "epub-close-contents", close: { panels.navigation = false }) { contentsContent }
+                    PDFnoPanel(title: "目录", icon: "list.bullet", closeIdentifier: "epub-close-contents", close: { panels.navigation = false }, surface: PDFnoDesign.Palette.surface) { contentsContent }
                 } notes: {
                     if inspector == .bookmarks {
                         BookmarkList(model: model.bookmarks,close: { panels.notes=false },closeIdentifier: "epub-close-bookmarks")
@@ -114,7 +114,8 @@ struct EPUBWorkspace: View {
                     Text(item.title).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                 }.accessibilityIdentifier("epub-chapter-\(item.index)")
             }
-        }.listStyle(.sidebar).font(PDFnoDesign.TypeStyle.body)
+        }.listStyle(.sidebar).scrollContentBackground(.hidden)
+            .background(PDFnoDesign.Palette.surface).font(PDFnoDesign.TypeStyle.body)
     }
     private var notesContent: some View { AnnotationList(model: model.annotations,legacy: { legacyNotes = true }) }
     private var legacyNotesContent: some View {

@@ -2,7 +2,7 @@
 
 Based on `9ca8564`, on `feature/mac-ai-bookmarks-20261010`.
 
-The professional reader keeps the directory search field and submission behavior, but removes the duplicate Search tab. The directory uses the same semantic surface as the right rail, with the native list background hidden. Directory, notes, AI and bookmarks share the directory's 210-point width; compact overlays remain bounded by available width.
+The professional PDF reader keeps the directory search field and submission behavior, but removes the duplicate Search tab. PDF and EPUB directories use the same semantic surface as the right rail, with native list backgrounds hidden. Directory, notes, AI and bookmarks share the directory's 210-point width; compact overlays remain bounded by available width.
 
 The native titlebar document band moves Home closer to the traffic lights. Its leading inset follows the actual button frames with at least 12 points of clearance. Existing native toolbar ownership, control hit testing, empty-space window drag and double-click behavior remain intact.
 
