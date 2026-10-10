@@ -260,30 +260,36 @@ final class EPUBVerticalEdgeUITests: XCTestCase {
                 print("EXPERIENCE_DESKTOP_CHANGED native comic input stopped; no activation")
                 XCTFail("Own comic window/display/input boundary changed");throw NSError(domain: "OwnComicInput",code: 1)
             }
-            guard CGPreflightPostEventAccess() else {
-                XCTFail("Existing Runner event access unavailable; no permission request");throw NSError(domain: "OwnComicInput",code: 2)
-            }
         }
         private func pause(_ seconds: Double) { RunLoop.current.run(until: Date().addingTimeInterval(seconds)) }
-        private func send(_ type: CGEventType,at position: CGPoint,count: Int64=1) throws {
-            try admit(position)
-            let event=try XCTUnwrap(CGEvent(mouseEventSource: nil,mouseType: type,mouseCursorPosition: position,mouseButton: .left))
-            event.flags=[];event.setIntegerValueField(.mouseEventClickState,value: count)
-            event.post(tap: .cghidEventTap);pause(0.04)
+        private func request(_ kind: String,end: CGPoint?=nil,duration: Double=0) throws {
+            try admit(point);if let end { try admit(end) }
+            let token=try XCTUnwrap(ProcessInfo.processInfo.environment["PDFNO_A_QA_SHOT_TOKEN"]),nonce=UUID().uuidString
+            XCTAssertNotNil(UUID(uuidString: token))
+            let directory=FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-A-WindowShots-"+token)
+            try FileManager.default.createDirectory(at: directory,withIntermediateDirectories: true)
+            let ack=directory.appendingPathComponent("mouse-"+nonce+".ack.json")
+            XCTAssertFalse(FileManager.default.fileExists(atPath: ack.path))
+            let window=try XCTUnwrap((CGWindowListCopyWindowInfo([.optionOnScreenOnly,.excludeDesktopElements],kCGNullWindowID) as? [[String: Any]])?.first { r in
+                guard r[kCGWindowOwnerPID as String] as? Int == Int(pid),r[kCGWindowLayer as String] as? Int == 0,
+                      let raw=r[kCGWindowBounds as String] as? NSDictionary,let rect=CGRect(dictionaryRepresentation: raw) else { return false }
+                return rect.contains(point)
+            })
+            var payload: [String: Any]=["kind":kind,"x":point.x,"y":point.y,"bundle":bundle,"pid":Int(pid),"window":window[kCGWindowNumber as String]!,"display":Self.admittedDisplay,"nonce":nonce,"token":token,"ack":ack.path]
+            if let end { payload["endX"]=end.x;payload["endY"]=end.y;payload["duration"]=duration }
+            let data=try JSONSerialization.data(withJSONObject: payload,options: [.sortedKeys])
+            print("PDFNO_OWN_COMIC_MOUSE "+String(decoding: data,as: UTF8.self));fflush(stdout)
+            let deadline=Date().addingTimeInterval(10)
+            while !FileManager.default.fileExists(atPath: ack.path) && Date()<deadline { pause(0.03) }
+            let result=try JSONSerialization.jsonObject(with: Data(contentsOf: ack)) as? [String: Any]
+            XCTAssertEqual(result?["nonce"] as? String,nonce);XCTAssertEqual(result?["passed"] as? Bool,true)
+            try admit(point)
         }
-        func click() throws { try send(.mouseMoved,at: point);try send(.leftMouseDown,at: point);try send(.leftMouseUp,at: point) }
-        func doubleClick() throws {
-            try send(.mouseMoved,at: point)
-            for count in Int64(1)...2 { try send(.leftMouseDown,at: point,count: count);try send(.leftMouseUp,at: point,count: count) }
-        }
+        func click() throws { try request("click") }
+        func doubleClick() throws { try request("double") }
         func press(forDuration duration: Double,thenDragTo destination: OwnComicPoint) throws {
             guard destination.pid == pid && destination.bundle == bundle else { throw NSError(domain: "OwnComicInput",code: 3) }
-            try send(.mouseMoved,at: point);try send(.leftMouseDown,at: point);pause(duration)
-            for step in 1...12 {
-                let part=CGFloat(step)/12
-                try send(.leftMouseDragged,at: CGPoint(x: point.x+(destination.point.x-point.x)*part,y: point.y+(destination.point.y-point.y)*part))
-            }
-            try send(.leftMouseUp,at: destination.point)
+            try request("drag",end: destination.point,duration: duration)
         }
     }
     @MainActor func testVerticalWheelCrossesPagesChaptersAndReopensInVertical() throws {
@@ -293,7 +299,7 @@ final class EPUBVerticalEdgeUITests: XCTestCase {
         try capture("V-01-wide-vertical-start",app: app)
         app.webViews.firstMatch.scroll(byDeltaX: 0,deltaY: -1100)
         let firstPage=item("epub-position",app)
-        let advanced=expectation(for: NSPredicate { _,_ in let text=firstPage.label;return text.contains("第 1 章") && text.contains("竖排") && !text.contains("第 1 页") },evaluatedWith: app)
+        let advanced=expectation(for: NSPredicate { _,_ in let text=firstPage.label+" "+(firstPage.value as? String ?? "");return text.contains("第 1 章") && text.contains("竖排") && !text.contains("第 1 页") },evaluatedWith: app)
         wait(for: [advanced],timeout: 15)
         try capture("V-02-wide-vertical-page2",app: app)
         app.webViews.firstMatch.scroll(byDeltaX: 0,deltaY: -22000);contains(firstPage,"第 2 章");contains(firstPage,"竖排")
@@ -309,8 +315,10 @@ final class EPUBVerticalEdgeUITests: XCTestCase {
         let app=try originalApp(width: 720,dark: true);defer { app.terminate() }
         navigateWorkspace("open-epub-sample",in: app);try click(item("open-epub-sample",app));contains(item("epub-position",app),"第 1 章")
         let paragraph=try originalWebText("window",app: app);paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03,dy: 0.1)).doubleClick()
+        try click(item("epub-orientation",app));contains(item("epub-position",app),"竖排")
         try click(item("epub-notes",app));contains(item("epub-selection",app),"window")
         let input=item("epub-note-input",app);try click(input);pasteOriginal("Original vertical note 日本語",app: app)
+        try click(item("epub-orientation",app));contains(item("epub-selection",app),"window");value(input,equals: "Original vertical note 日本語")
         try click(item("epub-orientation",app));contains(item("epub-position",app),"竖排");contains(item("epub-selection",app),"window");value(input,equals: "Original vertical note 日本語")
         try capture("V-05-narrow-dark-vertical-draft",app: app)
         try click(item("epub-save-note",app));contains(item("epub-saved-user-text",app),"Original vertical note 日本語")
