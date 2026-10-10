@@ -112,7 +112,7 @@ final class ReaderChromeUITests: XCTestCase {
         let window = app.windows.firstMatch, original = window.frame
         let add = item("document-add", app), more = item("document-more", app)
         XCTAssertGreaterThan(more.frame.minX - add.frame.maxX, 80)
-        guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == app.bundleID else { throw NSError(domain: "OwnDesktopChanged", code: 2) }
+        guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == ProcessInfo.processInfo.environment["PDFNO_A_QA_EXPECTED_BUNDLE"] else { throw NSError(domain: "OwnDesktopChanged", code: 2) }
         let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0)).withOffset(CGVector(dx: (add.frame.maxX + more.frame.minX) / 2 - original.minX, dy: add.frame.midY - original.minY))
         start.press(forDuration: 0.2, thenDragTo: start.withOffset(CGVector(dx: 20, dy: 20)))
         XCTAssertGreaterThan(abs(window.frame.minX - original.minX) + abs(window.frame.minY - original.minY), 8)
