@@ -18062,6 +18062,8 @@
   var flowFrames = /* @__PURE__ */ new Map();
   var flowWidth = 0;
   var flowHeight = 0;
+  var annotationRecords = [];
+  var writingLanguageEvidence = null;
   var post = (value) => window.webkit?.messageHandlers.epub.postMessage(JSON.stringify(value));
   var envelope = (payload, requestID = "event") => ({ ...identity2, v: 1, documentVersion: version, requestID, payload });
   var doc = () => renderer.getDocument();
@@ -18148,6 +18150,7 @@
   }
   function project() {
     const css2 = doc().defaultView.CSS;
+    projectAnnotations();
     const ranges = [], original = current;
     for (const note of notes) if (flow || note.anchor.spineIndex === current) {
       try {
@@ -18171,11 +18174,35 @@
       }
     }
   }
+  function projectAnnotations() {
+    const d = doc(), css2 = d.defaultView.CSS, groups = { highlight: [], underline: [], note: [] }, original = current;
+    d.querySelectorAll("[data-pdfno-annotation-overlay]").forEach((n) => n.remove());
+    for (const item of annotationRecords) {
+      try {
+        current = item.anchor.spineIndex;
+        const range2 = rangeFor(item.anchor);
+        groups[item.kind]?.push(range2);
+        if (item.kind === "underline" || !css2?.highlights) {
+          for (const r of range2.getClientRects()) {
+            if (r.width <= 0 || r.height <= 0) continue;
+            const mark = d.createElement("div");
+            mark.dataset.pdfnoAnnotationOverlay = "";
+            mark.style.cssText = `position:fixed;pointer-events:none;z-index:4;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;` + (item.kind === "underline" ? renderer.isVertical() ? "border-left:2px solid #b67a00" : "border-bottom:2px solid #b67a00" : "background:#ffe28588");
+            d.body.appendChild(mark);
+          }
+        }
+      } catch {
+      } finally {
+        current = original;
+      }
+    }
+    if (css2?.highlights && d.defaultView.Highlight) css2.highlights.set("pdfno-annotations", new d.defaultView.Highlight(...groups.highlight, ...groups.note));
+  }
   function decorate() {
     const d = doc();
     d.documentElement.lang = /[\u3040-\u30ff]/.test(d.body.textContent) ? "ja" : "en";
     const style = d.createElement("style");
-    style.textContent = "body{font:20px/1.85 system-ui;padding:24px!important;color:#222;background:#fff} ruby{ruby-position:over} ::highlight(pdfno-notes){background:#ffdc73;color:#222}";
+    style.textContent = "body{font:20px/1.85 system-ui;padding:24px!important;color:#222;background:#fff} ruby{ruby-position:over} ::highlight(pdfno-notes){background:#ffdc73;color:#222} ::highlight(pdfno-annotations){background:#ffe285;color:#222}";
     d.head.appendChild(style);
     d.addEventListener("selectionchange", selection);
     d.addEventListener("mouseup", selection);
@@ -18267,6 +18294,25 @@
       flowRoots.set(index, section);
       flowFrames.set(index, frame);
     }
+    const languages = renderer.book.metadata?.language;
+    const metadata = typeof languages === "string" ? languages : Array.isArray(languages) && languages.length === 1 ? typeof languages[0] === "string" ? languages[0] : languages[0]?.value : null;
+    const texts = Array.from(flowRoots.values(), (root2) => {
+      const walker = d.createTreeWalker(root2, NodeFilter.SHOW_TEXT, { acceptNode: (n) => n.parentElement?.closest("rt,rp,script,style,noscript,title") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+      let text = "";
+      while (walker.nextNode()) text += walker.currentNode.data;
+      return text;
+    });
+    const total = texts.reduce((n, t) => n + t.length, 0), stride = Math.max(1, Math.ceil(total / 1e5));
+    let sample2 = "", offset = 0;
+    for (const text of texts) {
+      for (let i = (stride - offset % stride) % stride; i < text.length; i += stride) {
+        const code = text.charCodeAt(i);
+        if (code >= 55296 && code <= 56319 && i + 1 < text.length) sample2 += text.slice(i, i + 2);
+        else if (code < 56320 || code > 57343) sample2 += text[i];
+      }
+      offset += text.length;
+    }
+    writingLanguageEvidence = { metadata: typeof metadata === "string" ? metadata : null, sample: sample2.slice(0, 2e5) };
     flow = true;
     current = 0;
     version++;
@@ -18340,6 +18386,7 @@
   function trackFlowViewport() {
     if (!flow || initialising) return;
     sizeFlow();
+    projectAnnotations();
     const top = renderer.element.scrollTop;
     const visible = [...flowFrames].find(([, root2]) => root2.offsetTop + root2.offsetHeight > top + 24);
     if (visible && visible[0] !== current) {
@@ -18404,6 +18451,12 @@
     else if (message.command === "notes") {
       notes = message.payload.notes;
       project();
+    } else if (message.command === "annotations") {
+      annotationRecords = message.payload.annotations ?? [];
+      if (annotationRecords.length > 1e4) throw Error("Annotation limit");
+    } else if (message.command === "captureSelection") {
+      const captured = selectedAnchor();
+      return JSON.stringify(envelope({ ...state(), capturedSelection: captured }, message.requestID));
     } else if (message.command === "resize") {
       const selected = selectedAnchor() ?? message.payload.selectionAnchor ?? null, anchor = progress();
       if (selected) rangeFor(selected);
@@ -18434,8 +18487,10 @@
     else throw Error("Command is not allowed");
     project();
     const response = state();
+    if (message.command === "open") response.writingLanguageEvidence = writingLanguageEvidence;
     if (message.command === "navigate") response.navigationSelection = selectedAnchor();
     if (message.command === "notes") response.noteSelection = selectedAnchor();
+    if (message.command === "annotations") response.annotationSelection = selectedAnchor();
     if (message.command === "resize") response.resizeSelection = selectedAnchor();
     if (message.command === "vertical") response.orientationSelection = selectedAnchor();
     return JSON.stringify(envelope(response, message.requestID));

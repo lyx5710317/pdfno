@@ -114,6 +114,7 @@ import PDFnoDomain
         guard confirmed || !model.hasDocumentWorkToReview else { pendingCloseID = id; return }
         opening = true; defer { opening = false }
         if confirmed {
+            for draft in model.annotations.editor.drafts.values where draft.baseline.bookID == id { model.annotations.editor.cancel(draft.baseline) }
             for draft in model.noteEditing.drafts.values where draft.baseline.bookID == id { model.noteEditing.cancel(draft.baseline) }
             for draft in model.recordEditing.editor.drafts.values where draft.baseline.bookID == id { model.recordEditing.editor.cancel(draft.baseline) }
             guard !model.hasDocumentEditorChanges else { error = "草稿取消未完成，文件保持打开。请载入最新笔记后核对。"; return }
@@ -150,9 +151,10 @@ extension LibraryModel {
     }
     var hasDocumentSaveInFlight: Bool {
         learning.saving || byok.saving || japaneseLearning.saving || englishLearning.saving ||
-        !noteEditing.saving.isEmpty || !recordEditing.editor.saving.isEmpty
+        !noteEditing.saving.isEmpty || !recordEditing.editor.saving.isEmpty || annotations.saving || !annotations.editor.saving.isEmpty
     }
     var hasDocumentEditorChanges: Bool {
+        annotations.editor.journalError != nil || annotations.editor.drafts.values.contains { $0.baseline.bookID == displayedDocumentID } ||
         noteEditing.journalError != nil || recordEditing.editor.journalError != nil ||
         noteEditing.drafts.values.contains { $0.baseline.bookID == displayedDocumentID && $0.text != $0.baseline.userText } ||
         recordEditing.editor.drafts.values.contains { $0.baseline.bookID == displayedDocumentID && $0.text != $0.baseline.userText }

@@ -3,7 +3,7 @@ import {EpubRender} from './kookit-adapter';
 import {handleOneChapterDoc,handleLayout,progressInfo} from './vendor/kookit/src/utils/layoutUtil';
 let identity, renderer, version=0, current=0, notes=[], initialising=false, lastSelection='', flow=false, lastViewport='';
 const flowRoots=new Map(), flowFrames=new Map();
-let flowWidth=0, flowHeight=0;
+let flowWidth=0, flowHeight=0, annotationRecords=[], writingLanguageEvidence=null;
 const post = value => window.webkit?.messageHandlers.epub.postMessage(JSON.stringify(value));
 const envelope = (payload,requestID='event') => ({...identity,v:1,documentVersion:version,requestID,payload});
 const doc = () => renderer.getDocument();
@@ -67,6 +67,7 @@ function selection() {
 }
 function project() {
   const css=doc().defaultView.CSS;
+  projectAnnotations();
   const ranges=[], original=current;
   for (const note of notes) if (flow || note.anchor.spineIndex===current) {
     try { current=note.anchor.spineIndex; ranges.push(rangeFor(note.anchor)); } catch {} finally { current=original; }
@@ -84,10 +85,24 @@ function project() {
     }
   }
 }
+function projectAnnotations() {
+  const d=doc(),css=d.defaultView.CSS,groups={highlight:[],underline:[],note:[]},original=current;
+  d.querySelectorAll('[data-pdfno-annotation-overlay]').forEach(n=>n.remove());
+  for(const item of annotationRecords){
+    try {
+      current=item.anchor.spineIndex;const range=rangeFor(item.anchor);groups[item.kind]?.push(range);
+      if(item.kind==='underline'||!css?.highlights){for(const r of range.getClientRects()){
+        if(r.width<=0||r.height<=0)continue;const mark=d.createElement('div');mark.dataset.pdfnoAnnotationOverlay='';
+        mark.style.cssText=`position:fixed;pointer-events:none;z-index:4;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;`+(item.kind==='underline'?(renderer.isVertical()?'border-left:2px solid #b67a00':'border-bottom:2px solid #b67a00'):'background:#ffe28588');d.body.appendChild(mark);
+      }}
+    }catch{}finally{current=original;}
+  }
+  if(css?.highlights&&d.defaultView.Highlight)css.highlights.set('pdfno-annotations',new d.defaultView.Highlight(...groups.highlight,...groups.note));
+}
 function decorate() {
   const d=doc();
   d.documentElement.lang = /[\u3040-\u30ff]/.test(d.body.textContent) ? 'ja' : 'en';
-  const style=d.createElement('style'); style.textContent='body{font:20px/1.85 system-ui;padding:24px!important;color:#222;background:#fff} ruby{ruby-position:over} ::highlight(pdfno-notes){background:#ffdc73;color:#222}';
+  const style=d.createElement('style'); style.textContent='body{font:20px/1.85 system-ui;padding:24px!important;color:#222;background:#fff} ruby{ruby-position:over} ::highlight(pdfno-notes){background:#ffdc73;color:#222} ::highlight(pdfno-annotations){background:#ffe285;color:#222}';
   d.head.appendChild(style);
   d.addEventListener('selectionchange',selection);
   d.addEventListener('mouseup',selection);
@@ -152,6 +167,15 @@ async function buildFlow() {
     const frame=d.createElement('div');frame.dataset.pdfnoChapter=String(index);
     frame.appendChild(section);stack.appendChild(frame);flowRoots.set(index,section);flowFrames.set(index,frame);
   }
+  const languages=renderer.book.metadata?.language;
+  const metadata=typeof languages==='string'?languages:(Array.isArray(languages)&&languages.length===1?(typeof languages[0]==='string'?languages[0]:languages[0]?.value):null);
+  const texts=Array.from(flowRoots.values(),root=>{
+    const walker=d.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement?.closest('rt,rp,script,style,noscript,title')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});let text='';while(walker.nextNode())text+=walker.currentNode.data;return text;
+  });
+  const total=texts.reduce((n,t)=>n+t.length,0),stride=Math.max(1,Math.ceil(total/100000));let sample='',offset=0;
+  // Deterministic whole-document sampling weights chapters by actual text length.
+  for(const text of texts){for(let i=(stride-offset%stride)%stride;i<text.length;i+=stride){const code=text.charCodeAt(i);if(code>=0xd800&&code<=0xdbff&&i+1<text.length)sample+=text.slice(i,i+2);else if(code<0xdc00||code>0xdfff)sample+=text[i];}offset+=text.length;}
+  writingLanguageEvidence={metadata:typeof metadata==='string'?metadata:null,sample:sample.slice(0,200000)};
   flow=true; current=0; version++; lastSelection=''; lastViewport=''; decorate(); layoutFlow(false);
 }
 function layoutFlow(vertical) {
@@ -203,7 +227,7 @@ function publishViewport() {
 }
 function trackFlowViewport() {
   if(!flow || initialising)return;
-  sizeFlow();
+  sizeFlow();projectAnnotations();
   const top=renderer.element.scrollTop;
   const visible=[...flowFrames].find(([,root])=>root.offsetTop+root.offsetHeight>top+24);
   if(visible && visible[0]!==current){doc().getSelection()?.removeAllRanges();current=visible[0];version++;lastSelection='';}
@@ -248,6 +272,8 @@ window.PDFno = {async command(message) {
     if(selected)selection.addRange(rangeFor({...selected,vertical:anchor.vertical}));
   } else if (message.command==='navigate') await navigate(message.payload.anchor);
   else if (message.command==='notes') { notes=message.payload.notes; project(); }
+  else if(message.command==='annotations'){annotationRecords=message.payload.annotations??[];if(annotationRecords.length>10000)throw Error('Annotation limit');}
+  else if(message.command==='captureSelection'){const captured=selectedAnchor();return JSON.stringify(envelope({...state(),capturedSelection:captured},message.requestID));}
   else if (message.command==='resize') {
     // Rebind the actual DOM range after reflow, independently of the visible
     // reading-position anchor. Opening an inspector must not select that anchor.
@@ -276,10 +302,12 @@ window.PDFno = {async command(message) {
   else throw Error('Command is not allowed');
   project();
   const response=state();
+  if(message.command==='open')response.writingLanguageEvidence=writingLanguageEvidence;
   // A selection event may arrive while the native command is busy and then be
   // deduplicated. Acknowledge the actual DOM range in this verified reply too.
   if(message.command==='navigate') response.navigationSelection=selectedAnchor();
   if(message.command==='notes') response.noteSelection=selectedAnchor();
+  if(message.command==='annotations') response.annotationSelection=selectedAnchor();
   if(message.command==='resize') response.resizeSelection=selectedAnchor();
   if(message.command==='vertical') response.orientationSelection=selectedAnchor();
   return JSON.stringify(envelope(response,message.requestID));

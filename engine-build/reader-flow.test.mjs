@@ -64,3 +64,18 @@ test('vertical flow mounts the same original sources, preserves selection and ke
  const horizontal=await h.command('vertical');assert.equal(horizontal.vertical,false);assert.equal(horizontal.spineIndex,1);
  }finally{h.close()}
 });
+
+test('annotation projection acknowledges the actual selected range and never changes canonical text',async()=>{
+ const h=host();try{await h.command('open',{data:'',names:[],notes:[]});positions(h);
+ const text=h.w.flowTest.canonical().text,start=text.indexOf('same'),anchor={schemaVersion:1,extractionVersion:'epub-canonical-utf16-1',editionID:'edition',fileSHA256:'sha',spineIndex:0,resourceHref:'chapter0.xhtml',start,end:start+4,quote:'same',prefix:text.slice(0,start),suffix:text.slice(start+4),vertical:false};
+ await h.command('navigate',{anchor});
+ const underline=await h.command('annotations',{annotations:[{anchor,kind:'underline'}]});
+ assert.equal(underline.annotationSelection.quote,'same');assert.equal(underline.annotationSelection.start,start);
+ const d=h.w.flowTest.getDoc();assert.ok(d.querySelectorAll('[data-pdfno-annotation-overlay]').length>0);assert.equal(h.w.flowTest.canonical().text,text);
+ const highlight=await h.command('annotations',{annotations:[{anchor,kind:'highlight'}]});assert.equal(highlight.annotationSelection.quote,'same');assert.equal(d.querySelectorAll('[data-pdfno-annotation-overlay]').length,0);assert.equal(d.defaultView.CSS.highlights.get('pdfno-annotations').ranges.length,1);
+ await h.command('annotations',{annotations:[{anchor,kind:'note'}]});assert.equal(h.w.flowTest.canonical().text,text);
+ }finally{h.close()}
+});
+test('whole document language evidence excludes ruby reading and author metadata from body sampling',async()=>{
+ const h=host();try{const opened=await h.command('open',{data:'',names:[],notes:[]});assert.equal(opened.writingLanguageEvidence.metadata,null);assert.ok(opened.writingLanguageEvidence.sample.includes('本'));assert.ok(!opened.writingLanguageEvidence.sample.includes('ほん'));assert.ok(!opened.writingLanguageEvidence.sample.includes('Metadata'));assert.ok(opened.writingLanguageEvidence.sample.includes('Second'));}finally{h.close()}
+});

@@ -52,6 +52,11 @@ struct RecoveryRegistry: Sendable {
             .init("text-formats-v1.json", format: "variable", collections: ["books", "notes"]) { _ = try TextFormatRepository.decode($0) },
             .init("ebook-kookit-v1.json", format: "variable", collections: ["books", "notes"]) { _ = try EbookRepository.decode($0) },
             .init("learning-v1.json", collections: ["notes"]) { _ = try AILearningRepository.decode($0) },
+            .init(AnnotationRepository.filename, collections: ["notes"], validate: { _ = try AnnotationRepository.decode($0) }, extraAssociations: { bytes in
+                try AnnotationRepository.decode(bytes).notes.map { n in
+                    .init(recordID: n.id, bookID: n.bookID, editionID: n.anchor.editionID, fileSHA256: n.anchor.fileSHA256, format: n.anchor.format)
+                }
+            }),
             .init("japanese-learning-v1.json", collections: ["notes"]) { _ = try JapaneseLearningRepository.decode($0) },
             .init("book-metadata-v1.json", collections: ["records"]) { _ = try LocalBookMetadataRepository.decode($0) },
             .init("bundled-examples-v1.json", collections: ["records"]) { _ = try BundledExampleRepository.decode($0) },
@@ -71,17 +76,23 @@ struct RecoveryRegistry: Sendable {
         let declared = Set(names), current = Set(adapters.keys)
         guard declared.count == names.count else { throw LocalRecoveryError.invalidPackage }
         if declared == current { return self }
+        // Audited pre-annotation profile: original records remain valid without
+        // requiring a newly introduced sidecar to appear in an older backup.
+        if declared == current.subtracting([AnnotationRepository.filename]) {
+            var previous = self; previous.adapters.removeValue(forKey: AnnotationRepository.filename); return previous
+        }
         var legacy: Set<String> = ["library-v1.json", "epub-v1.json", "comics-v1.json", "comics-cbt-v1.json",
             "comics-cb7-v1.json", "comics-cbr-v1.json", "docx-mammoth-v1.json", "text-formats-v1.json",
             "ebook-kookit-v1.json", "learning-v1.json", "japanese-learning-v1.json", "book-metadata-v1.json", "covers-v1.json"]
         if adapters["english-learning-v1.json"] != nil { legacy.insert("english-learning-v1.json") }
         // Future registry growth must define a new audited compatibility rule,
         // rather than implicitly accepting every subset of its current adapters.
-        guard current == legacy.union(["bundled-examples-v1.json"]), declared == legacy else {
+        guard current == legacy.union(["bundled-examples-v1.json", AnnotationRepository.filename]), declared == legacy else {
             throw LocalRecoveryError.invalidPackage
         }
         var previous = self
         previous.adapters.removeValue(forKey: "bundled-examples-v1.json")
+        previous.adapters.removeValue(forKey: AnnotationRepository.filename)
         return previous
     }
     static func object(_ data: Data) throws -> [String: Any] {

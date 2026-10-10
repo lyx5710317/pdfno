@@ -6,6 +6,7 @@ import PDFnoServices
 
 struct ReadingSelectionActions: View {
     var includeNote = true
+    var includeHighlight = true
     let available: Bool
     let busy: Bool
     let highlight: () -> Void
@@ -17,7 +18,7 @@ struct ReadingSelectionActions: View {
     @Environment(\.pdfnoReaderRailExpanded) private var expanded
     var body: some View {
         VStack(spacing: 5) {
-            action("高亮", "highlighter", "selection-highlight", highlight)
+            if includeHighlight { action("高亮", "highlighter", "selection-highlight", highlight) }
             if includeNote { action("笔记", "note.text", "selection-note", note) }
             action("翻译", "character.bubble", "selection-translate", translate)
             action("解释", "sparkles", "selection-explain", explain)

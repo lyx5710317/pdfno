@@ -145,7 +145,11 @@ public actor LocalRecoveryService {
     }
     public func exportBackup(to destination: URL, permit: LocalRecoveryWritePermit) throws -> LocalRecoveryPreview {
         try require(permit); try engine.ensureSettled(); let snapshot = try RecoveryFiles.capture(root, registry: registry)
-        let inventory = LocalRecoveryInventory(adapters: registry.adapters.keys.sorted(), entries: snapshot.entries, omittedDrafts: snapshot.omittedDrafts.sorted())
+        // Libraries which have never used annotations retain the exact audited
+        // pre-annotation backup profile. A saved or trashed annotation requires it.
+        let containsAnnotations=snapshot.files.keys.contains { $0 == AnnotationRepository.filename || $0 == AnnotationRepository.filename+".backup" } || snapshot.state.tombstones.contains { $0.fragments.contains { $0.manifest == AnnotationRepository.filename } }
+        let declared=registry.adapters.keys.filter { containsAnnotations || $0 != AnnotationRepository.filename }.sorted()
+        let inventory = LocalRecoveryInventory(adapters: declared, entries: snapshot.entries, omittedDrafts: snapshot.omittedDrafts.sorted())
         let bytes = try JSONEncoder().encode(inventory), stage = try staging(for: destination)
         defer { try? FileManager.default.removeItem(at: stage) }
         try FileManager.default.createDirectory(at: stage.appendingPathComponent("Payload"), withIntermediateDirectories: false)

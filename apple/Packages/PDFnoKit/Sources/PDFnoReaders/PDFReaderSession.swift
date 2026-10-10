@@ -22,6 +22,7 @@ public final class PDFReaderSession: ObservableObject {
     @Published public private(set) var outline: [OutlineItem] = []
     public weak var view: PDFView?
     private var projected: [(PDFPage, PDFAnnotation)] = []
+    private var annotationMarks: [(PDFPage, PDFAnnotation)] = []
     @Published public private(set) var canReturnToPreviousLocation = false
     private var navigationHistory = ReaderNavigationHistory<Int>()
     private var restorationID: UUID?
@@ -41,6 +42,7 @@ public final class PDFReaderSession: ObservableObject {
     public func close() {
         cancelRestoration(); clearNavigation()
         for (page, annotation) in projected { page.removeAnnotation(annotation) }
+        annotationMarks.forEach { $0.0.removeAnnotation($0.1) }; annotationMarks = []
         projected = []; document = nil; book = nil; capturedSelection = nil
         searchMatches = []; outline = []; pageIndex = 0
         readerSessionID = UUID(); view?.document = nil
@@ -231,6 +233,22 @@ public final class PDFReaderSession: ObservableObject {
             }
         }
         // Projection is in memory only. Never write user originals.
+    }
+    public func projectAnnotations(_ records: [AnchoredAnnotation]) {
+        annotationMarks.forEach { $0.0.removeAnnotation($0.1) }; annotationMarks = []
+        for record in records where record.bookID == book?.id {
+            guard case .pdf(let anchor) = record.anchor, resolution(of: anchor) == .exact else { continue }
+            for region in anchor.regions {
+                guard let page = document?.page(at: region.pageIndex) else { continue }
+                let mark = PDFAnnotation(bounds: CGRect(x: region.x,y: region.y,width: region.width,height: region.height),forType: record.kind == .underline ? .underline : .highlight,withProperties: nil)
+                #if os(macOS)
+                mark.color = record.kind == .underline ? NSColor.systemOrange : NSColor.systemYellow.withAlphaComponent(0.35)
+                #else
+                mark.color = record.kind == .underline ? UIColor.systemOrange : UIColor.systemYellow.withAlphaComponent(0.35)
+                #endif
+                mark.contents = record.userText; page.addAnnotation(mark); annotationMarks.append((page,mark))
+            }
+        }
     }
 }
 

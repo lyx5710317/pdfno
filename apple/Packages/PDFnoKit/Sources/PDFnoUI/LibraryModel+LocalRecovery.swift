@@ -50,7 +50,7 @@ extension LibraryModel {
         if storeWriteGate.snapshot.phase == .writable,
            let readyOwner = LibraryMaintenanceOwners.all(root: recordRoot).first(where: { $0 !== self && $0.startupRecoveryCompleted }) {
             needsRecoveryDraftReview = readyOwner.needsRecoveryDraftReview
-            if needsRecoveryDraftReview { noteEditing.requireReviewAfterMaintenance(); recordEditing.editor.requireReviewAfterMaintenance() }
+            if needsRecoveryDraftReview { noteEditing.requireReviewAfterMaintenance(); recordEditing.editor.requireReviewAfterMaintenance(); annotations.editor.requireReviewAfterMaintenance() }
             startupRecoveryCompleted = true; return true
         }
         if let active = LibraryMaintenanceOwners.all(root: recordRoot).compactMap({ $0.startupRecoveryTask }).first {
@@ -154,6 +154,7 @@ extension LibraryModel {
         }
     }
     var hasPendingEditorChanges: Bool {
+        annotations.editor.journalError != nil || !annotations.editor.drafts.isEmpty ||
         noteEditing.journalError != nil || recordEditing.editor.journalError != nil ||
         noteEditing.drafts.values.contains { !$0.text.utf8.elementsEqual($0.baseline.userText.utf8) } ||
         recordEditing.editor.drafts.values.contains { !$0.text.utf8.elementsEqual($0.baseline.userText.utf8) }
@@ -162,7 +163,7 @@ extension LibraryModel {
         storageMaintenance = true; canImport = false; isBusy = true; progressSequence += 1
         learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
         invalidateJapaneseLearning(); invalidateEnglishLearning(); invalidateBYOKSelection()
-        booknoPreview.close(); activeSavedSearch?.cancel(); noteEditing.invalidatePendingSavesForMaintenance(); recordEditing.editor.invalidatePendingSavesForMaintenance()
+        booknoPreview.close(); activeSavedSearch?.cancel(); noteEditing.invalidatePendingSavesForMaintenance(); recordEditing.editor.invalidatePendingSavesForMaintenance(); annotations.editor.invalidatePendingSavesForMaintenance()
     }
     private func closeStorageReaders() {
         reader.close(); epub.close(); comic.close(); docx.deactivate(); textFormats.deactivate(); ebook.deactivate()
@@ -177,7 +178,7 @@ extension LibraryModel {
             guard library.canImport, library.englishStoreError == nil, library.japaneseStoreError == nil else { throw LibraryMaintenanceFailure.reload }
             if reviewDrafts {
                 library.needsRecoveryDraftReview = true
-                library.noteEditing.requireReviewAfterMaintenance(); library.recordEditing.editor.requireReviewAfterMaintenance()
+                library.noteEditing.requireReviewAfterMaintenance(); library.recordEditing.editor.requireReviewAfterMaintenance(); library.annotations.editor.requireReviewAfterMaintenance()
             }
         }
     }

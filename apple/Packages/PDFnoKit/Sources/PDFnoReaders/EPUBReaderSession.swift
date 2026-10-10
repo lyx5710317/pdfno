@@ -40,6 +40,7 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
     @Published public private(set) var progress: EPUBAnchor?
     @Published public private(set) var outline: [EPUBOutlineItem] = []
     @Published public private(set) var position = ""
+    @Published public private(set) var writingLanguage = DocumentWritingLanguage.unknown
     @Published public private(set) var vertical = false
     @Published public private(set) var busy = false
     @Published public private(set) var error: String?
@@ -61,6 +62,7 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
         for continuation in requests.values { continuation.resume(throwing: EPUBError.cancelled) }
         webView?.stopLoading(); webView?.configuration.userContentController.removeScriptMessageHandler(forName: "epub")
         webView?.navigationDelegate = nil; webView = nil; book = nil
+        writingLanguage = .unknown
         selection = nil; progress = nil; outline = []; position = ""; busy = false; documentVersion = 0; spineIndex = 0
     }
     public func open(data: Data, book: EPUBBook, notes: [EPUBNote]) async throws {
@@ -140,6 +142,7 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
         if let anchor = state["progress"] as? [String: Any] { progress = try anchorValue(anchor) }
         else if state["progress"] is NSNull { progress = nil }
         else { throw EPUBError.bridge }
+        if let evidence = state["writingLanguageEvidence"] as? [String: Any], let text = evidence["sample"] as? String { writingLanguage = .classify(metadata: evidence["metadata"] as? String,text: text) }
         vertical = state["vertical"] as? Bool ?? false
         let chapter = state["spineIndex"] as? Int ?? 0, page = state["page"] as? String ?? "1"
         spineIndex = chapter
@@ -209,7 +212,13 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
             pendingOpen = nil
             let token = generation
             Task {
-                do { try await request("open", payload: initial); if generation == token { busy = false } }
+                do {
+                    try await request("open", payload: initial)
+                    if generation == token, !writingLanguage.permitsVerticalReflow, vertical, let location=progress {
+                        try await request("navigate",payload: ["anchor":try json(location.withVertical(false))])
+                    }
+                    if generation == token { busy = false }
+                }
                 catch { if generation == token { fail(error) } }
             }
         } else if !busy, matches(object), payload["kind"] as? String == "viewport",
@@ -230,15 +239,35 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
         guard book != nil, item.readerSessionID == generation else { return false }
         return await command("chapter", index: item.index)
     }
+    public func captureSelection() async -> EPUBAnchor? {
+        guard !busy else { return nil }; let token=generation
+        do {
+            let result=try await request("captureSelection")
+            guard generation==token,let value=result["capturedSelection"] as? [String: Any] else { return nil }
+            let captured=try anchorValue(value);selection=captured;return captured
+        } catch { return nil }
+    }
+    public func projectAnnotations(_ records: [AnchoredAnnotation]) async {
+        guard !busy,let book else { return }
+        let items: [[String: Any]] = records.compactMap { record in
+            guard record.bookID==book.id,case .epub(let anchor)=record.anchor,book.accepts(anchor),let data=try? JSONEncoder().encode(anchor),let value=try? JSONSerialization.jsonObject(with: data) else { return nil }
+            return ["anchor":value,"kind":record.kind.rawValue]
+        }
+        let token=generation
+        if let state=try? await request("annotations",payload: ["annotations":items]),generation==token,
+           let value=state["annotationSelection"] as? [String: Any],let captured=try? anchorValue(value) { selection=captured }
+    }
     public func command(_ name: String, index: Int? = nil, anchor: EPUBAnchor? = nil, notes: [EPUBNote]? = nil) async -> Bool {
-        guard !busy else { return false }; let token = generation
+        guard !busy, name != "vertical" || writingLanguage.permitsVerticalReflow else { return false }; let token = generation
+        var effectiveAnchor=anchor
+        if !writingLanguage.permitsVerticalReflow { effectiveAnchor=effectiveAnchor?.withVertical(false) }
         let selectionBeforeResize = ["resize", "vertical"].contains(name) ? selection : nil
         let origin = progress, recordsJump = !returningToPreviousLocation && ["chapter", "navigate"].contains(name)
         busy = true; defer { if generation == token { busy = false } }
         do {
             var payload: [String: Any] = [:]
             if let index { payload["index"] = index }
-            if let anchor { guard book?.accepts(anchor) == true else { throw EPUBError.sourceMismatch }; payload["anchor"] = try json(anchor) }
+            if let anchor=effectiveAnchor { guard book?.accepts(anchor) == true else { throw EPUBError.sourceMismatch }; payload["anchor"] = try json(anchor) }
             if let selectionBeforeResize {
                 // Native inspector focus may collapse the browser range. Give
                 // the engine the previously captured source to validate/rebind;
@@ -249,7 +278,7 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
             if let notes { payload["notes"] = try json(notes) }
             let state = try await request(name, payload: payload)
             if name == "navigate" {
-                guard let requested = anchor, let value = state["navigationSelection"] as? [String: Any] else {
+                guard let requested = effectiveAnchor, let value = state["navigationSelection"] as? [String: Any] else {
                     throw EPUBError.sourceMismatch
                 }
                 let selected = try anchorValue(value)

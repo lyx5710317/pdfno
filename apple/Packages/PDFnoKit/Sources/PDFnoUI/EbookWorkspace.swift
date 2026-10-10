@@ -9,19 +9,18 @@ public struct EbookWorkspace: View {
     @ObservedObject var session: EbookReaderSession
     @State private var navigation = false
     @State private var notes = false
-    @State private var draft = ""
-    @State private var draftOwner = UUID().uuidString
-    @State private var captured: EbookAnchor?
+    @State private var legacyNotes = false
+    @StateObject private var annotations: AnnotationModel
     private let editing: RecordEditingAdapter?
-    public init(model: EbookLibraryModel) { self.model = model; session = model.reader; editing = nil }
-    init(model: EbookLibraryModel, editing: RecordEditingAdapter) { self.model = model; session = model.reader; self.editing = editing }
+    public init(model: EbookLibraryModel) { self.model = model; session = model.reader; editing = nil; _annotations = StateObject(wrappedValue: AnnotationModel(root: model.storageRoot)) }
+    init(model: EbookLibraryModel, editing: RecordEditingAdapter, annotations: AnnotationModel) { self.model = model; session = model.reader; self.editing = editing; self._annotations = StateObject(wrappedValue: annotations) }
     public var body: some View {
         VStack(spacing: 0) {
             PDFnoProfessionalReaderChrome(title: session.book?.title ?? "文档", format: "") {} actions: {
                 PDFnoReaderRailButton(title: "目录", symbol: "list.bullet", identifier: "ebook-navigation", active: navigation, disabled: !session.ready) { navigation.toggle(); notes = false }
                 PDFnoReaderRailButton(title: "笔记", symbol: "note.text", identifier: "ebook-notes", active: notes, disabled: !session.ready) {
                     if notes { notes = false } else {
-                        Task { if draft.isEmpty { captured = await session.captureSelection() }; notes = true; navigation = false }
+                        notes.toggle(); navigation = false
                     }
                 }
                 Menu {
@@ -55,10 +54,10 @@ VStack(alignment: .leading, spacing: 4) {
                 } navigation: { navigationSheet } notes: { notesSheet }
             }
         }
+        .annotationExperience(annotations,reader: .ebook(session))
+        .sheet(isPresented: $legacyNotes) { legacyNotesSheet }
         .navigationTitle(session.book?.title ?? "Ebook")
 
-        .onChange(of: draft) { _, value in LibraryMaintenanceOwners.setDraft(root: model.storageRoot, owner: draftOwner, dirty: !value.isEmpty) }
-        .onDisappear { LibraryMaintenanceOwners.setDraft(root: model.storageRoot, owner: draftOwner, dirty: false) }
         .onChange(of: session.progress) { _, anchor in if let anchor { Task { await model.saveProgress(anchor) } } }
 
         .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
@@ -85,16 +84,10 @@ VStack(alignment: .leading, spacing: 4) {
             }.navigationTitle("标题目录").toolbar { ToolbarItem { Button("完成") { navigation = false } } }
         }
     }
-    private var notesSheet: some View {
+    private var notesSheet: some View { AnnotationList(model: annotations,legacy: { legacyNotes = true }) }
+    private var legacyNotesSheet: some View {
         NavigationStack {
             List {
-                Section("当前选文") {
-                    if let anchor = captured {
-                        Text(anchor.quote).textSelection(.enabled).accessibilityIdentifier("ebook-selection")
-                        TextField("写下笔记（可选）", text: $draft, axis: .vertical).lineLimit(3...8).accessibilityIdentifier("ebook-user-note")
-                        Button("保存选文与笔记") { Task { if await model.saveNote(anchor, text: draft) { draft = "" } } }.accessibilityIdentifier("ebook-save-note")
-                    } else { Text("先在 Ebook 正文中选择文字。最多保存 16000 个 UTF-16 字元。").accessibilityIdentifier("ebook-selection-empty") }
-                }
                 Section("已保存 · 本地") {
                     let saved = model.notes.filter { $0.bookID == session.book?.id }
                     if saved.isEmpty { Text("这份文档还没有笔记") }
@@ -108,14 +101,14 @@ VStack(alignment: .leading, spacing: 4) {
                                 } reload: { await editing.reload(.ebook(note)) }
                             }
                             Button("回到原文 · 段落 \(note.anchor.blockID + 1)") { Task {
-                                if await session.navigate(to: note.anchor) { notes = false }
+                                if await session.navigate(to: note.anchor) { legacyNotes = false }
                                 else { model.error = EbookError.sourceMismatch.localizedDescription }
                             } }.accessibilityIdentifier("ebook-return")
                         }.padding(.vertical, 4)
                     }
                 }
             }.accessibilityIdentifier("ebook-notes-list").navigationTitle("选文与笔记")
-                .toolbar { ToolbarItem { Button("完成") { notes = false }.accessibilityIdentifier("ebook-close-notes") } }
+                .toolbar { ToolbarItem { Button("完成") { legacyNotes = false }.accessibilityIdentifier("ebook-close-notes") } }
         }
     }
 }

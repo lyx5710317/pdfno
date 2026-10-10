@@ -1,0 +1,250 @@
+// Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
+#if os(macOS)
+import AppKit
+import Combine
+import SwiftUI
+import WebKit
+import PDFKit
+import PDFnoDomain
+import PDFnoServices
+import PDFnoReaders
+
+@MainActor enum AnnotationReader {
+    case pdf(PDFReaderSession), epub(EPUBReaderSession), text(TextFormatReaderSession), ebook(EbookReaderSession), docx(DOCXReaderSession)
+    var bookID: UUID? { switch self { case .pdf(let r): r.book?.id; case .epub(let r): r.book?.id; case .text(let r): r.book?.id; case .ebook(let r): r.book?.id; case .docx(let r): r.book?.id } }
+    var ready: Bool { switch self { case .pdf(let r): r.book != nil; case .epub(let r): r.book != nil && !r.busy; case .text(let r): r.ready; case .ebook(let r): r.ready; case .docx(let r): r.ready } }
+    var sessionID: UUID { switch self { case .pdf(let r): r.readerSessionID; case .epub(let r): r.readerSessionID; case .text(let r): r.readerSessionID; case .ebook(let r): r.readerSessionID; case .docx(let r): r.readerSessionID } }
+    var scopeID: String { switch self { case .epub(let r): sessionID.uuidString+":"+String(r.documentVersion)+":"+String(r.busy);case .pdf(let r): sessionID.uuidString+":"+String(r.pageIndex);default: sessionID.uuidString } }
+    var view: NSView? { switch self { case .pdf(let r): r.view; case .epub(let r): r.webView; case .text(let r): r.webView; case .ebook(let r): r.webView; case .docx(let r): r.webView } }
+    func capture() async -> AnnotationAnchor? {
+        switch self {
+        case .pdf(let r): r.captureSelection(); return r.capturedSelection.map(AnnotationAnchor.pdf)
+        case .epub(let r): return await r.captureSelection().map(AnnotationAnchor.epub)
+        case .text(let r): return await r.captureSelection().map(AnnotationAnchor.text)
+        case .ebook(let r): return await r.captureSelection().map(AnnotationAnchor.ebook)
+        case .docx(let r): return await r.captureSelection().map(AnnotationAnchor.docx)
+        }
+    }
+    func accepts(_ anchor: AnnotationAnchor) -> Bool {
+        switch (self,anchor) {
+        case (.pdf(let r),.pdf(let a)): return r.resolution(of: a) == .exact
+        case (.epub(let r),.epub(let a)): return r.book?.accepts(a) == true
+        case (.text(let r),.text(let a)): return r.book?.accepts(a) == true && r.document?.resolves(a) == true
+        case (.ebook(let r),.ebook(let a)): return r.book?.accepts(a) == true && r.document?.resolves(a) == true
+        case (.docx(let r),.docx(let a)): return r.book?.accepts(a) == true && r.document?.resolves(a) == true
+        default: return false
+        }
+    }
+    func navigate(_ anchor: AnnotationAnchor) async -> Bool {
+        switch (self,anchor) {
+        case (.pdf(let r),.pdf(let a)): return r.navigate(to: a) == .exact
+        case (.epub(let r),.epub(let a)): return await r.command("navigate",anchor: a.withVertical(r.vertical))
+        case (.text(let r),.text(let a)): return await r.navigate(to: a)
+        case (.ebook(let r),.ebook(let a)): return await r.navigate(to: a)
+        case (.docx(let r),.docx(let a)): return await r.navigate(to: a)
+        default: return false
+        }
+    }
+    func selectionRect() async -> NSRect? {
+        guard let view else { return nil }
+        if case .pdf(let r) = self, let pdf = r.view, let selection = pdf.currentSelection {
+            let lines = selection.selectionsByLine()
+            for line in lines { for page in line.pages {
+                let rect = pdf.convert(line.bounds(for: page),from: page).intersection(pdf.bounds)
+                if !rect.isEmpty { return rect }
+            } }
+            return nil
+        }
+        guard let web = view as? WKWebView else { return nil }
+        let script = """
+          const frame=document.querySelector('iframe'),d=frame?.contentDocument??document,s=d.getSelection();
+          if(!s?.rangeCount||s.isCollapsed)return null;
+          const f=frame?.getBoundingClientRect()??{left:0,top:0};
+          for(const r of s.getRangeAt(0).getClientRects()){
+            const x=r.left+f.left,y=r.top+f.top;
+            if(r.width>0&&r.height>0&&x<innerWidth&&x+r.width>0&&y<innerHeight&&y+r.height>0)return {x:Math.max(0,x),y:Math.max(0,y),width:Math.min(r.width,innerWidth-Math.max(0,x)),height:Math.min(r.height,innerHeight-Math.max(0,y))};
+          }return null;
+          """
+        guard let value = try? await web.callAsyncJavaScript(script,arguments: [:],in: nil,contentWorld: .page) as? [String: Double],
+              let x=value["x"],let y=value["y"],let w=value["width"],let h=value["height"], [x,y,w,h].allSatisfy(\.isFinite), w>0,h>0 else { return nil }
+        return NSRect(x: x,y: view.isFlipped ? y : view.bounds.height-y-h,width: w,height: h)
+    }
+    func project(_ annotations: [AnchoredAnnotation]) async {
+        let records = annotations.filter { $0.bookID == bookID && accepts($0.anchor) }
+        if case .pdf(let r) = self { r.projectAnnotations(records); return }
+        if case .epub(let r) = self { await r.projectAnnotations(records); return }
+        guard let web = view as? WKWebView else { return }
+        let items: [[String: Any]] = records.compactMap { record in
+            let data: Data?
+            switch record.anchor { case .text(let a): data=try? JSONEncoder().encode(a);case .ebook(let a): data=try? JSONEncoder().encode(a);case .docx(let a): data=try? JSONEncoder().encode(a);default: data=nil }
+            guard let data,let anchor=try? JSONSerialization.jsonObject(with: data) else { return nil }
+            return ["anchor":anchor,"kind":record.kind.rawValue]
+        }
+        _ = try? await web.callAsyncJavaScript(AnnotationDOM.semantic,arguments: ["items":items],in: nil,contentWorld: .page)
+    }
+}
+
+@MainActor final class AnnotationModel: ObservableObject {
+    @Published private(set) var records: [AnchoredAnnotation] = []
+    @Published var editing: AnchoredAnnotation?
+    @Published var error: String?
+    @Published var status: String?
+    @Published private(set) var saving = false
+    let editor: SavedBodyEditingModel<AnnotationBodySnapshot>
+    let repository: AnnotationRepository
+    let root: URL
+    var reader: AnnotationReader?
+    private var changes: AnyCancellable?
+    private let owner = "annotations:"+UUID().uuidString
+    init(root: URL) {
+        self.root=root; let repository=AnnotationRepository(root: root);self.repository=repository
+        editor=SavedBodyEditingModel(root: root) { note,text in AnnotationBodySnapshot(try await repository.save(expected: note.annotation,text: text)) }
+        changes=editor.objectWillChange.sink { [weak self] in
+            self?.objectWillChange.send()
+            Task { @MainActor [weak self] in self?.updateDraftOwner() }
+        }
+    }
+    var bookRecords: [AnchoredAnnotation] { records.filter { $0.bookID == reader?.bookID } }
+    var bookDrafts: [SavedBodyDraft<AnnotationBodySnapshot>] { editor.drafts.values.filter { draft in draft.baseline.bookID == reader?.bookID && !bookRecords.contains(where: { $0.id == draft.baseline.noteID }) }.sorted { $0.baseline.key<$1.baseline.key } }
+    private func updateDraftOwner() { LibraryMaintenanceOwners.setDraft(root: root,owner: owner,dirty: !editor.drafts.isEmpty || !editor.saving.isEmpty) }
+    func bind(_ reader: AnnotationReader) async { self.reader=reader; updateDraftOwner(); await reload(); await reader.project(records) }
+    func reload() async { do { records=try await repository.load().notes } catch { self.error=error.localizedDescription } }
+    func apply(_ kind: AnnotationKind,anchor: AnnotationAnchor,bookID: UUID,sessionID: UUID) async {
+        guard !saving,let reader,reader.bookID==bookID,reader.sessionID==sessionID,reader.accepts(anchor) else { error="原文来源已经变化，请重新选择。";return }
+        if kind == .note {
+            await reload()
+            let existing=records.first { $0.bookID==bookID && $0.origin == .manual && $0.anchor.isSameSource(as: anchor) }
+            let unsaved=editor.drafts.values.first { $0.baseline.bookID==bookID && $0.baseline.annotation.anchor.isSameSource(as: anchor) }?.baseline.annotation
+            begin(existing ?? unsaved ?? AnchoredAnnotation(bookID: bookID,anchor: anchor,kind: .note));return
+        }
+        // A changed mark type must not silently invalidate an existing comment draft.
+        guard !editor.drafts.values.contains(where: { $0.baseline.bookID==bookID && $0.baseline.annotation.anchor.isSameSource(as: anchor) }) else { error="这段原文有未保存批注，请先保存或取消编辑。";return }
+        saving=true;defer { saving=false }
+        do { _=try await repository.mark(bookID: bookID,anchor: anchor,kind: kind);await reload();if self.reader?.sessionID==sessionID { await reader.project(records) };status=kind.title+"已保存" } catch { self.error=error.localizedDescription }
+    }
+    func begin(_ record: AnchoredAnnotation) { let snapshot=AnnotationBodySnapshot(record);editor.begin(snapshot);editing=editor.drafts[snapshot.key]?.baseline.annotation ?? record;updateDraftOwner() }
+    func save(_ baseline: AnchoredAnnotation) async {
+        let snapshot=AnnotationBodySnapshot(baseline)
+        guard let saved=await editor.save(snapshot) else { return }
+        await reload();if let reader,reader.bookID==saved.bookID { await reader.project(records) }
+        if editing?.id==baseline.id && editor.drafts[snapshot.key]==nil { editing=nil };updateDraftOwner()
+    }
+    func cancel(_ baseline: AnchoredAnnotation) { let snapshot=AnnotationBodySnapshot(baseline);editor.cancel(snapshot);if editor.drafts[snapshot.key]==nil && editing?.id==baseline.id { editing=nil };updateDraftOwner() }
+    func rebase(_ baseline: AnchoredAnnotation) async { await reload();if let fresh=records.first(where: { $0.id==baseline.id }) { editor.rebase(AnnotationBodySnapshot(fresh));editing=fresh } else { editor.reportReloadFailure(AnnotationBodySnapshot(baseline)) } }
+    func navigate(_ record: AnchoredAnnotation) async { guard let reader,reader.bookID==record.bookID,await reader.navigate(record.anchor) else { error="原文无法精确定位；标注和摘录已保留。";return };status="已定位原文" }
+}
+
+struct AnnotationList: View {
+    @ObservedObject var model: AnnotationModel
+    let legacy: () -> Void
+    var body: some View {
+        List {
+            if !model.bookDrafts.isEmpty {
+                Section("未保存批注") { ForEach(model.bookDrafts,id: \.baseline.key) { draft in
+                    Button { model.begin(draft.baseline.annotation) } label: {
+                        VStack(alignment: .leading) { Text(draft.baseline.annotation.anchor.quote).lineLimit(2);Text("继续编辑 · 草稿保留").font(.caption).foregroundStyle(.secondary) }
+                    }.accessibilityIdentifier("annotation-resume-draft")
+                } }
+            }
+            Section("当前文档标注") {
+                if model.bookRecords.isEmpty { Text("选中文字后，在浮动工具条添加高亮、下划线或笔记。").foregroundStyle(.secondary) }
+                ForEach(model.bookRecords) { record in
+                    Button { Task { await model.navigate(record) } } label: {
+                        VStack(alignment: .leading,spacing: 8) {
+                            Label(record.kind.title,systemImage: record.kind.symbol).font(.caption).foregroundStyle(.secondary)
+                            Text(verbatim: record.anchor.quote).lineLimit(5).accessibilityIdentifier("annotation-excerpt")
+                            if model.editor.drafts[AnnotationBodySnapshot(record).key] != nil { Text("未保存批注 · 右键继续编辑").font(.caption).foregroundStyle(.orange) }
+                            if !record.userText.isEmpty { Text(verbatim: record.userText).foregroundStyle(.secondary).accessibilityIdentifier("annotation-comment") }
+                        }.padding(.vertical,6).frame(maxWidth: .infinity,alignment: .leading).contentShape(Rectangle())
+                    }.buttonStyle(.plain).accessibilityIdentifier("annotation-row-"+record.id.uuidString)
+                        .contextMenu { Button("编辑批注") { model.begin(record) }.accessibilityIdentifier("annotation-context-edit") }
+                        .onTapGesture(count: 2) { model.begin(record) }
+                }
+            }
+            Section { Button("旧笔记与学习记录",action: legacy).accessibilityIdentifier("annotation-legacy-records") }
+            if let status=model.status { Text(status).font(.caption).accessibilityIdentifier("annotation-status") }
+        }.accessibilityIdentifier("annotation-list")
+    }
+}
+
+struct AnnotationEditor: View {
+    @ObservedObject var model: AnnotationModel
+    let baseline: AnchoredAnnotation
+    private var snapshot: AnnotationBodySnapshot { AnnotationBodySnapshot(baseline) }
+    var body: some View {
+        VStack(alignment: .leading,spacing: 14) {
+            Label("编辑批注",systemImage: "note.text").font(.headline)
+            Text(baseline.anchor.quote).lineLimit(5).padding(10).frame(maxWidth: .infinity,alignment: .leading).background(.quaternary,in: RoundedRectangle(cornerRadius: 8))
+            NativeNoteBodyInput(text: Binding(get: { model.editor.drafts[snapshot.key]?.text ?? baseline.userText },set: { model.editor.setText($0,for: snapshot) }),identifier: "annotation-comment-input",enabled: !model.editor.saving.contains(snapshot.key)).frame(height: 168).id(snapshot.key)
+            Text("未保存草稿会保留；留空可清除批注，原文标记保留。").font(.caption).foregroundStyle(.secondary)
+            if let feedback=model.editor.feedback[snapshot.key] { Text(feedback).font(.caption).accessibilityIdentifier("annotation-editor-status") }
+            if let error=model.editor.journalError { Text(error).foregroundStyle(.red) }
+            HStack {
+                Button("保留草稿并关闭") { model.editing=nil }.disabled(model.editor.saving.contains(snapshot.key)).accessibilityIdentifier("annotation-editor-close")
+                Spacer()
+                Button("取消编辑") { model.cancel(baseline) }.disabled(model.editor.saving.contains(snapshot.key)).accessibilityIdentifier("annotation-editor-cancel")
+                Button("保存批注") { Task { await model.save(baseline) } }.buttonStyle(.borderedProminent)
+                    .disabled(model.editor.saving.contains(snapshot.key) || !(model.editor.drafts[snapshot.key]?.baseline.accepts(model.editor.drafts[snapshot.key]?.text ?? "") ?? false)).accessibilityIdentifier("annotation-editor-save")
+            }
+            if model.editor.conflicts.contains(snapshot.key) { Button("重新载入基线，保留草稿") { Task { await model.rebase(baseline) } } }
+        }.padding(20).frame(width: 480).interactiveDismissDisabled(model.editor.saving.contains(snapshot.key))
+    }
+}
+
+struct AnnotationExperience: ViewModifier {
+    @ObservedObject var model: AnnotationModel
+    let reader: AnnotationReader
+    func body(content: Content) -> some View {
+        content.background(AnnotationSelectionMonitor(model: model).frame(width: 0,height: 0))
+            .task(id: reader.sessionID.uuidString+String(reader.ready)) { if reader.ready { await model.bind(reader) } }
+            .sheet(item: $model.editing) { AnnotationEditor(model: model,baseline: $0) }
+            .alert("标注未完成",isPresented: Binding(get: { model.error != nil },set: { if !$0 { model.error=nil } })) { Button("知道了") { model.error=nil } } message: { Text(model.error ?? "") }
+    }
+}
+extension View { func annotationExperience(_ model: AnnotationModel,reader: AnnotationReader) -> some View { modifier(AnnotationExperience(model: model,reader: reader)) } }
+
+private struct AnnotationSelectionMonitor: NSViewRepresentable {
+    let model: AnnotationModel
+    func makeNSView(context: Context) -> AnnotationGestureHost { AnnotationGestureHost(model: model) }
+    func updateNSView(_ view: AnnotationGestureHost,context: Context) { view.refresh(model) }
+    static func dismantleNSView(_ view: AnnotationGestureHost,coordinator: ()) { view.stop() }
+}
+@MainActor private final class AnnotationGestureHost: NSView {
+    private weak var model: AnnotationModel?
+    private var monitor: Any?
+    private var resizeObserver: AnyCancellable?
+    private var scope: String?
+    private var pending: Task<Void,Never>?
+    private let popover=NSPopover()
+    init(model: AnnotationModel) {
+        self.model=model;super.init(frame: .zero);popover.behavior = .transient
+        resizeObserver=NotificationCenter.default.publisher(for: NSWindow.didResizeNotification).receive(on: RunLoop.main).sink { [weak self] notification in
+            guard let self,notification.object as? NSWindow === self.model?.reader?.view?.window else { return }
+            self.pending?.cancel();self.popover.close()
+        }
+        monitor=NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown,.leftMouseUp,.scrollWheel,.keyDown]) { [weak self] event in self?.observe(event);return event }
+    }
+    required init?(coder: NSCoder) { fatalError("Programmatic host only") }
+    func refresh(_ model: AnnotationModel) { let next=model.reader?.scopeID;if scope != next { pending?.cancel();popover.close();scope=next };self.model=model }
+    func stop() { pending?.cancel();popover.close();popover.contentViewController=nil;resizeObserver?.cancel();resizeObserver=nil;if let monitor { NSEvent.removeMonitor(monitor) };monitor=nil }
+    private func observe(_ event: NSEvent) {
+        guard let model,let reader=model.reader,let view=reader.view,let window=view.window,event.window===window,window.isKeyWindow else { return }
+        if event.type != .leftMouseUp { pending?.cancel();popover.close();return }
+        guard let content=window.contentView,let hit=content.hitTest(content.convert(event.locationInWindow,from: nil)),hit===view || hit.isDescendant(of: view) else { return }
+        let session=reader.sessionID;pending?.cancel()
+        pending=Task { [weak self,weak model,weak view] in
+            try? await Task.sleep(for: .milliseconds(120))
+            guard !Task.isCancelled,let self,let model,let view,model.reader?.sessionID==session,let bookID=reader.bookID,
+                  let anchor=await reader.capture(),reader.accepts(anchor),let rect=await reader.selectionRect(),!Task.isCancelled,
+                  model.reader?.sessionID==session,view.window?.isKeyWindow==true else { return }
+            self.popover.contentViewController=NSHostingController(rootView: HStack(spacing: 12) {
+                ForEach(AnnotationKind.allCases,id: \.self) { kind in
+                    Button { self.popover.close();Task { await model.apply(kind,anchor: anchor,bookID: bookID,sessionID: session) } } label: { Label(kind.title,systemImage: kind.symbol) }
+                        .buttonStyle(.borderless).accessibilityIdentifier("selection-annotation-"+kind.rawValue)
+                }
+            }.padding(12))
+            self.popover.show(relativeTo: rect,of: view,preferredEdge: view.isFlipped ? .minY : .maxY)
+        }
+    }
+}
+#endif

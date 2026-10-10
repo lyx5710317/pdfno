@@ -118,9 +118,9 @@ public struct LibraryWorkspace: View {
     }
     @ViewBuilder private var readerContent: some View {
         #if os(macOS)
-        if model.ebook.isActive { EbookWorkspace(model: model.ebook, editing: model.recordEditing) }
-        else if model.textFormats.isActive { TextFormatWorkspace(model: model.textFormats, editing: model.recordEditing) }
-        else if model.docx.isActive { DOCXWorkspace(model: model.docx) }
+        if model.ebook.isActive { EbookWorkspace(model: model.ebook, editing: model.recordEditing, annotations: model.annotations) }
+        else if model.textFormats.isActive { TextFormatWorkspace(model: model.textFormats, editing: model.recordEditing, annotations: model.annotations) }
+        else if model.docx.isActive { DOCXWorkspace(model: model.docx, annotations: model.annotations) }
         else if model.readingComic { ComicWorkspace(session: model.comic, close: { model.closeComic() }) }
         else if model.readingEPUB { EPUBWorkspace(model: model, session: model.epub) }
         else { ReaderWorkspace(model: model, session: model.reader) }
@@ -367,9 +367,9 @@ public struct LibraryWorkspace: View {
             .navigationSplitViewColumnWidth(min: PDFnoDesign.Metric.sidebarMinimum, ideal: PDFnoDesign.Metric.sidebarIdeal, max: PDFnoDesign.Metric.sidebarMaximum)
         } detail: {
             #if os(macOS)
-            if model.ebook.isActive { EbookWorkspace(model: model.ebook, editing: model.recordEditing) }
-            else if model.textFormats.isActive { TextFormatWorkspace(model: model.textFormats, editing: model.recordEditing) }
-            else if model.docx.isActive { DOCXWorkspace(model: model.docx) }
+            if model.ebook.isActive { EbookWorkspace(model: model.ebook, editing: model.recordEditing, annotations: model.annotations) }
+            else if model.textFormats.isActive { TextFormatWorkspace(model: model.textFormats, editing: model.recordEditing, annotations: model.annotations) }
+            else if model.docx.isActive { DOCXWorkspace(model: model.docx, annotations: model.annotations) }
             else if model.readingComic { ComicWorkspace(session: model.comic, close: { model.closeComic() }) }
             else if model.readingEPUB { EPUBWorkspace(model: model, session: model.epub) }
             else { ReaderWorkspace(model: model, session: model.reader) }
@@ -511,6 +511,7 @@ struct ReaderWorkspace: View {
     @State private var searched = false
     @State private var draft = ""
     #if os(macOS)
+    @State private var legacyNotes = false
     @State private var inspector = PDFnoReaderInspector.notes
     @State private var navigationTab = PDFnoReaderNavigationTab.contents
     @State private var readerSettings = false
@@ -558,7 +559,7 @@ struct ReaderWorkspace: View {
                             if inspector == .learning {
                                 ReadingSelectionWorkspace(library: model) { panels.notes = false }
                             } else {
-                                PDFnoPanel(title: "高亮与笔记", icon: "highlighter", closeIdentifier: "close-notes", close: closeNotes) { notesContent }
+                                PDFnoPanel(title: "文档标注", icon: "note.text", closeIdentifier: "close-notes", close: closeNotes) { notesContent }
                             }
                         }
                         .background {
@@ -616,6 +617,10 @@ struct ReaderWorkspace: View {
         .sheet(isPresented: $japaneseLearning) { JapaneseLearningSheet(library: model) }
         .sheet(isPresented: $readerSettings) { AISettingsView(learning: model.learning, byok: model.byok, library: model) }
         .sheet(isPresented: $pageTranslation) { PDFPageTranslationWorkspace(library: model, translation: model.pageTranslation, learning: model.learning) }
+        #if os(macOS)
+        .annotationExperience(model.annotations,reader: .pdf(session))
+        .sheet(isPresented: $legacyNotes) { NavigationStack { List { savedNotesContent }.navigationTitle("旧笔记与学习记录").toolbar { ToolbarItem { Button("完成") { legacyNotes = false } } } } }
+        #endif
         .sheet(isPresented: $byokLearning) { BYOKLearningWorkspace(library: model, model: model.byok) }
         .sheet(isPresented: $aiTools) { ReadingToolsWorkspace(library: model) }
         #endif
@@ -656,7 +661,12 @@ struct ReaderWorkspace: View {
         navigationTab = .contents; searchFocused = false
         #endif
     }
-    private func closeNotes() { notesPanel = false; panels.notes = false }
+    private func closeNotes() {
+        #if os(macOS)
+        legacyNotes = false
+        #endif
+        notesPanel = false; panels.notes = false
+    }
     private var navigationSheet: some View {
         NavigationStack {
             navigationContent.navigationTitle("导航与搜索")
@@ -799,7 +809,7 @@ struct ReaderWorkspace: View {
     #endif
     #if os(macOS)
     private var selectionActions: some View {
-        ReadingSelectionActions(includeNote: false, available: session.capturedSelection != nil, busy: model.hasDocumentSaveInFlight,
+        ReadingSelectionActions(includeNote: false, includeHighlight: false, available: session.capturedSelection != nil, busy: model.hasDocumentSaveInFlight,
             highlight: { session.captureSelection(); if let anchor = session.capturedSelection { _ = model.savePDFNoteImmediately(anchor: anchor, text: "") } },
             note: { session.captureSelection(); inspector = .notes; panels.show(.notes, profile: .professional) },
             translate: { openSelection(.translate) }, explain: { openSelection(.explain) },
@@ -819,13 +829,7 @@ struct ReaderWorkspace: View {
     }
     private var notesContent: some View {
         #if os(macOS)
-        VStack(spacing: 0) {
-            PDFNoteComposer(anchor: session.capturedSelection, draft: $draft, enabled: !model.storageMaintenance) { anchor, text in
-                model.savePDFNoteImmediately(anchor: anchor, text: text)
-            }
-            Divider()
-            List { savedNotesContent }.accessibilityIdentifier("pdf-notes-list")
-        }.font(PDFnoDesign.TypeStyle.body)
+        AnnotationList(model: model.annotations,legacy: { legacyNotes = true })
         #else
         List {
             Section("当前选区") {

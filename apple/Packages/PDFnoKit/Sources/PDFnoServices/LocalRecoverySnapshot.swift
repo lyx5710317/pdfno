@@ -15,7 +15,7 @@ struct RecoverySnapshot {
 }
 enum RecoveryFiles {
     static let stateName = "local-recovery-v1.json"
-    static let drafts = ["note-edit-drafts-v1.json", "record-edit-drafts-v1.json"]
+    static let drafts = ["note-edit-drafts-v1.json", "record-edit-drafts-v1.json", AnnotationBodySnapshot.draftFilename]
     static let formats: Set<String> = ["pdf", "epub", "cbz", "cbt", "cb7", "cbr", "docx", "txt", "markdown", "html", "xhtml", "mhtml", "xml", "mobi", "azw", "azw3", "fb2"]
     static func safePath(_ value: String) -> Bool {
         let parts = value.split(separator: "/", omittingEmptySubsequences: false)

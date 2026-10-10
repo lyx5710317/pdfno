@@ -54,6 +54,7 @@ public final class LibraryModel: ObservableObject {
     var documentVisibleDrafts: Set<String> = []
     @Published var japaneseStoreError: String?
     lazy var japaneseLearning = makeJapaneseLearningModel()
+    let annotations: AnnotationModel
     let recordRoot: URL
     lazy var recordEditing = RecordEditingAdapter(root: recordRoot, library: self)
     let byok: BYOKSettingsModel
@@ -102,6 +103,7 @@ public final class LibraryModel: ObservableObject {
         textFormats = TextFormatLibraryModel(root: root)
         booknoPreview = BooknoPreviewModel(repository: BooknoLibraryPreviewRepository(root: root))
         ebook = EbookLibraryModel(root: root)
+        annotations = AnnotationModel(root: root)
         recordRoot = root
         #if DEBUG
         if let learningTransport {
@@ -191,6 +193,7 @@ public final class LibraryModel: ObservableObject {
     }
     func reloadStoredLibrary() async {
         #if os(macOS)
+        await annotations.reload()
         comic.persist = { [weak self, comicRepository, gate = storeWriteGate, epoch = storeWriteGate.snapshot.epoch] bookID, progress in
             guard let self, !storageMaintenance, readingComic, comic.book?.id == bookID else { throw ComicError.cancelled }
             let operation = try gate.beginWrite(expectedEpoch: epoch); defer { operation.finish() }

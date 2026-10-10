@@ -9,17 +9,17 @@ public struct DOCXWorkspace: View {
     @ObservedObject var session: DOCXReaderSession
     @State private var navigation = false
     @State private var notes = false
-    @State private var draft = ""
-    @State private var draftOwner = UUID().uuidString
-    @State private var captured: DOCXAnchor?
-    public init(model: DOCXLibraryModel) { self.model = model; session = model.reader }
+    @State private var legacyNotes = false
+    @StateObject private var annotations: AnnotationModel
+    public init(model: DOCXLibraryModel) { self.model = model; session = model.reader; _annotations = StateObject(wrappedValue: AnnotationModel(root: model.storageRoot)) }
+    init(model: DOCXLibraryModel, annotations: AnnotationModel) { self.model = model; session = model.reader; self._annotations = StateObject(wrappedValue: annotations) }
     public var body: some View {
         VStack(spacing: 0) {
             PDFnoProfessionalReaderChrome(title: session.book?.title ?? "文档", format: "") {} actions: {
                 PDFnoReaderRailButton(title: "目录", symbol: "list.bullet", identifier: "docx-navigation", active: navigation, disabled: !session.ready) { navigation.toggle(); notes = false }
                 PDFnoReaderRailButton(title: "笔记", symbol: "note.text", identifier: "docx-notes", active: notes, disabled: !session.ready) {
                     if notes { notes = false } else {
-                        Task { if draft.isEmpty { captured = await session.captureSelection() }; notes = true; navigation = false }
+                        notes.toggle(); navigation = false
                     }
                 }
                 Menu {
@@ -53,10 +53,10 @@ VStack(alignment: .leading, spacing: 4) {
                 } navigation: { navigationSheet } notes: { notesSheet }
             }
         }
+        .annotationExperience(annotations,reader: .docx(session))
+        .sheet(isPresented: $legacyNotes) { legacyNotesSheet }
         .navigationTitle(session.book?.title ?? "DOCX")
 
-        .onChange(of: draft) { _, value in LibraryMaintenanceOwners.setDraft(root: model.storageRoot, owner: draftOwner, dirty: !value.isEmpty) }
-        .onDisappear { LibraryMaintenanceOwners.setDraft(root: model.storageRoot, owner: draftOwner, dirty: false) }
         .onChange(of: session.progress) { _, anchor in if let anchor { Task { await model.saveProgress(anchor) } } }
 
         .alert("操作未完成", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
@@ -83,16 +83,10 @@ VStack(alignment: .leading, spacing: 4) {
             }.navigationTitle("标题目录").toolbar { ToolbarItem { Button("完成") { navigation = false } } }
         }
     }
-    private var notesSheet: some View {
+    private var notesSheet: some View { AnnotationList(model: annotations,legacy: { legacyNotes = true }) }
+    private var legacyNotesSheet: some View {
         NavigationStack {
             List {
-                Section("当前选文") {
-                    if let anchor = captured {
-                        Text(anchor.quote).textSelection(.enabled).accessibilityIdentifier("docx-selection")
-                        TextField("写下笔记（可选）", text: $draft, axis: .vertical).lineLimit(3...8).accessibilityIdentifier("docx-user-note")
-                        Button("保存选文与笔记") { Task { if await model.saveNote(anchor, text: draft) { draft = "" } } }.accessibilityIdentifier("docx-save-note")
-                    } else { Text("先在 DOCX 正文中选择文字。最多保存 16000 个 UTF-16 字元。").accessibilityIdentifier("docx-selection-empty") }
-                }
                 Section("已保存 · 本地") {
                     let saved = model.notes.filter { $0.bookID == session.book?.id }
                     if saved.isEmpty { Text("这份文档还没有笔记") }
@@ -101,13 +95,13 @@ VStack(alignment: .leading, spacing: 4) {
                             Text(note.anchor.quote).font(.callout).accessibilityIdentifier("docx-saved-quote")
                             if !note.userText.isEmpty { Text(note.userText).foregroundStyle(.secondary).accessibilityIdentifier("docx-saved-user-note") }
                             Button("回到原文 · 段落 \(note.anchor.blockID + 1)") { Task {
-                                if await session.navigate(to: note.anchor) { notes = false }
+                                if await session.navigate(to: note.anchor) { legacyNotes = false }
                                 else { model.error = DOCXError.sourceMismatch.localizedDescription }
                             } }.accessibilityIdentifier("docx-return")
                         }.padding(.vertical, 4)
                     }
                 }
-            }.navigationTitle("选文与笔记").toolbar { ToolbarItem { Button("完成") { notes = false } } }
+            }.navigationTitle("选文与笔记").toolbar { ToolbarItem { Button("完成") { legacyNotes = false } } }
         }
     }
 }

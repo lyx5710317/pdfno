@@ -284,9 +284,9 @@ struct MacDocumentReader: View {
     var workspaceClose: (() -> Void)? = nil
     var body: some View {
         Group {
-            if model.ebook.isActive { EbookWorkspace(model: model.ebook, editing: model.recordEditing) }
-            else if model.textFormats.isActive { TextFormatWorkspace(model: model.textFormats, editing: model.recordEditing) }
-            else if model.docx.isActive { DOCXWorkspace(model: model.docx) }
+            if model.ebook.isActive { EbookWorkspace(model: model.ebook, editing: model.recordEditing, annotations: model.annotations) }
+            else if model.textFormats.isActive { TextFormatWorkspace(model: model.textFormats, editing: model.recordEditing, annotations: model.annotations) }
+            else if model.docx.isActive { DOCXWorkspace(model: model.docx, annotations: model.annotations) }
             else if model.readingComic { ComicWorkspace(session: model.comic, close: { workspaceClose?() }) }
             else if model.readingEPUB { EPUBWorkspace(model: model, session: model.epub) }
             else { ReaderWorkspace(model: model, session: model.reader) }

@@ -12,6 +12,7 @@ struct EPUBWorkspace: View {
     @State private var inspector = PDFnoReaderInspector.notes
     @State private var readerWidth: CGFloat = 0
     @State private var readerSettings = false
+    @State private var legacyNotes = false
     @State private var draft = ""
     @State private var draftAnchor: EPUBAnchor?
     @State private var chapterTranslation = false
@@ -28,12 +29,14 @@ struct EPUBWorkspace: View {
                 Button { Task { _ = await session.command("next") } } label: { Label("下一页", systemImage: "chevron.right") }
                     .disabled(session.book == nil || session.busy).accessibilityIdentifier("epub-next")
                 EPUBReturnToPreviousLocationButton(session: session)
+                if session.writingLanguage.permitsVerticalReflow {
                 Button { Task { _ = await session.command("vertical") } } label: {
                     Label(session.vertical ? "横排" : "竖排", systemImage: session.vertical ? "text.alignleft" : "textformat.abc")
                 }.accessibilityIdentifier("epub-orientation")
                     .accessibilityLabel(session.vertical ? "切换为横排" : "切换为竖排")
                     .accessibilityValue(session.vertical ? "当前竖排" : "当前横排")
                     .help(session.vertical ? "恢复横排连续滚动" : "竖排上下连续滚动")
+                }
             } actions: { professionalActions } content: {
                 PDFnoReaderShell(panels: panels, profile: .professional) {
                     VStack(spacing: 0) {
@@ -45,7 +48,7 @@ struct EPUBWorkspace: View {
                     if inspector == .learning {
                         ReadingSelectionWorkspace(library: model) { panels.notes = false }
                     } else {
-                        PDFnoPanel(title: "高亮与笔记", icon: "highlighter", closeIdentifier: "epub-close-notes", close: closeNotes) { notesContent }
+                        PDFnoPanel(title: "文档标注", icon: "note.text", closeIdentifier: "epub-close-notes", close: closeNotes) { notesContent }
                     }
                 }.background {
                     GeometryReader { geometry in
@@ -62,6 +65,8 @@ struct EPUBWorkspace: View {
                 .background(PDFnoDesign.Palette.chrome)
             if let error = session.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "epub-error") }
         }.navigationTitle(session.book?.title ?? "EPUB")
+        .annotationExperience(model.annotations,reader: .epub(session))
+        .sheet(isPresented: $legacyNotes) { NavigationStack { legacyNotesContent.navigationTitle("旧笔记与学习记录").toolbar { ToolbarItem { Button("完成") { legacyNotes = false } } } } }
         .overlay { if session.busy { PDFnoStatusMessage(text: "正在排版…", kind: .busy).frame(maxWidth: 320).pdfnoCard() } }
         .onChange(of: session.progress) { _, anchor in if let anchor { Task { await model.saveEPUBProgress(anchor) } } }
         .sheet(isPresented: $chapterTranslation) { EPUBChapterTranslationWorkspace(library: model, translation: model.chapterTranslation, learning: model.learning) }
@@ -79,7 +84,7 @@ struct EPUBWorkspace: View {
     }
     private var contentsVisible: Bool { panels.placement(width: readerWidth, profile: .professional).showNavigation }
     private var notesVisible: Bool { panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .notes }
-    private func closeNotes() { panels.notes = false }
+    private func closeNotes() { legacyNotes = false; panels.notes = false }
     private func openNotes() {
         if inspector == .notes { panels.toggle(.notes, width: readerWidth, profile: .professional) }
         else { inspector = .notes; panels.show(.notes, profile: .professional) }
@@ -97,7 +102,7 @@ struct EPUBWorkspace: View {
         }
     }
     private var selectionActions: some View {
-        ReadingSelectionActions(includeNote: false, available: session.selection != nil && !session.busy, busy: model.hasDocumentSaveInFlight,
+        ReadingSelectionActions(includeNote: false, includeHighlight: false, available: session.selection != nil && !session.busy, busy: model.hasDocumentSaveInFlight,
             highlight: { if let anchor = session.selection { Task { _ = await model.saveEPUBNote(anchor, text: "") } } },
             note: { inspector = .notes; panels.show(.notes, profile: .professional) },
             translate: { openSelection(.translate) }, explain: { openSelection(.explain) },
@@ -118,21 +123,9 @@ struct EPUBWorkspace: View {
             }
         }.listStyle(.sidebar).font(PDFnoDesign.TypeStyle.body)
     }
-    private var notesContent: some View {
+    private var notesContent: some View { AnnotationList(model: model.annotations,legacy: { legacyNotes = true }) }
+    private var legacyNotesContent: some View {
         List {
-            Section("当前选区") {
-                if let anchor = draftAnchor ?? session.selection {
-                    PDFnoTextViewport(text: anchor.quote, identifier: "epub-selection")
-                    TextField("写下你的笔记（可选）", text: $draft, axis: .vertical)
-                        .lineLimit(3...8).accessibilityIdentifier("epub-note-input")
-                    if !draft.isEmpty { PDFnoStatusMessage(text: "草稿未保存 · 关闭面板会保留，保存成功后清空") }
-                    if draftAnchor != nil && draftAnchor != session.selection {
-                        Text("此草稿引用上方已固定的原文；新的选区不会替换草稿来源。").font(.caption).foregroundStyle(.secondary)
-                    }
-                    Button("保存高亮与笔记") { Task { if await model.saveEPUBNote(anchor, text: draft) { draft = "" } } }
-                        .buttonStyle(PDFnoActionStyle(role: .primary)).accessibilityIdentifier("epub-save-note")
-                } else { PDFnoEmptyState(title: "尚未选择原文", detail: "在原文中选择文字，再打开这里。正文定位保留作者 ruby。") }
-            }
             Section("已保存 · 本地") {
                 let savedNotes = model.epubNotes.filter { $0.bookID == session.book?.id }
                 if savedNotes.isEmpty { PDFnoEmptyState(title: "这本书还没有笔记", detail: "选择原文后保存高亮或笔记；来源会随记录保留。", icon: "note.text") }
