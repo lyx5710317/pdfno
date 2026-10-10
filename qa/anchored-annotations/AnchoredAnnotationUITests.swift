@@ -93,6 +93,9 @@ final class AnchoredAnnotationUITests: XCTestCase {
         XCTAssertTrue(item("annotation-resume-draft",app).waitForExistence(timeout: 10));XCTAssertEqual(rows(app).count,0)
         try click(item("annotation-resume-draft",app));XCTAssertEqual(item("annotation-comment-input",app).value as? String,body)
         try shot("AN-04-narrow-dark-editor",app);try click(item("annotation-editor-save",app))
+        // Save is asynchronous; observe committed UI before the original count assertion.
+        let completed=expectation(for: NSPredicate { _,_ in !self.item("annotation-comment-input",app).exists && self.rows(app).count==1 },evaluatedWith: app)
+        wait(for: [completed],timeout: 10)
         XCTAssertEqual(rows(app).count,1);try shot("AN-05-narrow-dark-list",app)
         try click(rows(app).firstMatch);try click(item("epub-close-notes",app));app.terminate();app.launch();app.activate()
         try click(item("workspace-help",app));try click(item("open-epub-sample",app))
