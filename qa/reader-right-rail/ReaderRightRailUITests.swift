@@ -160,7 +160,8 @@ final class ReaderRightRailUITests: XCTestCase {
         // PDFKit exposes the actual native scroll view through its document child,
         // rather than the representable's private NSView identifier.
         let views = app.scrollViews.allElementsBoundByIndex.filter {
-            $0.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "document")).firstMatch.exists
+            $0.frame.width > 120 && $0.frame.height > 120 &&
+            $0.children(matching: .any).matching(NSPredicate(format: "label == %@", "document")).firstMatch.exists
         }
         XCTAssertEqual(views.count, 1, "Use the unique native PDF document scroller")
         return try XCTUnwrap(views.first)
