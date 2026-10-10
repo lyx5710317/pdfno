@@ -48,8 +48,8 @@ final class AnchoredAnnotationUITests: XCTestCase {
     @MainActor private func rows(_ app: XCUIApplication) -> XCUIElementQuery {
         app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'annotation-row-'"))
     }
-    @MainActor private func paste(_ value: String,_ app: XCUIApplication) throws {
-        try click(item("annotation-comment-input",app))
+    @MainActor private func paste(_ value: String,_ app: XCUIApplication,focus: Bool = true) throws {
+        if focus { try click(item("annotation-comment-input",app)) }
         NSPasteboard.general.clearContents();NSPasteboard.general.setString(value,forType: .string)
         app.typeKey("v",modifierFlags: .command)
         let input=item("annotation-comment-input",app)
@@ -78,7 +78,7 @@ final class AnchoredAnnotationUITests: XCTestCase {
         XCTAssertEqual(rows(app).count,1);XCTAssertEqual(rows(app).firstMatch.identifier,originalID)
         XCTAssertTrue(item("annotation-comment",app).waitForExistence(timeout: 10))
         rows(app).firstMatch.rightClick();try click(item("annotation-context-edit",app))
-        try click(item("annotation-comment-input",app));app.typeKey("a",modifierFlags: .command);try paste("Cancelled original edit",app)
+        try click(item("annotation-comment-input",app));app.typeKey("a",modifierFlags: .command);try paste("Cancelled original edit",app,focus: false)
         try click(item("annotation-editor-cancel",app));XCTAssertEqual(rows(app).count,1)
         try shot("AN-03-wide-annotation-list",app);try click(rows(app).firstMatch)
         let status=item("annotation-status",app);XCTAssertTrue(status.waitForExistence(timeout: 10));XCTAssertTrue((status.label+(status.value as? String ?? "")).contains("已定位原文"))

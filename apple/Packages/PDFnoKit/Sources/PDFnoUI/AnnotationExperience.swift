@@ -154,14 +154,20 @@ struct AnnotationList: View {
             Section("当前文档标注") {
                 if model.bookRecords.isEmpty { Text("选中文字后，在浮动工具条添加高亮、下划线或笔记。").foregroundStyle(.secondary) }
                 ForEach(model.bookRecords) { record in
-                    Button { Task { await model.navigate(record) } } label: {
-                        VStack(alignment: .leading,spacing: 8) {
-                            Label(record.kind.title,systemImage: record.kind.symbol).font(.caption).foregroundStyle(.secondary)
-                            Text(verbatim: record.anchor.quote).lineLimit(5).accessibilityIdentifier("annotation-excerpt")
-                            if model.editor.drafts[AnnotationBodySnapshot(record).key] != nil { Text("未保存批注 · 右键继续编辑").font(.caption).foregroundStyle(.orange) }
-                            if !record.userText.isEmpty { Text(verbatim: record.userText).foregroundStyle(.secondary).accessibilityIdentifier("annotation-comment") }
-                        }.padding(.vertical,6).frame(maxWidth: .infinity,alignment: .leading).contentShape(Rectangle())
-                    }.buttonStyle(.plain).accessibilityIdentifier("annotation-row-"+record.id.uuidString)
+                    VStack(alignment: .leading,spacing: 8) {
+                        Button { Task { await model.navigate(record) } } label: {
+                            VStack(alignment: .leading,spacing: 8) {
+                                Label(record.kind.title,systemImage: record.kind.symbol).font(.caption).foregroundStyle(.secondary)
+                                Text(verbatim: record.anchor.quote).lineLimit(5).accessibilityIdentifier("annotation-excerpt")
+                            }.frame(maxWidth: .infinity,alignment: .leading).contentShape(Rectangle())
+                        }.buttonStyle(.plain).accessibilityIdentifier("annotation-row-"+record.id.uuidString)
+                        if model.editor.drafts[AnnotationBodySnapshot(record).key] != nil { Text("未保存批注 · 右键继续编辑").font(.caption).foregroundStyle(.orange) }
+                        if !record.userText.isEmpty {
+                            Text(verbatim: record.userText).foregroundStyle(.secondary).accessibilityIdentifier("annotation-comment")
+                                .contentShape(Rectangle()).onTapGesture { Task { await model.navigate(record) } }
+                        }
+                    }.padding(.vertical,6).frame(maxWidth: .infinity,alignment: .leading).contentShape(Rectangle())
+                        .accessibilityElement(children: .contain)
                         .contextMenu { Button("编辑批注") { model.begin(record) }.accessibilityIdentifier("annotation-context-edit") }
                         .onTapGesture(count: 2) { model.begin(record) }
                 }
