@@ -22,6 +22,7 @@ struct ComicWorkspace: View {
                 Button("关闭漫画") { close() }.accessibilityIdentifier("comic-close")
             }.padding(10)
                 } label: { Image(systemName: "slider.horizontal.3") }.help("漫画页面设置").accessibilityLabel("漫画页面设置").accessibilityIdentifier("comic-settings")
+                    .accessibilityValue(settingsSummary)
             } actions: {
                 PDFnoReaderRailButton(title: "页面", symbol: "list.bullet", identifier: "comic-pages", active: pages, disabled: session.book == nil) { pages.toggle() }
             } content: {
@@ -36,6 +37,11 @@ struct ComicWorkspace: View {
             if let error = session.error { Text(error).foregroundStyle(.red).padding().accessibilityIdentifier("comic-error") }
         }.navigationTitle(session.book?.title ?? "漫画")
         .overlay { if session.busy { ProgressView("正在打开漫画…").padding().background(.regularMaterial) } }
+    }
+    private var settingsSummary: String {
+        let layout: String
+        switch session.layout { case .automatic: layout = "自动"; case .single: layout = "单页"; case .double: layout = "双页" }
+        return layout + "，" + (session.direction == .rightToLeft ? "从右到左" : "从左到右")
     }
     private var readerPanels: PDFnoReaderPanels {
         var result = PDFnoReaderPanels()

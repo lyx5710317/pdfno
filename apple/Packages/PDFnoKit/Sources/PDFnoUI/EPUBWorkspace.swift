@@ -63,7 +63,7 @@ struct EPUBWorkspace: View {
             if let error = session.error { PDFnoStatusMessage(text: error, kind: .error, identifier: "epub-error") }
         }.navigationTitle(session.book?.title ?? "EPUB")
         .annotationExperience(model.annotations,reader: .epub(session),aiLibrary: model)
-        .sheet(isPresented: $legacyNotes) { NavigationStack { legacyNotesContent.navigationTitle("旧笔记与学习记录").toolbar { ToolbarItem { Button("完成") { legacyNotes = false } } } } }
+        .sheet(isPresented: $legacyNotes) { NavigationStack { legacyNotesContent.navigationTitle("旧笔记与学习记录").toolbar { ToolbarItem { Button("完成") { legacyNotes = false }.accessibilityIdentifier("legacy-notes-close") } } } }
         .overlay { if session.busy { PDFnoStatusMessage(text: "正在排版…", kind: .busy).frame(maxWidth: 320).pdfnoCard() } }
         .onChange(of: session.progress) { _, anchor in if let anchor { Task { await model.saveEPUBProgress(anchor) } } }
         .sheet(isPresented: $chapterTranslation) { EPUBChapterTranslationWorkspace(library: model, translation: model.chapterTranslation, learning: model.learning) }
@@ -116,6 +116,7 @@ struct EPUBWorkspace: View {
     }
     private var contentsContent: some View {
         List {
+            EPUBReturnToPreviousLocationButton(session: session)
             if session.outline.isEmpty { PDFnoEmptyState(title: "此 EPUB 没有内置目录", detail: "仍可在正文中继续滚动阅读。") }
             ForEach(session.outline) { item in
                 Button { Task { if await session.jump(to: item) { panels.navigation = false } } } label: {

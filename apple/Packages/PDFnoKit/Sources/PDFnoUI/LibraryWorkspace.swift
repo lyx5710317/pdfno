@@ -616,7 +616,7 @@ struct ReaderWorkspace: View {
         .sheet(isPresented: $pageTranslation) { PDFPageTranslationWorkspace(library: model, translation: model.pageTranslation, learning: model.learning) }
         #if os(macOS)
         .annotationExperience(model.annotations,reader: .pdf(session),aiLibrary: model)
-        .sheet(isPresented: $legacyNotes) { NavigationStack { List { savedNotesContent }.navigationTitle("旧笔记与学习记录").toolbar { ToolbarItem { Button("完成") { legacyNotes = false } } } } }
+        .sheet(isPresented: $legacyNotes) { NavigationStack { List { savedNotesContent }.accessibilityIdentifier("pdf-notes-list").navigationTitle("旧笔记与学习记录").toolbar { ToolbarItem { Button("完成") { legacyNotes = false }.accessibilityIdentifier("legacy-notes-close") } } } }
         #endif
         .sheet(isPresented: $byokLearning) { BYOKLearningWorkspace(library: model, model: model.byok) }
         .sheet(isPresented: $aiTools) { ReadingToolsWorkspace(library: model) }
@@ -687,6 +687,7 @@ struct ReaderWorkspace: View {
                 .padding(.horizontal, 12).padding(.bottom, 10)
             Divider()
             List {
+                PDFReturnToPreviousLocationButton(session: session)
                 #if os(macOS)
                 if navigationTab == .search { searchResults }
                 else { contentsResults(navigationSessionID: navigationSessionID) }

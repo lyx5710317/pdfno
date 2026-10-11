@@ -88,7 +88,7 @@ import XCTest
         try uiCloseToolDirectory(app)
     }
     func uiCloseToolDirectory(_ app: XCUIApplication) throws {
-        try uiWait("Inner AI sheet finishes returning to source") { !self.ui("ai-close", app).exists }
+        try uiWait("Inner AI sheet finishes returning to source") { ["ai-close", "japanese-learning-close", "english-learning-close"].allSatisfy { !self.ui($0, app).exists } }
         try uiWait("Outer reading tools remain available") { self.ui("ai-tools-close", app).exists || self.ui("workspace-tool-return", app).exists }
         if ui("ai-tools-close", app).exists { try uiClick(ui("ai-tools-close", app)) }
         else if ui("workspace-tool-return", app).exists { try uiClick(ui("workspace-tool-return", app)) }
@@ -151,13 +151,33 @@ import XCTest
         try uiClick(uiAnnotationRows(app).firstMatch)
         try uiContains(ui("annotation-status", app), "已定位原文")
     }
-    func uiFileControl(_ app: XCUIApplication, type: XCUIElement.ElementType, identifier: String) throws -> XCUIElement {
+    func uiLegacySavedNotes(_ prefix: String, _ app: XCUIApplication) throws {
+        try uiPanel(prefix + "-notes", open: true, app)
+        try uiClick(ui("annotation-legacy-records", app))
+        XCTAssertTrue(ui("legacy-notes-close", app).waitForExistence(timeout: 10))
+    }
+    func uiPDFShortcut(_ key: XCUIKeyboardKey, _ app: XCUIApplication) throws {
+        // The current Mac reader exposes physical-page navigation as canvas shortcuts.
+        let canvas = ui("pdf-canvas", app)
+        try uiClick(canvas)
+        canvas.typeKey(key, modifierFlags: [.command, .option])
+    }
+    func uiComicOption(_ title: String, picker: String, _ app: XCUIApplication) throws {
+        try uiClick(ui("comic-settings", app))
+        let option = app.menuItems[title].firstMatch
+        if !option.waitForExistence(timeout: 1) || !option.isHittable {
+            try uiClick(app.menuItems[picker].firstMatch)
+        }
+        try uiClick(option)
+        try uiContains(ui("comic-settings", app), title)
+    }
+    func uiFileControl(_ app: XCUIApplication, type: XCUIElement.ElementType, identifier: String, requireEnabled: Bool = true) throws -> XCUIElement {
         var found: XCUIElement?
         try uiWait("Physical native file control: " + identifier, timeout: 12) {
             let windows = app.windows.allElementsBoundByAccessibilityElement + app.sheets.allElementsBoundByAccessibilityElement
             for window in windows where window.exists && !window.frame.isEmpty && !window.frame.isInfinite {
                 found = window.descendants(matching: type).matching(identifier: identifier).allElementsBoundByAccessibilityElement.first { control in
-                    guard control.exists && control.isEnabled && control.isHittable else { return false }
+                    guard control.exists && (!requireEnabled || (control.isEnabled && control.isHittable)) else { return false }
                     let frame = control.frame
                     return !frame.isEmpty && !frame.isInfinite && frame.minX.isFinite && frame.minY.isFinite && window.frame.intersects(frame)
                 }

@@ -68,7 +68,9 @@ private struct LibrarySearchContent: View {
                                 VStack(alignment: .leading, spacing: 6) {
                                     Text(kindLabel(hit.entry.target.kind) + (hit.entry.location.isEmpty ? "" : " · " + hit.entry.location))
                                         .font(.caption).foregroundStyle(.secondary)
-                                    Text(hit.preview).lineLimit(4).textSelection(.enabled).accessibilityIdentifier("library-search-preview")
+                                    // A saved record keeps its identity across queries, while its selected preview field changes.
+                                    // Recreate the selectable native text so its visible and AX text follow that field.
+                                    Text(hit.preview).id(hit.preview).lineLimit(4).textSelection(.enabled).accessibilityIdentifier("library-search-preview")
                                     if hit.entry.target.kind == .learning || hit.entry.target.kind == .aiAnnotation { Text("已保存 AI 结果 · 本地").font(.caption).foregroundStyle(.secondary) }
                                     Button(hit.entry.target.kind == .book ? "打开书籍" : "回到来源") {
                                         opening = true

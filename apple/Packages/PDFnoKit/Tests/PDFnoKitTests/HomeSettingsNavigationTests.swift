@@ -14,6 +14,22 @@ private actor HomeSettingsNoNetwork: AIHTTPTransport {
 }
 
 @Suite(.serialized) @MainActor struct HomeSettingsNavigationTests {
+    #if DEBUG
+    @Test func compatibilityComponentHostRequiresExplicitOfflineUUIDStore() {
+        let token = UUID().uuidString, root = URL(fileURLWithPath: "/tmp/PDFno-UITests-" + token)
+        let env = ["PDFNO_UI_TEST_SESSION": token, "PDFNO_UI_TEST_DEEPSEEK": "offline", "PDFNO_UI_TEST_LANGUAGE_COMPATIBILITY": "1"]
+        #expect(IsolatedLanguageCompatibilityHost.isEnabled(environment: env, root: root, offlineTransport: true))
+        #expect(!IsolatedLanguageCompatibilityHost.isEnabled(environment: env, root: root, offlineTransport: false))
+        #expect(!IsolatedLanguageCompatibilityHost.isEnabled(environment: env, root: root.appendingPathComponent("Other"), offlineTransport: true))
+        #expect(!IsolatedLanguageCompatibilityHost.isEnabled(environment: env, root: URL(fileURLWithPath: "/tmp/PDFno-UITests-" + UUID().uuidString), offlineTransport: true))
+        for key in env.keys {
+            var missing = env; missing.removeValue(forKey: key)
+            #expect(!IsolatedLanguageCompatibilityHost.isEnabled(environment: missing, root: root, offlineTransport: true))
+        }
+        var invalid = env; invalid["PDFNO_UI_TEST_SESSION"] = "not-a-uuid"
+        #expect(!IsolatedLanguageCompatibilityHost.isEnabled(environment: invalid, root: root, offlineTransport: true))
+    }
+    #endif
     @Test func mountedMainWindowRoutesKeepRealReaderSourceResultAndDraftWithoutWrites() async throws {
         NSApplication.shared.setActivationPolicy(.prohibited)
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-HomeSettings-" + UUID().uuidString)

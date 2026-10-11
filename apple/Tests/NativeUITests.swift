@@ -67,14 +67,13 @@ final class NativeUITests: XCTestCase {
         if !app.descendants(matching: .any).matching(identifier: "document-more").firstMatch.exists { resumeCurrentDocument(app) }
         return app.descendants(matching: .any).matching(identifier: "document-more").firstMatch
     }
-    @MainActor private func chooseCurrentLanguage(_ id: String, app: XCUIApplication) {
-        let submenu = app.menuItems.matching(identifier: "document-selection-learning").firstMatch
-        XCTAssertTrue(submenu.waitForExistence(timeout: 10)); XCTAssertTrue(submenu.isEnabled); submenu.hover()
-        // AppKit exposes SwiftUI submenu actions as menuAction:, retaining their visible labels.
-        let labels = ["document-japanese-learning": "日语选文学习…", "document-english-learning": "英语选文学习…"]
-        guard let title = labels[id] else { XCTFail("Unknown language action: \(id)"); return }
-        let action = app.menuItems[title].firstMatch
+    @MainActor private func chooseCurrentLanguage(_ id: String, app: XCUIApplication) throws {
+        let action = app.menuItems.matching(identifier: "document-reading-tools").firstMatch
         XCTAssertTrue(action.waitForExistence(timeout: 10)); XCTAssertTrue(action.isEnabled); press(action)
+        let tools = ["document-japanese-learning": "ai-tool-japanese", "document-english-learning": "ai-tool-english"]
+        guard let tool = tools[id] else { XCTFail("Unknown language action: \(id)"); return }
+        XCTAssertTrue(ui("language-compatibility-test-host", app).waitForExistence(timeout: 10))
+        try uiClick(ui(tool, app))
     }
     @MainActor private func resumeCurrentDocument(_ app: XCUIApplication) {
         let tabs = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'document-tab-' AND NOT identifier BEGINSWITH 'document-tab-close-'"))
@@ -202,6 +201,7 @@ final class NativeUITests: XCTestCase {
         let app = XCUIApplication(), token = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        app.launchEnvironment["PDFNO_UI_TEST_LANGUAGE_COMPATIBILITY"] = "1"
         app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_RESPONSE"] = "components"
         app.launch(); app.activate(); defer { app.terminate() }
         try prepareJapaneseOfflinePDF(app); startJapaneseReview(app)
@@ -210,7 +210,7 @@ final class NativeUITests: XCTestCase {
         scrollJapaneseElement(saveReview, in: app); press(saveReview)
         waitForText(["已保存独立学习记录"], in: japaneseElement("japanese-learning-status", in: app), timeout: 8)
         let before = try originalSavedNote(token, manifest: "japanese-learning-v1.json")
-        press(app.buttons["japanese-learning-close"].firstMatch); press(app.buttons["reader-notes"].firstMatch)
+        press(app.buttons["japanese-learning-close"].firstMatch); try uiCloseToolDirectory(app); try uiLegacySavedNotes("reader", app)
         pressEditingElement(app.buttons["japanese-note-edit"].firstMatch, app: app)
         enterEditingText("Saved Japanese parity body cafe\u{301}", prefix: "japanese-note", app: app)
         pressEditingElement(app.buttons["japanese-note-edit-save"].firstMatch, app: app)
@@ -219,7 +219,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(after["review"] as? NSDictionary, before["review"] as? NSDictionary)
         XCTAssertEqual(after["corrections"] as? NSArray, before["corrections"] as? NSArray)
         XCTAssertEqual(after["userText"] as? String, "Saved Japanese parity body cafe\u{301}")
-        press(app.buttons["reader-notes"].firstMatch); press(app.buttons["library-search"].firstMatch)
+        try uiClick(ui("legacy-notes-close", app)); try uiPanel("reader-notes", open: false, app); press(app.buttons["library-search"].firstMatch)
         enterSearch("saved Japanese parity CAFÉ", into: app.textFields["library-search-input"].firstMatch)
         waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
         press(app.buttons["record-search-source"].firstMatch)
@@ -384,7 +384,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(scroll.frame.insetBy(dx: 4, dy: 8).contains(element.frame))
         XCTAssertTrue(element.isHittable)
     }
-    @MainActor private func pressJapaneseEntry(_ entry: XCUIElement, in app: XCUIApplication) {
+    @MainActor private func pressJapaneseEntry(_ entry: XCUIElement, in app: XCUIApplication) throws {
         XCTAssertTrue(entry.waitForExistence(timeout: 8))
         let ready = expectation(for: NSPredicate { _, _ in
             entry.exists && entry.isEnabled && entry.isHittable
@@ -398,16 +398,16 @@ final class NativeUITests: XCTestCase {
             return
         }
         press(entry)
-        chooseCurrentLanguage("document-japanese-learning", app: app)
+        try chooseCurrentLanguage("document-japanese-learning", app: app)
     }
     @MainActor private func prepareJapaneseOfflinePDF(_ app: XCUIApplication) throws {
         try prepareOriginalPDFNoteEditing(app)
-        pressJapaneseEntry(currentLanguageLauncher(app, formerID: "reader-japanese-learning"), in: app)
+        try pressJapaneseEntry(currentLanguageLauncher(app, formerID: "reader-japanese-learning"), in: app)
         guard japaneseElement("japanese-offline-fixture", in: app).waitForExistence(timeout: 5) else {
             throw NSError(domain: "PDFno-Offline-UI", code: 1, userInfo: [NSLocalizedDescriptionKey: "Fully intercepted Japanese transport required before synthetic key entry"])
         }
         XCTAssertFalse(app.buttons["japanese-learning-start"].firstMatch.isEnabled)
-        press(app.buttons["japanese-learning-close"].firstMatch)
+        press(app.buttons["japanese-learning-close"].firstMatch); try uiCloseToolDirectory(app)
         navigateWorkspace("ai-settings", in: app)
         press(app.buttons["ai-settings"].firstMatch)
         XCTAssertTrue(ui("ai-provider-mode", app).waitForExistence(timeout: 5))
@@ -415,7 +415,7 @@ final class NativeUITests: XCTestCase {
         let key = japaneseElement("ai-session-key", in: app)
         XCTAssertTrue(key.waitForExistence(timeout: 5)); enterSearch("synthetic-reading-ui-credential", into: key, replacing: true)
         press(app.buttons["ai-settings-save"].firstMatch); try uiContains(ui("ai-connection-status", app), "已应用"); try uiClick(ui("settings-return", app))
-        pressJapaneseEntry(currentLanguageLauncher(app, formerID: "reader-japanese-learning"), in: app)
+        try pressJapaneseEntry(currentLanguageLauncher(app, formerID: "reader-japanese-learning"), in: app)
         XCTAssertTrue(japaneseElement("japanese-learning-source", in: app).waitForExistence(timeout: 5))
         XCTAssertEqual(textValue(japaneseElement("japanese-learning-source", in: app)), "window")
     }
@@ -456,6 +456,7 @@ final class NativeUITests: XCTestCase {
         let root = URL(fileURLWithPath: "/tmp").appendingPathComponent("PDFno-UITests-" + token)
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        app.launchEnvironment["PDFNO_UI_TEST_LANGUAGE_COMPATIBILITY"] = "1"
         app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_RESPONSE"] = "components"
         app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_APPEARANCE"] = "light"
         app.launch(); app.activate(); defer { app.terminate() }
@@ -493,28 +494,30 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual((saved["corrections"] as? [[String: Any]])?.first?["reading"] as? String, "ア")
         XCTAssertEqual(try Data(contentsOf: legacy), oldBytes)
         XCTAssertFalse(String(decoding: try Data(contentsOf: manifest), as: UTF8.self).contains("synthetic-reading-ui-credential"))
-        press(app.buttons["japanese-learning-close"].firstMatch)
+        press(app.buttons["japanese-learning-close"].firstMatch); try uiCloseToolDirectory(app)
         app.terminate(); app.launch(); app.activate()
         navigateWorkspace("library-book", in: app)
         let book = japaneseElement("library-book", in: app)
         navigateWorkspace("library-book", in: app)
         XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
-        press(app.buttons["reader-notes"].firstMatch)
+        try uiLegacySavedNotes("reader", app)
         XCTAssertTrue(japaneseElement("japanese-saved-source", in: app).waitForExistence(timeout: 8))
         XCTAssertEqual(textValue(japaneseElement("japanese-saved-source", in: app)), "window")
         let returned = app.buttons["japanese-saved-return"].firstMatch
         scrollEditingElement(returned, app: app); press(returned)
+        if ui("legacy-notes-close", app).exists { try uiClick(ui("legacy-notes-close", app)) }
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
-        pressJapaneseEntry(currentLanguageLauncher(app, formerID: "reader-japanese-learning"), in: app)
+        try pressJapaneseEntry(currentLanguageLauncher(app, formerID: "reader-japanese-learning"), in: app)
         XCTAssertFalse(app.buttons["japanese-learning-start"].firstMatch.isEnabled, "Session key must not survive restart")
     }
     @MainActor func testMacJapaneseNativeEPUBSelectionManualSaveAndSourceReturnPreservesRuby() throws {
         let app = XCUIApplication(), token = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        app.launchEnvironment["PDFNO_UI_TEST_LANGUAGE_COMPATIBILITY"] = "1"
         app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_APPEARANCE"] = "dark"
         app.launch(); app.activate(); defer { app.terminate() }
-        try prepareJapaneseOfflinePDF(app); press(app.buttons["japanese-learning-close"].firstMatch)
+        try prepareJapaneseOfflinePDF(app); press(app.buttons["japanese-learning-close"].firstMatch); try uiCloseToolDirectory(app)
         navigateWorkspace("open-epub-sample", in: app)
         press(app.buttons["open-epub-sample"].firstMatch)
         waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
@@ -537,7 +540,7 @@ final class NativeUITests: XCTestCase {
         }, evaluatedWith: japaneseEntry)
         wait(for: [selectionReady], timeout: 10)
         XCTAssertTrue(japaneseEntry.isEnabled && japaneseEntry.isHittable)
-        pressJapaneseEntry(japaneseEntry, in: app)
+        try pressJapaneseEntry(japaneseEntry, in: app)
         let source = japaneseElement("japanese-learning-source", in: app)
         XCTAssertTrue(source.waitForExistence(timeout: 8))
         let quote = textValue(source); XCTAssertFalse(quote.isEmpty); XCTAssertFalse(quote.contains("にほんご"))
@@ -556,10 +559,10 @@ final class NativeUITests: XCTestCase {
         let anchor = try XCTUnwrap(snapshot["anchor"] as? [String: Any]), wrapper = try XCTUnwrap(anchor["epub"] as? [String: Any])
         XCTAssertEqual((wrapper["_0"] as? [String: Any])?["quote"] as? String, quote)
         let returned = app.buttons["japanese-learning-return"].firstMatch
-        scrollJapaneseElement(returned, in: app); press(returned)
+        scrollJapaneseElement(returned, in: app); press(returned); try uiCloseToolDirectory(app)
         waitForText(["第 2 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 10)
         XCTAssertTrue(try webText(in: app, matching: "にほんご", prefix: false, timeout: 10).exists)
-        press(app.buttons["epub-notes"].firstMatch)
+        try uiLegacySavedNotes("epub", app)
         XCTAssertTrue(japaneseElement("japanese-saved-source", in: app).waitForExistence(timeout: 8))
         XCTAssertEqual(textValue(japaneseElement("japanese-saved-source", in: app)), quote)
     }
@@ -568,6 +571,7 @@ final class NativeUITests: XCTestCase {
             let app = XCUIApplication(), token = UUID().uuidString
             app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
             app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        app.launchEnvironment["PDFNO_UI_TEST_LANGUAGE_COMPATIBILITY"] = "1"
             app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_RESPONSE"] = scenario
             app.launch(); app.activate()
             defer { app.terminate() }
@@ -582,8 +586,8 @@ final class NativeUITests: XCTestCase {
                 scrollJapaneseElement(cancel, in: app); press(cancel)
                 waitForText(["请求已取消", "迟到结果不会显示或保存"], in: japaneseElement("japanese-learning-status", in: app), timeout: 5)
                 XCTAssertFalse(japaneseElement("japanese-components-source", in: app).exists)
-                press(app.buttons["japanese-learning-close"].firstMatch)
-                pressJapaneseEntry(currentLanguageLauncher(app, formerID: "reader-japanese-learning"), in: app)
+                press(app.buttons["japanese-learning-close"].firstMatch); try uiCloseToolDirectory(app)
+                try pressJapaneseEntry(currentLanguageLauncher(app, formerID: "reader-japanese-learning"), in: app)
                 XCTAssertFalse(japaneseElement("japanese-components-source", in: app).exists)
             }
             let budget = japaneseElement("japanese-learning-budget", in: app)
@@ -974,7 +978,7 @@ final class NativeUITests: XCTestCase {
         try uiSelectPDFWindow(app); try uiBeginNote(app)
         try uiPaste("Original 日記 cafe\u{301}🌸", ui("annotation-comment-input", app)); try uiSaveNote(app)
         try uiPanel("reader-notes", open: true, app); XCTAssertTrue(ui("annotation-excerpt", app).waitForExistence(timeout: 8))
-        try uiPanel("reader-notes", open: false, app); press(app.buttons["next-page"].firstMatch)
+        try uiPanel("reader-notes", open: false, app); try uiPDFShortcut(.rightArrow, app)
         waitForText(["2 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 5)
         press(app.buttons["library-search"].firstMatch)
         let input = app.textFields["library-search-input"].firstMatch
@@ -987,7 +991,7 @@ final class NativeUITests: XCTestCase {
         waitForText(["本地 mock"], in: ui("ai-provider-status", app), timeout: 5); try uiStartLegacyAI(app)
         XCTAssertTrue(ui("ai-result", app).waitForExistence(timeout: 8)); XCTAssertEqual(try uiAnnotations(app).count, 1)
         try uiSaveLegacyAI("Original saved AI memory 学習", app); XCTAssertEqual(try uiAnnotations(app).count, 2)
-        try uiReturnLegacyAI(app); press(app.buttons["next-page"].firstMatch)
+        try uiReturnLegacyAI(app); try uiPDFShortcut(.rightArrow, app)
         press(app.buttons["library-search"].firstMatch)
         XCTAssertTrue(input.waitForExistence(timeout: 8)); enterSearch("学習", into: input)
         waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
@@ -1043,7 +1047,7 @@ final class NativeUITests: XCTestCase {
         // Library controls have their own screen. Resume the preserved reader
         // before checking the original page and note-source assertions.
         resumeCurrentDocument(app)
-        press(app.buttons["next-page"].firstMatch)
+        try uiPDFShortcut(.rightArrow, app)
         waitForText(["2 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 5)
         press(app.buttons["library-search"].firstMatch)
         XCTAssertTrue(search.waitForExistence(timeout: 8)); enterSearch("integrationpreviousbody", into: search)
@@ -1410,34 +1414,34 @@ final class NativeUITests: XCTestCase {
         let position = app.staticTexts["comic-position"].firstMatch
         waitForText(["1 / 7"], in: position, timeout: 25)
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "comic-content").firstMatch.exists)
-        let layout = app.popUpButtons["comic-layout"].firstMatch
-        XCTAssertTrue(layout.waitForExistence(timeout: 5)); press(layout); press(app.menuItems["双页"].firstMatch)
+        let layout = ui("comic-settings", app)
+        XCTAssertTrue(layout.waitForExistence(timeout: 5)); try uiComicOption("双页", picker: "页面布局", app)
         waitForText(["双页"], in: layout, timeout: 10)
-        waitUntilEnabled(app.buttons["comic-next"].firstMatch)
-        press(app.buttons["comic-next"].firstMatch)
+        waitUntilEnabled(app.buttons["reading-bottom-next"].firstMatch)
+        press(app.buttons["reading-bottom-next"].firstMatch)
         waitForText(["2–3 / 7"], in: position, timeout: 15)
-        let direction = app.popUpButtons["comic-direction"].firstMatch
-        press(direction); press(app.menuItems["从右到左"].firstMatch)
+        let direction = ui("comic-settings", app)
+        try uiComicOption("从右到左", picker: "阅读方向", app)
         waitForText(["从右到左"], in: direction, timeout: 10)
         waitForText(["2–3 / 7"], in: position, timeout: 15)
-        waitUntilEnabled(app.buttons["comic-next"].firstMatch)
-        press(app.buttons["comic-next"].firstMatch)
+        waitUntilEnabled(app.buttons["reading-bottom-next"].firstMatch)
+        press(app.buttons["reading-bottom-next"].firstMatch)
         waitForText(["4 / 7"], in: position, timeout: 15)
-        waitUntilEnabled(app.buttons["comic-next"].firstMatch)
-        press(app.buttons["comic-next"].firstMatch)
+        waitUntilEnabled(app.buttons["reading-bottom-next"].firstMatch)
+        press(app.buttons["reading-bottom-next"].firstMatch)
         waitForText(["5–6 / 7"], in: position, timeout: 15)
-        waitUntilEnabled(app.buttons["comic-next"].firstMatch)
-        press(app.buttons["comic-next"].firstMatch)
+        waitUntilEnabled(app.buttons["reading-bottom-next"].firstMatch)
+        press(app.buttons["reading-bottom-next"].firstMatch)
         waitForText(["7 / 7"], in: position, timeout: 15)
-        XCTAssertFalse(app.buttons["comic-next"].firstMatch.isEnabled)
+        XCTAssertFalse(app.buttons["reading-bottom-next"].firstMatch.isEnabled)
         press(app.buttons["comic-pages"].firstMatch)
         let page = app.buttons["comic-page-4"].firstMatch
         XCTAssertTrue(page.waitForExistence(timeout: 5)); press(page)
         waitForText(["5–6 / 7"], in: position, timeout: 15)
-        press(layout); press(app.menuItems["单页"].firstMatch)
+        try uiComicOption("单页", picker: "页面布局", app)
         waitForText(["单页"], in: layout, timeout: 10)
         waitForText(["5 / 7"], in: position, timeout: 15)
-        press(app.buttons["comic-close"].firstMatch)
+        try uiClick(ui("comic-settings", app)); try uiClick(app.menuItems.matching(identifier: "comic-close").firstMatch)
         navigateWorkspace("library-comic", in: app)
         let comic = app.descendants(matching: .any).matching(identifier: "library-comic").firstMatch
         navigateWorkspace("library-comic", in: app)
@@ -1561,34 +1565,34 @@ final class NativeUITests: XCTestCase {
         let position = app.staticTexts["comic-position"].firstMatch
         waitForText(["1 / 7"], in: position, timeout: 25)
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "comic-content").firstMatch.exists)
-        let layout = app.popUpButtons["comic-layout"].firstMatch
-        XCTAssertTrue(layout.waitForExistence(timeout: 5)); press(layout); press(app.menuItems["双页"].firstMatch)
+        let layout = ui("comic-settings", app)
+        XCTAssertTrue(layout.waitForExistence(timeout: 5)); try uiComicOption("双页", picker: "页面布局", app)
         waitForText(["双页"], in: layout, timeout: 10)
-        waitUntilEnabled(app.buttons["comic-next"].firstMatch)
-        press(app.buttons["comic-next"].firstMatch)
+        waitUntilEnabled(app.buttons["reading-bottom-next"].firstMatch)
+        press(app.buttons["reading-bottom-next"].firstMatch)
         waitForText(["2–3 / 7"], in: position, timeout: 15)
-        let direction = app.popUpButtons["comic-direction"].firstMatch
-        press(direction); press(app.menuItems["从右到左"].firstMatch)
+        let direction = ui("comic-settings", app)
+        try uiComicOption("从右到左", picker: "阅读方向", app)
         waitForText(["从右到左"], in: direction, timeout: 10)
         waitForText(["2–3 / 7"], in: position, timeout: 15)
-        waitUntilEnabled(app.buttons["comic-next"].firstMatch)
-        press(app.buttons["comic-next"].firstMatch)
+        waitUntilEnabled(app.buttons["reading-bottom-next"].firstMatch)
+        press(app.buttons["reading-bottom-next"].firstMatch)
         waitForText(["4 / 7"], in: position, timeout: 15)
-        waitUntilEnabled(app.buttons["comic-next"].firstMatch)
-        press(app.buttons["comic-next"].firstMatch)
+        waitUntilEnabled(app.buttons["reading-bottom-next"].firstMatch)
+        press(app.buttons["reading-bottom-next"].firstMatch)
         waitForText(["5–6 / 7"], in: position, timeout: 15)
-        waitUntilEnabled(app.buttons["comic-next"].firstMatch)
-        press(app.buttons["comic-next"].firstMatch)
+        waitUntilEnabled(app.buttons["reading-bottom-next"].firstMatch)
+        press(app.buttons["reading-bottom-next"].firstMatch)
         waitForText(["7 / 7"], in: position, timeout: 15)
-        XCTAssertFalse(app.buttons["comic-next"].firstMatch.isEnabled)
+        XCTAssertFalse(app.buttons["reading-bottom-next"].firstMatch.isEnabled)
         press(app.buttons["comic-pages"].firstMatch)
         let page = app.buttons["comic-page-4"].firstMatch
         XCTAssertTrue(page.waitForExistence(timeout: 5)); press(page)
         waitForText(["5–6 / 7"], in: position, timeout: 15)
-        press(layout); press(app.menuItems["单页"].firstMatch)
+        try uiComicOption("单页", picker: "页面布局", app)
         waitForText(["单页"], in: layout, timeout: 10)
         waitForText(["5 / 7"], in: position, timeout: 15)
-        press(app.buttons["comic-close"].firstMatch)
+        try uiClick(ui("comic-settings", app)); try uiClick(app.menuItems.matching(identifier: "comic-close").firstMatch)
         navigateWorkspace("library-comic", in: app)
         let comic = app.descendants(matching: .any).matching(identifier: "library-comic").firstMatch
         navigateWorkspace("library-comic", in: app)
@@ -1636,7 +1640,8 @@ final class NativeUITests: XCTestCase {
     @MainActor private func filePanelButton(_ app: XCUIApplication, titles: [String]) throws -> XCUIElement {
         // The actual macOS panel action reports OKButton; a name-only query can select the Touch Bar.
         if titles.contains("Open") || titles.contains("Save") {
-            return try uiFileControl(app, type: .button, identifier: "OKButton")
+            // Open may be disabled until the exact fixture is selected; chooseInput still waits for enabled/hittable before clicking.
+            return try uiFileControl(app, type: .button, identifier: "OKButton", requireEnabled: false)
         }
         return app.buttons[titles[0]].firstMatch.exists ? app.buttons[titles[0]].firstMatch : app.buttons[titles[1]].firstMatch
     }
@@ -2242,8 +2247,8 @@ final class NativeUITests: XCTestCase {
         app.launch(); app.activate(); defer { app.terminate() }
         try uiExample("open-sample", app)
         let position = ui("page-position", app); XCTAssertTrue(position.waitForExistence(timeout: 15)); XCTAssertTrue(uiText(position).contains("1 / 2"))
-        try uiClick(ui("next-page", app)); try uiContains(position, "2 / 2")
-        try uiClick(ui("previous-page", app)); try uiContains(position, "1 / 2")
+        try uiPDFShortcut(.rightArrow, app); try uiContains(position, "2 / 2")
+        try uiPDFShortcut(.leftArrow, app); try uiContains(position, "1 / 2")
         try uiPanel("reader-navigation", open: true, app); try uiPaste("window", ui("search-input", app))
         try uiClick(ui("search-submit", app)); try uiClick(ui("search-result", app)); try uiSelectPDFWindow(app)
         try uiBeginNote(app); XCTAssertTrue(ui("annotation-editor-save", app).exists, "Actual PDFKit selection reaches note composer")
@@ -2251,7 +2256,7 @@ final class NativeUITests: XCTestCase {
         let quote = ui("annotation-excerpt", app); XCTAssertTrue(quote.waitForExistence(timeout: 5)); XCTAssertEqual(uiText(quote), "window")
         try uiReturnNote(app); try uiContains(position, "1 / 2")
         let image = XCTAttachment(screenshot: app.windows.firstMatch.screenshot()); image.name = "Original sample in native PDFKit reader"; image.lifetime = .keepAlways; add(image)
-        try uiPanel("reader-notes", open: false, app); try uiClick(ui("next-page", app)); try uiContains(position, "2 / 2")
+        try uiPanel("reader-notes", open: false, app); try uiPDFShortcut(.rightArrow, app); try uiContains(position, "2 / 2")
         app.terminate(); app.launch(); app.activate(); try uiExample("open-sample", app)
         XCTAssertTrue(position.waitForExistence(timeout: 10)); XCTAssertTrue(uiText(position).contains("2 / 2"), "Reading position persists after restart")
         try uiPanel("reader-notes", open: true, app); XCTAssertTrue(quote.waitForExistence(timeout: 5), "Note survives restart")

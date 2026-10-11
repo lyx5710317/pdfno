@@ -130,7 +130,7 @@ final class ProfessionalReaderUITests: XCTestCase {
         let input = item("search-input", app)
         XCTAssertTrue(input.waitForExistence(timeout: 10))
         // No field click: Cmd-F must have moved keyboard focus into the actual search field.
-        pasteOriginal("window", app: app); value(input, equals: "window")
+        app.typeKey("a", modifierFlags: .command); pasteOriginal("window", app: app); value(input, equals: "window")
         try click(item("search-submit", app)); try click(item("search-result", app))
     }
     @MainActor private func reveal(_ element: XCUIElement, in id: String, app: XCUIApplication) throws {
@@ -168,7 +168,7 @@ final class ProfessionalReaderUITests: XCTestCase {
         XCTAssertEqual(try uiAnnotations(app).count, 0)
         // The current editor is a sheet. An interrupted edit must survive restart;
         // cancelling a resumed editing session then keeps its prior draft checkpoint.
-        app.terminate(); app.launch(); app.activate(); try uiExample("open-sample", app)
+        app.terminate(); app.launch(); app.activate(); try uiExample("open-sample", app); try searchOriginal(app)
         try uiPanel("reader-notes", open: true, app); try uiResumeDraft(app)
         value(item("annotation-comment-input", app), equals: body)
         try click(item("annotation-editor-cancel", app))
@@ -177,7 +177,7 @@ final class ProfessionalReaderUITests: XCTestCase {
         value(item("annotation-comment-input", app), equals: body)
         try capture("A-product-03-narrow-notes-light", app: app)
         try click(item("annotation-editor-cancel", app)); try uiPanel("reader-notes", open: false, app)
-        try searchOriginal(app); value(item("search-input", app), equals: "window")
+        app.typeKey("f", modifierFlags: .command); value(item("search-input", app), equals: "window")
     }
 
     @MainActor func testARegularDarkLearningPanelConsentDraftAndManualSave() throws {
@@ -236,8 +236,8 @@ final class ProfessionalReaderUITests: XCTestCase {
         try capture("A-product-02-exclusive-panel-light", app: app)
         try uiPanel("reader-notes", open: false, app)
         XCTAssertFalse(navigation.exists); XCTAssertFalse(notes.exists)
-        try click(item("next-page", app)); contains(item("page-position", app), "2 / 2")
-        try click(item("previous-page", app)); contains(item("page-position", app), "1 / 2")
+        try uiPDFShortcut(.rightArrow, app); contains(item("page-position", app), "2 / 2")
+        try uiPDFShortcut(.leftArrow, app); contains(item("page-position", app), "1 / 2")
     }
 
     @MainActor func testShellRegularLightPDFDraftSelectionAndExamplePartition() throws {
@@ -288,7 +288,7 @@ final class ProfessionalReaderUITests: XCTestCase {
         XCTAssertLessThanOrEqual(app.windows.firstMatch.frame.width, 760)
         try capture("A-shell-05-library-empty-narrow-light", app: app)
         navigateWorkspace("open-sample", in: app); try click(item("open-sample", app)); contains(item("page-position", app), "1 / 2")
-        try click(item("next-page", app)); contains(item("page-position", app), "2 / 2")
+        try uiPDFShortcut(.rightArrow, app); contains(item("page-position", app), "2 / 2")
         try click(item("workspace-back-library", app)); try click(item("workspace-resume-reader", app)); contains(item("page-position", app), "2 / 2")
         XCTAssertFalse(item("professional-library-workspace", app).exists)
         try capture("A-shell-06-reader-page2-narrow-light", app: app)

@@ -86,6 +86,23 @@ struct SavedAIAnnotationSearchTests {
         #expect(try await AILearningRepository(root: directory).load().notes.isEmpty)
     }
 
+    @Test func visibleSearchQuerySequenceKeepsCorrectPreviewForSameSavedIdentity() async throws {
+        let directory = root(); defer { try? FileManager.default.removeItem(at: directory) }
+        let (_, original) = try await fixture(directory)
+        let result = AIResult(request: AIRequest(source: original.source, provider: original.provider, kind: .explain),
+            text: "Original offline explanation. SavedSearchMarker.", fromCache: false)
+        let saved = try await AnnotationRepository(root: directory).addAIResult(result, comment: "Original committed comment")
+        let model = SavedRecordSearchModel(root: directory)
+        for query in ["SavedSearchMarker", "OriginalDraftOnlyMarker", sentence, "SavedSearchMarker", sentence] {
+            model.updateQuery(query); await model.waitForSearch()
+            #expect(model.phase == .results)
+            if query == "OriginalDraftOnlyMarker" { #expect(model.response.totalCount == 0); continue }
+            let hit = try #require(model.response.legacy.groups.first?.hits.first)
+            #expect(model.response.totalCount == 1 && hit.entry.target.noteID == saved.id)
+            #expect(hit.preview == (query == sentence ? sentence : result.displayText))
+        }
+    }
+
     @Test func conversationSaveRefreshesVisibleSearchButUnsavedAnswersAndDraftsStayOut() async throws {
         let directory = root(); defer { try? FileManager.default.removeItem(at: directory) }
         let (book, result) = try await fixture(directory)

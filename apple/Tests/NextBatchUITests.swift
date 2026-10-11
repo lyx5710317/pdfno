@@ -46,13 +46,11 @@ final class NextBatchUITests: XCTestCase {
     @MainActor private func element(_ id: String, _ app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
-    @MainActor private func openCurrentEnglish(_ app: XCUIApplication) {
-        click(element("document-more", app))
-        let submenu = app.menuItems.matching(identifier: "document-selection-learning").firstMatch
-        XCTAssertTrue(submenu.waitForExistence(timeout: 10)); XCTAssertTrue(submenu.isEnabled); submenu.hover()
-        // AppKit exposes this SwiftUI submenu action as menuAction:, retaining its visible label.
-        let action = app.menuItems["英语选文学习…"].firstMatch
-        XCTAssertTrue(action.waitForExistence(timeout: 10)); XCTAssertTrue(action.isEnabled); click(action)
+    @MainActor private func openCurrentEnglish(_ app: XCUIApplication) throws {
+        try uiClick(ui("document-more", app))
+        try uiClick(app.menuItems.matching(identifier: "document-reading-tools").firstMatch)
+        XCTAssertTrue(ui("language-compatibility-test-host", app).waitForExistence(timeout: 10))
+        try uiClick(ui("ai-tool-english", app))
     }
     @MainActor private func click(_ item: XCUIElement) {
         if !item.exists { XCTAssertTrue(item.waitForExistence(timeout: 10)) }
@@ -167,20 +165,18 @@ final class NextBatchUITests: XCTestCase {
     @MainActor func testEnglishManualConsentSaveSearchAndRestartKeepsSourceAndNoKey() throws {
         let app = XCUIApplication(), token = UUID().uuidString
         let root = URL(fileURLWithPath: "/tmp/PDFno-UITests-" + token)
+        app.launchEnvironment["PDFNO_UI_TEST_LANGUAGE_COMPATIBILITY"] = "1"
         fixture(app, token: token); defer { app.terminate(); cleanup(root) }
         click(app.buttons["reader-navigation"].firstMatch)
         let search = app.textFields["search-input"].firstMatch; click(search); pasteFixture("window", into: search)
         click(app.buttons["search-submit"].firstMatch); click(app.buttons["search-result"].firstMatch)
-        openCurrentEnglish(app)
+        try openCurrentEnglish(app)
         XCTAssertTrue(element("english-offline-fixture", app).waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["english-learning-start"].firstMatch.isEnabled)
-        click(app.buttons["english-learning-close"].firstMatch)
-        navigateWorkspace("ai-settings", in: app)
-        click(app.buttons["ai-settings"].firstMatch); click(app.buttons["ai-use-deepseek"].firstMatch)
-        let key = app.secureTextFields["ai-session-key"].firstMatch
-        reveal(key, form: "ai-settings-form", app: app); click(key); pasteFixture("synthetic-reading-ui-credential", into: key)
-        click(app.buttons["ai-settings-save"].firstMatch)
-        openCurrentEnglish(app)
+        click(app.buttons["english-learning-close"].firstMatch); try uiCloseToolDirectory(app)
+        try uiSettings(app); try uiProvider("DeepSeek", app, key: "synthetic-reading-ui-credential")
+        try uiClick(ui("settings-return", app))
+        try openCurrentEnglish(app)
         text(element("english-learning-fixed-source", app), contains: "window")
         let consent = element("english-learning-confirm", app), start = app.buttons["english-learning-start"].firstMatch
         reveal(consent, form: "english-learning-form", app: app); click(consent)
@@ -201,7 +197,7 @@ final class NextBatchUITests: XCTestCase {
         let saved = try XCTUnwrap((try state("english-learning-v1.json", root: root)["notes"] as? [[String: Any]])?.first)
         XCTAssertEqual(saved["userText"] as? String, "Original English UI saved marker")
         XCTAssertFalse(String(decoding: bytes, as: UTF8.self).contains("synthetic-reading-ui-credential"))
-        click(app.buttons["english-learning-close"].firstMatch); click(app.buttons["library-search"].firstMatch)
+        click(app.buttons["english-learning-close"].firstMatch); try uiCloseToolDirectory(app); click(app.buttons["library-search"].firstMatch)
         let global = app.textFields["library-search-input"].firstMatch; click(global); pasteFixture("Original English UI saved marker", into: global)
         text(element("library-search-status", app), contains: "找到 1 项")
         click(app.buttons["record-search-source"].firstMatch)
@@ -213,7 +209,7 @@ final class NextBatchUITests: XCTestCase {
         click(app.buttons["reader-navigation"].firstMatch)
         let repeatSearch = app.textFields["search-input"].firstMatch; click(repeatSearch); pasteFixture("window", into: repeatSearch)
         click(app.buttons["search-submit"].firstMatch); click(app.buttons["search-result"].firstMatch)
-        openCurrentEnglish(app)
+        try openCurrentEnglish(app)
         text(element("english-learning-fixed-source", app), contains: "window")
         XCTAssertFalse(app.buttons["english-learning-start"].firstMatch.isEnabled, "Session credential must not survive restart")
     }

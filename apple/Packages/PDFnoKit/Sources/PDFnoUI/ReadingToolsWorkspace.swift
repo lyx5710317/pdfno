@@ -112,6 +112,17 @@ struct ReadingToolsWorkspace: View {
                     Picker("显示范围", selection: $existingOnly) {
                         Text("全部").tag(false); Text("现有入口").tag(true)
                     }.pickerStyle(.segmented).accessibilityIdentifier("ai-tools-filter")
+                    #if DEBUG
+                    if IsolatedLanguageCompatibilityHost.isEnabled(environment: ProcessInfo.processInfo.environment,
+                        root: library.recordRoot, offlineTransport: learning.offlineTransport) {
+                        PDFnoSettingsCard("兼容组件测试 · 非产品入口", symbol: "testtube.2") {
+                            Text("仅验证保留的结构化日英组件；当前公开选文流程使用对话。")
+                                .accessibilityIdentifier("language-compatibility-test-host")
+                            toolRow(.japanese)
+                            toolRow(.english)
+                        }
+                    }
+                    #endif
                     PDFnoSettingsCard("阅读与语言", symbol: "book") {
                         ForEach(PDFnoReadingTool.allCases.filter { $0 != .savedSearch && $0 != .japanese && $0 != .english }) { tool in toolRow(tool) }
                     }
@@ -195,4 +206,17 @@ struct ReadingToolsWorkspace: View {
         }
     }
 }
+#if DEBUG
+/// The original structured-language GUI contracts use this offline component host.
+/// It is absent from Release and cannot appear in a normal library or live session.
+enum IsolatedLanguageCompatibilityHost {
+    static func isEnabled(environment: [String: String], root: URL, offlineTransport: Bool) -> Bool {
+        guard environment["PDFNO_UI_TEST_LANGUAGE_COMPATIBILITY"] == "1", offlineTransport,
+              environment["PDFNO_UI_TEST_DEEPSEEK"] == "offline",
+              let raw = environment["PDFNO_UI_TEST_SESSION"], let token = UUID(uuidString: raw) else { return false }
+        let expected = URL(fileURLWithPath: "/tmp/PDFno-UITests-" + token.uuidString, isDirectory: true)
+        return root.standardizedFileURL.resolvingSymlinksInPath().path == expected.standardizedFileURL.resolvingSymlinksInPath().path
+    }
+}
+#endif
 #endif
