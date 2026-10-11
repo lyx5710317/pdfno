@@ -110,7 +110,13 @@ import PDFnoServices
         _ = try await web.callAsyncJavaScript("""
           const d=document.querySelector('iframe').contentDocument,p=d.querySelectorAll('[data-pdfno-spine="1"] p')[1],r=d.createRange();r.setStart(p.firstChild,0);r.setEnd(p.firstChild,4);d.getSelection().removeAllRanges();d.getSelection().addRange(r);return true;
           """,arguments: [:],in: nil,contentWorld: .page)
-        try await Task.sleep(for: .milliseconds(350))
+        // The sandboxed book frame reports selection asynchronously through
+        // the trusted parent. Wait for that native event, as the other WebKit
+        // selection tests do, rather than assuming delivery within 350 ms.
+        let selectionDeadline = Date().addingTimeInterval(3)
+        while session.selection == nil && Date() < selectionDeadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
         let source = try #require(session.selection);#expect(source.vertical && source.spineIndex == 1 && book.accepts(source))
         let note = EPUBNote(bookID: book.id,anchor: source,userText: "Original offline vertical note")
         #expect(await session.command("notes",notes: [note]));#expect(session.selection == source)
