@@ -362,12 +362,15 @@ extension View { func annotationExperience(_ model: AnnotationModel,reader: Anno
                             if task == .japanese || task == .english {
                                 Menu(task.title) {
                                     Button("对话") { self.popover.close(); library.openConversationAI(task, anchor: anchor, sessionID: session) }
+                                        .accessibilityLabel("对话")
                                         .accessibilityIdentifier("selection-ai-" + task.rawValue + "-conversation")
                                     Button(task == .japanese ? "假名与语法审阅" : "结构与语法审阅") {
                                         self.popover.close()
                                         if task == .japanese { library.openJapaneseReview(anchor: anchor, sessionID: session) }
                                         else { library.openEnglishReview(anchor: anchor, sessionID: session) }
-                                    }.accessibilityIdentifier("selection-ai-" + task.rawValue + "-review")
+                                    }
+                                    .accessibilityLabel(task == .japanese ? "假名与语法审阅" : "结构与语法审阅")
+                                    .accessibilityIdentifier("selection-ai-" + task.rawValue + "-review")
                                 }.accessibilityIdentifier("selection-ai-" + task.rawValue)
                             } else {
                                 Button(task.title) { self.popover.close(); library.openConversationAI(task, anchor: anchor, sessionID: session) }
