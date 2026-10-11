@@ -84,6 +84,7 @@ test_source = file_ref('TestSource','Tests/NativeUITests.swift','sourcecode.swif
 ebook_test_source = file_ref('EbookTestSource','Tests/EbookFormatUITests.swift','sourcecode.swift')
 next_test_source = file_ref('NextTestSource','Tests/NextBatchUITests.swift','sourcecode.swift')
 reading_test_source = file_ref('ReadingTestSource','Tests/ReadingIntegrationUITests.swift','sourcecode.swift')
+contract_test_source = file_ref('ReaderContractSource','Tests/ReaderUIContract.swift','sourcecode.swift')
 mac_notices = [file_ref('MacNotice'+name, '../'+name, 'text')
                for name in ['LICENSE', 'SOURCE-NOTICES.md', 'THIRD_PARTY_NOTICES.md']]
 
@@ -123,6 +124,7 @@ for name, (app_target, app_product, platform) in app_targets.items():
         test_builds.append(add(test_name+'ebookBuild','PBXBuildFile',f'fileRef = {ebook_test_source};'))
         test_builds.append(add(test_name+'nextBuild','PBXBuildFile',f'fileRef = {next_test_source};'))
         test_builds.append(add(test_name+'readingBuild','PBXBuildFile',f'fileRef = {reading_test_source};'))
+        test_builds.append(add(test_name+'contractBuild','PBXBuildFile',f'fileRef = {contract_test_source};'))
     phases = [phase(test_name+'sources','PBXSourcesBuildPhase',test_builds),phase(test_name+'frameworks','PBXFrameworksBuildPhase',[]),phase(test_name+'resources','PBXResourcesBuildPhase',[])]
     proxy = add(test_name+'proxy','PBXContainerItemProxy',f'containerPortal = {ident("project")}; proxyType = 1; remoteGlobalIDString = {app_target}; remoteInfo = {name};')
     dependency = add(test_name+'dependency','PBXTargetDependency',f'target = {app_target}; targetProxy = {proxy};')

@@ -73,19 +73,16 @@ final class EbookFormatUITests: XCTestCase {
         let firstWord = CGVector(dx: min(12, textFrame.width / 2), dy: min(12, textFrame.height / 2))
         print("PDFNO_EBOOK_TEXT_POINT format=\(format) frame=\(textFrame) offset=\(firstWord)")
         text.coordinate(withNormalizedOffset: .zero).withOffset(firstWord).doubleClick()
-        app.buttons["ebook-notes"].firstMatch.click()
-        let selected = app.descendants(matching: .any).matching(identifier: "ebook-selection").firstMatch
-        XCTAssertTrue(selected.waitForExistence(timeout: 8))
-        let quote = (selected.value as? String) ?? selected.label
-        XCTAssertFalse(quote.isEmpty)
-        let draft = app.descendants(matching: .any).matching(identifier: "ebook-user-note").firstMatch
+        try uiBeginNote(app)
+        let draft = ui("annotation-comment-input", app)
         XCTAssertTrue(draft.waitForExistence(timeout: 5)); enterSyntheticNote("Original ebook observation", into: draft)
         let entered = (draft.value as? String) ?? draft.label
         _ = try XCTUnwrap(entered.utf8.elementsEqual("Original ebook observation".utf8) ? entered : nil,
                           "The original synthetic body must be entered exactly before saving")
-        app.buttons["ebook-save-note"].firstMatch.click()
-        XCTAssertTrue(app.staticTexts["ebook-saved-user-note"].firstMatch.waitForExistence(timeout: 8))
-        app.buttons["ebook-return"].firstMatch.click()
+        XCTAssertEqual(try uiAnnotations(app).count, 0); try uiSaveNote(app); try uiPanel("ebook-notes", open: true, app)
+        XCTAssertTrue(ui("annotation-comment", app).waitForExistence(timeout: 8))
+        let quote = try XCTUnwrap(uiAnchorPayload(uiOnlyAnnotation(app))["quote"] as? String); XCTAssertFalse(quote.isEmpty)
+        try uiReturnNote(app); try uiPanel("ebook-notes", open: false, app)
         nav.click(); let heading = app.buttons[second].firstMatch
         XCTAssertTrue(heading.waitForExistence(timeout: 5)); heading.click()
         let manifest = URL(fileURLWithPath: "/tmp").appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent("ebook-kookit-v1.json")
@@ -93,7 +90,7 @@ final class EbookFormatUITests: XCTestCase {
         var lastDiagnostic: [String?]?
         let stored = expectation(for: NSPredicate { _, _ in
             guard let data = try? Data(contentsOf: manifest), let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let book = (state["books"] as? [[String: Any]])?.first, let note = (state["notes"] as? [[String: Any]])?.first,
+                  let book = (state["books"] as? [[String: Any]])?.first, let note = try? self.uiOnlyAnnotation(app),
                   let progress = book["progress"] as? NSDictionary, let anchor = note["anchor"] as? NSDictionary else { return false }
             savedAnchor = anchor; savedProgress = progress
             let formatMatches = book["format"] as? String == format
@@ -113,11 +110,12 @@ final class EbookFormatUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 15)); row.click()
         XCTAssertTrue(nav.waitForExistence(timeout: 25)); waitEnabled(nav)
         app.buttons["ebook-notes"].firstMatch.click()
-        XCTAssertTrue(app.staticTexts["ebook-saved-quote"].firstMatch.waitForExistence(timeout: 8))
+        XCTAssertTrue(ui("annotation-excerpt", app).waitForExistence(timeout: 8))
         let data = try Data(contentsOf: manifest), state = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        let note = try XCTUnwrap((state["notes"] as? [[String: Any]])?.first), book = try XCTUnwrap((state["books"] as? [[String: Any]])?.first)
+        let note = try uiOnlyAnnotation(app), book = try XCTUnwrap((state["books"] as? [[String: Any]])?.first)
         XCTAssertEqual(note["anchor"] as? NSDictionary, savedAnchor); XCTAssertEqual(book["progress"] as? NSDictionary, savedProgress)
-        app.buttons["ebook-return"].firstMatch.click()
+        XCTAssertEqual(uiText(ui("annotation-excerpt", app)), quote)
+        try uiReturnNote(app); try uiPanel("ebook-notes", open: false, app)
         XCTAssertTrue(try webText(app, prefix: paragraph).isHittable)
         navigateWorkspace("open-sample", in: app)
         app.buttons["open-sample"].firstMatch.click()

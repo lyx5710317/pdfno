@@ -157,143 +157,131 @@ final class ProfessionalReaderUITests: XCTestCase {
 
     @MainActor func testANarrowPDFKeyboardSearchAndNoteDraftSurviveCollapse() throws {
         let app = try originalApp(width: 720, dark: false); defer { app.terminate() }
-        navigateWorkspace("open-sample", in: app)
-        try click(item("open-sample", app)); try searchOriginal(app)
+        try uiExample("open-sample", app); try searchOriginal(app)
         XCTAssertTrue(item("professional-reader-tool-rail", app).exists)
         XCTAssertLessThanOrEqual(app.windows.firstMatch.frame.width, 760)
-        try click(item("reader-notes", app))
-        let draft = item("note-input", app), body = "A original uncommitted draft 日本語 cafe\u{301}"
-        try click(draft); pasteOriginal(body, app: app); value(draft, equals: body)
-        // Reacquire and focus the actual editor after its Unicode value update;
-        // a field-bound AX snapshot can expire during a transient input popup.
-        try click(item("note-input", app))
+        try uiSelectPDFWindow(app); try uiBeginNote(app)
+        let body = "A original uncommitted draft 日本語 cafe\u{301}"
+        try uiPaste(body, item("annotation-comment-input", app))
         app.typeKey(.rightArrow, modifierFlags: [.command, .option])
-        contains(item("page-position", app), "1 / 2")
-        value(item("note-input", app), equals: body)
+        contains(item("page-position", app), "1 / 2"); value(item("annotation-comment-input", app), equals: body)
+        XCTAssertEqual(try uiAnnotations(app).count, 0)
+        // The current editor is a sheet. An interrupted edit must survive restart;
+        // cancelling a resumed editing session then keeps its prior draft checkpoint.
+        app.terminate(); app.launch(); app.activate(); try uiExample("open-sample", app)
+        try uiPanel("reader-notes", open: true, app); try uiResumeDraft(app)
+        value(item("annotation-comment-input", app), equals: body)
+        try click(item("annotation-editor-cancel", app))
+        try uiPanel("reader-notes", open: false, app); try uiPanel("reader-notes", open: true, app)
+        XCTAssertEqual(uiAnnotationRows(app).count, 0); try uiResumeDraft(app)
+        value(item("annotation-comment-input", app), equals: body)
         try capture("A-product-03-narrow-notes-light", app: app)
-        try click(item("close-notes", app)); try click(item("reader-notes", app)); value(draft, equals: body)
-        XCTAssertFalse(item("saved-note-user-text", app).exists)
-        try click(item("close-notes", app)); app.typeKey("f", modifierFlags: .command)
-        value(item("search-input", app), equals: "window")
+        try click(item("annotation-editor-cancel", app)); try uiPanel("reader-notes", open: false, app)
+        try searchOriginal(app); value(item("search-input", app), equals: "window")
     }
 
     @MainActor func testARegularDarkLearningPanelConsentDraftAndManualSave() throws {
         let app = try originalApp(width: 1280, dark: true); defer { app.terminate() }
-        navigateWorkspace("ai-settings", in: app)
-        try click(item("ai-settings", app)); try click(item("ai-use-mock", app)); try click(item("ai-settings-save", app))
-        navigateWorkspace("open-sample", in: app)
-        try click(item("open-sample", app)); try searchOriginal(app); try click(item("reader-ai", app))
+        try uiConfigureMock(app); try uiExample("open-sample", app); try searchOriginal(app)
+        try uiLegacyAI(app)
         let start = item("ai-start", app)
         XCTAssertTrue(start.waitForExistence(timeout: 10)); XCTAssertFalse(start.isEnabled)
-        XCTAssertFalse(item("ai-result", app).exists)
-        try reveal(item("ai-scope-consent", app), in: "ai-notes-list", app: app)
-        try click(item("ai-scope-consent", app)); try click(start)
-        XCTAssertTrue(item("ai-result", app).waitForExistence(timeout: 15))
+        XCTAssertFalse(item("ai-result", app).exists); XCTAssertEqual(try uiAnnotations(app).count, 0)
+        try uiStartLegacyAI(app); XCTAssertTrue(item("ai-result", app).waitForExistence(timeout: 15))
         let draft = item("ai-user-note", app), body = "A learning draft 日本語 👩🏽‍🚀"
-        try reveal(draft, in: "ai-notes-list", app: app); try click(draft); pasteOriginal(body, app: app); value(draft, equals: body)
-        try click(item("ai-close", app)); try click(item("reader-ai", app))
-        try reveal(draft, in: "ai-notes-list", app: app); value(draft, equals: body)
-        XCTAssertTrue(item("ai-result", app).exists); XCTAssertFalse(item("ai-saved-user-note", app).exists)
+        try uiReveal(draft, scroll: "ai-notes-list", app); try uiPaste(body, draft)
+        try click(item("ai-close", app)); try uiLegacyAI(app)
+        try uiReveal(draft, scroll: "ai-notes-list", app); value(draft, equals: body)
+        XCTAssertTrue(item("ai-result", app).exists); XCTAssertEqual(try uiAnnotations(app).count, 0)
         try capture("A-product-04-learning-dark", app: app)
-        let save = item("ai-save-note", app)
-        try reveal(save, in: "ai-notes-list", app: app); try click(save)
-        contains(item("ai-result-save-state", app), "已保存")
-        try reveal(item("ai-result-source", app), in: "ai-notes-list", app: app); try click(item("ai-result-source", app))
+        let save = item("ai-save-note", app); try uiReveal(save, scroll: "ai-notes-list", app); try click(save)
+        contains(item("ai-result-save-state", app), "已添加到当前文档笔记")
+        let note = try uiOnlyAnnotation(app)
+        XCTAssertEqual(note["userText"] as? String, body); XCTAssertNotNil(note["aiResult"])
+        XCTAssertEqual(try uiAnchorPayload(note)["quote"] as? String, "window")
+        try uiReveal(item("ai-result-source", app), scroll: "ai-notes-list", app); try click(item("ai-result-source", app))
+        if item("workspace-tool-return", app).exists { try click(item("workspace-tool-return", app)) }
         XCTAssertFalse(item("reader-notes-panel", app).exists); contains(item("page-position", app), "1 / 2")
     }
 
     @MainActor func testANarrowEPUBPanelsKeepCanonicalSourceAndDraft() throws {
         let app = try originalApp(width: 720, dark: true); defer { app.terminate() }
-        navigateWorkspace("open-epub-sample", in: app)
-        try click(item("open-epub-sample", app))
-        let paragraph = try originalWebText("window", app: app)
-        XCTAssertTrue(paragraph.waitForExistence(timeout: 20)); XCTAssertTrue(paragraph.isHittable)
-        // Target the first line: at 720 the fixture paragraph wraps, so its
-        // vertical center can be the second line instead of the word window.
-        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.1)).doubleClick()
-        try click(item("epub-notes", app)); contains(item("epub-selection", app), "window")
-        let draft = item("epub-note-input", app), body = "A EPUB original draft 日本語"
-        try click(draft); pasteOriginal(body, app: app); value(draft, equals: body)
-        try click(item("epub-close-notes", app)); try click(item("epub-contents", app)); try click(item("epub-close-contents", app))
-        try click(item("epub-notes", app)); value(draft, equals: body); contains(item("epub-selection", app), "window")
-        try capture("A-product-05-narrow-epub-dark", app: app)
-        try click(item("epub-save-note", app))
-        let source = item("epub-return", app)
-        try reveal(source, in: "epub-notes-list", app: app); try click(source)
-        waitForRemoval(item("reader-notes-panel", app))
+        try uiExample("open-epub-sample", app); try uiSelectWeb("window", app); try uiBeginNote(app)
+        let body = "A EPUB original draft 日本語"
+        try uiPaste(body, item("annotation-comment-input", app)); XCTAssertEqual(try uiAnnotations(app).count, 0)
+        app.terminate(); app.launch(); app.activate(); try uiExample("open-epub-sample", app)
+        try uiPanel("epub-notes", open: true, app); try uiResumeDraft(app)
+        value(item("annotation-comment-input", app), equals: body); try click(item("annotation-editor-cancel", app))
+        try uiPanel("epub-contents", open: true, app); try uiPanel("epub-contents", open: false, app)
+        try uiPanel("epub-notes", open: true, app); try uiResumeDraft(app)
+        value(item("annotation-comment-input", app), equals: body)
+        try capture("A-product-05-narrow-epub-dark", app: app); try uiSaveNote(app)
+        let note = try uiOnlyAnnotation(app); XCTAssertEqual(try uiAnchorPayload(note)["quote"] as? String, "window")
+        try uiReturnNote(app); try uiPanel("epub-notes", open: false, app)
         XCTAssertFalse(item("reader-notes-panel", app).exists); contains(item("epub-position", app), "第 1 章")
     }
 
     @MainActor func testARegularLightPanelsRestoreReadingArea() throws {
         let app = try originalApp(width: 1280, dark: false); defer { app.terminate() }
-        navigateWorkspace("open-sample", in: app)
-        try click(item("open-sample", app))
-        // Opening the fixture is asynchronous. A window screenshot alone can
-        // capture the Library loading sheet, so require actual reader state.
-        contains(item("page-position", app), "1 / 2")
+        try uiExample("open-sample", app); contains(item("page-position", app), "1 / 2")
         XCTAssertTrue(item("professional-reader-tool-rail", app).exists)
         try capture("A-product-01-default-light", app: app)
-        try click(item("reader-navigation", app)); try click(item("reader-notes", app))
+        try uiPanel("reader-navigation", open: true, app)
         let navigation = item("reader-navigation-panel", app), notes = item("reader-notes-panel", app)
-        XCTAssertTrue(navigation.exists && notes.exists)
-        XCTAssertGreaterThanOrEqual(notes.frame.minX - navigation.frame.maxX, 420)
-        try capture("A-product-02-both-panels-light", app: app)
-        try click(item("close-notes", app)); try click(item("close-navigation", app))
+        XCTAssertTrue(navigation.exists)
+        XCTAssertGreaterThanOrEqual(app.windows.firstMatch.frame.width - navigation.frame.width, 420)
+        try uiPanel("reader-notes", open: true, app)
+        XCTAssertTrue(notes.exists); XCTAssertFalse(navigation.exists)
+        XCTAssertGreaterThanOrEqual(app.windows.firstMatch.frame.width - notes.frame.width, 420)
+        try capture("A-product-02-exclusive-panel-light", app: app)
+        try uiPanel("reader-notes", open: false, app)
         XCTAssertFalse(navigation.exists); XCTAssertFalse(notes.exists)
         try click(item("next-page", app)); contains(item("page-position", app), "2 / 2")
         try click(item("previous-page", app)); contains(item("page-position", app), "1 / 2")
     }
+
     @MainActor func testShellRegularLightPDFDraftSelectionAndExamplePartition() throws {
         let app = try originalApp(width: 1280, dark: false); defer { app.terminate() }
-        XCTAssertTrue(item("professional-library-workspace", app).waitForExistence(timeout: 15))
-        XCTAssertFalse(item("open-sample", app).exists)
-        navigateWorkspace("open-sample", in: app); try click(item("open-sample", app)); try searchOriginal(app)
-        XCTAssertFalse(item("professional-library-workspace", app).exists)
-        XCTAssertFalse(item("open-sample", app).exists)
-        try click(item("reader-notes", app))
+        XCTAssertTrue(item("professional-library-workspace", app).waitForExistence(timeout: 15)); XCTAssertFalse(item("open-sample", app).exists)
+        try uiExample("open-sample", app); try searchOriginal(app)
+        XCTAssertFalse(item("professional-library-workspace", app).exists); XCTAssertFalse(item("open-sample", app).exists)
+        try uiSelectPDFWindow(app); try uiBeginNote(app)
         let body = "Shell retained PDF draft 日本語 cafe\u{301}"
-        try click(item("note-input", app)); pasteOriginal(body, app: app); value(item("note-input", app), equals: body)
-        contains(app.staticTexts["window"].firstMatch, "window")
-        try click(item("workspace-back-library", app))
-        XCTAssertFalse(item("library-book", app).exists, "Explicit examples stay out of personal books")
-        try click(item("library-category-examples", app))
-        XCTAssertTrue(item("library-book", app).waitForExistence(timeout: 10))
+        try uiPaste(body, item("annotation-comment-input", app)); XCTAssertEqual(try uiAnnotations(app).count, 0)
+        app.terminate(); app.launch(); app.activate(); try uiExample("open-sample", app)
+        try uiPanel("reader-notes", open: true, app); try uiResumeDraft(app)
+        value(item("annotation-comment-input", app), equals: body); try click(item("annotation-editor-cancel", app))
+        try click(item("workspace-back-library", app)); XCTAssertFalse(item("library-book", app).exists)
+        try click(item("library-category-examples", app)); XCTAssertTrue(item("library-book", app).waitForExistence(timeout: 10))
         try capture("A-shell-01-library-regular-light", app: app)
-        try click(item("workspace-resume-reader", app))
-        value(item("note-input", app), equals: body); contains(app.staticTexts["window"].firstMatch, "window")
-        contains(item("page-position", app), "1 / 2")
+        try click(item("workspace-resume-reader", app)); try uiResumeDraft(app)
+        value(item("annotation-comment-input", app), equals: body); contains(item("page-position", app), "1 / 2")
         try capture("A-shell-02-reader-regular-light", app: app)
-        let token = try XCTUnwrap(app.launchEnvironment["PDFNO_UI_TEST_SESSION"])
-        let root = URL(fileURLWithPath: "/tmp/PDFno-UITests-" + token)
-        let library = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("library-v1.json"))) as? [String: Any])
-        let origins = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("bundled-examples-v1.json"))) as? [String: Any])
+        let library = try uiManifest("library-v1.json", app), origins = try uiManifest("bundled-examples-v1.json", app)
         let book = try XCTUnwrap((library["books"] as? [[String: Any]])?.first)
-        let record = try XCTUnwrap((origins["records"] as? [[String: Any]])?.first)
-        let identity = try XCTUnwrap(record["book"] as? [String: Any])
+        let record = try XCTUnwrap((origins["records"] as? [[String: Any]])?.first), identity = try XCTUnwrap(record["book"] as? [String: Any])
         XCTAssertEqual(identity["bookID"] as? String, book["id"] as? String)
         XCTAssertEqual(identity["editionID"] as? String, book["editionID"] as? String)
         XCTAssertEqual(identity["fileSHA256"] as? String, book["fileSHA256"] as? String)
-        XCTAssertEqual((library["notes"] as? [Any])?.count, 0)
+        XCTAssertEqual((library["notes"] as? [Any])?.count, 0); XCTAssertEqual(try uiAnnotations(app).count, 0)
     }
+
     @MainActor func testShellRegularDarkAIResultAndUncommittedDraftSurviveLibrary() throws {
         let app = try originalApp(width: 1280, dark: true); defer { app.terminate() }
-        navigateWorkspace("ai-settings", in: app); try click(item("ai-settings", app))
-        try click(item("ai-use-mock", app)); try click(item("ai-settings-save", app))
-        navigateWorkspace("open-sample", in: app); try click(item("open-sample", app)); try searchOriginal(app)
-        try click(item("reader-ai", app)); XCTAssertFalse(item("ai-start", app).isEnabled)
-        try reveal(item("ai-scope-consent", app), in: "ai-notes-list", app: app); try click(item("ai-scope-consent", app)); try click(item("ai-start", app))
+        try uiConfigureMock(app); try uiExample("open-sample", app); try searchOriginal(app)
+        try uiLegacyAI(app); try uiStartLegacyAI(app)
         XCTAssertTrue(item("ai-result", app).waitForExistence(timeout: 15))
         let body = "Shell retained AI draft 日本語"
-        try reveal(item("ai-user-note", app), in: "ai-notes-list", app: app); try click(item("ai-user-note", app)); pasteOriginal(body, app: app)
-        value(item("ai-user-note", app), equals: body)
-        try click(item("workspace-back-library", app)); try click(item("library-category-examples", app)); try click(item("library-grid-layout", app))
-        try capture("A-shell-03-library-grid-regular-dark", app: app)
-        // Opening the already active book resumes the existing session.
-        try click(item("library-book", app))
-        try reveal(item("ai-user-note", app), in: "ai-notes-list", app: app); value(item("ai-user-note", app), equals: body)
-        XCTAssertTrue(item("ai-result", app).exists); XCTAssertFalse(item("ai-saved-user-note", app).exists)
-        try capture("A-shell-04-reader-learning-regular-dark", app: app)
+        try uiReveal(item("ai-user-note", app), scroll: "ai-notes-list", app); try uiPaste(body, item("ai-user-note", app))
+        let result = uiText(item("ai-result", app)); XCTAssertEqual(try uiAnnotations(app).count, 0)
+        try click(item("ai-close", app)); try click(item("workspace-tool-return", app)); try click(item("workspace-back-library", app))
+        try click(item("library-category-examples", app)); try click(item("library-grid-layout", app))
+        try capture("A-shell-03-library-grid-regular-dark", app: app); try click(item("library-book", app))
+        try uiLegacyAI(app); try uiReveal(item("ai-user-note", app), scroll: "ai-notes-list", app)
+        value(item("ai-user-note", app), equals: body); XCTAssertEqual(uiText(item("ai-result", app)), result)
+        XCTAssertEqual(try uiAnnotations(app).count, 0); try capture("A-shell-04-reader-learning-regular-dark", app: app)
     }
+
     @MainActor func testShellNarrowLightPDFPageAndHelpToolsRoutes() throws {
         let app = try originalApp(width: 720, dark: false); defer { app.terminate() }
         XCTAssertTrue(item("professional-library-workspace", app).waitForExistence(timeout: 15))
@@ -311,19 +299,24 @@ final class ProfessionalReaderUITests: XCTestCase {
     }
     @MainActor func testShellNarrowDarkEPUBCanonicalSelectionDraftAndLibrary() throws {
         let app = try originalApp(width: 720, dark: true); defer { app.terminate() }
-        navigateWorkspace("open-epub-sample", in: app); try click(item("open-epub-sample", app))
-        let paragraph = try originalWebText("window", app: app)
-        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.1)).doubleClick()
-        try click(item("epub-notes", app)); contains(item("epub-selection", app), "window")
+        try uiExample("open-epub-sample", app); try uiSelectWeb("window", app); try uiBeginNote(app)
         let body = "Shell retained EPUB draft 日本語"
-        try click(item("epub-note-input", app)); pasteOriginal(body, app: app); value(item("epub-note-input", app), equals: body)
+        try uiPaste(body, item("annotation-comment-input", app)); XCTAssertEqual(try uiAnnotations(app).count, 0)
+        app.terminate(); app.launch(); app.activate(); try uiExample("open-epub-sample", app)
+        try uiPanel("epub-notes", open: true, app); try uiResumeDraft(app)
+        value(item("annotation-comment-input", app), equals: body); try click(item("annotation-editor-cancel", app))
         try click(item("workspace-back-library", app)); try click(item("library-category-examples", app))
-        XCTAssertTrue(item("library-epub", app).waitForExistence(timeout: 10))
-        try capture("A-shell-07-library-examples-narrow-dark", app: app)
-        try click(item("workspace-resume-reader", app)); value(item("epub-note-input", app), equals: body)
-        contains(item("epub-selection", app), "window"); contains(item("epub-position", app), "第 1 章")
+        XCTAssertTrue(item("library-epub", app).waitForExistence(timeout: 10)); try capture("A-shell-07-library-examples-narrow-dark", app: app)
+        try click(item("workspace-resume-reader", app)); try uiResumeDraft(app)
+        value(item("annotation-comment-input", app), equals: body); contains(item("epub-position", app), "第 1 章")
         try capture("A-shell-08-reader-epub-narrow-dark", app: app)
+        let root = try uiStore(app), data = try Data(contentsOf: root.appendingPathComponent("annotation-edit-drafts-v1.json"))
+        let journal = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let draft = try XCTUnwrap((journal["drafts"] as? [[String: Any]])?.first), baseline = try XCTUnwrap(draft["baseline"] as? [String: Any])
+        let note = try XCTUnwrap(baseline["annotation"] as? [String: Any])
+        XCTAssertEqual(try uiAnchorPayload(note)["quote"] as? String, "window"); XCTAssertEqual(try uiAnnotations(app).count, 0)
     }
+
 
 }
 #endif

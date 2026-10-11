@@ -76,25 +76,6 @@ final class NativeUITests: XCTestCase {
         let action = app.menuItems[title].firstMatch
         XCTAssertTrue(action.waitForExistence(timeout: 10)); XCTAssertTrue(action.isEnabled); press(action)
     }
-    @MainActor private func openCurrentBYOK(_ app: XCUIApplication) {
-        press(app.buttons["reader-ai"].firstMatch)
-        let service = app.popUpButtons["selection-service"].firstMatch
-        XCTAssertTrue(service.waitForExistence(timeout: 10)); press(service)
-        let byok = app.menuItems["独立 HTTPS BYOK"].firstMatch
-        XCTAssertTrue(byok.waitForExistence(timeout: 10)); press(byok)
-    }
-    @MainActor private func revealCurrentBYOKSettings(_ app: XCUIApplication) {
-        let ai = app.buttons["settings-category-ai"].firstMatch
-        if ai.exists { press(ai) }
-        else {
-            let category = app.descendants(matching: .any).matching(identifier: "settings-category-picker").firstMatch
-            XCTAssertTrue(category.waitForExistence(timeout: 10)); press(category); press(app.menuItems["AI"].firstMatch)
-        }
-        if !app.textFields["byok-endpoint"].firstMatch.exists {
-            let details = app.buttons["settings-byok-details"].firstMatch
-            revealCurrentSettingsElement(details, app: app); press(details)
-        }
-    }
     @MainActor private func resumeCurrentDocument(_ app: XCUIApplication) {
         let tabs = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'document-tab-' AND NOT identifier BEGINSWITH 'document-tab-close-'"))
         XCTAssertEqual(tabs.count, 1, "Resume the scenario's single real document tab")
@@ -163,7 +144,7 @@ final class NativeUITests: XCTestCase {
         let app = XCUIApplication(), token = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launch(); app.activate(); defer { app.terminate() }
-        let prefix = ebook ? "ebook" : "textformat", manifest = ebook ? "ebook-kookit-v1.json" : "text-formats-v1.json"
+        let prefix = ebook ? "ebook" : "textformat"
         let input = root.appendingPathComponent("Original parity.txt")
         let original = Data("Chapter 1\nwindow original 日本語 cafe\u{301}\nChapter 2\nOriginal end".utf8)
         if ebook {
@@ -185,51 +166,36 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
         let paragraph = try webText(in: app, matching: ebook ? "Original source" : "window", prefix: true, timeout: 10)
         paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
-        press(app.buttons[prefix + "-notes"].firstMatch)
-        let selection = japaneseElement(prefix + "-selection", in: app)
-        XCTAssertTrue(selection.waitForExistence(timeout: 8)); let quote = textValue(selection)
-        XCTAssertFalse(quote.isEmpty)
-        enterSearch("Original committed parity body", into: japaneseElement(prefix + "-user-note", in: app))
-        press(app.buttons[prefix + "-save-note"].firstMatch)
-        let editor = app.buttons[prefix + "-note-edit"].firstMatch, listID = prefix + "-notes-list"
-        XCTAssertTrue(editor.waitForExistence(timeout: 8), "Read the manifest only after the saved row is published")
-        let before = try originalSavedNote(token, manifest: manifest)
-        scrollRecordElement(editor, listID: listID, app: app); press(editor)
-        enterRecordBody("Original uncommitted draft 日本語", prefix: prefix + "-note", listID: listID, app: app)
-        XCTAssertEqual(try originalSavedNote(token, manifest: manifest)["userText"] as? String, "Original committed parity body")
+        try uiBeginNote(app); try uiPaste("Original committed parity body", ui("annotation-comment-input", app)); try uiSaveNote(app)
+        try uiPanel(prefix + "-notes", open: true, app)
+        let before = try uiOnlyAnnotation(app), quote = try XCTUnwrap(uiAnchorPayload(before)["quote"] as? String)
+        XCTAssertFalse(quote.isEmpty); try uiEditNote(app)
+        try uiPaste("Original uncommitted draft 日本語", ui("annotation-comment-input", app))
+        XCTAssertEqual(try uiOnlyAnnotation(app)["userText"] as? String, "Original committed parity body")
         app.terminate(); app.launch(); app.activate()
         navigateWorkspace(ebook ? "library-ebook-mobi" : "library-textformat", in: app)
         let row = japaneseElement(ebook ? "library-ebook-mobi" : "library-textformat", in: app)
         XCTAssertTrue(row.waitForExistence(timeout: 15)); press(row)
         XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
-        press(app.buttons[prefix + "-notes"].firstMatch)
-        let recovered = japaneseElement(prefix + "-note-edit-input", in: app)
-        scrollRecordElement(recovered, listID: listID, app: app)
-        XCTAssertEqual(textValue(recovered), "Original uncommitted draft 日本語")
-        let cancel = app.buttons[prefix + "-note-edit-cancel"].firstMatch
-        scrollRecordElement(cancel, listID: listID, app: app); press(cancel)
-        scrollRecordElement(editor, listID: listID, app: app); press(editor)
-        let body = "Saved parity body cafe\u{301} 日本語"
-        enterRecordBody(body, prefix: prefix + "-note", listID: listID, app: app)
-        let save = app.buttons[prefix + "-note-edit-save"].firstMatch
-        scrollRecordElement(save, listID: listID, app: app); press(save)
-        waitForText(["已保存"], in: japaneseElement(prefix + "-note-edit-status", in: app), timeout: 8)
-        let after = try originalSavedNote(token, manifest: manifest)
+        try uiPanel(prefix + "-notes", open: true, app); try uiResumeDraft(app)
+        XCTAssertEqual(uiText(ui("annotation-comment-input", app)), "Original uncommitted draft 日本語")
+        try uiClick(ui("annotation-editor-cancel", app)); XCTAssertEqual(try uiOnlyAnnotation(app)["userText"] as? String, "Original committed parity body")
+        try uiEditNote(app); let body = "Saved parity body cafe\u{301} 日本語"
+        try uiPaste(body, ui("annotation-comment-input", app)); try uiSaveNote(app)
+        let after = try uiOnlyAnnotation(app)
         XCTAssertEqual(after["userText"] as? String, body); XCTAssertEqual(after["anchor"] as? NSDictionary, before["anchor"] as? NSDictionary)
-        press(app.buttons[prefix + "-close-notes"].firstMatch); press(app.buttons["library-search"].firstMatch)
+        try uiPanel(prefix + "-notes", open: false, app); press(app.buttons["library-search"].firstMatch)
         let search = app.textFields["library-search-input"].firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 8)); enterSearch("saved parity body CAFÉ", into: search)
         waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
         let preview = japaneseElement("record-search-preview", in: app)
         XCTAssertTrue(preview.waitForExistence(timeout: 5)); XCTAssertTrue(textValue(preview).contains("Saved parity"))
         press(app.buttons["record-search-source"].firstMatch)
-        XCTAssertTrue(navigation.waitForExistence(timeout: 25))
-        waitUntilEnabled(navigation)
-        press(app.buttons[prefix + "-notes"].firstMatch)
-        let returnedQuote = app.staticTexts[prefix + "-saved-quote"].firstMatch
-        XCTAssertTrue(returnedQuote.waitForExistence(timeout: 8))
-        XCTAssertEqual(textValue(returnedQuote), quote)
-        XCTAssertEqual(try originalSavedNote(token, manifest: manifest)["anchor"] as? NSDictionary, before["anchor"] as? NSDictionary)
+        XCTAssertTrue(navigation.waitForExistence(timeout: 25)); waitUntilEnabled(navigation)
+        try uiPanel(prefix + "-notes", open: true, app)
+        let returnedQuote = ui("annotation-excerpt", app)
+        XCTAssertTrue(returnedQuote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(returnedQuote), quote)
+        XCTAssertEqual(try uiOnlyAnnotation(app)["anchor"] as? NSDictionary, before["anchor"] as? NSDictionary)
         if !ebook { XCTAssertEqual(try Data(contentsOf: input), original) }
     }
     @MainActor func testMacJapaneseSavedBodyEditingSearchKeepsReviewAndCorrections() throws {
@@ -253,7 +219,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(after["review"] as? NSDictionary, before["review"] as? NSDictionary)
         XCTAssertEqual(after["corrections"] as? NSArray, before["corrections"] as? NSArray)
         XCTAssertEqual(after["userText"] as? String, "Saved Japanese parity body cafe\u{301}")
-        press(app.buttons["close-notes"].firstMatch); press(app.buttons["library-search"].firstMatch)
+        press(app.buttons["reader-notes"].firstMatch); press(app.buttons["library-search"].firstMatch)
         enterSearch("saved Japanese parity CAFÉ", into: app.textFields["library-search-input"].firstMatch)
         waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
         press(app.buttons["record-search-source"].firstMatch)
@@ -272,63 +238,41 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(element.isHittable)
     }
     @MainActor func testMacBYOKExplicitRecipientManualSaveAndDefaultChainsStaySeparate() throws {
-        let app = XCUIApplication(), token = UUID().uuidString
-        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
         app.launch(); app.activate(); defer { app.terminate() }
-        try prepareOriginalPDFNoteEditing(app)
-        openCurrentBYOK(app)
-        guard japaneseElement("byok-offline-fixture", in: app).waitForExistence(timeout: 5) else {
-            throw NSError(domain: "PDFno-Offline-BYOK-UI", code: 1, userInfo: [NSLocalizedDescriptionKey: "Intercepted BYOK transport required before synthetic credential"])
-        }
-        press(app.buttons["byok-selection-settings"].firstMatch)
-        revealCurrentBYOKSettings(app)
-        let endpoint = app.textFields["byok-endpoint"].firstMatch
-        XCTAssertTrue(endpoint.waitForExistence(timeout: 5)); enterCurrentBYOKSetting("https://joint-ui.example/v1", into: endpoint, app: app)
-        enterCurrentBYOKSetting("original-ui-model", into: app.textFields["byok-model"].firstMatch, app: app)
-        let key = japaneseElement("byok-session-key", in: app)
-        XCTAssertTrue(key.waitForExistence(timeout: 5)); enterCurrentBYOKSetting("synthetic-reading-ui-credential", into: key, app: app)
-        applyCurrentBYOKSettings(app)
-        waitForText(["仅在本次会话生效"], in: japaneseElement("byok-settings-status", in: app), timeout: 5)
-        let settingsClose = currentSettingsReturn(app)
-        press(settingsClose)
-        let settingsDismissed = expectation(for: NSPredicate { _, _ in !settingsClose.exists }, evaluatedWith: app)
-        wait(for: [settingsDismissed], timeout: 10)
-        let recapture = app.buttons["byok-recapture"].firstMatch
-        XCTAssertTrue(recapture.waitForExistence(timeout: 5)); waitUntilEnabled(recapture); press(recapture)
-        let domain = japaneseElement("byok-consent-domain", in: app)
-        XCTAssertTrue(domain.waitForExistence(timeout: 5)); XCTAssertTrue(textValue(domain).contains("joint-ui.example"))
-        let consentSource = app.staticTexts["byok-consent-source"].firstMatch
-        XCTAssertTrue(consentSource.waitForExistence(timeout: 5))
-        XCTAssertEqual(textValue(consentSource), "window")
-        let send = app.buttons["byok-send"].firstMatch, consent = japaneseElement("byok-confirm", in: app)
-        scrollBYOKElement(send, in: app); XCTAssertFalse(send.isEnabled)
-        scrollBYOKElement(consent, in: app); press(consent)
-        scrollBYOKElement(send, in: app); waitUntilEnabled(send); press(send)
-        let result = japaneseElement("byok-result", in: app)
-        XCTAssertTrue(result.waitForExistence(timeout: 8)); XCTAssertTrue(textValue(result).contains("离线"))
-        let body = japaneseElement("byok-user-note", in: app)
-        scrollBYOKElement(body, in: app); enterSearch("Original saved BYOK body", into: body)
-        let save = app.buttons["byok-save-note"].firstMatch
-        scrollBYOKElement(save, in: app); press(save)
-        waitForText(["已保存"], in: japaneseElement("byok-save-status", in: app), timeout: 8)
-        let saved = try originalSavedNote(token, manifest: "learning-v1.json")
-        let savedResult = try XCTUnwrap(saved["result"] as? [String: Any])
-        XCTAssertEqual((savedResult["provider"] as? [String: Any])?["endpoint"] as? String, "https://joint-ui.example/v1")
-        XCTAssertEqual(saved["userText"] as? String, "Original saved BYOK body")
-        let store = URL(fileURLWithPath: "/tmp").appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent("learning-v1.json")
+        try prepareOriginalPDFNoteEditing(app); try uiLegacyAI(app)
+        guard ui("ai-offline-fixture", app).waitForExistence(timeout: 5) else { XCTFail("Intercepted transport required before synthetic credential"); return }
+        try uiCloseLegacyAI(app); try uiSettings(app)
+        try uiClick(ui("ai-provider-mode", app)); try uiClick(app.menuItems["OpenAI 兼容"].firstMatch)
+        try uiPaste("https://joint-ui.example/v1", ui("ai-endpoint", app)); try uiPaste("original-ui-model", ui("ai-model", app))
+        try uiPaste("synthetic-reading-ui-credential", ui("ai-session-key", app))
+        XCTAssertEqual(try uiAnnotations(app).count, 0)
+        try uiClick(ui("ai-settings-save", app)); try uiContains(ui("ai-connection-status", app), "已应用")
+        try uiContains(ui("ai-credential-status", app), "已配置"); try uiClick(ui("settings-return", app))
+        try uiSelectPDFWindow(app); try uiClick(ui("selection-ai-menu", app)); try uiClick(ui("selection-ai-translate", app))
+        let answers = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'ai-conversation-answer-'"))
+        try uiWait("One offline answer for the explicit selected task") { answers.count == 1 && !self.ui("ai-conversation-stop", app).exists }
+        let answer = answers.firstMatch; XCTAssertTrue(uiText(answer).contains("离线"))
+        try uiClick(ui("ai-conversation-source-toggle", app)); try uiContains(ui("ai-conversation-source", app), "window")
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'joint-ui.example'")).firstMatch.exists)
+        XCTAssertEqual(try uiAnnotations(app).count, 0, "An applied connection and generated answer do not save notes")
+        let save = ui(answer.identifier.replacingOccurrences(of: "ai-conversation-answer-", with: "ai-conversation-save-"), app)
+        try uiClick(save); try uiWait("Explicit answer save") { save.label == "已加入笔记" }
+        try uiClick(ui("ai-close", app)); try uiPanel("reader-notes", open: true, app); try uiEditNote(app)
+        try uiPaste("Original saved BYOK body", ui("annotation-comment-input", app)); try uiSaveNote(app)
+        let saved = try uiOnlyAnnotation(app), result = try XCTUnwrap(saved["aiResult"] as? [String: Any])
+        XCTAssertEqual((result["provider"] as? [String: Any])?["endpoint"] as? String, "https://joint-ui.example/v1")
+        XCTAssertEqual(saved["userText"] as? String, "Original saved BYOK body"); XCTAssertEqual(try uiAnchorPayload(saved)["quote"] as? String, "window")
+        let store = try uiStore(app).appendingPathComponent("annotations-v1.json")
         XCTAssertFalse(String(decoding: try Data(contentsOf: store), as: UTF8.self).contains("synthetic-reading-ui-credential"))
-        press(app.buttons["byok-close"].firstMatch)
-        navigateWorkspace("ai-settings", in: app)
-        let originalSettings = app.buttons["ai-settings"].firstMatch
-        navigateWorkspace("ai-settings", in: app)
-        XCTAssertTrue(originalSettings.waitForExistence(timeout: 5)); waitUntilEnabled(originalSettings); press(originalSettings)
-        XCTAssertTrue(app.buttons["ai-use-deepseek"].firstMatch.waitForExistence(timeout: 5))
-        revealCurrentBYOKSettings(app)
-        XCTAssertTrue(endpoint.waitForExistence(timeout: 5)); enterCurrentBYOKSetting("https://different-ui.example/v1", into: endpoint, app: app)
-        waitForText(["旧会话密钥已撤销"], in: japaneseElement("byok-settings-status", in: app), timeout: 5)
-        XCTAssertEqual(key.value as? String, "")
-        XCTAssertEqual(try originalSavedNote(token, manifest: "learning-v1.json")["result"] as? NSDictionary, NSDictionary(dictionary: savedResult))
+        try uiSettings(app); try uiPaste("https://different-ui.example/v1", ui("ai-endpoint", app))
+        XCTAssertEqual(ui("ai-session-key", app).value as? String, "")
+        try uiClick(ui("ai-settings-save", app)); try uiContains(ui("ai-credential-status", app), "需要 API Key")
+        XCTAssertEqual(try uiOnlyAnnotation(app)["aiResult"] as? NSDictionary, result as NSDictionary)
+        try uiClick(ui("settings-return", app)); openCurrentFileAction("document-page-translation", app: app)
+        XCTAssertTrue(ui("page-session-key", app).waitForExistence(timeout: 5)); XCTAssertEqual(ui("page-session-key", app).value as? String, "")
+        XCTAssertFalse(ui("page-start", app).isEnabled, "The whole-page route does not inherit the selected-text connection credential or consent")
     }
     @MainActor func testMacDOCXReadingPDFEntryCancelExportAndOverwriteRefusal() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Reading-PDF-UI-" + UUID().uuidString)
@@ -348,7 +292,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(export.waitForExistence(timeout: 5)); XCTAssertFalse(export.isEnabled)
         try chooseInput(source, trigger: app.buttons["reading-pdf-source"].firstMatch, app: app)
         waitUntilEnabled(export); press(export)
-        XCTAssertTrue(filePanelButton(app, titles: ["Save", "保存"]).waitForExistence(timeout: 5))
+        XCTAssertTrue(try filePanelButton(app, titles: ["Save", "保存"]).waitForExistence(timeout: 5))
         app.typeKey(.escape, modifierFlags: []); waitUntilEnabled(export)
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), [source.lastPathComponent])
         let output = root.appendingPathComponent("Original Reading.pdf")
@@ -388,31 +332,22 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["page-position"].firstMatch.waitForExistence(timeout: 15))
     }
     @MainActor func testMacPDFPanelSwitchRetainsOriginalSelectionAndUnsavedDraft() throws {
-        let app = XCUIApplication(), token = UUID().uuidString
-        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate(); defer { app.terminate() }
-        try prepareOriginalPDFNoteEditing(app)
-        press(app.buttons["reader-notes"].firstMatch)
-        let input = japaneseElement("note-input", in: app)
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        try prepareOriginalPDFNoteEditing(app); try uiSelectPDFWindow(app); try uiBeginNote(app)
         let draft = "Original shell draft 日本語 cafe\u{301} 👩🏽‍🚀"
-        enterSearch(draft, into: input)
-        press(app.buttons["reader-navigation"].firstMatch)
-        let search = app.textFields["search-input"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 5)); XCTAssertEqual(textValue(search), "window")
-        // Both panels may dock on a wide CI screen; close navigation before returning.
-        press(app.buttons["close-navigation"].firstMatch)
-        if !input.exists { press(app.buttons["reader-notes"].firstMatch) }
-        XCTAssertTrue(input.waitForExistence(timeout: 5)); XCTAssertEqual(textValue(input), draft)
-        press(app.buttons["close-notes"].firstMatch)
-        press(app.buttons["reader-notes"].firstMatch)
-        XCTAssertTrue(input.waitForExistence(timeout: 5)); XCTAssertEqual(textValue(input), draft)
-        press(app.buttons["save-note"].firstMatch)
-        let saved = try originalSavedNote(token, manifest: "library-v1.json")
-        XCTAssertEqual(saved["userText"] as? String, draft)
-        XCTAssertEqual((saved["anchor"] as? [String: Any])?["quote"] as? String, "window")
-        press(app.buttons["return-to-source"].firstMatch)
-        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
+        try uiPaste(draft, ui("annotation-comment-input", app)); XCTAssertEqual(try uiAnnotations(app).count, 0)
+        app.terminate(); app.launch(); app.activate(); try uiExample("open-sample", app)
+        try uiPanel("reader-notes", open: true, app); try uiResumeDraft(app)
+        XCTAssertEqual(uiText(ui("annotation-comment-input", app)), draft)
+        try uiClick(ui("annotation-editor-cancel", app))
+        try uiPanel("reader-navigation", open: true, app)
+        try uiPaste("window", ui("search-input", app)); try uiClick(ui("search-submit", app)); try uiClick(ui("search-result", app))
+        try uiPanel("reader-notes", open: true, app); try uiResumeDraft(app)
+        XCTAssertEqual(uiText(ui("annotation-comment-input", app)), draft); try uiSaveNote(app)
+        let saved = try uiOnlyAnnotation(app)
+        XCTAssertEqual(saved["userText"] as? String, draft); XCTAssertEqual(try uiAnchorPayload(saved)["quote"] as? String, "window")
+        try uiReturnNote(app); waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
     }
     // Japanese flows extend the original 30 tests without modifying them. Compile locally;
     // execute only on the authorized isolated CI host, using UUID stores and an intercepted
@@ -475,11 +410,11 @@ final class NativeUITests: XCTestCase {
         press(app.buttons["japanese-learning-close"].firstMatch)
         navigateWorkspace("ai-settings", in: app)
         press(app.buttons["ai-settings"].firstMatch)
-        XCTAssertTrue(app.buttons["ai-use-deepseek"].firstMatch.waitForExistence(timeout: 5))
-        press(app.buttons["ai-use-deepseek"].firstMatch)
+        XCTAssertTrue(ui("ai-provider-mode", app).waitForExistence(timeout: 5))
+        try uiClick(ui("ai-provider-mode", app)); try uiClick(app.menuItems["DeepSeek"].firstMatch)
         let key = japaneseElement("ai-session-key", in: app)
         XCTAssertTrue(key.waitForExistence(timeout: 5)); enterSearch("synthetic-reading-ui-credential", into: key, replacing: true)
-        press(app.buttons["ai-settings-save"].firstMatch)
+        press(app.buttons["ai-settings-save"].firstMatch); try uiContains(ui("ai-connection-status", app), "已应用"); try uiClick(ui("settings-return", app))
         pressJapaneseEntry(currentLanguageLauncher(app, formerID: "reader-japanese-learning"), in: app)
         XCTAssertTrue(japaneseElement("japanese-learning-source", in: app).waitForExistence(timeout: 5))
         XCTAssertEqual(textValue(japaneseElement("japanese-learning-source", in: app)), "window")
@@ -711,19 +646,12 @@ final class NativeUITests: XCTestCase {
         input.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.15)).click()
         input.typeKey("a", modifierFlags: .command)
         let board = NSPasteboard.general
-        let previous = (board.pasteboardItems ?? []).map { item in
-            let copy = NSPasteboardItem()
-            for type in item.types { if let data = item.data(forType: type) { copy.setData(data, forType: type) } }
-            return copy
-        }
         board.clearContents(); board.setString(text, forType: .string)
-        let change = board.changeCount
         input.typeKey("v", modifierFlags: .command)
         // Verify both the actual control and its model before dismiss/save;
         // a missed keyboard event must fail here, not masquerade as data loss.
         waitForEditingValue(text, in: input)
         waitForText(["正文未保存"], in: app.staticTexts[prefix + "-edit-status"].firstMatch, timeout: 5)
-        if board.changeCount == change { board.clearContents(); board.writeObjects(previous) }
     }
     private func originalSavedNote(_ token: String, manifest: String, root: URL? = nil) throws -> [String: Any] {
         let store = root ?? URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token)
@@ -739,15 +667,12 @@ final class NativeUITests: XCTestCase {
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launch(); app.activate(); defer { app.terminate() }
         try prepareOriginalPDFNoteEditing(app)
-        press(app.buttons["reader-notes"].firstMatch)
-        let input = app.descendants(matching: .any).matching(identifier: "note-input").firstMatch
-        XCTAssertTrue(input.waitForExistence(timeout: 5)); enterSearch("Original saved Bookno body", into: input)
-        press(app.buttons["save-note"].firstMatch)
-        XCTAssertTrue(app.buttons["pdf-note-edit"].firstMatch.waitForExistence(timeout: 8))
-        let saved = try originalSavedNote(token, manifest: "library-v1.json")
-        pressEditingElement(app.buttons["pdf-note-edit"].firstMatch, app: app)
-        enterEditingText("Original private unsaved Bookno draft", prefix: "pdf-note", app: app)
-        press(app.buttons["close-notes"].firstMatch)
+        try uiSelectPDFWindow(app); try uiBeginNote(app)
+        try uiPaste("Original saved Bookno body", ui("annotation-comment-input", app)); try uiSaveNote(app)
+        try uiPanel("reader-notes", open: true, app); let saved = try uiOnlyAnnotation(app)
+        try uiEditNote(app); try uiPaste("Original private unsaved Bookno draft", ui("annotation-comment-input", app))
+        app.terminate(); app.launch(); app.activate(); try uiExample("open-sample", app)
+        XCTAssertEqual(try uiOnlyAnnotation(app)["userText"] as? String, "Original saved Bookno body")
         navigateWorkspace("bookno-preview-open", in: app)
         let open = app.buttons["bookno-preview-open"].firstMatch
         navigateWorkspace("bookno-preview-open", in: app)
@@ -776,7 +701,7 @@ final class NativeUITests: XCTestCase {
         scrollBooknoElement(replay, in: app); press(replay); press(replay)
         waitForText(["mock 记录 2", "连续确认游标 1"], in: counts, timeout: 5)
         waitForText(["不是实际同步", "Bookno 未连接"], in: app.staticTexts["bookno-preview-status"].firstMatch, timeout: 5)
-        XCTAssertEqual(NSDictionary(dictionary: try originalSavedNote(token, manifest: "library-v1.json")), NSDictionary(dictionary: saved))
+        XCTAssertEqual(NSDictionary(dictionary: try uiOnlyAnnotation(app)), NSDictionary(dictionary: saved))
         // Finish the current preview before navigating to its new tools entry.
         // Escape inside navigateWorkspace would otherwise dismiss this sheet.
         press(currentToolReturn(app, formerID: "bookno-preview-close"))
@@ -812,152 +737,81 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(element.isHittable)
     }
     @MainActor func testMacPDFBodyEditingCancelDraftRestartEmptyAndSource() throws {
-        let app = XCUIApplication(), token = UUID().uuidString
-        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate(); defer { app.terminate() }
-        try prepareOriginalPDFNoteEditing(app)
-        press(app.buttons["reader-notes"].firstMatch)
-        let input = app.descendants(matching: .any).matching(identifier: "note-input").firstMatch
-        XCTAssertTrue(input.waitForExistence(timeout: 5)); enterSearch("Original saved body", into: input)
-        press(app.buttons["save-note"].firstMatch)
-        let edit = app.buttons["pdf-note-edit"].firstMatch
-        XCTAssertTrue(edit.waitForExistence(timeout: 8))
-        let before = try originalSavedNote(token, manifest: "library-v1.json")
-        pressEditingElement(edit, app: app); enterEditingText("Original cancelled edit", prefix: "pdf-note", app: app)
-        pressEditingElement(app.buttons["pdf-note-edit-cancel"].firstMatch, app: app)
-        XCTAssertEqual(try originalSavedNote(token, manifest: "library-v1.json")["userText"] as? String, "Original saved body")
-        pressEditingElement(edit, app: app); enterEditingText("Original recovered 日本語🌸 café", prefix: "pdf-note", app: app)
-        press(app.buttons["close-notes"].firstMatch); press(app.buttons["reader-notes"].firstMatch)
-        XCTAssertEqual(textValue(editingInput("pdf-note", app: app)), "Original recovered 日本語🌸 café")
-        app.terminate(); app.launch(); app.activate()
-        navigateWorkspace("library-book", in: app)
-        let book = app.descendants(matching: .any).matching(identifier: "library-book").firstMatch
-        navigateWorkspace("library-book", in: app)
-        XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
-        XCTAssertTrue(app.buttons["reader-notes"].firstMatch.waitForExistence(timeout: 10)); press(app.buttons["reader-notes"].firstMatch)
-        XCTAssertEqual(textValue(editingInput("pdf-note", app: app)), "Original recovered 日本語🌸 café")
-        pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
-        waitForText(["已保存到本地"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
-        let after = try originalSavedNote(token, manifest: "library-v1.json")
+        try prepareOriginalPDFNoteEditing(app); try uiSelectPDFWindow(app); try uiBeginNote(app)
+        try uiPaste("Original saved body", ui("annotation-comment-input", app)); try uiSaveNote(app)
+        try uiPanel("reader-notes", open: true, app); let before = try uiOnlyAnnotation(app)
+        try uiEditNote(app); try uiPaste("Original cancelled edit", ui("annotation-comment-input", app)); try uiClick(ui("annotation-editor-cancel", app))
+        XCTAssertEqual(try uiOnlyAnnotation(app)["userText"] as? String, "Original saved body")
+        try uiEditNote(app); try uiPaste("Original recovered 日本語🌸 café", ui("annotation-comment-input", app))
+        XCTAssertEqual(try uiOnlyAnnotation(app)["userText"] as? String, "Original saved body")
+        app.terminate(); app.launch(); app.activate(); try uiExample("open-sample", app)
+        try uiPanel("reader-notes", open: true, app); try uiResumeDraft(app)
+        XCTAssertEqual(uiText(ui("annotation-comment-input", app)), "Original recovered 日本語🌸 café")
+        try uiClick(ui("annotation-editor-cancel", app)); try uiPanel("reader-notes", open: false, app); try uiPanel("reader-notes", open: true, app)
+        try uiResumeDraft(app); XCTAssertEqual(uiText(ui("annotation-comment-input", app)), "Original recovered 日本語🌸 café")
+        try uiSaveNote(app); let after = try uiOnlyAnnotation(app)
         XCTAssertEqual(after["userText"] as? String, "Original recovered 日本語🌸 café")
-        XCTAssertEqual(NSDictionary(dictionary: try XCTUnwrap(before["anchor"] as? [String: Any])), NSDictionary(dictionary: try XCTUnwrap(after["anchor"] as? [String: Any])))
-        XCTAssertEqual(after["id"] as? String, before["id"] as? String)
-        pressEditingElement(edit, app: app)
-        let body = editingInput("pdf-note", app: app)
-        body.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.15)).click()
-        body.typeKey("a", modifierFlags: .command); body.typeKey(.delete, modifierFlags: [])
-        waitForEditingValue("", in: body)
-        waitForText(["正文未保存"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 5)
-        pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
-        waitForText(["已保存到本地"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
-        XCTAssertEqual(try originalSavedNote(token, manifest: "library-v1.json")["userText"] as? String, "")
-        XCTAssertEqual(textValue(app.staticTexts["saved-note-quote"].firstMatch), "window")
-        press(app.buttons["return-to-source"].firstMatch)
-        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
+        XCTAssertEqual(before["anchor"] as? NSDictionary, after["anchor"] as? NSDictionary); XCTAssertEqual(after["id"] as? String, before["id"] as? String)
+        try uiEditNote(app); try uiPaste("", ui("annotation-comment-input", app))
+        XCTAssertEqual(uiText(ui("annotation-comment-input", app)), ""); try uiSaveNote(app)
+        XCTAssertEqual(try uiOnlyAnnotation(app)["userText"] as? String, "")
+        XCTAssertEqual(uiText(ui("annotation-excerpt", app)), "window")
+        try uiReturnNote(app); waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
     }
     @MainActor func testMacPDFBodyEditingDiskFailureKeepsDraftAndExplicitRetry() throws {
-        let app = XCUIApplication(), token = UUID().uuidString
-        let root = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token)
-        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_NOTE_FAILURE"] = "backup-directory"
         app.launch(); app.activate(); defer { app.terminate() }
-        try prepareOriginalPDFNoteEditing(app)
-        press(app.buttons["reader-notes"].firstMatch); press(app.buttons["save-note"].firstMatch)
-        let edit = app.buttons["pdf-note-edit"].firstMatch
-        XCTAssertTrue(edit.waitForExistence(timeout: 8)); pressEditingElement(edit, app: app)
-        enterEditingText("Original failure recovery body", prefix: "pdf-note", app: app)
-        let body = editingInput("pdf-note", app: app)
-        let manifest = root.appendingPathComponent("library-v1.json")
-        let before = try Data(contentsOf: manifest)
-        // The UUID-guarded Debug fixture makes a real backup-directory conflict
-        // in the app's own sandbox. The runner only reads the resulting bytes.
-        pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
-        waitForText(["保存失败", "草稿保留"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
+        try prepareOriginalPDFNoteEditing(app); try uiSelectPDFWindow(app); try uiBeginNote(app); try uiSaveNote(app)
+        try uiPanel("reader-notes", open: true, app); try uiEditNote(app)
+        try uiPaste("Original failure recovery body", ui("annotation-comment-input", app))
+        let manifest = try uiStore(app).appendingPathComponent("annotations-v1.json"), before = try Data(contentsOf: manifest)
+        // The same app-owned real filesystem failure now targets the active annotation sidecar.
+        try uiClick(ui("annotation-editor-save", app)); try uiContains(ui("annotation-editor-status", app), "保存失败")
+        try uiContains(ui("annotation-editor-status", app), "草稿保留")
         XCTAssertEqual(try Data(contentsOf: manifest), before)
-        XCTAssertEqual(textValue(body), "Original failure recovery body")
-        pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
-        waitForText(["已保存到本地"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
-        XCTAssertEqual(try originalSavedNote(token, manifest: "library-v1.json", root: root)["userText"] as? String, "Original failure recovery body")
-        XCTAssertEqual(textValue(app.staticTexts["saved-note-quote"].firstMatch), "window")
+        XCTAssertEqual(uiText(ui("annotation-comment-input", app)), "Original failure recovery body")
+        try uiSaveNote(app)
+        XCTAssertEqual(try uiOnlyAnnotation(app)["userText"] as? String, "Original failure recovery body")
+        XCTAssertEqual(uiText(ui("annotation-excerpt", app)), "window")
     }
     @MainActor func testMacEPUBBodyEditingBookSwitchRestartAndSource() throws {
-        let app = XCUIApplication(), token = UUID().uuidString
-        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate(); defer { app.terminate() }
-        navigateWorkspace("open-epub-sample", in: app)
-        XCTAssertTrue(app.buttons["open-epub-sample"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["open-epub-sample"].firstMatch)
-        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
-        let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
-        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
-        press(app.buttons["epub-notes"].firstMatch)
-        XCTAssertTrue(app.buttons["epub-save-note"].firstMatch.waitForExistence(timeout: 8)); press(app.buttons["epub-save-note"].firstMatch)
-        let edit = app.buttons["epub-note-edit"].firstMatch
-        XCTAssertTrue(edit.waitForExistence(timeout: 8))
-        let before = try originalSavedNote(token, manifest: "epub-v1.json")
-        pressEditingElement(edit, app: app); enterEditingText("Original EPUB edited body 日本語🌸", prefix: "epub-note", app: app)
-        press(app.buttons["epub-close-notes"].firstMatch)
-        navigateWorkspace("open-sample", in: app)
-        press(app.buttons["open-sample"].firstMatch)
-        XCTAssertTrue(app.buttons["reader-notes"].firstMatch.waitForExistence(timeout: 15)); press(app.buttons["reader-notes"].firstMatch)
-        XCTAssertFalse(app.buttons["epub-note-edit-save"].firstMatch.exists)
-        press(app.buttons["close-notes"].firstMatch)
-        navigateWorkspace("library-epub", in: app)
-        let book = app.descendants(matching: .any).matching(identifier: "library-epub").firstMatch
-        navigateWorkspace("library-epub", in: app)
-        XCTAssertTrue(book.waitForExistence(timeout: 8)); press(book)
-        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
-        press(app.buttons["epub-notes"].firstMatch)
-        XCTAssertEqual(textValue(editingInput("epub-note", app: app)), "Original EPUB edited body 日本語🌸")
-        pressEditingElement(app.buttons["epub-note-edit-save"].firstMatch, app: app)
-        waitForText(["已保存到本地"], in: app.staticTexts["epub-note-edit-status"].firstMatch, timeout: 8)
-        let after = try originalSavedNote(token, manifest: "epub-v1.json")
-        XCTAssertEqual(Set(before.keys), Set(after.keys))
-        XCTAssertEqual(NSDictionary(dictionary: try XCTUnwrap(before["anchor"] as? [String: Any])), NSDictionary(dictionary: try XCTUnwrap(after["anchor"] as? [String: Any])))
-        app.terminate(); app.launch(); app.activate()
-        navigateWorkspace("library-epub", in: app)
-        XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
-        XCTAssertTrue(app.buttons["epub-notes"].firstMatch.waitForExistence(timeout: 25)); press(app.buttons["epub-notes"].firstMatch)
-        let body = app.staticTexts["epub-saved-user-text"].firstMatch
-        XCTAssertTrue(body.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(body), "Original EPUB edited body 日本語🌸")
-        press(app.buttons["epub-return"].firstMatch)
-        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 10)
+        try uiExample("open-epub-sample", app); try uiSelectWeb("window", app); try uiBeginNote(app); try uiSaveNote(app)
+        try uiPanel("epub-notes", open: true, app); let before = try uiOnlyAnnotation(app)
+        try uiEditNote(app); try uiPaste("Original EPUB edited body 日本語🌸", ui("annotation-comment-input", app))
+        app.terminate(); app.launch(); app.activate(); try uiExample("open-sample", app)
+        try uiPanel("reader-notes", open: true, app); XCTAssertEqual(uiAnnotationRows(app).count, 0); XCTAssertFalse(ui("annotation-resume-draft", app).exists)
+        try uiExample("open-epub-sample", app); try uiPanel("epub-notes", open: true, app); try uiResumeDraft(app)
+        XCTAssertEqual(uiText(ui("annotation-comment-input", app)), "Original EPUB edited body 日本語🌸"); try uiSaveNote(app)
+        let after = try uiOnlyAnnotation(app)
+        XCTAssertEqual(Set(before.keys), Set(after.keys)); XCTAssertEqual(before["anchor"] as? NSDictionary, after["anchor"] as? NSDictionary)
+        app.terminate(); app.launch(); app.activate(); try uiExample("open-epub-sample", app); try uiPanel("epub-notes", open: true, app)
+        try uiContains(ui("annotation-comment", app), "Original EPUB edited body 日本語🌸")
+        XCTAssertEqual(uiText(ui("annotation-comment", app)), "Original EPUB edited body 日本語🌸")
+        try uiReturnNote(app); waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 10)
     }
     @MainActor func testMacLearningBodyEditingPreservesResultRestartAndSource() throws {
-        let app = XCUIApplication(), token = UUID().uuidString
-        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launch(); app.activate(); defer { app.terminate() }
-        try prepareOriginalPDFNoteEditing(app)
-        navigateWorkspace("ai-settings", in: app)
-        press(app.buttons["ai-settings"].firstMatch)
-        let mock = app.buttons["ai-use-mock"].firstMatch
-        XCTAssertTrue(mock.waitForExistence(timeout: 5)); press(mock); press(app.buttons["ai-settings-save"].firstMatch)
-        press(app.buttons["reader-ai"].firstMatch)
-        let consent = app.descendants(matching: .any).matching(identifier: "ai-scope-consent").firstMatch
-        XCTAssertTrue(consent.waitForExistence(timeout: 5)); press(consent); press(app.buttons["ai-start"].firstMatch)
-        XCTAssertTrue(app.staticTexts["ai-result"].firstMatch.waitForExistence(timeout: 8))
-        press(app.buttons["ai-save-note"].firstMatch)
-        let edit = app.buttons["ai-note-edit"].firstMatch
-        XCTAssertTrue(edit.waitForExistence(timeout: 8))
-        let before = try originalSavedNote(token, manifest: "learning-v1.json")
-        pressEditingElement(edit, app: app); enterEditingText("Original independent edited AI body", prefix: "ai-note", app: app)
-        pressEditingElement(app.buttons["ai-note-edit-save"].firstMatch, app: app)
-        waitForText(["已保存到本地"], in: app.staticTexts["ai-note-edit-status"].firstMatch, timeout: 8)
-        let after = try originalSavedNote(token, manifest: "learning-v1.json")
-        XCTAssertEqual(Set(before.keys), Set(after.keys))
-        XCTAssertEqual(NSDictionary(dictionary: try XCTUnwrap(before["result"] as? [String: Any])), NSDictionary(dictionary: try XCTUnwrap(after["result"] as? [String: Any])))
+        try prepareOriginalPDFNoteEditing(app); try uiConfigureMock(app); try uiLegacyAI(app); try uiStartLegacyAI(app)
+        XCTAssertTrue(ui("ai-result", app).waitForExistence(timeout: 15)); XCTAssertEqual(try uiAnnotations(app).count, 0)
+        try uiReveal(ui("ai-save-note", app), scroll: "ai-notes-list", app); try uiClick(ui("ai-save-note", app))
+        try uiContains(ui("ai-result-save-state", app), "已添加到当前文档笔记"); let before = try uiOnlyAnnotation(app)
+        try uiClick(ui("ai-close", app)); try uiClick(ui("workspace-tool-return", app)); try uiPanel("reader-notes", open: true, app)
+        try uiEditNote(app); try uiPaste("Original independent edited AI body", ui("annotation-comment-input", app)); try uiSaveNote(app)
+        let after = try uiOnlyAnnotation(app)
+        XCTAssertEqual(Set(before.keys), Set(after.keys)); XCTAssertEqual(before["aiResult"] as? NSDictionary, after["aiResult"] as? NSDictionary)
+        XCTAssertNotNil(after["aiResult"]); XCTAssertEqual(before["anchor"] as? NSDictionary, after["anchor"] as? NSDictionary)
         XCTAssertEqual(after["userText"] as? String, "Original independent edited AI body")
-        press(app.buttons["ai-close"].firstMatch)
-        app.terminate(); app.launch(); app.activate()
-        navigateWorkspace("library-book", in: app)
-        let book = app.descendants(matching: .any).matching(identifier: "library-book").firstMatch
-        navigateWorkspace("library-book", in: app)
-        XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
-        XCTAssertTrue(app.buttons["reader-ai"].firstMatch.waitForExistence(timeout: 10)); press(app.buttons["reader-ai"].firstMatch)
-        let body = app.staticTexts["ai-saved-user-note"].firstMatch
-        XCTAssertTrue(body.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(body), "Original independent edited AI body")
-        XCTAssertEqual(textValue(app.staticTexts["ai-saved-quote"].firstMatch), "window")
-        press(app.buttons["ai-saved-source"].firstMatch)
-        waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
+        app.terminate(); app.launch(); app.activate(); try uiExample("open-sample", app); try uiPanel("reader-notes", open: true, app)
+        XCTAssertTrue(ui("annotation-comment", app).waitForExistence(timeout: 8)); XCTAssertEqual(uiText(ui("annotation-comment", app)), "Original independent edited AI body")
+        XCTAssertEqual(uiText(ui("annotation-excerpt", app)), "window"); XCTAssertTrue(ui("annotation-ai-result", app).exists)
+        XCTAssertEqual(try uiOnlyAnnotation(app)["aiResult"] as? NSDictionary, before["aiResult"] as? NSDictionary)
+        try uiReturnNote(app); waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
     }
     // Run only in isolated CI/VM/OS user: XCTest launches the existing app bundle identity.
     @MainActor func testMacCoverSelectionGridListRestartAndRestore() throws {
@@ -1117,34 +971,23 @@ final class NativeUITests: XCTestCase {
         press(app.buttons["search-submit"].firstMatch)
         let match = app.buttons["search-result"].firstMatch
         XCTAssertTrue(match.waitForExistence(timeout: 5)); press(match)
-        press(app.buttons["reader-notes"].firstMatch)
-        let draft = app.descendants(matching: .any).matching(identifier: "note-input").firstMatch
-        XCTAssertTrue(draft.waitForExistence(timeout: 5)); enterSearch("Original 日記 cafe\u{301}🌸", into: draft)
-        press(app.buttons["save-note"].firstMatch)
-        XCTAssertTrue(app.staticTexts["saved-note-quote"].firstMatch.waitForExistence(timeout: 8))
-        press(app.buttons["close-notes"].firstMatch); press(app.buttons["next-page"].firstMatch)
+        try uiSelectPDFWindow(app); try uiBeginNote(app)
+        try uiPaste("Original 日記 cafe\u{301}🌸", ui("annotation-comment-input", app)); try uiSaveNote(app)
+        try uiPanel("reader-notes", open: true, app); XCTAssertTrue(ui("annotation-excerpt", app).waitForExistence(timeout: 8))
+        try uiPanel("reader-notes", open: false, app); press(app.buttons["next-page"].firstMatch)
         waitForText(["2 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 5)
         press(app.buttons["library-search"].firstMatch)
         let input = app.textFields["library-search-input"].firstMatch
         XCTAssertTrue(input.waitForExistence(timeout: 8)); enterSearch("日記", into: input)
         waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
-        press(app.buttons["library-search-source"].firstMatch)
+        press(app.buttons["record-search-source"].firstMatch)
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
-        navigateWorkspace("ai-settings", in: app)
-        press(app.buttons["ai-settings"].firstMatch)
-        XCTAssertTrue(app.buttons["ai-use-mock"].firstMatch.waitForExistence(timeout: 5))
-        press(app.buttons["ai-use-mock"].firstMatch); press(app.buttons["ai-settings-save"].firstMatch)
-        press(app.buttons["reader-ai"].firstMatch)
-        XCTAssertTrue(app.staticTexts["ai-source-quote"].firstMatch.waitForExistence(timeout: 5))
-        XCTAssertEqual(textValue(app.staticTexts["ai-source-quote"].firstMatch), "window")
-        waitForText(["本地 mock"], in: app.staticTexts["ai-provider-status"].firstMatch, timeout: 5)
-        press(app.descendants(matching: .any).matching(identifier: "ai-scope-consent").firstMatch)
-        press(app.buttons["ai-start"].firstMatch)
-        XCTAssertTrue(app.staticTexts["ai-result"].firstMatch.waitForExistence(timeout: 8))
-        let aiDraft = app.descendants(matching: .any).matching(identifier: "ai-user-note").firstMatch
-        enterSearch("Original saved AI memory 学習", into: aiDraft); press(app.buttons["ai-save-note"].firstMatch)
-        XCTAssertTrue(app.staticTexts["ai-saved-user-note"].firstMatch.waitForExistence(timeout: 8))
-        press(app.buttons["ai-close"].firstMatch); press(app.buttons["next-page"].firstMatch)
+        try uiConfigureMock(app); try uiLegacyAI(app)
+        XCTAssertTrue(ui("ai-source-quote", app).waitForExistence(timeout: 5)); XCTAssertEqual(uiText(ui("ai-source-quote", app)), "window")
+        waitForText(["本地 mock"], in: ui("ai-provider-status", app), timeout: 5); try uiStartLegacyAI(app)
+        XCTAssertTrue(ui("ai-result", app).waitForExistence(timeout: 8)); XCTAssertEqual(try uiAnnotations(app).count, 1)
+        try uiSaveLegacyAI("Original saved AI memory 学習", app); XCTAssertEqual(try uiAnnotations(app).count, 2)
+        try uiReturnLegacyAI(app); press(app.buttons["next-page"].firstMatch)
         press(app.buttons["library-search"].firstMatch)
         XCTAssertTrue(input.waitForExistence(timeout: 8)); enterSearch("学習", into: input)
         waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
@@ -1163,29 +1006,22 @@ final class NativeUITests: XCTestCase {
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launch(); app.activate(); defer { app.terminate(); try? FileManager.default.removeItem(at: store) }
         try prepareOriginalPDFNoteEditing(app)
-        press(app.buttons["reader-notes"].firstMatch)
-        let input = app.descendants(matching: .any).matching(identifier: "note-input").firstMatch
-        XCTAssertTrue(input.waitForExistence(timeout: 5)); enterSearch("integrationpreviousbody", into: input)
-        press(app.buttons["save-note"].firstMatch)
-        let edit = app.buttons["pdf-note-edit"].firstMatch
-        XCTAssertTrue(edit.waitForExistence(timeout: 8))
-        let before = try originalSavedNote(token, manifest: "library-v1.json")
-        let anchor = try XCTUnwrap(before["anchor"] as? [String: Any]), hash = try XCTUnwrap(anchor["fileSHA256"] as? String)
+        try uiSelectPDFWindow(app); try uiBeginNote(app)
+        try uiPaste("integrationpreviousbody", ui("annotation-comment-input", app)); try uiSaveNote(app)
+        try uiPanel("reader-notes", open: true, app); let before = try uiOnlyAnnotation(app)
+        let anchor = try uiAnchorPayload(before), hash = try XCTUnwrap(anchor["fileSHA256"] as? String)
         let original = store.appendingPathComponent("Originals/" + hash + ".pdf"), originalBytes = try Data(contentsOf: original)
-        pressEditingElement(edit, app: app)
-        enterEditingText("integrationdraftbody", prefix: "pdf-note", app: app)
-        press(app.buttons["close-notes"].firstMatch); press(app.buttons["library-search"].firstMatch)
+        try uiEditNote(app); try uiPaste("integrationdraftbody", ui("annotation-comment-input", app))
+        app.terminate(); app.launch(); app.activate(); try uiExample("open-sample", app)
+        press(app.buttons["library-search"].firstMatch)
         let search = app.textFields["library-search-input"].firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 8)); enterSearch("integrationdraftbody", into: search)
         XCTAssertTrue(app.staticTexts["library-search-no-results"].firstMatch.waitForExistence(timeout: 8))
-        press(currentToolReturn(app, formerID: "library-search-close")); press(app.buttons["reader-notes"].firstMatch)
-        XCTAssertEqual(textValue(editingInput("pdf-note", app: app)), "integrationdraftbody")
-        pressEditingElement(app.buttons["pdf-note-edit-cancel"].firstMatch, app: app)
-        pressEditingElement(edit, app: app)
-        enterEditingText("integrationsavedbody 日本語", prefix: "pdf-note", app: app)
-        pressEditingElement(app.buttons["pdf-note-edit-save"].firstMatch, app: app)
-        waitForText(["已保存到本地"], in: app.staticTexts["pdf-note-edit-status"].firstMatch, timeout: 8)
-        press(app.buttons["close-notes"].firstMatch)
+        press(currentToolReturn(app, formerID: "library-search-close")); try uiPanel("reader-notes", open: true, app); try uiResumeDraft(app)
+        XCTAssertEqual(uiText(ui("annotation-comment-input", app)), "integrationdraftbody")
+        try uiClick(ui("annotation-editor-cancel", app)); XCTAssertEqual(try uiOnlyAnnotation(app)["userText"] as? String, "integrationpreviousbody")
+        try uiEditNote(app); try uiPaste("integrationsavedbody 日本語", ui("annotation-comment-input", app)); try uiSaveNote(app)
+        try uiPanel("reader-notes", open: false, app)
         navigateWorkspace("library-grid-layout", in: app)
         navigateWorkspace("library-list-layout", in: app)
         press(app.buttons["library-grid-layout"].firstMatch); press(app.buttons["library-list-layout"].firstMatch)
@@ -1214,9 +1050,9 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["library-search-no-results"].firstMatch.waitForExistence(timeout: 8))
         enterSearch("integrationsavedbody", into: search, replacing: true)
         waitForText(["找到 1 项"], in: app.staticTexts["library-search-status"].firstMatch, timeout: 8)
-        press(app.buttons["library-search-source"].firstMatch)
+        press(app.buttons["record-search-source"].firstMatch)
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
-        let after = try originalSavedNote(token, manifest: "library-v1.json")
+        let after = try uiOnlyAnnotation(app)
         XCTAssertEqual(after["userText"] as? String, "integrationsavedbody 日本語")
         XCTAssertEqual(after["anchor"] as? NSDictionary, before["anchor"] as? NSDictionary)
         XCTAssertEqual(after["id"] as? String, before["id"] as? String)
@@ -1274,16 +1110,16 @@ final class NativeUITests: XCTestCase {
         XCTAssertFalse(app.buttons["reader-page-translation"].firstMatch.exists)
         let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
         paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
-        press(app.buttons["textformat-notes"].firstMatch)
-        let selection = app.descendants(matching: .any).matching(identifier: "textformat-selection").firstMatch
-        XCTAssertTrue(selection.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(selection), "window")
-        let draft = app.descendants(matching: .any).matching(identifier: "textformat-user-note").firstMatch
-        XCTAssertTrue(draft.waitForExistence(timeout: 5)); enterSearch("Original text format observation", into: draft)
-        press(app.buttons["textformat-save-note"].firstMatch)
-        let saved = app.staticTexts["textformat-saved-quote"].firstMatch, note = app.staticTexts["textformat-saved-user-note"].firstMatch
+        try uiBeginNote(app)
+        let draft = ui("annotation-comment-input", app)
+        XCTAssertTrue(draft.waitForExistence(timeout: 5)); try uiPaste("Original text format observation", draft)
+        XCTAssertEqual(try uiAnnotations(app).count, 0); try uiSaveNote(app); try uiPanel("textformat-notes", open: true, app)
+        let saved = ui("annotation-excerpt", app), note = ui("annotation-comment", app)
         XCTAssertTrue(saved.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(saved), "window")
         XCTAssertTrue(note.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(note), "Original text format observation")
-        press(app.buttons["textformat-return"].firstMatch)
+        let anchorBefore = try uiOnlyAnnotation(app)["anchor"] as? NSDictionary
+        XCTAssertEqual(try uiAnchorPayload(uiOnlyAnnotation(app))["quote"] as? String, "window")
+        try uiReturnNote(app); try uiPanel("textformat-notes", open: false, app)
         press(navigation)
         let second = app.buttons["textformat-chapter-2"].firstMatch
         XCTAssertTrue(second.waitForExistence(timeout: 5)); press(second)
@@ -1291,7 +1127,7 @@ final class NativeUITests: XCTestCase {
         let store = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + token).appendingPathComponent("text-formats-v1.json")
         let persisted = expectation(for: NSPredicate { _, _ in
             guard let data = try? Data(contentsOf: store), let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let books = state["books"] as? [[String: Any]], let progress = books.first?["progress"] as? [String: Any], let notes = state["notes"] as? [[String: Any]] else { return false }
+                  let books = state["books"] as? [[String: Any]], let progress = books.first?["progress"] as? [String: Any], let notes = try? self.uiAnnotations(app) else { return false }
             return progress["blockID"] as? Int == 2 && progress["quote"] as? String == "C" && notes.count == 1
         }, evaluatedWith: app)
         wait(for: [persisted], timeout: 10)
@@ -1304,7 +1140,8 @@ final class NativeUITests: XCTestCase {
         press(app.buttons["textformat-notes"].firstMatch)
         XCTAssertTrue(saved.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(saved), "window")
         XCTAssertTrue(note.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(note), "Original text format observation")
-        press(app.buttons["textformat-return"].firstMatch)
+        try uiReturnNote(app); try uiPanel("textformat-notes", open: false, app)
+        XCTAssertEqual(try uiOnlyAnnotation(app)["anchor"] as? NSDictionary, anchorBefore)
         XCTAssertTrue(try webText(in: app, matching: "window", prefix: true, timeout: 10).isHittable)
         XCTAssertEqual(try Data(contentsOf: file), bytes)
     }
@@ -1329,23 +1166,15 @@ final class NativeUITests: XCTestCase {
         let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
         waitUntilEnabled(paragraph)
         paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
-        press(app.buttons["docx-notes"].firstMatch)
-        // Native selectable text may be exposed as Other on macOS 15. Match
-        // its exact app-owned identifier without imposing an AX role.
-        let selection = app.descendants(matching: .any).matching(identifier: "docx-selection").firstMatch
-        guard selection.waitForExistence(timeout: 8) else {
-            print("Original Word notes: empty-selection message exists =", app.descendants(matching: .any).matching(identifier: "docx-selection-empty").firstMatch.exists)
-            XCTFail("Real Word selection must reach the native notes sheet")
-            return
-        }
-        XCTAssertEqual(textValue(selection), "window")
-        let draft = app.descendants(matching: .any).matching(identifier: "docx-user-note").firstMatch
-        XCTAssertTrue(draft.waitForExistence(timeout: 5)); enterSearch("Original independent Word note", into: draft)
-        press(app.buttons["docx-save-note"].firstMatch)
-        let saved = app.staticTexts["docx-saved-quote"].firstMatch, userNote = app.staticTexts["docx-saved-user-note"].firstMatch
+        try uiBeginNote(app)
+        let draft = ui("annotation-comment-input", app)
+        XCTAssertTrue(draft.waitForExistence(timeout: 5)); try uiPaste("Original independent Word note", draft)
+        XCTAssertEqual(try uiAnnotations(app).count, 0); try uiSaveNote(app); try uiPanel("docx-notes", open: true, app)
+        let saved = ui("annotation-excerpt", app), userNote = ui("annotation-comment", app)
         XCTAssertTrue(saved.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(saved), "window")
         XCTAssertTrue(userNote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(userNote), "Original independent Word note")
-        press(app.buttons["docx-return"].firstMatch)
+        let anchorBefore = try uiOnlyAnnotation(app)["anchor"] as? NSDictionary
+        try uiReturnNote(app); try uiPanel("docx-notes", open: false, app)
         XCTAssertTrue(try webText(in: app, matching: "window", prefix: true, timeout: 10).isHittable)
         press(navigation)
         let second = app.buttons["Second UI heading"].firstMatch
@@ -1376,7 +1205,8 @@ final class NativeUITests: XCTestCase {
         press(app.buttons["docx-notes"].firstMatch)
         XCTAssertTrue(saved.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(saved), "window")
         XCTAssertTrue(userNote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(userNote), "Original independent Word note")
-        press(app.buttons["docx-return"].firstMatch)
+        try uiReturnNote(app); try uiPanel("docx-notes", open: false, app)
+        XCTAssertEqual(try uiOnlyAnnotation(app)["anchor"] as? NSDictionary, anchorBefore)
         XCTAssertTrue(try webText(in: app, matching: "window", prefix: true, timeout: 10).isHittable)
         XCTAssertEqual(try Data(contentsOf: source), bytes)
     }
@@ -1459,7 +1289,7 @@ final class NativeUITests: XCTestCase {
         try chooseInput(source, trigger: app.buttons["conversion-source"].firstMatch, app: app)
         waitUntilEnabled(export)
         press(export)
-        XCTAssertTrue(filePanelButton(app, titles: ["Save", "保存"]).waitForExistence(timeout: 5))
+        XCTAssertTrue(try filePanelButton(app, titles: ["Save", "保存"]).waitForExistence(timeout: 5))
         app.typeKey(.escape, modifierFlags: []); waitUntilEnabled(export)
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path).sorted(), ["Broken Body.docx", "Original Body.docx"])
         let output = root.appendingPathComponent("Original Output.txt")
@@ -1546,7 +1376,7 @@ final class NativeUITests: XCTestCase {
     @MainActor private func chooseOutput(_ url: URL, defaultName: String, trigger: XCUIElement, app: XCUIApplication) throws {
         let existed = FileManager.default.fileExists(atPath: url.path)
         press(trigger)
-        let save = filePanelButton(app, titles: ["Save", "保存"])
+        let save = try filePanelButton(app, titles: ["Save", "保存"])
         XCTAssertTrue(save.waitForExistence(timeout: 5))
         try goToFixtureLocation(url.deletingLastPathComponent(), app: app)
         let name = app.textFields.matching(NSPredicate(format: "value == %@", defaultName)).firstMatch
@@ -1797,15 +1627,17 @@ final class NativeUITests: XCTestCase {
     }
     @MainActor private func chooseInput(_ url: URL, trigger: XCUIElement, app: XCUIApplication) throws {
         press(trigger)
-        let open = filePanelButton(app, titles: ["Open", "打开"])
+        let open = try filePanelButton(app, titles: ["Open", "打开"])
         XCTAssertTrue(open.waitForExistence(timeout: 5))
         try goToFixtureLocation(url, app: app)
         // Choosing a file completion can also accept the selected file. Require actual import/output state below.
         if open.exists { waitUntilEnabled(open); press(open) }
     }
-    @MainActor private func filePanelButton(_ app: XCUIApplication, titles: [String]) -> XCUIElement {
+    @MainActor private func filePanelButton(_ app: XCUIApplication, titles: [String]) throws -> XCUIElement {
         // The actual macOS panel action reports OKButton; a name-only query can select the Touch Bar.
-        if titles.contains("Open") || titles.contains("Save") { return app.buttons["OKButton"].firstMatch }
+        if titles.contains("Open") || titles.contains("Save") {
+            return try uiFileControl(app, type: .button, identifier: "OKButton")
+        }
         return app.buttons[titles[0]].firstMatch.exists ? app.buttons[titles[0]].firstMatch : app.buttons[titles[1]].firstMatch
     }
     @MainActor private func modalButton(_ app: XCUIApplication, titles: [String]) throws -> XCUIElement {
@@ -1838,24 +1670,31 @@ final class NativeUITests: XCTestCase {
         }.first { $0.exists } ?? app
         traceFixturePanel("panel-resolved", url: url, panel: panel, started: diagnosticStarted)
         app.typeKey("g", modifierFlags: [.command, .shift])
-        let location = panel.textFields["PathTextField"].firstMatch
+        let location = try uiFileControl(app, type: .textField, identifier: "PathTextField")
         XCTAssertTrue(location.waitForExistence(timeout: 5))
         enterSearch(url.path, into: location, replacing: true)
         XCTAssertEqual(location.value as? String, url.path)
         traceFixturePanel("literal-path-confirmed", url: url, panel: panel, started: diagnosticStarted)
         // The completion label is not hittable on macOS; select its actual row/cell by mouse.
         // A keyboard Return here can crash the system panel's input-context service.
+        let goTo = app.sheets.matching(identifier: "GoToWindow").firstMatch
+        let fullPath = NSPredicate(format: "identifier == %@", url.path)
         let fixture = NSPredicate(format: "label == %@ OR value == %@", url.lastPathComponent, url.lastPathComponent)
-        let rows: [XCUIElement.ElementType] = [.cell, .tableRow, .outlineRow]
-        // Stop after a real matching row is found. Eagerly enumerating all three
-        // row types causes redundant, slow system-panel AX snapshots on CI.
-        let candidates = rows.lazy.flatMap { panel.descendants(matching: $0).containing(fixture).allElementsBoundByIndex }
-        let completion = try XCTUnwrap(candidates.first {
-            let frame = $0.frame
-            return $0.isHittable && !frame.isEmpty && frame.minX.isFinite && frame.minY.isFinite
-        }, "The actual fixture completion must be hittable")
-        traceFixturePanel("qualified-completion", url: url, panel: panel, started: diagnosticStarted, evidence: completion)
-        completion.doubleClick()
+        var completion: XCUIElement?
+        try uiWait("One physical completion for the exact entered fixture path", timeout: 12) {
+            let fullRows = goTo.exists ? goTo.tables.tableRows.containing(fullPath).allElementsBoundByAccessibilityElement : []
+            let observedRows = fullRows.isEmpty ? [XCUIElement.ElementType.cell, .tableRow, .outlineRow].flatMap {
+                panel.descendants(matching: $0).containing(fixture).allElementsBoundByAccessibilityElement
+            } : fullRows
+            completion = observedRows.first { row in
+                let frame = row.frame
+                return row.exists && row.isHittable && !frame.isEmpty && !frame.isInfinite && frame.minX.isFinite && frame.minY.isFinite
+            }
+            return completion != nil
+        }
+        let selectedCompletion = try XCTUnwrap(completion)
+        traceFixturePanel("qualified-completion", url: url, panel: panel, started: diagnosticStarted, evidence: selectedCompletion)
+        selectedCompletion.doubleClick()
         traceFixturePanel("real-cell-double-clicked", url: url, panel: panel, started: diagnosticStarted)
         let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             !location.exists || !location.isHittable
@@ -1979,10 +1818,11 @@ final class NativeUITests: XCTestCase {
         XCTAssertFalse(app.buttons["page-start"].firstMatch.isEnabled)
         XCTAssertFalse(app.staticTexts["page-result-0"].firstMatch.exists)
         press(app.buttons["page-close"].firstMatch)
-        press(app.buttons["reader-ai"].firstMatch)
+        try uiLegacyAI(app)
         let saved = app.staticTexts["ai-saved-user-note"].firstMatch
         XCTAssertTrue(saved.waitForExistence(timeout: 5)); XCTAssertEqual(textValue(saved), "Original synthetic whole page note")
         press(app.buttons["ai-saved-source"].firstMatch)
+        if ui("workspace-tool-return", app).exists { try uiClick(ui("workspace-tool-return", app)) }
         XCTAssertTrue(textValue(app.staticTexts["page-position"].firstMatch).contains("1 / 1"))
         app.terminate()
     }
@@ -2041,10 +1881,11 @@ final class NativeUITests: XCTestCase {
         let restartedKey = app.descendants(matching: .any).matching(identifier: "chapter-session-key").firstMatch
         XCTAssertTrue(restartedKey.exists); XCTAssertTrue((restartedKey.value as? String ?? "").isEmpty)
         press(app.buttons["chapter-close"].firstMatch)
-        press(app.buttons["epub-ai"].firstMatch)
+        try uiLegacyAI(app)
         let savedText = app.descendants(matching: .any).matching(identifier: "ai-saved-user-note").firstMatch
         XCTAssertTrue(savedText.waitForExistence(timeout: 5)); XCTAssertEqual(textValue(savedText), "Original synthetic whole chapter note")
         press(app.buttons["ai-saved-source"].firstMatch)
+        if ui("workspace-tool-return", app).exists { try uiClick(ui("workspace-tool-return", app)) }
         waitForText(["第 2 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 10)
     }
     @MainActor func testMacEPUBChapterOversizeRefusesWholeDocumentWithoutKeyOrSend() throws {
@@ -2164,208 +2005,92 @@ final class NativeUITests: XCTestCase {
     @MainActor func testMacDeepSeekSelectionOfflineTransportPDFEPUBAndRestart() throws {
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
-        app.launch(); app.activate()
-        navigateWorkspace("open-sample", in: app)
-        let sample = app.buttons["open-sample"].firstMatch
-        navigateWorkspace("open-sample", in: app)
-        XCTAssertTrue(sample.waitForExistence(timeout: 15)); press(sample)
-        press(app.buttons["reader-navigation"].firstMatch)
-        let search = app.textFields["search-input"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 5)); enterSearch("window", into: search)
-        press(app.buttons["search-submit"].firstMatch)
-        let match = app.buttons["search-result"].firstMatch
-        XCTAssertTrue(match.waitForExistence(timeout: 5)); press(match)
-        press(app.buttons["reader-ai"].firstMatch)
-        // Fail before setting or submitting any credential if offline injection is absent.
-        guard app.staticTexts["ai-offline-fixture"].firstMatch.waitForExistence(timeout: 5) else {
-            XCTFail("Offline transport must be injected before any synthetic credential entry")
-            app.terminate(); return
-        }
-        press(app.buttons["ai-close"].firstMatch)
-        navigateWorkspace("ai-settings", in: app)
-        press(app.buttons["ai-settings"].firstMatch)
-        let preset = app.buttons["ai-use-deepseek"].firstMatch
-        XCTAssertTrue(preset.waitForExistence(timeout: 5)); press(preset)
-        let key = app.descendants(matching: .any).matching(identifier: "ai-session-key").firstMatch
-        XCTAssertTrue(key.waitForExistence(timeout: 5)); enterSearch("synthetic-reading-ui-credential", into: key, replacing: true)
-        press(app.buttons["ai-settings-save"].firstMatch)
-        press(app.buttons["reader-ai"].firstMatch)
-        let start = app.buttons["ai-start"].firstMatch
+        app.launch(); app.activate(); defer { app.terminate() }
+        try prepareOriginalPDFNoteEditing(app); try uiLegacyAI(app)
+        guard ui("ai-offline-fixture", app).waitForExistence(timeout: 5) else { XCTFail("Offline transport required before synthetic credential entry"); return }
+        try uiCloseLegacyAI(app); try uiSettings(app); try uiProvider("DeepSeek", app, key: "synthetic-reading-ui-credential"); try uiClick(ui("settings-return", app))
+        try uiLegacyAI(app); let start = ui("ai-start", app), result = ui("ai-result", app)
         XCTAssertTrue(start.waitForExistence(timeout: 5)); XCTAssertFalse(start.isEnabled)
-        XCTAssertEqual(textValue(app.staticTexts["ai-source-quote"].firstMatch), "window")
-        let consent = japaneseElement("ai-scope-consent", in: app)
-        scrollRecordElement(consent, listID: "ai-notes-list", app: app)
-        press(consent); XCTAssertTrue(start.isEnabled)
-        scrollRecordElement(start, listID: "ai-notes-list", app: app); press(start)
-        let result = app.staticTexts["ai-result"].firstMatch
-        XCTAssertTrue(result.waitForExistence(timeout: 8)); XCTAssertTrue(textValue(result).contains("离线 DeepSeek UI 替身"))
-        XCTAssertTrue(textValue(result).contains("翻译"))
-        XCTAssertFalse(app.staticTexts["ai-saved-result"].firstMatch.exists, "Generated output must not create a saved note automatically")
-        let note = app.descendants(matching: .any).matching(identifier: "ai-user-note").firstMatch
-        enterSearch("Original synthetic DeepSeek user note", into: note)
-        press(app.buttons["ai-save-note"].firstMatch)
-        XCTAssertTrue(app.staticTexts["ai-saved-user-note"].firstMatch.waitForExistence(timeout: 8))
-        press(app.buttons["ai-result-source"].firstMatch)
-        XCTAssertTrue(textValue(app.staticTexts["page-position"].firstMatch).contains("1 / 2"))
-        navigateWorkspace("open-epub-sample", in: app)
-        press(app.buttons["open-epub-sample"].firstMatch)
-        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
-        let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
-        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
-        press(app.buttons["epub-ai"].firstMatch)
-        XCTAssertTrue(app.staticTexts["ai-source-quote"].firstMatch.waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["ai-saved-user-note"].firstMatch.exists)
-        let kind = app.popUpButtons["ai-kind"].firstMatch
-        XCTAssertTrue(kind.waitForExistence(timeout: 5)); press(kind); press(app.menuItems["选文解释"].firstMatch)
-        scrollRecordElement(consent, listID: "ai-notes-list", app: app); press(consent)
-        scrollRecordElement(start, listID: "ai-notes-list", app: app); waitUntilEnabled(start); press(start)
-        XCTAssertTrue(result.waitForExistence(timeout: 8)); XCTAssertTrue(textValue(result).contains("解释"))
-        press(app.buttons["ai-save-note"].firstMatch)
-        XCTAssertTrue(app.staticTexts["ai-saved-result"].firstMatch.waitForExistence(timeout: 8))
-        press(app.buttons["ai-result-source"].firstMatch)
-        app.terminate(); app.launch(); app.activate()
-        navigateWorkspace("library-epub", in: app)
-        let book = app.descendants(matching: .any).matching(identifier: "library-epub").firstMatch
-        navigateWorkspace("library-epub", in: app)
-        XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
-        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
-        press(app.buttons["epub-ai"].firstMatch)
-        let saved = app.staticTexts["ai-saved-result"].firstMatch
-        XCTAssertTrue(saved.waitForExistence(timeout: 8)); XCTAssertTrue(textValue(saved).contains("解释"))
-        XCTAssertTrue(textValue(app.staticTexts["ai-reading-key-status"].firstMatch).contains("请先"))
-        XCTAssertFalse(start.isEnabled, "No session key may persist across restart")
-        app.terminate()
+        XCTAssertEqual(uiText(ui("ai-source-quote", app)), "window"); try uiStartLegacyAI(app)
+        XCTAssertTrue(result.waitForExistence(timeout: 8)); XCTAssertTrue(uiText(result).contains("离线 DeepSeek UI 替身")); XCTAssertTrue(uiText(result).contains("翻译"))
+        XCTAssertEqual(try uiAnnotations(app).count, 0, "Generated output must never save automatically")
+        try uiSaveLegacyAI("Original synthetic DeepSeek user note", app); XCTAssertEqual(try uiOnlyAnnotation(app)["userText"] as? String, "Original synthetic DeepSeek user note")
+        try uiReturnLegacyAI(app); XCTAssertTrue(textValue(app.staticTexts["page-position"].firstMatch).contains("1 / 2"))
+        try uiExample("open-epub-sample", app); waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
+        try uiPanel("epub-notes", open: true, app); XCTAssertEqual(uiAnnotationRows(app).count, 0); try uiPanel("epub-notes", open: false, app)
+        try uiSelectWeb("window", app); try uiLegacyAI(app, task: "explain")
+        XCTAssertTrue(ui("ai-source-quote", app).waitForExistence(timeout: 5)); try uiStartLegacyAI(app)
+        XCTAssertTrue(result.waitForExistence(timeout: 8)); XCTAssertTrue(uiText(result).contains("解释"))
+        try uiSaveLegacyAI("", app); XCTAssertEqual(try uiAnnotations(app).count, 2); try uiReturnLegacyAI(app)
+        let before = try uiAnnotations(app)
+        app.terminate(); app.launch(); app.activate(); try uiExample("open-epub-sample", app)
+        try uiPanel("epub-notes", open: true, app); XCTAssertTrue(ui("annotation-ai-result", app).waitForExistence(timeout: 8)); XCTAssertTrue(uiText(ui("annotation-ai-result", app)).contains("解释"))
+        XCTAssertEqual(try uiAnnotations(app) as NSArray, before as NSArray)
+        try uiReturnNote(app); try uiPanel("epub-notes", open: false, app); try uiLegacyAI(app, task: "explain")
+        XCTAssertTrue(uiText(ui("ai-reading-key-status", app)).contains("请先")); XCTAssertFalse(start.isEnabled, "No session key may persist across restart")
     }
     @MainActor func testMacAISelectionConsentMockNotesAndRestart() throws {
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
-        app.launch(); app.activate()
-        navigateWorkspace("open-sample", in: app)
-        let sample = app.buttons["open-sample"].firstMatch
-        navigateWorkspace("open-sample", in: app)
-        XCTAssertTrue(sample.waitForExistence(timeout: 15)); press(sample)
-        press(app.buttons["reader-navigation"].firstMatch)
-        let search = app.textFields["search-input"].firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 5)); enterSearch("window", into: search)
-        press(app.buttons["search-submit"].firstMatch)
-        let match = app.buttons["search-result"].firstMatch
-        XCTAssertTrue(match.waitForExistence(timeout: 5)); press(match)
-        press(app.buttons["reader-ai"].firstMatch)
-        let start = app.buttons["ai-start"].firstMatch
+        app.launch(); app.activate(); defer { app.terminate() }
+        try prepareOriginalPDFNoteEditing(app); try uiLegacyAI(app)
+        let start = ui("ai-start", app), source = ui("ai-source-quote", app)
         XCTAssertTrue(start.waitForExistence(timeout: 5)); XCTAssertFalse(start.isEnabled)
-        let source = app.staticTexts["ai-source-quote"].firstMatch
-        XCTAssertEqual(textValue(source), "window")
-        let consent = app.descendants(matching: .any).matching(identifier: "ai-scope-consent").firstMatch
-        press(consent); XCTAssertTrue(start.isEnabled); press(start)
-        let error = app.staticTexts["ai-error"].firstMatch
-        XCTAssertTrue(error.waitForExistence(timeout: 5)); XCTAssertTrue(textValue(error).contains("未配置"))
-        XCTAssertFalse(app.staticTexts["ai-result"].firstMatch.exists)
-        press(app.buttons["ai-close"].firstMatch)
-        navigateWorkspace("ai-settings", in: app)
-        press(app.buttons["ai-settings"].firstMatch)
-        let mock = app.buttons["ai-use-mock"].firstMatch
-        XCTAssertTrue(mock.waitForExistence(timeout: 5)); press(mock)
-        press(app.buttons["ai-settings-save"].firstMatch)
-        press(app.buttons["reader-ai"].firstMatch)
-        XCTAssertTrue(start.waitForExistence(timeout: 5)); XCTAssertFalse(start.isEnabled)
-        press(consent); press(start)
-        let result = app.staticTexts["ai-result"].firstMatch
-        XCTAssertTrue(result.waitForExistence(timeout: 8)); XCTAssertTrue(textValue(result).contains("本地 mock"))
-        let note = app.descendants(matching: .any).matching(identifier: "ai-user-note").firstMatch
-        XCTAssertTrue(note.waitForExistence(timeout: 5)); enterSearch("Original synthetic AI user note", into: note)
-        press(app.buttons["ai-save-note"].firstMatch)
-        let userNote = app.staticTexts["ai-saved-user-note"].firstMatch
-        XCTAssertTrue(userNote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(userNote), "Original synthetic AI user note")
-        press(app.buttons["ai-result-source"].firstMatch)
-        XCTAssertTrue(textValue(app.staticTexts["page-position"].firstMatch).contains("1 / 2"))
-        app.terminate(); app.launch(); app.activate()
-        navigateWorkspace("library-book", in: app)
-        let book = app.descendants(matching: .any).matching(identifier: "library-book").firstMatch
-        navigateWorkspace("library-book", in: app)
-        XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
-        press(app.buttons["reader-ai"].firstMatch)
-        XCTAssertTrue(userNote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(userNote), "Original synthetic AI user note")
-        XCTAssertEqual(textValue(app.staticTexts["ai-saved-quote"].firstMatch), "window")
-        press(app.buttons["ai-saved-source"].firstMatch)
-        navigateWorkspace("open-epub-sample", in: app)
-        let epubSample = app.buttons["open-epub-sample"].firstMatch
-        navigateWorkspace("open-epub-sample", in: app)
-        XCTAssertTrue(epubSample.waitForExistence(timeout: 5)); press(epubSample)
-        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
-        let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
-        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
-        press(app.buttons["epub-ai"].firstMatch)
-        XCTAssertTrue(source.waitForExistence(timeout: 8)); XCTAssertFalse(textValue(source).isEmpty)
-        XCTAssertFalse(userNote.exists, "PDF user notes must not appear under another EPUB book")
-        let kind = app.popUpButtons["ai-kind"].firstMatch
-        XCTAssertTrue(kind.waitForExistence(timeout: 5)); press(kind)
-        press(app.menuItems["选文解释"].firstMatch)
-        press(consent); press(start)
-        XCTAssertTrue(result.waitForExistence(timeout: 8)); XCTAssertTrue(textValue(result).contains("本地 mock"))
-        XCTAssertTrue(textValue(result).contains("解释"))
-        press(app.buttons["ai-save-note"].firstMatch)
-        XCTAssertTrue(app.staticTexts["ai-saved-quote"].firstMatch.waitForExistence(timeout: 8))
-        press(app.buttons["ai-saved-source"].firstMatch)
-        waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 10)
-        app.terminate()
+        XCTAssertEqual(uiText(source), "window"); try uiStartLegacyAI(app)
+        let error = ui("ai-error", app)
+        XCTAssertTrue(error.waitForExistence(timeout: 5)); XCTAssertTrue(uiText(error).contains("未配置")); XCTAssertFalse(ui("ai-result", app).exists)
+        try uiCloseLegacyAI(app); try uiConfigureMock(app); try uiLegacyAI(app)
+        XCTAssertTrue(start.waitForExistence(timeout: 5)); XCTAssertFalse(start.isEnabled); try uiStartLegacyAI(app)
+        let result = ui("ai-result", app)
+        XCTAssertTrue(result.waitForExistence(timeout: 8)); XCTAssertTrue(uiText(result).contains("本地 mock"))
+        XCTAssertEqual(try uiAnnotations(app).count, 0)
+        try uiSaveLegacyAI("Original synthetic AI user note", app)
+        let saved = try uiOnlyAnnotation(app)
+        XCTAssertEqual(saved["userText"] as? String, "Original synthetic AI user note")
+        XCTAssertEqual(try uiAnchorPayload(saved)["quote"] as? String, "window")
+        try uiReturnLegacyAI(app); XCTAssertTrue(textValue(app.staticTexts["page-position"].firstMatch).contains("1 / 2"))
+        app.terminate(); app.launch(); app.activate(); try uiExample("open-sample", app); try uiPanel("reader-notes", open: true, app)
+        XCTAssertTrue(ui("annotation-comment", app).waitForExistence(timeout: 8)); XCTAssertEqual(uiText(ui("annotation-comment", app)), "Original synthetic AI user note")
+        XCTAssertEqual(uiText(ui("annotation-excerpt", app)), "window"); try uiReturnNote(app)
+        XCTAssertEqual(try uiOnlyAnnotation(app)["aiResult"] as? NSDictionary, saved["aiResult"] as? NSDictionary)
+        try uiExample("open-epub-sample", app); waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
+        try uiPanel("epub-notes", open: true, app); XCTAssertEqual(uiAnnotationRows(app).count, 0, "PDF notes must not appear in another EPUB")
+        try uiPanel("epub-notes", open: false, app); try uiSelectWeb("window", app); try uiLegacyAI(app, task: "explain")
+        XCTAssertTrue(source.waitForExistence(timeout: 8)); XCTAssertFalse(uiText(source).isEmpty); try uiStartLegacyAI(app)
+        XCTAssertTrue(result.waitForExistence(timeout: 8)); XCTAssertTrue(uiText(result).contains("本地 mock")); XCTAssertTrue(uiText(result).contains("解释"))
+        XCTAssertEqual(try uiAnnotations(app).count, 1); try uiSaveLegacyAI("", app); XCTAssertEqual(try uiAnnotations(app).count, 2)
+        try uiReturnLegacyAI(app); waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 10)
+        try uiPanel("epub-notes", open: true, app); XCTAssertEqual(uiAnnotationRows(app).count, 1); XCTAssertEqual(uiText(ui("annotation-excerpt", app)), "window")
     }
     @MainActor func testMacEPUBSelectionRubyNotesAndRestart() throws {
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
-        app.launch(); app.activate()
-        navigateWorkspace("open-epub-sample", in: app)
-        let sample = app.buttons["open-epub-sample"].firstMatch
-        navigateWorkspace("open-epub-sample", in: app)
-        XCTAssertTrue(sample.waitForExistence(timeout: 15)); press(sample)
-        let position = app.staticTexts["epub-position"].firstMatch
-        waitForText(["第 1 章"], in: position, timeout: 25)
-        XCTAssertFalse(app.staticTexts["epub-error"].firstMatch.exists)
-        let paragraph = try webText(in: app, matching: "window", prefix: true, timeout: 10)
-        // Real WebKit user selection, never a JS-created test selection.
-        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.5)).doubleClick()
-        press(app.buttons["epub-notes"].firstMatch)
-        let selection = app.staticTexts["epub-selection"].firstMatch
-        XCTAssertTrue(selection.waitForExistence(timeout: 8))
-        let selectedText = textValue(selection); XCTAssertFalse(selectedText.isEmpty)
-        press(app.buttons["epub-save-note"].firstMatch)
-        let quote = app.staticTexts["epub-saved-quote"].firstMatch
-        XCTAssertTrue(quote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(quote), selectedText)
-        press(app.buttons["epub-return"].firstMatch)
-        let next = app.buttons["epub-next"].firstMatch
-        // Returning to source closes the inspector and starts native WebKit resize.
-        // A click during that disabled interval is ignored. Synchronize the real
-        // control before clicking; keep the original page assertion and its deadline.
-        var readySince: TimeInterval?
-        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            guard next.exists, next.isEnabled, next.isHittable,
-                  !app.buttons["epub-return"].firstMatch.exists else {
-                readySince = nil; return false
-            }
-            let now = ProcessInfo.processInfo.systemUptime
-            if readySince == nil { readySince = now }
-            return now - (readySince ?? now) >= 0.3
-        }, object: app)
-        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 10), .completed,
-                       "Source return and reader resize must finish before the real next-page click")
-        press(next)
-        waitForText(["第 2 页"], in: position, timeout: 10)
-        press(app.buttons["epub-contents"].firstMatch)
-        let japanese = app.buttons["epub-chapter-1"].firstMatch
-        XCTAssertTrue(japanese.waitForExistence(timeout: 5)); press(japanese)
-        waitForText(["第 2 章"], in: position, timeout: 10)
-        press(app.buttons["epub-orientation"].firstMatch)
-        waitForText(["竖排"], in: position, timeout: 10)
+        app.launch(); app.activate(); defer { app.terminate() }
+        // Whole-book language classification requires a Japanese-dominant book.
+        // This registered original fixture keeps the same first English quote and author ruby.
+        let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/ReadingModes/original-vertical-continuous.epub")
+        try chooseInput(fixture, trigger: nativeImportEntry(app), app: app)
+        let position = ui("epub-position", app); waitForText(["第 1 章"], in: position, timeout: 25)
+        XCTAssertFalse(ui("epub-error", app).exists); try uiSelectWeb("window", app); try uiBeginNote(app); try uiSaveNote(app)
+        try uiPanel("epub-notes", open: true, app); let quote = ui("annotation-excerpt", app)
+        XCTAssertTrue(quote.waitForExistence(timeout: 8)); let selectedText = uiText(quote)
+        XCTAssertEqual(selectedText, "window"); XCTAssertFalse(selectedText.isEmpty)
+        let anchor = try uiOnlyAnnotation(app)["anchor"] as? NSDictionary
+        try uiReturnNote(app); try uiPanel("epub-notes", open: false, app)
+        let next = ui("epub-next", app); try uiWait("Source return and reader layout finish before next page") { next.exists && next.isEnabled && next.isHittable && !self.ui("annotation-list", app).exists }
+        try uiClick(next); waitForText(["第 2 页"], in: position, timeout: 10)
+        try uiPanel("epub-contents", open: true, app); try uiClick(ui("epub-chapter-1", app)); waitForText(["第 2 章"], in: position, timeout: 10)
+        try uiPanel("epub-aa", open: true, app); try uiClick(ui("reading-vertical", app))
+        try uiWait("Actual vertical layout selected") { self.ui("reading-vertical", app).value as? String == "已选中" }
+        try uiPanel("epub-aa", open: false, app)
         let ruby = try webText(in: app, matching: "にほんご", prefix: false, timeout: 15)
-        XCTAssertTrue(ruby.exists, "Author ruby must remain visible in vertical reading")
-        app.terminate(); app.launch(); app.activate()
-        navigateWorkspace("library-epub", in: app)
-        let book = app.descendants(matching: .any).matching(identifier: "library-epub").firstMatch
-        navigateWorkspace("library-epub", in: app)
-        XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
-        waitForText(["第 2 章", "竖排"], in: position, timeout: 20)
-        press(app.buttons["epub-notes"].firstMatch)
-        XCTAssertTrue(quote.waitForExistence(timeout: 8)); XCTAssertEqual(textValue(quote), selectedText)
-        press(app.buttons["epub-return"].firstMatch)
-        waitForText(["第 1 章"], in: position, timeout: 10)
-        app.terminate()
+        XCTAssertTrue(ruby.exists, "Author ruby remains visible in vertical reading")
+        app.terminate(); app.launch(); app.activate(); navigateWorkspace("library-epub", in: app)
+        let book = ui("library-epub", app); XCTAssertTrue(book.waitForExistence(timeout: 10)); press(book)
+        waitForText(["第 2 章"], in: position, timeout: 20); try uiPanel("epub-aa", open: true, app)
+        XCTAssertEqual(ui("reading-vertical", app).value as? String, "已选中")
+        try uiPanel("epub-notes", open: true, app); XCTAssertTrue(quote.waitForExistence(timeout: 8)); XCTAssertEqual(uiText(quote), selectedText)
+        XCTAssertEqual(try uiOnlyAnnotation(app)["anchor"] as? NSDictionary, anchor)
+        try uiReturnNote(app); waitForText(["第 1 章"], in: position, timeout: 10)
     }
     #endif
     @MainActor private func scrollPageToTop(in app: XCUIApplication) {
@@ -2512,7 +2237,28 @@ final class NativeUITests: XCTestCase {
         #endif
     }
     @MainActor
-    func testLocalPDFReadingAndNoteFlow() throws {
+    @MainActor func testLocalPDFReadingAndNoteFlow() throws {
+        #if os(macOS)
+        let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launch(); app.activate(); defer { app.terminate() }
+        try uiExample("open-sample", app)
+        let position = ui("page-position", app); XCTAssertTrue(position.waitForExistence(timeout: 15)); XCTAssertTrue(uiText(position).contains("1 / 2"))
+        try uiClick(ui("next-page", app)); try uiContains(position, "2 / 2")
+        try uiClick(ui("previous-page", app)); try uiContains(position, "1 / 2")
+        try uiPanel("reader-navigation", open: true, app); try uiPaste("window", ui("search-input", app))
+        try uiClick(ui("search-submit", app)); try uiClick(ui("search-result", app)); try uiSelectPDFWindow(app)
+        try uiBeginNote(app); XCTAssertTrue(ui("annotation-editor-save", app).exists, "Actual PDFKit selection reaches note composer")
+        try uiSaveNote(app); try uiPanel("reader-notes", open: true, app)
+        let quote = ui("annotation-excerpt", app); XCTAssertTrue(quote.waitForExistence(timeout: 5)); XCTAssertEqual(uiText(quote), "window")
+        try uiReturnNote(app); try uiContains(position, "1 / 2")
+        let image = XCTAttachment(screenshot: app.windows.firstMatch.screenshot()); image.name = "Original sample in native PDFKit reader"; image.lifetime = .keepAlways; add(image)
+        try uiPanel("reader-notes", open: false, app); try uiClick(ui("next-page", app)); try uiContains(position, "2 / 2")
+        app.terminate(); app.launch(); app.activate(); try uiExample("open-sample", app)
+        XCTAssertTrue(position.waitForExistence(timeout: 10)); XCTAssertTrue(uiText(position).contains("2 / 2"), "Reading position persists after restart")
+        try uiPanel("reader-notes", open: true, app); XCTAssertTrue(quote.waitForExistence(timeout: 5), "Note survives restart")
+        try uiReturnNote(app); try uiContains(position, "1 / 2")
+        #else
+
         let app = XCUIApplication()
         // Keep a bare UUID out of macOS launch arguments: AppKit may interpret
         // positional arguments as files and suppress the initial library window.
@@ -2589,5 +2335,6 @@ final class NativeUITests: XCTestCase {
         press(app.buttons["return-to-source"].firstMatch)
         XCTAssertTrue(textValue(position).contains("1 / 2"))
         app.terminate()
+        #endif
     }
 }

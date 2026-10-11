@@ -111,16 +111,18 @@ final class ReadingIntegrationUITests: XCTestCase {
         value(position, contains: "2 / 2")
         try click(back); value(position, contains: "1 / 2")
         try search("window", in: app)
-        try click(element("reader-notes", in: app))
-        let draft = element("note-input", in: app)
-        try paragraphPaste("Original navigation draft", into: draft)
+        try uiSelectPDFWindow(app); try uiBeginNote(app)
+        let draft = ui("annotation-comment-input", app)
+        try uiPaste("Original navigation draft", draft)
         draft.typeKey(.rightArrow, modifierFlags: [.command, .option])
-        value(position, contains: "1 / 2")
-        XCTAssertEqual(draft.value as? String, "Original navigation draft")
-        try click(element("close-notes", in: app))
+        value(position, contains: "1 / 2"); XCTAssertEqual(draft.value as? String, "Original navigation draft")
+        XCTAssertEqual(try uiAnnotations(app).count, 0)
+        app.terminate(); app.launch(); app.activate(); try uiExample("open-sample", app)
         try click(element("next-page", in: app)); value(position, contains: "2 / 2")
-        try click(element("reader-notes", in: app))
-        XCTAssertEqual(element("note-input", in: app).value as? String, "Original navigation draft")
+        try uiPanel("reader-notes", open: true, app); try uiResumeDraft(app)
+        XCTAssertEqual(ui("annotation-comment-input", app).value as? String, "Original navigation draft")
+        XCTAssertEqual(try uiAnnotations(app).count, 0)
+
     }
 
     @MainActor func testMacEPUBTOCAndCanonicalReturnUseActualRuntime() throws {
@@ -146,8 +148,7 @@ final class ReadingIntegrationUITests: XCTestCase {
         let app = app(); defer { app.terminate() }
         navigateWorkspace("ai-settings", in: app)
         try click(element("ai-settings", in: app))
-        try click(element("ai-use-mock", in: app))
-        try click(element("ai-settings-save", in: app))
+        try uiProvider("本地示例", app); try uiClick(ui("settings-return", app))
         navigateWorkspace("open-sample", in: app)
         try click(element("open-sample", in: app)); try search("window", in: app)
         try click(element("reader-ai-tools", in: app))
@@ -160,26 +161,29 @@ final class ReadingIntegrationUITests: XCTestCase {
         XCTAssertFalse(element("ai-result", in: app).exists)
         try click(element("ai-scope-consent", in: app)); try click(start)
         XCTAssertTrue(element("ai-result", in: app).waitForExistence(timeout: 15))
-        value(element("ai-result-save-state", in: app), contains: "尚未保存")
+        value(element("ai-result-save-state", in: app), contains: "临时结果")
         try click(element("ai-save-note", in: app))
-        value(element("ai-result-save-state", in: app), contains: "已保存")
+        value(element("ai-result-save-state", in: app), contains: "已添加到当前文档笔记")
     }
 
     @MainActor func testMacSettingsCategoriesPreserveUnappliedConfiguration() throws {
         let app = app(); defer { app.terminate() }
         navigateWorkspace("ai-settings", in: app)
         try click(element("ai-settings", in: app))
-        try click(element("ai-use-deepseek", in: app))
+        try uiClick(ui("ai-provider-mode", app)); try uiClick(app.menuItems["DeepSeek"].firstMatch)
+        try uiClick(ui("ai-connection-advanced", app))
         let label = element("ai-provider-label", in: app)
         try paragraphPaste("Original pending label", into: label, replacing: true)
         try category("AI工具", id: "tools", in: app)
         XCTAssertFalse(element("ai-settings-save", in: app).exists && element("ai-settings-save", in: app).isEnabled)
         XCTAssertTrue(element("planned-semantic", in: app).exists)
         try category("AI", id: "ai", in: app)
+        if !ui("ai-provider-label", app).isHittable { try uiClick(ui("ai-connection-advanced", app)) }
         XCTAssertEqual(element("ai-provider-label", in: app).value as? String, "Original pending label")
-        try click(element("ai-settings-cancel", in: app))
+        try click(element("settings-return", in: app))
         navigateWorkspace("ai-settings", in: app)
         try click(element("ai-settings", in: app))
+        if !ui("ai-provider-label", app).isHittable { try uiClick(ui("ai-connection-advanced", app)) }
         XCTAssertNotEqual(element("ai-provider-label", in: app).value as? String, "Original pending label")
     }
 
@@ -238,9 +242,9 @@ final class ReadingIntegrationUITests: XCTestCase {
     }
     @MainActor private func prepareParagraph(_ app: XCUIApplication, epub: Bool = false) throws {
         navigateWorkspace("ai-settings", in: app)
-        try click(element("ai-settings", in: app)); try click(element("ai-use-deepseek", in: app))
+        try click(element("ai-settings", in: app)); try uiClick(ui("ai-provider-mode", app)); try uiClick(app.menuItems["DeepSeek"].firstMatch)
         let key = element("ai-session-key", in: app); try paragraphPaste("synthetic-reading-ui-credential", into: key)
-        try click(element("ai-settings-save", in: app))
+        try click(element("ai-settings-save", in: app)); try uiContains(ui("ai-connection-status", app), "已应用"); try uiClick(ui("settings-return", app))
         if epub {
             navigateWorkspace("open-epub-sample", in: app)
             try click(element("open-epub-sample", in: app)); value(element("epub-position", in: app), contains: "第 1 章")
@@ -271,11 +275,11 @@ final class ReadingIntegrationUITests: XCTestCase {
         value(element("paragraph-kind-i2", in: app), contains: "术语")
         value(element("paragraph-kind-i3", in: app), contains: "模型推断 · 待核对")
         value(element("paragraph-quote-c1", in: app), contains: "w")
-        value(element("ai-result-save-state", in: app), contains: "尚未保存")
+        value(element("ai-result-save-state", in: app), contains: "临时结果")
         let draft = element("ai-user-note", in: app); try paragraphClick(draft, in: app); try paragraphPaste("Original paragraph user body", into: draft)
         XCTAssertEqual(draft.value as? String, "Original paragraph user body")
-        try paragraphClick(element("ai-save-note", in: app), in: app); value(element("ai-result-save-state", in: app), contains: "已保存")
-        try paragraphClick(element("paragraph-source-c1", in: app), in: app); value(element("page-position", in: app), contains: "1 / 2")
+        try paragraphClick(element("ai-save-note", in: app), in: app); value(element("ai-result-save-state", in: app), contains: "已添加到当前文档笔记")
+        try paragraphClick(element("paragraph-source-c1", in: app), in: app); if ui("workspace-tool-return", app).exists { try uiClick(ui("workspace-tool-return", app)) }; value(element("page-position", in: app), contains: "1 / 2")
     }
     @MainActor func testMacParagraphInsufficientAndInvalidResponsesCannotSave() throws {
         for scenario in ["insufficient", "invalid", "truncated"] {
@@ -304,7 +308,7 @@ final class ReadingIntegrationUITests: XCTestCase {
         let app = app(paragraphScenario: "typed"); defer { app.terminate() }
         try prepareParagraph(app, epub: true); try sendParagraph(app)
         value(element("paragraph-quote-c1", in: app), contains: "w")
-        try paragraphClick(element("paragraph-source-c1", in: app), in: app); value(element("epub-position", in: app), contains: "第 1 章")
+        try paragraphClick(element("paragraph-source-c1", in: app), in: app); if ui("workspace-tool-return", app).exists { try uiClick(ui("workspace-tool-return", app)) }; value(element("epub-position", in: app), contains: "第 1 章")
         XCTAssertFalse(element("epub-error", in: app).exists)
     }
 
