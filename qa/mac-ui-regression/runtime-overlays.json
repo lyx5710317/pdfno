@@ -1,0 +1,92 @@
+{
+  "apple/Packages/PDFnoKit/Sources/PDFnoUI/AILearningModel.swift": [
+    {
+      "left": "            #if DEBUG\n            let isolated = offlineTransport && Bundle.main.bundleIdentifier?.hasPrefix(\"org.pdfno.integration.professionala20261007.qa\") == true &&\n                UUID(uuidString: ProcessInfo.processInfo.environment[\"PDFNO_UI_TEST_SESSION\"] ?? \"\") != nil\n",
+      "old": "",
+      "right": "            return LocalReadingConversationProvider(delaySeconds: isolated ? 2 : 0)\n            #else\n            return LocalReadingConversationProvider()\n",
+      "replacement": "            if isolated && ProcessInfo.processInfo.environment[\"PDFNO_QA_CONTROLLED_INFLIGHT\"] == \"stop-first-explain\" { return QAControlledConversationProvider() }\n"
+    },
+    {
+      "left": "        } catch { if generation == token { self.error = AIJobCoordinator.safeError(error).localizedDescription }; return false }\n    }\n}\n",
+      "old": "",
+      "right": "",
+      "replacement": "\n#if DEBUG && os(macOS)\n// Isolated QA snapshot only. The production mock and its three-second limit\n// remain unchanged. Hold the first Explain transport so the original real\n// Stop action cancels an actual pending task; Retry uses the normal mock.\nprivate actor QAControlledConversationAttempts {\n    static let shared = QAControlledConversationAttempts()\n    private var firstExplain = true\n    func takeFirstExplain(_ plan: ReadingConversationPlan) -> Bool {\n        guard plan.task == .explain, plan.history.isEmpty, firstExplain else { return false }\n        firstExplain = false\n        return true\n    }\n}\nprivate struct QAControlledConversationProvider: ReadingConversationProvider {\n    func answer(_ plan: ReadingConversationPlan) async throws -> String {\n        guard plan.provider.mode == .mock else { throw AIFailure.configuration }\n        if await QAControlledConversationAttempts.shared.takeFirstExplain(plan) {\n            Self.record(\"first-explain-started\")\n            do {\n                try await Task.sleep(for: .seconds(30))\n                Self.record(\"first-explain-expired\")\n                throw AIFailure.timeout\n            } catch {\n                if Task.isCancelled { Self.record(\"first-explain-cancelled\") }\n                throw error\n            }\n        }\n        Self.record(\"normal-mock-\" + plan.task.rawValue)\n        return try await LocalReadingConversationProvider().answer(plan)\n    }\n    private static func record(_ phase: String) {\n        guard let session = UUID(uuidString: ProcessInfo.processInfo.environment[\"PDFNO_UI_TEST_SESSION\"] ?? \"\") else { return }\n        let root = URL(fileURLWithPath: \"__DIAGNOSTICS_ROOT__/\" + session.uuidString)\n            try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])\n        let record: [String: Any] = [\"phase\": phase, \"at\": Date().timeIntervalSince1970]\n        if let bytes = try? JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]) {\n            try? bytes.write(to: root.appendingPathComponent(\"qa-conversation-\" + phase + \".json\"), options: .atomic)\n        }\n    }\n}\n#endif\n"
+    }
+  ],
+  "apple/Packages/PDFnoKit/Sources/PDFnoUI/MacDocumentWindowToolbar.swift": [
+    {
+      "left": "        private func isEmptySpace(_ point: NSPoint) -> Bool {\n            !controlFrames.isEmpty && !controlFrames.contains(where: { $0.contains(point) })\n        }\n",
+      "old": "",
+      "right": "        override func hitTest(_ point: NSPoint) -> NSView? {\n            let local = convert(point, from: superview)\n            guard bounds.contains(local) else { return nil }\n",
+      "replacement": "\n        // Isolated QA snapshot only; no input synthesis or product behavior\n        // changes. This records whether the actual native host received the\n        // original blank-gap gesture and where AppKit placed it.\n        fileprivate func qaAudit(_ phase: String, local: NSPoint, event: NSEvent? = nil) {\n            guard Bundle.main.bundleIdentifier?.hasPrefix(\"org.pdfno.integration.professionala20261007.qa\") == true,\n                  let session = UUID(uuidString: ProcessInfo.processInfo.environment[\"PDFNO_UI_TEST_SESSION\"] ?? \"\"),\n                  ProcessInfo.processInfo.environment[\"PDFNO_UI_TEST_DEEPSEEK\"] == \"offline\" else { return }\n            let root = URL(fileURLWithPath: \"__DIAGNOSTICS_ROOT__/\" + session.uuidString)\n            try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])\n            let path = root.appendingPathComponent(\"qa-titlebar-\" + phase + \".json\")\n            let frames = controlFrames.sorted { $0.minX < $1.minX }\n            let plus = frames.dropLast().last, more = frames.last\n            let gap = NSPoint(x: ((plus?.maxX ?? 0)+(more?.minX ?? 0))/2,y: plus?.midY ?? 0)\n            let top = window?.contentView?.superview\n            // hitTest itself emits diagnostics. Re-enter only from the outer\n            // layout/event observer, never from a hit diagnostic.\n            let route = (phase == \"layout\" || phase.hasPrefix(\"event-\")) ? top.flatMap { $0.hitTest(convert(gap, to: $0.superview)) } : nil\n            let record: [String: Any] = [\"phase\": phase, \"at\": Date().timeIntervalSince1970,\n                \"gapLocal\": [gap.x,gap.y], \"gapRoute\": route.map { String(reflecting: type(of: $0)) } ?? \"nil\",\n                \"local\": [local.x, local.y], \"hostFrame\": NSStringFromRect(frame),\n                \"hostBounds\": NSStringFromRect(bounds), \"flipped\": isFlipped,\n                \"emptySpace\": isEmptySpace(local), \"mouseDownCanMoveWindow\": mouseDownCanMoveWindow, \"isMovable\": window?.isMovable ?? false, \"backgroundMovable\": window?.isMovableByWindowBackground ?? false,\n                \"controls\": controlFrames.map(NSStringFromRect),\n                \"windowFrame\": window.map { NSStringFromRect($0.frame) } ?? \"\",\n                \"windowPoint\": event.map { [$0.locationInWindow.x, $0.locationInWindow.y] } ?? [],\n                \"clickCount\": event?.clickCount ?? 0]\n            if let bytes = try? JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]) {\n                try? bytes.write(to: path, options: .atomic)\n            }\n        }\n\n"
+    },
+    {
+      "left": "        }\n        override func hitTest(_ point: NSPoint) -> NSView? {\n            let local = convert(point, from: superview)\n",
+      "old": "",
+      "right": "            guard bounds.contains(local) else { return nil }\n            // Handle window gestures only outside SwiftUI's actual controls.\n            if isEmptySpace(local) { return self }\n",
+      "replacement": "            qaAudit(\"hit-any\", local: local)\n"
+    },
+    {
+      "left": "            let local = convert(point, from: superview)\n            guard bounds.contains(local) else { return nil }\n            // Handle window gestures only outside SwiftUI's actual controls.\n",
+      "old": "            if isEmptySpace(local) { return self }\n",
+      "right": "            return super.hitTest(point)\n        }\n        override func mouseDown(with event: NSEvent) {\n",
+      "replacement": "            if isEmptySpace(local) { qaAudit(\"hit-empty\", local: local); return self }\n"
+    },
+    {
+      "left": "            return super.hitTest(point)\n        }\n        override func mouseDown(with event: NSEvent) {\n",
+      "old": "",
+      "right": "            guard isEmptySpace(convert(event.locationInWindow, from: nil)), let window else {\n                super.mouseDown(with: event); return\n            }\n",
+      "replacement": "            qaAudit(\"mouse-down\", local: convert(event.locationInWindow, from: nil), event: event)\n"
+    },
+    {
+      "left": "            guard isEmptySpace(convert(event.locationInWindow, from: nil)), let window else {\n                super.mouseDown(with: event); return\n            }\n",
+      "old": "            if event.clickCount == 1 { window.performDrag(with: event) }\n",
+      "right": "        }\n        override func mouseUp(with event: NSEvent) {\n            if event.clickCount > 1, isEmptySpace(convert(event.locationInWindow, from: nil)) {\n",
+      "replacement": "            if event.clickCount == 1 { window.performDrag(with: event); qaAudit(\"after-drag\", local: convert(event.locationInWindow, from: nil), event: event) }\n"
+    },
+    {
+      "left": "        weak var window: NSWindow?\n        let accessory = NSTitlebarAccessoryViewController()\n        private var resizeObserver: NSObjectProtocol?\n",
+      "old": "",
+      "right": "        private var updateObserver: NSObjectProtocol?\n        private var widthConstraint: NSLayoutConstraint!\n        private var frameBeforeFill: NSRect?\n",
+      "replacement": "        private var qaOwnMouseMonitor: Any?\n"
+    },
+    {
+      "left": "            }\n        }\n        func setContent(_ content: AnyView) {\n",
+      "old": "            host.rootView = AnyView(content.coordinateSpace(name: PDFnoTitlebarControlFrames.space)\n",
+      "right": "                .onPreferenceChange(PDFnoTitlebarControlFrames.self) { [weak host] frames in\n                    host?.controlFrames = frames\n                })\n",
+      "replacement": "            host.rootView = AnyView(content.accessibilityElement(children: .contain).accessibilityIdentifier(\"qa-document-titlebar-band\").coordinateSpace(name: PDFnoTitlebarControlFrames.space)\n"
+    },
+    {
+      "left": "            host.rootView = AnyView(content.coordinateSpace(name: PDFnoTitlebarControlFrames.space)\n                .onPreferenceChange(PDFnoTitlebarControlFrames.self) { [weak host] frames in\n                    host?.controlFrames = frames\n",
+      "old": "",
+      "right": "                })\n        }\n        func attach(_ candidate: NSWindow?) {\n",
+      "replacement": "                    host?.qaAudit(\"layout\", local: .zero)\n"
+    },
+    {
+      "left": "            guard candidate.styleMask.contains(.titled) else { detach(); return }\n            if window !== candidate {\n                detach(); window = candidate\n",
+      "old": "",
+      "right": "                candidate.addTitlebarAccessoryViewController(accessory)\n                // NavigationStack may restore its title after a route update.\n                // Hide only that text; the toolbar and its KVO ownership stay intact.\n",
+      "replacement": "                if Bundle.main.bundleIdentifier?.hasPrefix(\"org.pdfno.integration.professionala20261007.qa\") == true,\n                   UUID(uuidString: ProcessInfo.processInfo.environment[\"PDFNO_UI_TEST_SESSION\"] ?? \"\") != nil,\n                   ProcessInfo.processInfo.environment[\"PDFNO_UI_TEST_DEEPSEEK\"] == \"offline\" {\n                    // Observe mouse events in this synthetic application window\n                    // only. Return each event intact; never synthesize or retarget.\n                    qaOwnMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]) { [weak self] event in\n                        MainActor.assumeIsolated {\n                            guard let self, let window = self.window, event.window === window else { return }\n                            self.host.qaAudit(\"event-\" + String(event.type.rawValue), local: self.host.convert(event.locationInWindow, from: nil), event: event)\n                        }\n                        return event\n                    }\n                }\n\n"
+    },
+    {
+      "left": "            }\n        }\n        func detach() {\n",
+      "old": "",
+      "right": "            if let resizeObserver { NotificationCenter.default.removeObserver(resizeObserver) }\n            resizeObserver = nil\n            if let updateObserver { NotificationCenter.default.removeObserver(updateObserver) }\n",
+      "replacement": "            if let qaOwnMouseMonitor { NSEvent.removeMonitor(qaOwnMouseMonitor) }; qaOwnMouseMonitor = nil\n"
+    }
+  ],
+  "apple/Packages/PDFnoKit/Sources/PDFnoUI/EPUBWorkspace.swift": [
+    {
+      "left": "            if let error = session.error { PDFnoStatusMessage(text: error, kind: .error, identifier: \"epub-error\") }\n        }.navigationTitle(session.book?.title ?? \"EPUB\")\n        .annotationExperience(model.annotations,reader: .epub(session),aiLibrary: model)\n",
+      "old": "",
+      "right": "        .sheet(isPresented: $legacyNotes) { NavigationStack { legacyNotesContent.navigationTitle(\"\u65e7\u7b14\u8bb0\u4e0e\u5b66\u4e60\u8bb0\u5f55\").toolbar { ToolbarItem { Button(\"\u5b8c\u6210\") { legacyNotes = false }.accessibilityIdentifier(\"legacy-notes-close\") } } } }\n        .overlay { if session.busy { PDFnoStatusMessage(text: \"\u6b63\u5728\u6392\u7248\u2026\", kind: .busy).frame(maxWidth: 320).pdfnoCard() } }\n        .onChange(of: session.progress) { _, anchor in if let anchor { Task { await model.saveEPUBProgress(anchor) } } }\n",
+      "replacement": "        .onChange(of: panels.notes) { _, visible in qaAuditInspectorViewport(visible) }\n"
+    },
+    {
+      "left": "        .sheet(isPresented: $aiTools) { ReadingToolsWorkspace(library: model) }\n        .sheet(isPresented: $readerSettings) { AISettingsView(learning: model.learning, byok: model.byok, library: model) }\n    }\n",
+      "old": "",
+      "right": "    private var readingModeDescription: String {\n        switch session.readingLayout.mode {\n        case .single: \"\u5355\u680f\u5206\u9875\u9605\u8bfb\"\n",
+      "replacement": "\n    // Snapshot-only diagnosis, guarded to the offline synthetic GUI bundle.\n    // Record DOM geometry and native focus without scrolling or changing input.\n    @MainActor private func qaAuditInspectorViewport(_ visible: Bool) {\n        guard Bundle.main.bundleIdentifier?.hasPrefix(\"org.pdfno.integration.professionala20261007.qa\") == true,\n              let token = UUID(uuidString: ProcessInfo.processInfo.environment[\"PDFNO_UI_TEST_SESSION\"] ?? \"\"),\n              ProcessInfo.processInfo.environment[\"PDFNO_UI_TEST_DEEPSEEK\"] == \"offline\" else { return }\n        Task { @MainActor in\n            try? await Task.sleep(for: .milliseconds(650))\n            guard let web = session.webView else { return }\n            let script = \"\"\"\n            const f=document.querySelector('iframe'),d=f?.contentDocument,p=d?.querySelector(`[data-pdfno-spine=\"${spine}\"] p`);\n            if(!p || !(p.textContent.startsWith('window')||p.textContent.startsWith('\u65e5\u672c\u8a9e'))) return {originalFixture:false};\n            const r=d.createRange();r.selectNodeContents(p);\n            const a=document.getElementById('page-area').getBoundingClientRect(),b=r.getBoundingClientRect(),v=f.getBoundingClientRect();\n            const hit=d.elementFromPoint(b.x+b.width/2,b.y+b.height/2);\n            return {originalFixture:true,spine,source:r.toString().slice(0,50),selected:d.getSelection()?.toString(),top:b.top+v.top,bottom:b.bottom+v.top,\n              iframeTop:v.top,areaTop:a.top,areaBottom:a.bottom,visible:b.bottom+v.top>a.top&&b.top+v.top<a.bottom,\n              clickable:!!hit&&(hit===p||p.contains(hit)),scrollTop:document.getElementById('page-area').scrollTop,\n              focusedTag:d.activeElement?.tagName};\n            \"\"\"\n            var record = (try? await web.callAsyncJavaScript(script, arguments: [\"spine\": session.spineIndex], in: nil, contentWorld: .page)) as? [String: Any] ?? [:]\n            record[\"inspectorVisible\"] = visible\n            record[\"at\"] = Date().timeIntervalSince1970\n            record[\"nativeFocus\"] = web.window?.firstResponder.map { String(reflecting: type(of: $0)) } ?? \"nil\"\n            record[\"webFrame\"] = NSStringFromRect(web.frame)\n            let root = URL(fileURLWithPath: \"__DIAGNOSTICS_ROOT__/\" + token.uuidString)\n            try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])\n            let name = \"qa-inspector-\" + (visible ? \"open\" : \"closed\") + \".json\"\n            if let bytes = try? JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]) {\n                try? bytes.write(to: root.appendingPathComponent(name), options: .atomic)\n            }\n        }\n    }\n\n"
+    }
+  ]
+}

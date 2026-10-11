@@ -1,0 +1,125 @@
+// QA-only Runner interception. Original XCTest events run with their original arguments.
+// No product swizzling, process attachment, permissions or system service changes.
+#if os(macOS)
+import XCTest
+import AppKit
+import ObjectiveC
+import Darwin
+
+@MainActor enum QAOwnDesktopFence {
+    private static var installed = false
+    private static var lost = false
+    private static var freshlyLaunched = false
+    private static var admittedDisplay: CGDirectDisplayID = 0
+    nonisolated private static func inputReady() -> Bool {
+        guard Thread.isMainThread else {
+            print("EXPERIENCE_DESKTOP_CHANGED input unexpectedly outside main thread; stop")
+            fflush(stdout); return false
+        }
+        return MainActor.assumeIsolated {
+            guard !lost else { return false }
+            guard CGMainDisplayID() == admittedDisplay, CGDisplayIsActive(admittedDisplay) != 0,
+                  CGDisplayIsAsleep(admittedDisplay) == 0 else {
+                lost = true
+                print("EXPERIENCE_DESKTOP_CHANGED display identity changed; no further input or reactivation")
+                fflush(stdout); XCTFail("Admitted screen changed during QA"); return false
+            }
+            let expected = ProcessInfo.processInfo.environment["PDFNO_A_QA_EXPECTED_BUNDLE"]
+            guard expected?.hasPrefix("org.pdfno.integration.professionala20261007.qa") == true,
+                  NSWorkspace.shared.frontmostApplication?.bundleIdentifier == expected else {
+                lost = true
+                print("EXPERIENCE_DESKTOP_CHANGED no further input or automatic reactivation")
+                fflush(stdout); XCTFail("Own QA app lost foreground; stop supervised run")
+                return false
+            }
+            return true
+        }
+    }
+    nonisolated private static func lifecycle(_ mode: String, object: AnyObject) -> Bool {
+        guard Thread.isMainThread else { return mode == "terminate" ? true : inputReady() }
+        // This synchronous block stays on the already-checked main thread.
+        // The legacy Objective-C proxy is never sent to another queue.
+        nonisolated(unsafe) let ownObject = object
+        return MainActor.assumeIsolated {
+            if mode == "terminate" {
+                if let app = ownObject as? XCUIApplication, app.state != .notRunning { _ = inputReady() }
+                return true // Terminating only this known QA target remains allowed cleanup.
+            }
+            guard !lost else { return false }
+            if mode == "launch" { freshlyLaunched = true; return true }
+            if freshlyLaunched { freshlyLaunched = false; return true }
+            return inputReady()
+        }
+    }
+    private static func zero(_ cls: AnyClass, _ name: String, mode: String = "input") {
+        let selector = NSSelectorFromString(name)
+        guard let method = class_getInstanceMethod(cls, selector) else { return }
+        let original = unsafeBitCast(method_getImplementation(method), to: (@convention(c) (AnyObject, Selector) -> Void).self)
+        let block: @convention(block) (AnyObject) -> Void = { object in
+            guard mode == "input" ? inputReady() : lifecycle(mode, object: object) else { return }
+            original(object, selector)
+        }
+        method_setImplementation(method, imp_implementationWithBlock(block))
+    }
+    static func install() {
+        guard !installed else { return }; installed = true
+        admittedDisplay = CGMainDisplayID()
+        if let token = ProcessInfo.processInfo.environment["PDFNO_A_QA_SHOT_TOKEN"], UUID(uuidString: token) != nil,
+           let bundle = Bundle.main.bundleIdentifier,
+           bundle.hasPrefix("org.pdfno.integration.professionala20261007.qa") {
+            let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("PDFno-A-WindowShots-" + token).standardizedFileURL.path
+            if let bytes = try? JSONSerialization.data(withJSONObject: ["bundle": bundle, "root": root], options: [.sortedKeys]) {
+                print("PDFNO_QA_OWN_DOCUMENTS_ROOT " + String(decoding: bytes, as: UTF8.self))
+            }
+        }
+        print("QA_ADMITTED_PUBLIC_DISPLAY_ID \(admittedDisplay)")
+        for cls in [XCUIElement.self, XCUICoordinate.self] as [AnyClass] {
+            for name in ["click", "doubleClick", "rightClick", "hover"] { zero(cls, name) }
+        }
+        for name in ["launch", "activate", "terminate"] { zero(XCUIApplication.self, name, mode: name) }
+        for cls in [XCUIElement.self, XCUIApplication.self] as [AnyClass] {
+        if let method = class_getInstanceMethod(cls, NSSelectorFromString("typeKey:modifierFlags:")) {
+            let selector = NSSelectorFromString("typeKey:modifierFlags:")
+            if ObjectIdentifier(cls) == ObjectIdentifier(XCUIApplication.self), method == class_getInstanceMethod(XCUIElement.self, selector) { continue }
+            let original = unsafeBitCast(method_getImplementation(method), to: (@convention(c) (AnyObject, Selector, NSString, UInt) -> Void).self)
+            let block: @convention(block) (AnyObject, NSString, UInt) -> Void = { object, key, flags in
+                guard inputReady() else { return }; original(object, selector, key, flags)
+            }
+            method_setImplementation(method, imp_implementationWithBlock(block))
+        }
+        }
+        for cls in [XCUIElement.self, XCUIApplication.self] as [AnyClass] {
+        if let method = class_getInstanceMethod(cls, NSSelectorFromString("scrollByDeltaX:deltaY:")) {
+            let selector = NSSelectorFromString("scrollByDeltaX:deltaY:")
+            if ObjectIdentifier(cls) == ObjectIdentifier(XCUIApplication.self), method == class_getInstanceMethod(XCUIElement.self, selector) { continue }
+            let original = unsafeBitCast(method_getImplementation(method), to: (@convention(c) (AnyObject, Selector, Double, Double) -> Void).self)
+            let block: @convention(block) (AnyObject, Double, Double) -> Void = { object, x, y in
+                guard inputReady() else { return }; original(object, selector, x, y)
+            }
+            method_setImplementation(method, imp_implementationWithBlock(block))
+        }
+        }
+        for cls in [XCUIElement.self, XCUIApplication.self] as [AnyClass] {
+        if let method = class_getInstanceMethod(cls, NSSelectorFromString("typeText:")) {
+            let selector = NSSelectorFromString("typeText:")
+            if ObjectIdentifier(cls) == ObjectIdentifier(XCUIApplication.self), method == class_getInstanceMethod(XCUIElement.self, selector) { continue }
+            let original = unsafeBitCast(method_getImplementation(method), to: (@convention(c) (AnyObject, Selector, NSString) -> Void).self)
+            let block: @convention(block) (AnyObject, NSString) -> Void = { object, text in
+                guard inputReady() else { return }; original(object, selector, text)
+            }
+            method_setImplementation(method, imp_implementationWithBlock(block))
+        }
+        }
+        let selector = NSSelectorFromString("pressForDuration:thenDragToCoordinate:")
+        if let method = class_getInstanceMethod(XCUICoordinate.self, selector) {
+            let original = unsafeBitCast(method_getImplementation(method), to: (@convention(c) (AnyObject, Selector, Double, AnyObject) -> Void).self)
+            let block: @convention(block) (AnyObject, Double, AnyObject) -> Void = { object, seconds, destination in
+                guard inputReady() else { return }; original(object, selector, seconds, destination)
+            }
+            method_setImplementation(method, imp_implementationWithBlock(block))
+        }
+        print("QA_OWN_DESKTOP_FENCE_INSTALLED same original SDK events and arguments; stop on foreground change")
+    }
+}
+#endif

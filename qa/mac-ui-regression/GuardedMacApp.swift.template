@@ -1,0 +1,125 @@
+// Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
+import SwiftUI
+import AppKit
+import PDFnoUI
+import PDFnoDomain
+import PDFnoServices
+import Darwin
+import CryptoKit
+
+@main struct PDFnoMacApp: App {
+    @State private var settingsRequest = 0
+    @AppStorage(PDFnoAppAppearance.preferenceKey) private var appearancePreference = ""
+    @Environment(\.openWindow) private var openWindow
+    init() {
+        let expected = "__QA_BUNDLE__"
+        guard Bundle.main.bundleIdentifier == expected else { exit(2) }
+        let env = ProcessInfo.processInfo.environment
+        guard let uuid = UUID(uuidString: env["PDFNO_UI_TEST_SESSION"] ?? "__PREVIEW_UUID__") else { exit(2) }
+        let session = uuid.uuidString, scope = env["PDFNO_A_QA_SCOPE"] ?? "preview"
+        guard ["preview", "a-regression", "full64", "full68", "current73"].contains(scope) else { exit(2) }
+        let appPath = Bundle.main.bundleURL.standardizedFileURL.path
+        // UUID bundle identifiers prevent Launch Services from selecting another
+        // old QA snapshot. Formal runs additionally require the exact built path.
+        guard scope == "preview" || appPath == "__DERIVED_DATA__/Build/Products/Debug/PDFnoMac.app" else { exit(2) }
+        setenv("PDFNO_UI_TEST_SESSION", session, 1)
+        setenv("PDFNO_A_QA_SCOPE", scope, 1)
+        setenv("PDFNO_UI_TEST_DEEPSEEK", "offline", 1)
+        setenv("PDFNO_A_QA_AUTOSAMPLE", "0", 1)
+        do {
+            let manager = FileManager.default
+            let registry = URL(fileURLWithPath: "__REGISTRY_ROOT__", isDirectory: true)
+            try manager.createDirectory(at: registry, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+            let root = URL(fileURLWithPath: "/tmp", isDirectory: true).appendingPathComponent("PDFno-UITests-" + session)
+            let marker = registry.appendingPathComponent("session-" + session + ".json")
+            if manager.fileExists(atPath: root.path) {
+                let attributes = try manager.attributesOfItem(atPath: root.path)
+                guard attributes[.type] as? FileAttributeType == .typeDirectory,
+                      (attributes[.posixPermissions] as? NSNumber)?.intValue == 0o700,
+                      (attributes[.ownerAccountID] as? NSNumber)?.uint32Value == getuid(),
+                      let stored = try JSONSerialization.jsonObject(with: Data(contentsOf: marker)) as? [String: String],
+                      stored["bundle"] == expected, stored["session"] == session else { exit(2) }
+            } else {
+                try manager.createDirectory(at: root, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+                try JSONSerialization.data(withJSONObject: ["bundle": expected, "session": session], options: [.sortedKeys]).write(to: marker, options: .atomic)
+                if env["PDFNO_QA_SAVED_SEARCH_FIXTURE"] == "1" {
+
+                let fixture = URL(fileURLWithPath: "__SEED_ROOT__", isDirectory: true)
+                func seedFile(_ name: String, expected: String) throws {
+                    let original = fixture.appendingPathComponent(name), destination = root.appendingPathComponent(name)
+                    let values = try original.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+                    guard values.isRegularFile == true, values.isSymbolicLink != true else { exit(2) }
+                    let bytes = try Data(contentsOf: original)
+                    guard SHA256.hash(data: bytes).map({String(format: "%02x", $0)}).joined() == expected else { exit(2) }
+                    try manager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+                    try bytes.write(to: destination, options: .atomic)
+                }
+__SEED_LINES__
+                _ = try LibraryRepository.decode(Data(contentsOf: root.appendingPathComponent("library-v1.json")))
+                _ = try AnnotationRepository.decode(Data(contentsOf: root.appendingPathComponent("annotations-v1.json")))
+                let drafts = try SavedBodyDraftJournal<AnnotationBodySnapshot>(root: root).load()
+                guard drafts.count == 1, drafts[0].text == "OriginalDraftOnlyMarker" else { exit(2) }
+                }
+
+            }
+            let digest: (URL) throws -> String = { url in
+                SHA256.hash(data: try Data(contentsOf: url)).map { String(format: "%02x", $0) }.joined()
+            }
+            let executable = Bundle.main.executableURL!
+            let debugDylib = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/PDFnoMac.debug.dylib")
+            let record: [String: Any] = ["app_path": appPath, "source_head": "__SOURCE_HEAD__", "binary_sha256": try digest(executable), "debug_dylib_sha256": try digest(debugDylib), "launched_at_utc": ISO8601DateFormatter().string(from: Date()), "pid": ProcessInfo.processInfo.processIdentifier, "bundle": expected, "session": session, "scope": scope, "root": root.path, "offline": true]
+            try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]).write(to: registry.appendingPathComponent("process-\(ProcessInfo.processInfo.processIdentifier)-\(session).json"), options: .atomic)
+        } catch { exit(2) }
+    }
+    private var width: CGFloat { CGFloat(Double(ProcessInfo.processInfo.environment["PDFNO_A_QA_WIDTH"] ?? "1280") ?? 1280) }
+    private var height: CGFloat { CGFloat(Double(ProcessInfo.processInfo.environment["PDFNO_A_QA_HEIGHT"] ?? "800") ?? 800) }
+    private var fixtureAppearance: ColorScheme? {
+        switch ProcessInfo.processInfo.environment["PDFNO_A_QA_APPEARANCE"] {
+        case "dark": .dark
+        case "light": .light
+        default: PDFnoAppearanceMode(rawValue: appearancePreference)?.colorScheme
+        }
+    }
+    var body: some Scene {
+        Window("PDFno", id: "library") {
+            LibraryWorkspace(settingsRequest: settingsRequest).frame(minWidth: 720, minHeight: 468).background(QAWindowSize(width: width, height: height))
+                .preferredColorScheme(fixtureAppearance)
+                .onChange(of: appearancePreference, initial: true) { _, value in PDFnoAppAppearance.apply(value) }
+        }
+            .defaultSize(width: width, height: height)
+            .defaultPosition(.center)
+            .windowToolbarStyle(.unifiedCompact)
+            .commands {
+                CommandGroup(replacing: .newItem) {}
+                CommandGroup(replacing: .appSettings) {
+                    Button("设置…") { settingsRequest += 1; openWindow(id: "library") }
+                        .keyboardShortcut(",", modifiers: .command)
+                }
+            }
+    }
+}
+// SwiftUI defaultSize does not override the frame restored for this QA bundle.
+// Size only the window hosting this guarded fixture, never another app's window.
+private struct QAWindowSize: NSViewRepresentable {
+    let width: CGFloat
+    let height: CGFloat
+    func makeNSView(context: Context) -> QAWindowView {
+        let view = QAWindowView()
+        view.requestedSize = NSSize(width: width, height: height)
+        return view
+    }
+    func updateNSView(_ view: QAWindowView, context: Context) {}
+}
+private final class QAWindowView: NSView {
+    var requestedSize = NSSize(width: 1280, height: 800)
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let window else { return }
+        DispatchQueue.main.async { [weak self, weak window] in
+            guard let self, let window, self.window === window else { return }
+            window.subtitle = "设计原型 · 自制离线示例"
+            window.setContentSize(self.requestedSize)
+            window.center()
+        }
+    }
+}

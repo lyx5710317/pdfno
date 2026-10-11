@@ -1,0 +1,102 @@
+#if os(macOS)
+import AppKit
+import XCTest
+
+final class SavedAISearchUITests: XCTestCase {
+    @MainActor private func item(_ id: String, _ app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: id).firstMatch
+    }
+    @MainActor private func text(_ element: XCUIElement) -> String {
+        (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label
+    }
+    @MainActor private func click(_ element: XCUIElement) throws {
+        let ready = expectation(for: NSPredicate { _, _ in element.exists && element.isEnabled && element.isHittable }, evaluatedWith: element)
+        wait(for: [ready], timeout: 12)
+        guard element.exists && element.isEnabled && element.isHittable else { throw NSError(domain: "OriginalSavedSearchQA", code: 1) }
+        element.click()
+    }
+    @MainActor private func query(_ value: String, _ count: Int, _ app: XCUIApplication) throws {
+        let input = item("library-search-input", app)
+        try click(input); input.typeKey("a", modifierFlags: .command)
+        // Same literal input path as NativeUITests.enterSearch. Write only
+        // original fixture text; never read or back up the system clipboard.
+        let board = NSPasteboard.general
+        board.clearContents(); XCTAssertTrue(board.setString(value, forType: .string))
+        input.typeKey("v", modifierFlags: .command)
+        var quietSince: TimeInterval?
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            guard input.exists, self.text(input) == value,
+                  !app.buttons["InputSource"].firstMatch.exists else { quietSince = nil; return false }
+            let now = ProcessInfo.processInfo.systemUptime
+            if quietSince == nil { quietSince = now }
+            return now - (quietSince ?? now) >= 1
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 8), .completed)
+        XCTAssertEqual(text(input), value)
+        let ready = expectation(for: NSPredicate { _, _ in self.text(self.item("library-search-status", app)) == "找到 \(count) 项" }, evaluatedWith: app)
+        wait(for: [ready], timeout: 12)
+        XCTAssertEqual(text(item("library-search-status", app)), "找到 \(count) 项")
+        XCTAssertFalse(item("library-search-error", app).exists)
+    }
+    @MainActor private func shot(_ name: String, _ app: XCUIApplication) throws {
+        let token = try XCTUnwrap(ProcessInfo.processInfo.environment["PDFNO_A_QA_SHOT_TOKEN"])
+        XCTAssertNotNil(UUID(uuidString: token))
+        let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("PDFno-A-WindowShots-" + token)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let path = root.appendingPathComponent(name + ".png")
+        try app.windows.firstMatch.screenshot().pngRepresentation.write(to: path)
+        print("PDFNO_A_WINDOW_SHOT " + String(decoding: try JSONSerialization.data(withJSONObject: ["name": name, "path": path.path]), as: UTF8.self))
+    }
+    @MainActor func testSavedAIQuoteAndResultSearchExactSourceAndDraftExclusion() throws {
+        QAOwnDesktopFence.install(); continueAfterFailure = false
+        let env = ProcessInfo.processInfo.environment
+        let bundle = try XCTUnwrap(env["PDFNO_A_QA_EXPECTED_BUNDLE"])
+        XCTAssertEqual(bundle, "__QA_BUNDLE__")
+        XCTAssertEqual(bundle, env["PDFNO_ISOLATED_UI_APPLICATION_ID"])
+        let app = XCUIApplication(bundleIdentifier: bundle)
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
+        app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        app.launchEnvironment["PDFNO_QA_SAVED_SEARCH_FIXTURE"] = "1"
+        app.launchEnvironment["PDFNO_A_QA_SCOPE"] = "a-regression"
+        app.launchEnvironment["PDFNO_A_QA_WIDTH"] = "1280"
+        app.launchEnvironment["PDFNO_A_QA_HEIGHT"] = "800"
+        app.launchEnvironment["PDFNO_A_QA_APPEARANCE"] = "light"
+        app.launch(); app.activate(); defer { app.terminate() }
+        XCTAssertTrue(item("document-add", app).waitForExistence(timeout: 20))
+        try click(item("library-search", app))
+        try query("Original Saved AI Fixture", 1, app)
+        try click(item("library-search-open-book", app))
+        XCTAssertTrue(item("page-position", app).waitForExistence(timeout: 15))
+        XCTAssertEqual(text(item("page-position", app)), "第 2 / 2 页")
+        try click(item("library-search", app))
+        try query("SavedSearchMarker", 1, app)
+        XCTAssertTrue(text(item("library-search-preview", app)).contains("SavedSearchMarker"))
+        XCTAssertEqual(app.buttons.matching(identifier: "library-search-source").count, 1)
+        try shot("SS-01-saved-AI-result-hit", app)
+        try query("OriginalDraftOnlyMarker", 0, app)
+        XCTAssertTrue(item("library-search-no-results", app).exists)
+        XCTAssertFalse(item("library-search-source", app).exists)
+        try shot("SS-02-unsaved-draft-excluded", app)
+        try query("Reading opens a small window onto a wider world.", 1, app)
+        let quotePreview = app.staticTexts.matching(identifier: "library-search-preview").firstMatch
+        XCTAssertTrue(quotePreview.waitForExistence(timeout: 10))
+        print("Original saved-search quote preview label=\(quotePreview.label), value=\(quotePreview.value as? String ?? "<nil>")")
+        try shot("SS-02b-exact-quote-preview", app)
+        XCTAssertTrue(text(quotePreview).contains("Reading opens"), "Exact source quote must be displayed: " + text(quotePreview))
+        try click(item("library-search-source", app))
+        XCTAssertTrue(item("page-position", app).waitForExistence(timeout: 15))
+        XCTAssertEqual(text(item("page-position", app)), "第 1 / 2 页")
+        try click(item("reader-notes", app))
+        let row = item("annotation-row-__NOTE_ID__", app)
+        XCTAssertTrue(row.waitForExistence(timeout: 12))
+        XCTAssertTrue(text(item("annotation-ai-result", app)).contains("SavedSearchMarker"))
+        try shot("SS-03-exact-source-and-saved-note", app)
+        try click(row); row.rightClick(); try uiClick(app.menuItems["编辑批注"].firstMatch)
+        let editor = item("annotation-comment-input", app)
+        XCTAssertTrue(editor.waitForExistence(timeout: 12))
+        XCTAssertEqual(text(editor), "OriginalDraftOnlyMarker")
+        try shot("SS-04-draft-exists-without-search-indexing", app)
+        try click(item("annotation-editor-cancel", app))
+    }
+}
+#endif
