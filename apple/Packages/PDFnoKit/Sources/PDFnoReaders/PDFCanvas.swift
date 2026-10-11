@@ -11,6 +11,7 @@ public final class PDFCanvasCoordinator: NSObject {
         NotificationCenter.default.addObserver(self, selector: #selector(selectionChanged), name: .PDFViewSelectionChanged, object: view)
         #if os(macOS)
         NotificationCenter.default.addObserver(self, selector: #selector(userScrollStarted), name: NSScrollView.willStartLiveScrollNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(userScrollStarted), name: NSScrollView.didLiveScrollNotification, object: nil)
         #endif
     }
     @objc func pageChanged() { session.updatePage() }
@@ -26,17 +27,28 @@ public final class PDFCanvasCoordinator: NSObject {
 }
 
 #if os(macOS)
+@MainActor private final class PDFCanvasView: PDFView {
+    var sizeChanged: ((PDFView) -> Void)?
+    override func setFrameSize(_ newSize: NSSize) {
+        let changed = frame.size != newSize
+        super.setFrameSize(newSize)
+        if changed { sizeChanged?(self) }
+    }
+}
+
 public struct PDFCanvas: NSViewRepresentable {
     @ObservedObject var session: PDFReaderSession
     public init(session: PDFReaderSession) { self.session = session }
     public func makeCoordinator() -> PDFCanvasCoordinator { PDFCanvasCoordinator(session) }
     public func makeNSView(context: Context) -> PDFView {
-        let view = PDFView(); view.autoScales = true; view.displayMode = .singlePageContinuous; view.displayDirection = .vertical
+        let view = PDFCanvasView(); view.autoScales = true; view.displayMode = .singlePageContinuous; view.displayDirection = .vertical
+        view.sizeChanged = { [weak session] native in session?.canvasSizeChanged(native) }
         view.setAccessibilityIdentifier("pdf-canvas")
         context.coordinator.observe(view); session.attach(view); return view
     }
     public func updateNSView(_ view: PDFView, context: Context) { session.attach(view) }
     public static func dismantleNSView(_ view: PDFView, coordinator: PDFCanvasCoordinator) {
+        (view as? PDFCanvasView)?.sizeChanged = nil
         NotificationCenter.default.removeObserver(coordinator)
         coordinator.session.detach(view)
     }

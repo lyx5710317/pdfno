@@ -260,8 +260,10 @@ import XCTest
             found = nil
             // Query the real modal root before the document window. Queries
             // refresh after a panel transition; bound AX tokens can go stale.
-            for scope in [app.sheets, app.dialogs, app.windows] {
-                let panel = scope.containing(type, identifier: identifier).firstMatch
+            let goTo = app.sheets.matching(identifier: "GoToWindow").firstMatch
+            let roots = (identifier == "PathTextField" ? [goTo] : [])
+                + [app.sheets, app.dialogs, app.windows].map { $0.containing(type, identifier: identifier).firstMatch }
+            for panel in roots {
                 guard panel.exists else { continue }
                 let control = panel.descendants(matching: type).matching(identifier: identifier).firstMatch
                 guard control.exists && (!requireEnabled || (control.isEnabled && control.isHittable)) else { continue }

@@ -124,6 +124,79 @@ struct ProfessionalReaderLayoutTests {
         #expect(data == (try originalSample()))
     }
 
+    @Test func returnedPDFSourceRemainsVisibleWhenNotesPanelCloses() async throws {
+        NSApplication.shared.setActivationPolicy(.prohibited)
+        let data = try originalSample(), session = PDFReaderSession()
+        try session.open(data: data, book: BookRecord(title: "Original note viewport", fileSHA256: LibraryRepository.digest(data), originalFilename: "original.pdf", pageCount: 2))
+        let state = ProfessionalFixtureState()
+        let host = NSHostingView(rootView: ProfessionalPDFHost(session: session, state: state))
+        let window = hiddenWindow(host)
+        defer { window.close() }
+        for width in [CGFloat(814), 720, 1280] {
+            state.width = width
+            host.frame.size.width = width; window.setContentSize(NSSize(width: width, height: 520))
+            state.panels = PDFnoReaderPanels()
+            await settle(host)
+            session.search("window")
+            let match = try #require(session.searchMatches.first)
+            #expect(session.show(match)); session.captureSelection()
+            let anchor = try #require(session.capturedSelection)
+            state.panels.show(.notes, profile: .professional)
+            await settle(host)
+            #expect(session.navigate(to: anchor) == .exact)
+            await settle(host)
+            state.panels.notes = false
+            await settle(host)
+            let native = try #require(session.view), page = try #require(match.pages.first)
+            let target = native.convert(match.bounds(for: page), from: page)
+            print("Original note return width=\(width) target=\(target) viewport=\(native.bounds) scale=\(native.scaleFactor)")
+            #expect(!target.isEmpty && native.bounds.contains(target))
+            #expect(session.pageIndex == 0 && session.capturedSelection?.quote == "window")
+            #expect(native.currentSelection?.string == "window" && !window.isVisible && !window.isKeyWindow)
+        }
+        #expect(data == (try originalSample()))
+    }
+
+    @Test func pendingPanelResizeDoesNotUndoNewerPageOrMutableSelection() async throws {
+        NSApplication.shared.setActivationPolicy(.prohibited)
+        let data = try originalSample(), session = PDFReaderSession()
+        try session.open(data: data, book: BookRecord(title: "Original resize intent", fileSHA256: LibraryRepository.digest(data), originalFilename: "original.pdf", pageCount: 2))
+        let state = ProfessionalFixtureState(); state.width = 814
+        let host = NSHostingView(rootView: ProfessionalPDFHost(session: session, state: state))
+        let window = hiddenWindow(host)
+        defer { window.close() }
+        await settle(host)
+        session.search("window")
+        let match = try #require(session.searchMatches.first)
+        #expect(session.show(match)); session.captureSelection()
+        let anchor = try #require(session.capturedSelection)
+        state.panels.show(.notes, profile: .professional); await settle(host)
+        #expect(session.navigate(to: anchor) == .exact)
+        state.panels.notes = false; host.layoutSubtreeIfNeeded()
+        #expect(session.go(to: 1))
+        await settle(host)
+        let native = try #require(session.view), document = try #require(session.document)
+        #expect(session.pageIndex == 1 && native.currentPage.map { document.index(for: $0) } == 1)
+
+        // PDFView returns a mutable selection instance. Extending that same
+        // instance must not make a queued reveal adopt the changed source.
+        #expect(session.navigate(to: anchor) == .exact)
+        state.panels.show(.notes, profile: .professional); host.layoutSubtreeIfNeeded()
+        let actual = try #require(native.currentSelection)
+        let nextPage = try #require(document.page(at: 1))
+        let nextText = try #require(nextPage.selection(for: nextPage.bounds(for: .mediaBox)))
+        actual.add(nextText); session.captureSelection()
+        let extended = try #require(actual.string)
+        #expect(extended != anchor.quote)
+        native.go(to: nextPage)
+        await settle(host)
+        #expect(native.currentSelection?.string == extended)
+        #expect(session.capturedSelection?.quote == extended)
+        #expect(session.pageIndex == 1 && native.currentPage === nextPage)
+        #expect(!window.isVisible && !window.isKeyWindow)
+        #expect(data == (try originalSample()))
+    }
+
     @Test func embeddedLearningLayoutKeepsExactResultAndUserBodyWithoutSendOrSave() async throws {
         NSApplication.shared.setActivationPolicy(.prohibited)
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Professional-Learning-" + UUID().uuidString)

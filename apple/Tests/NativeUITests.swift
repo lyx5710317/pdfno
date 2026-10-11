@@ -1664,10 +1664,10 @@ final class NativeUITests: XCTestCase {
         // Resolve the real file panel once; its AX queries should not repeatedly
         // traverse the reader WebView behind it. Retain the application scope
         // for platforms where the panel has no exposed dialog/sheet/window root.
-        let panel = [app.dialogs, app.sheets, app.windows].lazy.map {
+        let panel = [app.sheets, app.dialogs, app.windows].lazy.map {
             $0.containing(.button, identifier: "OKButton").firstMatch
         }.first { $0.exists } ?? app
-        traceFixturePanel("panel-resolved", url: url, panel: panel, started: diagnosticStarted)
+        traceFixturePanel("panel-resolved", url: url, started: diagnosticStarted)
         app.typeKey("g", modifierFlags: [.command, .shift])
         let location = try uiFileControl(app, type: .textField, identifier: "PathTextField")
         XCTAssertTrue(location.waitForExistence(timeout: 5))
@@ -1680,7 +1680,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(NSPasteboard.general.setString(url.path, forType: .string))
         app.typeKey("v", modifierFlags: .command)
         XCTAssertEqual(location.value as? String, url.path)
-        traceFixturePanel("literal-path-confirmed", url: url, panel: panel, started: diagnosticStarted)
+        traceFixturePanel("literal-path-confirmed", url: url, started: diagnosticStarted)
         // The completion label is not hittable on macOS; select its actual row/cell by mouse.
         // A keyboard Return here can crash the system panel's input-context service.
         let goTo = app.sheets.matching(identifier: "GoToWindow").firstMatch
@@ -1699,9 +1699,9 @@ final class NativeUITests: XCTestCase {
             return completion != nil
         }
         let selectedCompletion = try XCTUnwrap(completion)
-        traceFixturePanel("qualified-completion", url: url, panel: panel, started: diagnosticStarted, evidence: selectedCompletion)
+        traceFixturePanel("qualified-completion", url: url, started: diagnosticStarted)
         selectedCompletion.doubleClick()
-        traceFixturePanel("real-cell-double-clicked", url: url, panel: panel, started: diagnosticStarted)
+        traceFixturePanel("real-cell-double-clicked", url: url, started: diagnosticStarted)
         let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             !location.exists || !location.isHittable
         }, object: app)
@@ -1710,16 +1710,15 @@ final class NativeUITests: XCTestCase {
         XCTFail("The original fixture Go-to overlay must close before using the file-panel action")
         throw NSError(domain: "PDFnoOriginalFixturePanel", code: 1)
     }
-    @MainActor private func traceFixturePanel(_ stage: String, url: URL, panel: XCUIElement, started: TimeInterval, evidence: XCUIElement? = nil) {
+    @MainActor private func traceFixturePanel(_ stage: String, url: URL, started: TimeInterval) {
         // Enabled only in the explicit focused CI xctestrun. It never opens a
         // different app, reads production data, changes input, or fakes a result.
         guard ProcessInfo.processInfo.environment["PDFNO_UI_TEST_PANEL_DIAGNOSTICS"] == "1" else { return }
         let elapsed = ProcessInfo.processInfo.systemUptime - started
-        print("PDFno fixture-panel diagnostic stage=\(stage) file=\(url.lastPathComponent) seconds=\(elapsed) rootType=\(panel.elementType.rawValue)")
-        guard stage == "qualified-completion", let evidence else { return }
-        // Read only the exact synthetic completion's attributes. Avoid the
-        // full AX debug description, which traverses the reader behind it.
-        print("PDFno fixture-completion role=\(evidence.elementType.rawValue) id=\(evidence.identifier) frame=\(evidence.frame) hittable=\(evidence.isHittable)")
+        // Successful diagnostics must not re-query AX. On a system file panel,
+        // each extra property read can traverse the WebKit reader behind it.
+        // The real path, frame, hittability and dismissal checks above remain.
+        print("PDFno fixture-panel diagnostic stage=\(stage) file=\(url.lastPathComponent) seconds=\(elapsed)")
     }
     @MainActor private func originalPNG(width: Int, height: Int) throws -> Data {
         let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,

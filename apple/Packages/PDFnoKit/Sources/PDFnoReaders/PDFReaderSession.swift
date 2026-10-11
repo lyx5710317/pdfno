@@ -30,12 +30,60 @@ public final class PDFReaderSession: ObservableObject {
     #if os(macOS)
     /// A newer explicit navigation or user scroll supersedes a deferred reveal.
     public private(set) var navigationRevision = UUID()
+    private struct ResizeSelection {
+        let id = UUID()
+        let selection: PDFSelection
+        let quote: String
+        let pages: [PDFPage]
+        let bounds: [CGRect]
+        init?(_ source: PDFSelection) {
+            guard let copy = source.copy() as? PDFSelection, let quote = source.string else { return nil }
+            selection = copy; self.quote = quote; pages = source.pages
+            bounds = pages.map { source.bounds(for: $0) }
+        }
+        func matches(_ actual: PDFSelection?) -> Bool {
+            guard let actual, let text = actual.string,
+                  text.unicodeScalars.elementsEqual(quote.unicodeScalars),
+                  actual.pages.count == pages.count else { return false }
+            return pages.indices.allSatisfy { index in
+                actual.pages[index] === pages[index] && actual.bounds(for: pages[index]) == bounds[index]
+            }
+        }
+    }
+    private var resizeSelection: ResizeSelection?
+    private var resizeRevealID = UUID()
     func userScrollBegan() { cancelRestoration() }
+
+    /// PDFKit can retain a scroll offset from the narrower inspector layout.
+    /// Keep the last explicit source reveal visible after the canvas changes size.
+    /// A physical scroll, new selection, navigation or host cancels this intent.
+    func canvasSizeChanged(_ native: PDFView) {
+        guard view === native, let selection = resizeSelection,
+              let document, native.document === document, let ownWindow = native.window else { return }
+        let identity = readerSessionID, revision = navigationRevision, reveal = UUID()
+        resizeRevealID = reveal
+        Task { @MainActor [weak self, weak native, weak ownWindow] in
+            await Task.yield()
+            guard let self, let native, let ownWindow else { return }
+            @MainActor func current() -> Bool {
+                guard self.resizeRevealID == reveal, self.navigationRevision == revision,
+                      self.readerSessionID == identity, self.view === native,
+                      native.window === ownWindow, self.document === document,
+                      native.document === document, self.resizeSelection?.id == selection.id else { return false }
+                return selection.matches(native.currentSelection)
+            }
+            guard current() else { return }
+            ownWindow.contentView?.layoutSubtreeIfNeeded()
+            guard current() else { return }
+            native.go(to: selection.selection)
+        }
+    }
     #endif
     var isRestoringPosition: Bool { restorationID != nil }
     private func cancelRestoration() {
         #if os(macOS)
         navigationRevision = UUID()
+        resizeSelection = nil; resizeRevealID = UUID()
         #endif
         restorationTask?.cancel(); restorationTask = nil; restorationID = nil
     }
@@ -159,11 +207,19 @@ public final class PDFReaderSession: ObservableObject {
         cancelRestoration()
         if let view = currentNavigationView() {
             view.setCurrentSelection(selection, animate: true); view.go(to: selection)
+            #if os(macOS)
+            resizeSelection = ResizeSelection(selection)
+            #endif
         }
         pageIndex = target; recordJump(from: origin, to: target)
         return true
     }
     public func captureSelection() {
+        #if os(macOS)
+        if let intent = resizeSelection, !intent.matches(view?.currentSelection) {
+            resizeSelection = nil; resizeRevealID = UUID()
+        }
+        #endif
         guard let book, let document, document.allowsCopying, let view, view.document === document,
               let selection = view.currentSelection, let quote = selection.string, !quote.isEmpty else {
             return // Retain the immutable snapshot when focus moves to the notes sheet.
@@ -220,6 +276,9 @@ public final class PDFReaderSession: ObservableObject {
             view.go(to: CGRect(x: first.x, y: first.y, width: first.width, height: first.height), on: page)
             if let selection = page.selection(for: CGRect(x: first.x, y: first.y, width: first.width, height: first.height)) {
                 view.setCurrentSelection(selection, animate: true)
+                #if os(macOS)
+                resizeSelection = ResizeSelection(selection)
+                #endif
             }
         }
         pageIndex = first.pageIndex; recordJump(from: origin, to: first.pageIndex)
