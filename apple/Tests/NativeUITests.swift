@@ -72,7 +72,6 @@ final class NativeUITests: XCTestCase {
     @MainActor private func chooseCurrentLanguage(_ id: String, app: XCUIApplication) throws {
         let languages = ["document-japanese-learning": "japanese", "document-english-learning": "english"]
         let language = try XCTUnwrap(languages[id])
-        try uiClick(ui("selection-ai-" + language, app))
         try uiLanguageMenuAction(language, review: true, app)
         XCTAssertFalse(ui("language-compatibility-test-host", app).exists)
     }

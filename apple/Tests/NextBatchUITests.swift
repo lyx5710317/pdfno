@@ -49,7 +49,6 @@ final class NextBatchUITests: XCTestCase {
     @MainActor private func openCurrentEnglish(_ app: XCUIApplication) throws {
         try uiSelectPDFWindow(app)
         try uiClick(ui("selection-ai-menu", app))
-        try uiClick(ui("selection-ai-english", app))
         try uiLanguageMenuAction("english", review: true, app)
         XCTAssertFalse(ui("language-compatibility-test-host", app).exists)
     }

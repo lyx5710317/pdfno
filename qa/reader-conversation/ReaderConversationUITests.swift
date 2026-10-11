@@ -61,8 +61,9 @@ final class ReaderConversationUITests: XCTestCase {
         text.coordinate(withNormalizedOffset: CGVector(dx: 0.1,dy: 0.5)).doubleClick()
     }
     @MainActor private func task(_ task: String,_ app: XCUIApplication) throws {
-        try click(item("selection-ai-menu",app)); try click(item("selection-ai-" + task,app))
+        try click(item("selection-ai-menu",app))
         if task == "japanese" || task == "english" { try uiLanguageMenuAction(task, review: false, app) }
+        else { try click(item("selection-ai-" + task,app)) }
         XCTAssertTrue(item("ai-close",app).waitForExistence(timeout: 15))
         XCTAssertFalse(item("selection-service",app).exists); XCTAssertFalse(item("ai-provider-mode",app).exists)
     }

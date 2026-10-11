@@ -23,24 +23,40 @@ import XCTest
     func uiLanguageMenuAction(_ language: String, review: Bool, _ app: XCUIApplication) throws {
         XCTAssertTrue(["japanese", "english"].contains(language))
         let title = review ? (language == "japanese" ? "假名与语法审阅" : "结构与语法审阅") : "对话"
+        let category = app.menuItems.matching(identifier: "selection-ai-" + language).firstMatch
+        try uiWait("Visible public language category") { category.exists && category.isEnabled && category.isHittable }
+        print("Original language category before-hover id=\(category.identifier) frame=\(category.frame) hittable=\(category.isHittable)")
+        // Use the explicit native hover from the existing submenu driver.
+        // The leaf must then be observed; there is no extra click or key fallback.
+        category.hover()
         // AppKit exposes SwiftUI submenu actions as menuAction:, retaining labels
         // (the existing native-menu driver fix in 3792279). Only the open submenu
         // may supply this action; never choose a hidden same-title language action.
         var matches: [XCUIElement] = []
-        do {
-            try uiWait("One visible public language action: " + title, timeout: 12) {
-                matches = app.menuItems.matching(NSPredicate(format: "label == %@", title))
-                    .allElementsBoundByAccessibilityElement.filter { $0.exists && $0.isEnabled && $0.isHittable }
-                return matches.count == 1
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            matches = app.menuItems.matching(NSPredicate(format: "label == %@", title))
+                .allElementsBoundByAccessibilityElement.filter { $0.exists && $0.isEnabled && $0.isHittable }
+            return matches.count == 1
+        }, object: app)
+        let outcome = XCTWaiter.wait(for: [ready], timeout: 12)
+        // Record bounded command-only AX evidence before any failing assertion:
+        // continueAfterFailure=false can terminate the test at XCTAssert itself.
+        if outcome != .completed {
+            let exists = category.exists
+            print("Original language category after-hover exists=\(exists)")
+            if exists {
+                print("Original language category frame=\(category.frame) enabled=\(category.isEnabled) hittable=\(category.isHittable)")
+                for node in category.descendants(matching: .any).allElementsBoundByAccessibilityElement.prefix(12) {
+                    print("Original language subtree role=\(node.elementType.rawValue) id=\(node.identifier) label=\(node.label) frame=\(node.frame)")
+                }
             }
-        } catch {
-            // Only known application commands, never another app or a complete AX tree.
             for known in ["对话", "假名与语法审阅", "结构与语法审阅"] {
                 let items = app.menuItems.matching(NSPredicate(format: "label == %@", known)).allElementsBoundByAccessibilityElement
                 print("Original language menu title=\(known) matches=\(items.count) visible=\(items.filter { $0.exists && $0.isHittable }.count)")
             }
-            throw error
         }
+        XCTAssertEqual(outcome, .completed, "One visible public language action: " + title)
+        guard outcome == .completed else { throw NSError(domain: "OriginalReaderContract", code: 2) }
         XCTAssertEqual(matches.count, 1)
         try uiClick(try XCTUnwrap(matches.first))
     }
