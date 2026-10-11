@@ -21,3 +21,9 @@
 `b4250fa` 随后的三项短测为2通过／1失败：目录真实选择、导出SHA256与恢复重启全链通过（134秒），PDF真实快捷键1→2→1通过（28秒）；英语“对话”叶标题仍未匹配（51秒）。桌面于12:52:51 UTC释放。现有活动没有菜单AX附件；日志只支持叶查询未匹配，尚不能认定产品子菜单没有构建。下一候选仅将父分类动作改为历史已有的显式 `hover()`，维持同一标题查询和全部原断言，并在失败断言前记录该语言根的最多12个AX子节点及三个固定叶标题状态。下一轮只运行原窄窗方法，先取得真实菜单状态及入口结果，再进行必要的最终门槛；此次诊断不改变产品或发送真实请求。
 
 `a6e0bf6` 单项于13:05:25 UTC开始，13:06:26 UTC释放；54秒后失败。限定AX确认：英语根存在、启用、可点击，真实子菜单123×58，两条24点高的MenuItem均为 `menuAction:` 且 `label` 为空，三个固定标题匹配数均为0。因此已有子菜单但叶节点没有可访问名称，不能继续靠换定位解决。下一修正只给两个语言叶节点补与可见标题一致的显式 `accessibilityLabel`；动作、选文来源、driver及全部原断言不变。是否经SwiftUI原生菜单桥正确暴露仍须同一原场景实测，尚不作为验收通过证据。官方失败与限定AX日志保留在 `MenuHoverGUI01/MenuHover.xcresult` 和 `Evidence/menu-hover-01.log`。
+
+`4c7d2a3` 同一原窄窗方法仍失败（55秒），显式 SwiftUI label 没有转发到实际展开子菜单的 AX 叶节点；两条节点仍为 `menuAction:`、空 label。桌面于13:16:14 UTC（北京时间21:16:14）释放，live Key进程保留，没有新真实请求。官方结果与失败诊断保留在 `MenuLabelsGUI01/MenuLabels.xcresult`、`Evidence/MENU-LABELS-OFFICIAL-SUMMARY-01.json` 和 `Evidence/menu-labels-01.log`。
+
+后续产品修正只将选文 AI 的 SwiftUI Menu 桥替换为 `NSViewRepresentable` 内的原生 `NSPopUpButton`／`NSMenuItem`。原浮层、五类任务、日英双子项及固定 anchor/session 不变，工具开关仍独立且默认关闭。原生叶项提供真实标题与显式 AX 名称和标识；只有叶项拥有业务动作，首项 AI caption 和语言父项均不发送。SwiftUI 持有 Coordinator，叶项弱引用其 target；回调弱捕获 controller/library，拆卸解除 target/action 并清空回调。隐藏原生菜单检查覆盖命名、默认过滤、准确分派和失效回调清理，不打开窗口或联网；不能替代真实菜单 AX 与完整 GUI 验收。测试 driver 与全部原场景断言保持不变。
+
+原生桥后台完整 Swift 检查已通过696项（原694项加2项原生菜单回归），源码检查通过879份文件。新增菜单检查发现 `NSPopUpButton` 赋值菜单后会给标题和父项安装系统内部动作，现保留该行为，验证它们不是业务 target/selector 且业务回调为零；真实叶项则要求精确业务 target/selector。新增检查的首版及失败证据保留，原GUI及旧694项断言不变。真实原窄窗场景尚待新候选桌面验收，不能提前计为通过。

@@ -357,27 +357,15 @@ extension View { func annotationExperience(_ model: AnnotationModel,reader: Anno
                         .buttonStyle(.borderless).accessibilityIdentifier("selection-annotation-"+kind.rawValue)
                 }
                 if let library=self.aiLibrary {
-                    Menu {
-                        ForEach(ReadingConversationTask.allCases.filter { library.learning.tools.isEnabled($0) },id: \.self) { task in
-                            if task == .japanese || task == .english {
-                                Menu(task.title) {
-                                    Button("对话") { self.popover.close(); library.openConversationAI(task, anchor: anchor, sessionID: session) }
-                                        .accessibilityLabel("对话")
-                                        .accessibilityIdentifier("selection-ai-" + task.rawValue + "-conversation")
-                                    Button(task == .japanese ? "假名与语法审阅" : "结构与语法审阅") {
-                                        self.popover.close()
-                                        if task == .japanese { library.openJapaneseReview(anchor: anchor, sessionID: session) }
-                                        else { library.openEnglishReview(anchor: anchor, sessionID: session) }
-                                    }
-                                    .accessibilityLabel(task == .japanese ? "假名与语法审阅" : "结构与语法审阅")
-                                    .accessibilityIdentifier("selection-ai-" + task.rawValue + "-review")
-                                }.accessibilityIdentifier("selection-ai-" + task.rawValue)
-                            } else {
-                                Button(task.title) { self.popover.close(); library.openConversationAI(task, anchor: anchor, sessionID: session) }
-                                    .accessibilityIdentifier("selection-ai-" + task.rawValue)
-                            }
+                    NativeSelectionAIMenu(tasks: ReadingConversationTask.allCases.filter { library.learning.tools.isEnabled($0) }) { [weak self, weak library] command in
+                        guard let self, let library else { return }
+                        self.popover.close()
+                        switch command {
+                        case .conversation(let task): library.openConversationAI(task, anchor: anchor, sessionID: session)
+                        case .japaneseReview: library.openJapaneseReview(anchor: anchor, sessionID: session)
+                        case .englishReview: library.openEnglishReview(anchor: anchor, sessionID: session)
                         }
-                    } label: { Label("AI",systemImage: "sparkles") }.menuStyle(.borderlessButton).fixedSize().accessibilityIdentifier("selection-ai-menu")
+                    }.frame(width: 51, height: 24)
                 }
             }.font(.system(size: 13)).padding(12).frame(width: self.aiLibrary == nil ? 270 : 325,height: 48))
             self.popover.contentSize=NSSize(width: self.aiLibrary == nil ? 270 : 325,height: 48)
