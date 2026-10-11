@@ -35,6 +35,9 @@ struct MacTabbedWorkspace: View {
                             .opacity(isVisible(tab) ? 1 : 0)
                             .allowsHitTesting(isVisible(tab)).disabled(!isVisible(tab))
                             .accessibilityHidden(!isVisible(tab))
+                            .onChange(of: isVisible(tab)) { _, visible in
+                                if !visible { tab.model.dismissSelectionAI() }
+                            }
                     }
                     if navigation.route == .library {
                         ProfessionalLibraryWorkspace(model: model, grid: $grid, selectedBookID: $selectedBookID,

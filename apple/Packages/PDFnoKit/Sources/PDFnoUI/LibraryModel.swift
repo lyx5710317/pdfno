@@ -57,7 +57,7 @@ public final class LibraryModel: ObservableObject {
     let annotations: AnnotationModel
     lazy var bookmarks = BookmarkModel(root: recordRoot,library: self)
     lazy var conversation = ReadingConversationModel(library: self)
-    @Published var showingSelectionAI = false
+    @Published var selectionAIRoute: SelectionAIRoute?
     @Published var addingAIToNotes = false
     let recordRoot: URL
     lazy var recordEditing = RecordEditingAdapter(root: recordRoot, library: self)

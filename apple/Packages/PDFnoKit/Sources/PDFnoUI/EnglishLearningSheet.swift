@@ -17,7 +17,7 @@ struct EnglishLearningSheet: View {
             EnglishLearningWorkspace(model: library.englishLearning, returnToSource: { source in Task { if await library.returnToEnglishSource(source) { dismiss() } } })
             if library.learning.offlineTransport { Text("离线 transport 替身 · 不发送真实 API").font(.caption).accessibilityIdentifier("english-offline-fixture") }
         }.padding(PDFnoDesign.Space.regular)
-            .frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: PDFnoDesign.Metric.sheetIdeal, minHeight: 600)
+            .frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: 640, minHeight: 360, idealHeight: 440)
             .onDisappear { library.englishLearning.cancel() }
     }
 }

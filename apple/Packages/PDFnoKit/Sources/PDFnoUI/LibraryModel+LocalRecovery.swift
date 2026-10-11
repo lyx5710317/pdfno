@@ -161,6 +161,7 @@ extension LibraryModel {
     }
     private func beginStorageMaintenance() {
         storageMaintenance = true; canImport = false; isBusy = true; progressSequence += 1
+        dismissSelectionAI()
         learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
         invalidateJapaneseLearning(); invalidateEnglishLearning(); invalidateBYOKSelection()
         booknoPreview.close(); activeSavedSearch?.cancel(); noteEditing.invalidatePendingSavesForMaintenance(); recordEditing.editor.invalidatePendingSavesForMaintenance(); annotations.editor.invalidatePendingSavesForMaintenance()

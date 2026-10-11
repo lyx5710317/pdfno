@@ -37,7 +37,7 @@ import PDFnoServices
         var config=AIProviderConfig();config.mode = .mock;config.label="Original mock";model.learning.config=config
         await model.annotations.bind(.pdf(model.reader))
         model.openSelectionAI(.summarize,anchor: anchor,sessionID: model.reader.readerSessionID)
-        #expect(model.showingSelectionAI && model.learning.kind == .summarize && model.learning.source?.bookID==book.id)
+        #expect(model.selectionAIRoute == .conversation && model.learning.kind == .summarize && model.learning.source?.bookID==book.id)
         model.learning.start(confirmed: true,sourceIsCurrent: model.isCurrentAISource)
         let deadline=Date().addingTimeInterval(5)
         while model.learning.busy && Date()<deadline { try await Task.sleep(for: .milliseconds(20)) }

@@ -37,6 +37,7 @@ extension LibraryModel {
         }
     }
     func invalidateEnglishLearning() {
+        if selectionAIRoute == .englishReview { selectionAIRoute = nil }
         englishCommitFence?.invalidate(); englishCommitFence = nil
         englishLearning.prepare(nil)
     }

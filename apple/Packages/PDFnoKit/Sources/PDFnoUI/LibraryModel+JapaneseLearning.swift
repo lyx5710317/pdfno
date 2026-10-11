@@ -42,7 +42,10 @@ extension LibraryModel {
             japaneseLearning.prepare(request, provider: UnavailableJapaneseLearningProvider(mode: learning.config.mode, failure: failure), failure: failure)
         }
     }
-    func invalidateJapaneseLearning() { japaneseLearning.prepare(nil) }
+    func invalidateJapaneseLearning() {
+        if selectionAIRoute == .japaneseReview { selectionAIRoute = nil }
+        japaneseLearning.prepare(nil)
+    }
     func japaneseSelectionDidChange(_ anchor: AISelectionAnchor?) {
         // Nil can be focus moving into a sheet; retain the immutable source. Real replacement,
         // session/version/reflow changes are independently fenced and cancelled.

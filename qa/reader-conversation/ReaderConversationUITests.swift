@@ -62,6 +62,7 @@ final class ReaderConversationUITests: XCTestCase {
     }
     @MainActor private func task(_ task: String,_ app: XCUIApplication) throws {
         try click(item("selection-ai-menu",app)); try click(item("selection-ai-" + task,app))
+        if task == "japanese" || task == "english" { try click(item("selection-ai-" + task + "-conversation",app)) }
         XCTAssertTrue(item("ai-close",app).waitForExistence(timeout: 15))
         XCTAssertFalse(item("selection-service",app).exists); XCTAssertFalse(item("ai-provider-mode",app).exists)
     }

@@ -44,6 +44,68 @@ private actor NativeConversationDeferredHTTP: AIHTTPTransport {
         while model.busy && Date() < end { try await Task.sleep(for: .milliseconds(10)) }
         #expect(!model.busy)
     }
+    @Test func publicStructuredEntriesRequireEnabledCurrentSelectionAndDoNotSendUntilConsent() async throws {
+        let r = root(); defer { try? FileManager.default.removeItem(at: r) }
+        let transport = NativeConversationDeferredHTTP(), library = LibraryModel(root: r, aiSession: AppAISession(), learningTransport: transport)
+        let (window, source) = try await pdf(library); defer { library.reader.close(); window.close() }
+        guard case .pdf(let pdfAnchor) = source.anchor else { throw AIFailure.stale }
+        let anchor = AnnotationAnchor.pdf(pdfAnchor)
+        #expect(await library.learning.applyConnection(DeepSeekSelectionPolicy.configuration(), temporarySecret: "original-synthetic-credential-never-live"))
+        library.openJapaneseReview(anchor: anchor, sessionID: source.readerSessionID)
+        library.openEnglishReview(anchor: anchor, sessionID: source.readerSessionID)
+        #expect(library.selectionAIRoute == nil && library.japaneseLearning.request == nil && library.englishLearning.request == nil)
+        library.learning.tools.set(.japanese, enabled: true); library.learning.tools.set(.english, enabled: true)
+        library.openJapaneseReview(anchor: anchor, sessionID: UUID())
+        #expect(library.selectionAIRoute == nil)
+        library.openJapaneseReview(anchor: anchor, sessionID: source.readerSessionID)
+        #expect(library.selectionAIRoute == .japaneseReview && library.japaneseLearning.request?.source == source)
+        #expect(library.japaneseLearning.canStart && library.japaneseLearning.review == nil && !library.japaneseLearning.busy)
+        library.japaneseLearning.start(confirmed: false)
+        #expect(!library.japaneseLearning.busy && library.japaneseLearning.review == nil)
+        library.japaneseLearning.userText = "Original Japanese review draft"
+        library.dismissSelectionAI()
+        #expect(library.selectionAIRoute == nil && library.japaneseLearning.userText == "Original Japanese review draft")
+        library.openEnglishReview(anchor: anchor, sessionID: source.readerSessionID)
+        #expect(library.selectionAIRoute == .englishReview && library.englishLearning.request?.source == source)
+        #expect(library.englishLearning.canStart && library.englishLearning.review == nil && !library.englishLearning.busy)
+        library.englishLearning.start(confirmed: false)
+        #expect(!library.englishLearning.busy && library.englishLearning.review == nil)
+        #expect(await transport.count() == 0 && library.conversation.threads.isEmpty)
+        #expect(try await library.japaneseRepository.load().notes.isEmpty)
+        #expect(try await library.englishRepository.load().notes.isEmpty)
+        library.storageMaintenance = true; library.dismissSelectionAI()
+        library.openJapaneseReview(anchor: anchor, sessionID: source.readerSessionID)
+        #expect(library.selectionAIRoute == nil)
+        library.storageMaintenance = false
+        library.openEnglishReview(anchor: anchor, sessionID: source.readerSessionID)
+        library.reader.close()
+        #expect(library.selectionAIRoute == nil && library.englishLearning.request == nil)
+        #expect(await transport.count() == 0 && !window.isVisible)
+    }
+    @Test func hidingStructuredReviewPreservesConversationAndSameSourceDraftButClosingDiscardsPresentation() async throws {
+        let r = root(); defer { try? FileManager.default.removeItem(at: r) }
+        let library = LibraryModel(root: r, aiSession: AppAISession()), (window, source) = try await pdf(library)
+        defer { library.reader.close(); window.close() }
+        guard case .pdf(let pdfAnchor) = source.anchor else { throw AIFailure.stale }
+        let anchor = AnnotationAnchor.pdf(pdfAnchor)
+        var config = AIProviderConfig(); config.mode = .mock
+        #expect(await library.learning.applyConnection(config, temporarySecret: ""))
+        library.learning.tools.set(.japanese, enabled: true)
+        library.openConversationAI(.japanese, anchor: anchor, sessionID: source.readerSessionID)
+        try await finish(library.conversation)
+        let original = try #require(library.conversation.current)
+        #expect(original.answers.count == 1 && library.selectionAIRoute == .conversation)
+        library.dismissSelectionAI()
+        library.openJapaneseReview(anchor: anchor, sessionID: source.readerSessionID)
+        library.japaneseLearning.userText = "Original independent structured draft"
+        library.dismissSelectionAI()
+        library.openJapaneseReview(anchor: anchor, sessionID: source.readerSessionID)
+        #expect(library.japaneseLearning.userText == "Original independent structured draft")
+        #expect(library.conversation.currentID == original.id && library.conversation.current?.answers.map(\.result) == original.answers.map(\.result))
+        library.discardDocumentPresentation()
+        #expect(library.selectionAIRoute == nil && library.conversation.threads.isEmpty && library.japaneseLearning.request == nil)
+        #expect(!window.isVisible)
+    }
     @Test func toolPreferencesDefaultOffAreIndependentAndDoNotRequireAnyDocument() throws {
         let r = root(); defer { try? FileManager.default.removeItem(at: r) }
         let preferences = AIReadingToolsPreferences(root: r)
@@ -86,7 +148,7 @@ private actor NativeConversationDeferredHTTP: AIHTTPTransport {
         let id = try #require(library.conversation.currentID)
         #expect(library.conversation.current?.answers.count == 1 && library.hasUnsavedDocumentLearning)
         #expect(try await library.annotations.repository.load().notes.isEmpty)
-        library.showingSelectionAI = false; library.conversation.open(.summarize,source: source)
+        library.dismissSelectionAI(); library.conversation.open(.summarize,source: source)
         #expect(library.conversation.currentID == id && library.conversation.current?.answers.count == 1)
         library.conversation.setDraft("Original follow-up"); library.conversation.sendFollowup(); library.conversation.sendFollowup()
         try await finish(library.conversation)

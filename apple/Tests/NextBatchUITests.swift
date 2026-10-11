@@ -47,10 +47,11 @@ final class NextBatchUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
     @MainActor private func openCurrentEnglish(_ app: XCUIApplication) throws {
-        try uiClick(ui("document-more", app))
-        try uiClick(app.menuItems.matching(identifier: "document-reading-tools").firstMatch)
-        XCTAssertTrue(ui("language-compatibility-test-host", app).waitForExistence(timeout: 10))
-        try uiClick(ui("ai-tool-english", app))
+        try uiSelectPDFWindow(app)
+        try uiClick(ui("selection-ai-menu", app))
+        try uiClick(ui("selection-ai-english", app))
+        try uiClick(ui("selection-ai-english-review", app))
+        XCTAssertFalse(ui("language-compatibility-test-host", app).exists)
     }
     @MainActor private func click(_ item: XCUIElement) {
         if !item.exists { XCTAssertTrue(item.waitForExistence(timeout: 10)) }
@@ -110,17 +111,20 @@ final class NextBatchUITests: XCTestCase {
         XCTAssertEqual(path.value as? String, url.path)
         // Same native completion route used by the existing file-panel tests.
         // The old Return path crashed the system panel immediately after paste.
+        let goTo = app.sheets.matching(identifier: "GoToWindow").firstMatch
+        let fullPath = NSPredicate(format: "identifier == %@ OR identifier == %@", url.path, url.resolvingSymlinksInPath().path)
         let fixture = NSPredicate(format: "label == %@ OR value == %@", url.lastPathComponent, url.lastPathComponent)
         let roles: [XCUIElement.ElementType] = [.cell, .tableRow, .outlineRow]
         var completion: XCUIElement?
         let ready = expectation(for: NSPredicate { _, _ in
-            completion = roles.flatMap { app.descendants(matching: $0).containing(fixture).allElementsBoundByIndex }
-                .first { $0.isHittable && !$0.frame.isEmpty && $0.frame.minX.isFinite && $0.frame.minY.isFinite }
+            let exactRows = goTo.exists ? goTo.tables.tableRows.containing(fullPath).allElementsBoundByAccessibilityElement : []
+            let rows = exactRows.isEmpty ? roles.flatMap { app.descendants(matching: $0).containing(fixture).allElementsBoundByAccessibilityElement } : exactRows
+            completion = rows.first { $0.isHittable && !$0.frame.isEmpty && !$0.frame.isInfinite && $0.frame.minX.isFinite && $0.frame.minY.isFinite }
             return completion != nil
         }, evaluatedWith: app)
         wait(for: [ready], timeout: 10)
         let row = try XCTUnwrap(completion, "The real fixture folder completion must be hittable")
-        row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).doubleClick()
+        row.doubleClick()
         let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !path.exists || !path.isHittable }, object: app)
         XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed)
         XCTAssertFalse(path.exists && path.isHittable)
@@ -165,19 +169,27 @@ final class NextBatchUITests: XCTestCase {
     @MainActor func testEnglishManualConsentSaveSearchAndRestartKeepsSourceAndNoKey() throws {
         let app = XCUIApplication(), token = UUID().uuidString
         let root = URL(fileURLWithPath: "/tmp/PDFno-UITests-" + token)
-        app.launchEnvironment["PDFNO_UI_TEST_LANGUAGE_COMPATIBILITY"] = "1"
+        app.launchEnvironment["PDFNO_A_QA_WIDTH"] = "720"
+        app.launchEnvironment["PDFNO_A_QA_HEIGHT"] = "520"
         fixture(app, token: token); defer { app.terminate(); cleanup(root) }
+        try uiEnableLanguage("english", app)
         click(app.buttons["reader-navigation"].firstMatch)
         let search = app.textFields["search-input"].firstMatch; click(search); pasteFixture("window", into: search)
         click(app.buttons["search-submit"].firstMatch); click(app.buttons["search-result"].firstMatch)
         try openCurrentEnglish(app)
         XCTAssertTrue(element("english-offline-fixture", app).waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["english-learning-start"].firstMatch.isEnabled)
-        click(app.buttons["english-learning-close"].firstMatch); try uiCloseToolDirectory(app)
+        click(app.buttons["english-learning-close"].firstMatch); try uiCloseLanguageReview(app)
         try uiSettings(app); try uiProvider("DeepSeek", app, key: "synthetic-reading-ui-credential")
         try uiClick(ui("settings-return", app))
         try openCurrentEnglish(app)
         text(element("english-learning-fixed-source", app), contains: "window")
+        if ProcessInfo.processInfo.environment["PDFNO_A_QA_SHOT_TOKEN"] != nil {
+            let frame = app.windows.firstMatch.frame
+            XCTAssertEqual(frame.width, 720, accuracy: 2, "The isolated host must actually remain narrow")
+            XCTAssertLessThanOrEqual(frame.height, 560, "The review must not force the 520-point content window taller")
+            try uiCaptureOwnWindow("LANG-01-public-English-narrow", app)
+        }
         let consent = element("english-learning-confirm", app), start = app.buttons["english-learning-start"].firstMatch
         reveal(consent, form: "english-learning-form", app: app); click(consent)
         reveal(start, form: "english-learning-form", app: app); click(start)
@@ -197,7 +209,7 @@ final class NextBatchUITests: XCTestCase {
         let saved = try XCTUnwrap((try state("english-learning-v1.json", root: root)["notes"] as? [[String: Any]])?.first)
         XCTAssertEqual(saved["userText"] as? String, "Original English UI saved marker")
         XCTAssertFalse(String(decoding: bytes, as: UTF8.self).contains("synthetic-reading-ui-credential"))
-        click(app.buttons["english-learning-close"].firstMatch); try uiCloseToolDirectory(app); click(app.buttons["library-search"].firstMatch)
+        click(app.buttons["english-learning-close"].firstMatch); try uiCloseLanguageReview(app); click(app.buttons["library-search"].firstMatch)
         let global = app.textFields["library-search-input"].firstMatch; click(global); pasteFixture("Original English UI saved marker", into: global)
         text(element("library-search-status", app), contains: "找到 1 项")
         click(app.buttons["record-search-source"].firstMatch)

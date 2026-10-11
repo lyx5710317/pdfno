@@ -57,6 +57,25 @@ import XCTest
         try uiClick(ui("ai-settings-save", app))
         try uiContains(ui("ai-connection-status", app), "已应用")
     }
+    func uiEnableLanguage(_ language: String, _ app: XCUIApplication) throws {
+        XCTAssertTrue(["japanese", "english"].contains(language))
+        try uiSettings(app)
+        let category = ui("settings-category-aiTools", app)
+        if category.exists { try uiClick(category) }
+        else { try uiClick(ui("settings-category-picker", app)); try uiClick(app.menuItems["AI工具"].firstMatch) }
+        let toggle = ui("settings-" + language + "-learning", app)
+        try uiWait("Public language preference") { toggle.exists && toggle.isEnabled }
+        if toggle.value as? String != "1" { try uiClick(toggle) }
+        XCTAssertEqual(toggle.value as? String, "1")
+        try uiClick(ui("settings-return", app))
+    }
+    func uiCloseLanguageReview(_ app: XCUIApplication) throws {
+        try uiWait("Structured review returns to the current reader") {
+            !self.ui("japanese-learning-close", app).exists && !self.ui("english-learning-close", app).exists
+                && self.ui("document-more", app).exists && self.ui("document-more", app).isEnabled
+        }
+        XCTAssertFalse(ui("ai-tools-directory", app).exists)
+    }
     func uiConfigureMock(_ app: XCUIApplication) throws {
         try uiSettings(app); try uiProvider("本地示例", app); try uiClick(ui("settings-return", app))
     }
@@ -158,9 +177,17 @@ import XCTest
     }
     func uiPDFShortcut(_ key: XCUIKeyboardKey, _ app: XCUIApplication) throws {
         // The current Mac reader exposes physical-page navigation as canvas shortcuts.
-        let canvas = ui("pdf-canvas", app)
-        try uiClick(canvas)
-        canvas.typeKey(key, modifierFlags: [.command, .option])
+        // PDFKit omits its PDFView identifier from AX. Focus a real, visible fixture
+        // text line instead; the physical key event still goes through the reader policy.
+        let originals = ["Reading opens a small window onto a wider world.",
+                         "A useful note stays connected to the words that inspired it."]
+        var line: XCUIElement?
+        try uiWait("Visible original PDFKit page text for canvas focus") {
+            line = app.staticTexts.allElementsBoundByIndex.first { originals.contains(self.uiText($0)) && $0.isHittable }
+            return line != nil
+        }
+        try uiClick(try XCTUnwrap(line))
+        app.typeKey(key, modifierFlags: [.command, .option])
     }
     func uiComicOption(_ title: String, picker: String, _ app: XCUIApplication) throws {
         try uiClick(ui("comic-settings", app))
@@ -186,6 +213,17 @@ import XCTest
             return found != nil
         }
         return try XCTUnwrap(found)
+    }
+    func uiCaptureOwnWindow(_ name: String, _ app: XCUIApplication) throws {
+        guard let token = ProcessInfo.processInfo.environment["PDFNO_A_QA_SHOT_TOKEN"] else { return }
+        XCTAssertNotNil(UUID(uuidString: token))
+        let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("PDFno-A-WindowShots-" + token)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let path = root.appendingPathComponent(name + ".png")
+        try app.windows.firstMatch.screenshot().pngRepresentation.write(to: path)
+        let record = try JSONSerialization.data(withJSONObject: ["name": name, "path": path.path], options: [.sortedKeys])
+        print("PDFNO_A_WINDOW_SHOT " + String(decoding: record, as: UTF8.self))
     }
     func uiSelectWeb(_ prefix: String, _ app: XCUIApplication) throws {
         var text: XCUIElement?

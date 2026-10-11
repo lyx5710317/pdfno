@@ -188,6 +188,7 @@ extension LibraryModel {
         else if let book = ebook.books.first(where: { $0.id == id }) { await openEbook(book) }
     }
     func discardDocumentPresentation() {
+        selectionAIRoute = nil
         conversation.discard()
         learning.discardDocumentPresentation(); byok.discardDocumentPresentation()
         englishLearning.discardDocumentPresentation(); japaneseLearning.discardDocumentPresentation()

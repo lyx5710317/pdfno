@@ -359,7 +359,20 @@ extension View { func annotationExperience(_ model: AnnotationModel,reader: Anno
                 if let library=self.aiLibrary {
                     Menu {
                         ForEach(ReadingConversationTask.allCases.filter { library.learning.tools.isEnabled($0) },id: \.self) { task in
-                            Button(task.title) { self.popover.close();library.openConversationAI(task,anchor: anchor,sessionID: session) }.accessibilityIdentifier("selection-ai-"+task.rawValue)
+                            if task == .japanese || task == .english {
+                                Menu(task.title) {
+                                    Button("对话") { self.popover.close(); library.openConversationAI(task, anchor: anchor, sessionID: session) }
+                                        .accessibilityIdentifier("selection-ai-" + task.rawValue + "-conversation")
+                                    Button(task == .japanese ? "假名与语法审阅" : "结构与语法审阅") {
+                                        self.popover.close()
+                                        if task == .japanese { library.openJapaneseReview(anchor: anchor, sessionID: session) }
+                                        else { library.openEnglishReview(anchor: anchor, sessionID: session) }
+                                    }.accessibilityIdentifier("selection-ai-" + task.rawValue + "-review")
+                                }.accessibilityIdentifier("selection-ai-" + task.rawValue)
+                            } else {
+                                Button(task.title) { self.popover.close(); library.openConversationAI(task, anchor: anchor, sessionID: session) }
+                                    .accessibilityIdentifier("selection-ai-" + task.rawValue)
+                            }
                         }
                     } label: { Label("AI",systemImage: "sparkles") }.menuStyle(.borderlessButton).fixedSize().accessibilityIdentifier("selection-ai-menu")
                 }

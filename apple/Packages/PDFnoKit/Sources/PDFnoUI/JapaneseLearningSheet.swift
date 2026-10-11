@@ -38,7 +38,7 @@ struct JapaneseLearningSheet: View {
                     }
                 }
             }
-        }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: PDFnoDesign.Metric.sheetIdeal, minHeight: 600).preferredColorScheme(fixtureColorScheme)
+        }.frame(minWidth: PDFnoDesign.Metric.sheetMinimum, idealWidth: 640, minHeight: 360, idealHeight: 440).preferredColorScheme(fixtureColorScheme)
         .onDisappear { library.japaneseLearning.cancel() }
     }
 }

@@ -61,19 +61,20 @@ final class NativeUITests: XCTestCase {
         let back = app.buttons["workspace-tool-return"].firstMatch
         return back.exists ? back : app.buttons[formerID].firstMatch
     }
-    @MainActor private func currentLanguageLauncher(_ app: XCUIApplication, formerID: String) -> XCUIElement {
-        let former = app.buttons[formerID].firstMatch
-        if former.exists { return former }
-        if !app.descendants(matching: .any).matching(identifier: "document-more").firstMatch.exists { resumeCurrentDocument(app) }
-        return app.descendants(matching: .any).matching(identifier: "document-more").firstMatch
+    @MainActor private func currentLanguageLauncher(_ app: XCUIApplication, formerID: String) throws -> XCUIElement {
+        if !ui("document-more", app).exists { resumeCurrentDocument(app) }
+        if formerID.hasPrefix("reader-") {
+            try uiPanel("reader-notes", open: false, app)
+            try uiSelectPDFWindow(app)
+        }
+        return ui("selection-ai-menu", app)
     }
     @MainActor private func chooseCurrentLanguage(_ id: String, app: XCUIApplication) throws {
-        let action = app.menuItems.matching(identifier: "document-reading-tools").firstMatch
-        XCTAssertTrue(action.waitForExistence(timeout: 10)); XCTAssertTrue(action.isEnabled); press(action)
-        let tools = ["document-japanese-learning": "ai-tool-japanese", "document-english-learning": "ai-tool-english"]
-        guard let tool = tools[id] else { XCTFail("Unknown language action: \(id)"); return }
-        XCTAssertTrue(ui("language-compatibility-test-host", app).waitForExistence(timeout: 10))
-        try uiClick(ui(tool, app))
+        let languages = ["document-japanese-learning": "japanese", "document-english-learning": "english"]
+        let language = try XCTUnwrap(languages[id])
+        try uiClick(ui("selection-ai-" + language, app))
+        try uiClick(ui("selection-ai-" + language + "-review", app))
+        XCTAssertFalse(ui("language-compatibility-test-host", app).exists)
     }
     @MainActor private func resumeCurrentDocument(_ app: XCUIApplication) {
         let tabs = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'document-tab-' AND NOT identifier BEGINSWITH 'document-tab-close-'"))
@@ -201,7 +202,6 @@ final class NativeUITests: XCTestCase {
         let app = XCUIApplication(), token = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
-        app.launchEnvironment["PDFNO_UI_TEST_LANGUAGE_COMPATIBILITY"] = "1"
         app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_RESPONSE"] = "components"
         app.launch(); app.activate(); defer { app.terminate() }
         try prepareJapaneseOfflinePDF(app); startJapaneseReview(app)
@@ -210,7 +210,7 @@ final class NativeUITests: XCTestCase {
         scrollJapaneseElement(saveReview, in: app); press(saveReview)
         waitForText(["已保存独立学习记录"], in: japaneseElement("japanese-learning-status", in: app), timeout: 8)
         let before = try originalSavedNote(token, manifest: "japanese-learning-v1.json")
-        press(app.buttons["japanese-learning-close"].firstMatch); try uiCloseToolDirectory(app); try uiLegacySavedNotes("reader", app)
+        press(app.buttons["japanese-learning-close"].firstMatch); try uiCloseLanguageReview(app); try uiLegacySavedNotes("reader", app)
         pressEditingElement(app.buttons["japanese-note-edit"].firstMatch, app: app)
         enterEditingText("Saved Japanese parity body cafe\u{301}", prefix: "japanese-note", app: app)
         pressEditingElement(app.buttons["japanese-note-edit-save"].firstMatch, app: app)
@@ -401,13 +401,14 @@ final class NativeUITests: XCTestCase {
         try chooseCurrentLanguage("document-japanese-learning", app: app)
     }
     @MainActor private func prepareJapaneseOfflinePDF(_ app: XCUIApplication) throws {
+        try uiEnableLanguage("japanese", app)
         try prepareOriginalPDFNoteEditing(app)
         try pressJapaneseEntry(currentLanguageLauncher(app, formerID: "reader-japanese-learning"), in: app)
         guard japaneseElement("japanese-offline-fixture", in: app).waitForExistence(timeout: 5) else {
             throw NSError(domain: "PDFno-Offline-UI", code: 1, userInfo: [NSLocalizedDescriptionKey: "Fully intercepted Japanese transport required before synthetic key entry"])
         }
         XCTAssertFalse(app.buttons["japanese-learning-start"].firstMatch.isEnabled)
-        press(app.buttons["japanese-learning-close"].firstMatch); try uiCloseToolDirectory(app)
+        press(app.buttons["japanese-learning-close"].firstMatch); try uiCloseLanguageReview(app)
         navigateWorkspace("ai-settings", in: app)
         press(app.buttons["ai-settings"].firstMatch)
         XCTAssertTrue(ui("ai-provider-mode", app).waitForExistence(timeout: 5))
@@ -449,6 +450,7 @@ final class NativeUITests: XCTestCase {
         let snapshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
         snapshot.name = "Original Japanese review " + appearance + " with accessible color legend"
         snapshot.lifetime = .keepAlways; add(snapshot)
+        XCTAssertNoThrow(try uiCaptureOwnWindow("LANG-public-Japanese-" + (appearance == "深色" ? "dark" : "light"), app))
         print("Japanese actual UI verified appearance=" + appearance + "; seven AX role/color labels present; exact source AX text=" + sourceText)
     }
     @MainActor func testMacJapaneseOfflineConsentComponentSwitchManualSaveRestartExactPDFReturn() throws {
@@ -456,7 +458,6 @@ final class NativeUITests: XCTestCase {
         let root = URL(fileURLWithPath: "/tmp").appendingPathComponent("PDFno-UITests-" + token)
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
-        app.launchEnvironment["PDFNO_UI_TEST_LANGUAGE_COMPATIBILITY"] = "1"
         app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_RESPONSE"] = "components"
         app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_APPEARANCE"] = "light"
         app.launch(); app.activate(); defer { app.terminate() }
@@ -494,7 +495,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual((saved["corrections"] as? [[String: Any]])?.first?["reading"] as? String, "ア")
         XCTAssertEqual(try Data(contentsOf: legacy), oldBytes)
         XCTAssertFalse(String(decoding: try Data(contentsOf: manifest), as: UTF8.self).contains("synthetic-reading-ui-credential"))
-        press(app.buttons["japanese-learning-close"].firstMatch); try uiCloseToolDirectory(app)
+        press(app.buttons["japanese-learning-close"].firstMatch); try uiCloseLanguageReview(app)
         app.terminate(); app.launch(); app.activate()
         navigateWorkspace("library-book", in: app)
         let book = japaneseElement("library-book", in: app)
@@ -514,10 +515,9 @@ final class NativeUITests: XCTestCase {
         let app = XCUIApplication(), token = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
-        app.launchEnvironment["PDFNO_UI_TEST_LANGUAGE_COMPATIBILITY"] = "1"
         app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_APPEARANCE"] = "dark"
         app.launch(); app.activate(); defer { app.terminate() }
-        try prepareJapaneseOfflinePDF(app); press(app.buttons["japanese-learning-close"].firstMatch); try uiCloseToolDirectory(app)
+        try prepareJapaneseOfflinePDF(app); press(app.buttons["japanese-learning-close"].firstMatch); try uiCloseLanguageReview(app)
         navigateWorkspace("open-epub-sample", in: app)
         press(app.buttons["open-epub-sample"].firstMatch)
         waitForText(["第 1 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 25)
@@ -527,14 +527,14 @@ final class NativeUITests: XCTestCase {
         // Wait for the real native controls to settle before selecting body text.
         let tocClosed = expectation(for: NSPredicate { _, _ in !app.buttons["epub-chapter-1"].firstMatch.exists }, evaluatedWith: app)
         wait(for: [tocClosed], timeout: 10)
-        let japaneseEntry = currentLanguageLauncher(app, formerID: "epub-japanese-learning")
+        let original = try webText(in: app, matching: "日本語", prefix: true, timeout: 10)
+        original.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)).doubleClick()
+        let japaneseEntry = try currentLanguageLauncher(app, formerID: "epub-japanese-learning")
         let entryReady = expectation(for: NSPredicate { _, _ in
             japaneseEntry.exists && japaneseEntry.isEnabled && japaneseEntry.isHittable
         }, evaluatedWith: japaneseEntry)
         wait(for: [entryReady], timeout: 10)
         XCTAssertTrue(japaneseEntry.isEnabled && japaneseEntry.isHittable)
-        let original = try webText(in: app, matching: "日本語", prefix: true, timeout: 10)
-        original.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)).doubleClick()
         let selectionReady = expectation(for: NSPredicate { _, _ in
             japaneseEntry.exists && japaneseEntry.isEnabled && japaneseEntry.isHittable
         }, evaluatedWith: japaneseEntry)
@@ -559,7 +559,7 @@ final class NativeUITests: XCTestCase {
         let anchor = try XCTUnwrap(snapshot["anchor"] as? [String: Any]), wrapper = try XCTUnwrap(anchor["epub"] as? [String: Any])
         XCTAssertEqual((wrapper["_0"] as? [String: Any])?["quote"] as? String, quote)
         let returned = app.buttons["japanese-learning-return"].firstMatch
-        scrollJapaneseElement(returned, in: app); press(returned); try uiCloseToolDirectory(app)
+        scrollJapaneseElement(returned, in: app); press(returned); try uiCloseLanguageReview(app)
         waitForText(["第 2 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 10)
         XCTAssertTrue(try webText(in: app, matching: "にほんご", prefix: false, timeout: 10).exists)
         try uiLegacySavedNotes("epub", app)
@@ -571,7 +571,6 @@ final class NativeUITests: XCTestCase {
             let app = XCUIApplication(), token = UUID().uuidString
             app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
             app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
-        app.launchEnvironment["PDFNO_UI_TEST_LANGUAGE_COMPATIBILITY"] = "1"
             app.launchEnvironment["PDFNO_UI_TEST_JAPANESE_RESPONSE"] = scenario
             app.launch(); app.activate()
             defer { app.terminate() }
@@ -586,7 +585,7 @@ final class NativeUITests: XCTestCase {
                 scrollJapaneseElement(cancel, in: app); press(cancel)
                 waitForText(["请求已取消", "迟到结果不会显示或保存"], in: japaneseElement("japanese-learning-status", in: app), timeout: 5)
                 XCTAssertFalse(japaneseElement("japanese-components-source", in: app).exists)
-                press(app.buttons["japanese-learning-close"].firstMatch); try uiCloseToolDirectory(app)
+                press(app.buttons["japanese-learning-close"].firstMatch); try uiCloseLanguageReview(app)
                 try pressJapaneseEntry(currentLanguageLauncher(app, formerID: "reader-japanese-learning"), in: app)
                 XCTAssertFalse(japaneseElement("japanese-components-source", in: app).exists)
             }

@@ -5,14 +5,38 @@ import SwiftUI
 import PDFnoDomain
 import PDFnoServices
 
+enum SelectionAIRoute: String, Identifiable {
+    case conversation, japaneseReview, englishReview
+    var id: String { rawValue }
+}
+
 extension LibraryModel {
     func openSelectionAI(_ kind: AILearningKind,anchor: AnnotationAnchor,sessionID: UUID) {
         guard let source = selectionAISource(anchor: anchor,sessionID: sessionID) else { return }
-        learning.chooseTask(kind,source: source);showingSelectionAI=true
+        learning.chooseTask(kind,source: source);selectionAIRoute = .conversation
     }
     func openConversationAI(_ task: ReadingConversationTask,anchor: AnnotationAnchor,sessionID: UUID) {
         guard learning.tools.isEnabled(task), let source = selectionAISource(anchor: anchor,sessionID: sessionID) else { return }
-        conversation.open(task,source: source);showingSelectionAI=true
+        conversation.open(task,source: source);selectionAIRoute = .conversation
+    }
+    func openJapaneseReview(anchor: AnnotationAnchor, sessionID: UUID) {
+        guard learning.tools.isEnabled(.japanese), let source = selectionAISource(anchor: anchor, sessionID: sessionID) else { return }
+        prepareJapaneseLearning(source: source)
+        selectionAIRoute = .japaneseReview
+    }
+    func openEnglishReview(anchor: AnnotationAnchor, sessionID: UUID) {
+        guard learning.tools.isEnabled(.english), let source = selectionAISource(anchor: anchor, sessionID: sessionID) else { return }
+        prepareEnglishLearning(source: source)
+        selectionAIRoute = .englishReview
+    }
+    /// Hiding a document cancels only its active structured request, retaining drafts and conversations.
+    func dismissSelectionAI() {
+        switch selectionAIRoute {
+        case .japaneseReview: japaneseLearning.cancel()
+        case .englishReview: englishLearning.cancel()
+        default: break
+        }
+        selectionAIRoute = nil
     }
     private func selectionAISource(anchor: AnnotationAnchor,sessionID: UUID) -> AISourceSnapshot? {
         guard !storageMaintenance,let bookID=currentAIBookID else { return nil }
@@ -50,9 +74,14 @@ struct SelectionAISheetPresenter: View {
     @ObservedObject var library: LibraryModel
     var body: some View {
         Color.clear.frame(width: 0,height: 0).accessibilityHidden(true)
-            .sheet(isPresented: $library.showingSelectionAI) {
-                ReadingSelectionWorkspace(library: library) { library.showingSelectionAI=false }
-                    .frame(minWidth: 340,idealWidth: 500,minHeight: 360,idealHeight: 560)
+            .sheet(item: $library.selectionAIRoute) { route in
+                switch route {
+                case .conversation:
+                    ReadingSelectionWorkspace(library: library) { library.dismissSelectionAI() }
+                        .frame(minWidth: 340,idealWidth: 500,minHeight: 360,idealHeight: 560)
+                case .japaneseReview: JapaneseLearningSheet(library: library)
+                case .englishReview: EnglishLearningSheet(library: library)
+                }
             }
     }
 }
