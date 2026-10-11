@@ -88,6 +88,8 @@ import XCTest
         try uiCloseToolDirectory(app)
     }
     func uiCloseToolDirectory(_ app: XCUIApplication) throws {
+        try uiWait("Inner AI sheet finishes returning to source") { !self.ui("ai-close", app).exists }
+        try uiWait("Outer reading tools remain available") { self.ui("ai-tools-close", app).exists || self.ui("workspace-tool-return", app).exists }
         if ui("ai-tools-close", app).exists { try uiClick(ui("ai-tools-close", app)) }
         else if ui("workspace-tool-return", app).exists { try uiClick(ui("workspace-tool-return", app)) }
         try uiWait("Reading tools directory closes") { !self.ui("ai-tools-directory", app).exists }
