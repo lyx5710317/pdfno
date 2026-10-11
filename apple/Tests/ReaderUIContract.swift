@@ -258,6 +258,28 @@ import XCTest
         var found: XCUIElement?
         try uiWait("Physical native file control: " + identifier, timeout: 12) {
             found = nil
+            if type == .button && identifier == "OKButton" {
+                // Resolve the native action before a deep containing query.
+                // The latter can traverse the comic WebView while AppKit is
+                // still presenting its panel. Inspect exact-ID candidates
+                // and retain a physical frame inside the own window.
+                let window = app.windows.firstMatch
+                if window.exists {
+                    let panelFrame = window.frame
+                    if !panelFrame.isEmpty, !panelFrame.isInfinite,
+                       [panelFrame.minX, panelFrame.minY, panelFrame.maxX, panelFrame.maxY].allSatisfy(\.isFinite) {
+                        for control in app.buttons.matching(identifier: identifier).allElementsBoundByIndex {
+                            guard control.exists && (!requireEnabled || (control.isEnabled && control.isHittable)) else { continue }
+                            let frame = control.frame
+                            guard !frame.isEmpty, !frame.isInfinite,
+                                  [frame.minX, frame.minY, frame.maxX, frame.maxY].allSatisfy(\.isFinite),
+                                  panelFrame.intersects(frame) else { continue }
+                            found = control; break
+                        }
+                        return found != nil
+                    }
+                }
+            }
             // Query the real modal root before the document window. Queries
             // refresh after a panel transition; bound AX tokens can go stale.
             let goTo = app.sheets.matching(identifier: "GoToWindow").firstMatch
