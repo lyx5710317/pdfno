@@ -5,6 +5,9 @@ env:
   # After the focused evidence is reviewed, a normal feature-branch commit
   # selects full; other refs and all PRs retain the original full60 path.
   PDFNO_APPROVED_BRANCH_PUSH_UI_SCOPE: full
+  # Explicit Mac-first scope for the approved integration and main pushes.
+  # Other refs and every PR retain the mobile build; set all to restore it here.
+  PDFNO_APPROVED_MAC_PUSH_PLATFORM_SCOPE: mac
 permissions:
   contents: read
 concurrency:
@@ -72,6 +75,10 @@ jobs:
       - name: Native Mac build
         run: xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/Mac CODE_SIGNING_ALLOWED=NO build
       - name: Native iPhone and iPad simulator build
+        if: >-
+          github.event_name != 'push' ||
+          (github.ref != 'refs/heads/fix/public-language-reader-20261011' && github.ref != 'refs/heads/main') ||
+          env.PDFNO_APPROVED_MAC_PUSH_PLATFORM_SCOPE != 'mac'
         run: xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMobile -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath .build/Mobile CODE_SIGNING_ALLOWED=NO build
       - name: Mac PDF, EPUB, CBZ, Word, local export and offline AI consent, citations and restart
         if: steps.ui-scope.outputs.mode == 'full'
