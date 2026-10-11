@@ -34,7 +34,15 @@ public enum LibrarySearchIndex {
             guard matches(tokens, fields: fields) else { continue }
             count += 1
             guard count <= max(0, limit) else { continue }
-            let preview = fields.first(where: { field in tokens.contains { folded(field).range(of: $0, options: .literal) != nil } }) ?? fields.first ?? ""
+            // Prefer the field that explains the most query terms. A common
+            // single word in a comment must not hide the matching source quote.
+            // Keep the existing field order when scores tie.
+            var preview = fields.first ?? "", bestCoverage = 0
+            for field in fields {
+                let normalized = folded(field)
+                let coverage = tokens.filter { normalized.range(of: $0, options: .literal) != nil }.count
+                if coverage > bestCoverage { preview = field; bestCoverage = coverage }
+            }
             let hit = LibrarySearchHit(entry: entry, preview: excerpt(preview, tokens: tokens))
             if groups[entry.book.id] == nil { groups[entry.book.id] = LibrarySearchGroup(book: entry.book, hits: []) }
             groups[entry.book.id]?.hits.append(hit)
