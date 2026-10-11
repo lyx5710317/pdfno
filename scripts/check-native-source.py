@@ -19,7 +19,10 @@ pdf_paths={Path('apple/Packages/PDFnoKit')/suffix for suffix in ['Sources/PDFnoU
 epub_hashes={Path('apple/Packages/PDFnoKit')/suffix: digest for suffix,digest in [
     ('Sources/PDFnoUI/Resources/study-sample.epub','d8db9c9b04dc3d6f55aa3706b552e2cbaecba41e6b0ae3a0f7536ee0d8bfe7fd'),
     ('Tests/PDFnoKitTests/Fixtures/study-sample.epub','d8db9c9b04dc3d6f55aa3706b552e2cbaecba41e6b0ae3a0f7536ee0d8bfe7fd'),
-    ('Tests/PDFnoKitTests/Fixtures/security-sample.epub','da599fe9b7760d46dfc2c2b1c63e243af483d808d1355601a7eb31e4bd17c443')]}
+    ('Tests/PDFnoKitTests/Fixtures/security-sample.epub','da599fe9b7760d46dfc2c2b1c63e243af483d808d1355601a7eb31e4bd17c443'),
+    ('Tests/PDFnoKitTests/Fixtures/Annotations/original-japanese-annotations.epub','7a4b7100f072233f3462d0645c5593b64ace41ebd06c8d278c7627b1cad9f484'),
+    ('Tests/PDFnoKitTests/Fixtures/ReadingModes/original-aa-fixed.epub','e985b16039bd346d8711cfaaca7dd76bac11b70fb65f24d54081abc70e40d107'),
+    ('Tests/PDFnoKitTests/Fixtures/ReadingModes/original-aa-japanese.epub','be3e7fe22c22e19a76b95b117d63ab3e0b0589c19264299f5bb20c57e79bc649')]}
 docx_names=('altchunk bad-crc cycle deep descriptor-sample embedded encrypted entities '
             'expansion external hyperlink-sample local-mismatch macro mammoth-sample '
             'oversize paragraphbudget stored-sample study-sample textbudget traversal utf16').split()

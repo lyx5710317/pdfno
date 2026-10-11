@@ -42,6 +42,12 @@
     "generator": "scripts/generate-apple-project.py"
   },
   {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/Annotations/original-japanese-annotations.epub",
+    "bytes": 13182,
+    "sha256": "7a4b7100f072233f3462d0645c5593b64ace41ebd06c8d278c7627b1cad9f484",
+    "generator": "scripts/generate-reader-layout-fixtures.py"
+  },
+  {
     "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/DOCX/altchunk.docx",
     "bytes": 1120,
     "sha256": "d258f20af4b68f2229aa121f78b8af5e2a55b78368db4dd4ec1ad8ed5c05ff15",
@@ -196,6 +202,18 @@
     "bytes": 748,
     "sha256": "83d07782d52fdaa0da7f6f3efb57bc370dca238a2e08a7103ef2c0cfda1a14a2",
     "generator": "scripts/generate-ebook-fixtures.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/ReadingModes/original-aa-fixed.epub",
+    "bytes": 2008,
+    "sha256": "e985b16039bd346d8711cfaaca7dd76bac11b70fb65f24d54081abc70e40d107",
+    "generator": "scripts/generate-reader-layout-fixtures.py"
+  },
+  {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/ReadingModes/original-aa-japanese.epub",
+    "bytes": 1986,
+    "sha256": "be3e7fe22c22e19a76b95b117d63ab3e0b0589c19264299f5bb20c57e79bc649",
+    "generator": "scripts/generate-reader-layout-fixtures.py"
   },
   {
     "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/security-sample.epub",

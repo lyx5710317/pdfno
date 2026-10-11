@@ -17,6 +17,8 @@ for name in ['Sources/PDFnoUI/Resources/study-sample.pdf', 'Tests/PDFnoKitTests/
     paths[KIT + name] = 'scripts/generate-apple-project.py'
 for name in ['Sources/PDFnoUI/Resources/study-sample.epub', 'Tests/PDFnoKitTests/Fixtures/study-sample.epub', 'Tests/PDFnoKitTests/Fixtures/security-sample.epub']:
     paths[KIT + name] = 'scripts/generate-epub-fixture.py'
+for name in ['Annotations/original-japanese-annotations', 'ReadingModes/original-aa-fixed', 'ReadingModes/original-aa-japanese']:
+    paths[KIT + 'Tests/PDFnoKitTests/Fixtures/' + name + '.epub'] = 'scripts/generate-reader-layout-fixtures.py'
 for name in DOCX_NAMES:
     paths[KIT + 'Tests/PDFnoKitTests/Fixtures/DOCX/' + name + '.docx'] = 'scripts/generate-docx-fixture.py'
 paths[KIT + 'Sources/PDFnoUI/Resources/study-sample.docx'] = 'scripts/generate-docx-fixture.py'

@@ -38,6 +38,7 @@ jobs:
           python3 -B scripts/generate-cbt-fixture.py
           python3 -B scripts/generate-native-comic-fixtures.py
           python3 scripts/generate-epub-fixture.py
+          python3 -B scripts/generate-reader-layout-fixtures.py --check
           python3 scripts/generate-docx-fixture.py
           node engine-build/generate-docx-extraction.mjs
           python3 scripts/generate-original-fixture-inventory.py
