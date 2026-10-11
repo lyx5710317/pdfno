@@ -73,6 +73,26 @@ struct EPUBWebKitTests {
         #expect(reopened.position.contains("第 3 页"))
         #expect(!window.isVisible && !other.isVisible)
     }
+    @Test @MainActor func englishScrollPagesRestoreSourceWithoutEnablingVertical() async throws {
+        let data = try originalPublication(String(repeating: "Original sentence about a garden. ", count: 300))
+        var book = EPUBBook(fileSHA256: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined(), title: "Original English page restore", originalFilename: "original.epub")
+        let (session, window) = try await opened(data: data, book: book)
+        defer { session.close(); window.close() }
+        #expect(await session.command("next")); let second = try #require(session.progress)
+        #expect(await session.command("next")); let third = try #require(session.progress)
+        for (page, anchor) in [(2, second), (3, third)] {
+            #expect(await session.command("navigate", anchor: anchor))
+            #expect(session.position.contains("第 \(page) 页") && !session.vertical)
+            #expect(try await probe(session, "return document.querySelector('iframe').contentDocument.getSelection().toString();") == anchor.quote)
+            #expect(await session.command("resize"))
+            #expect(session.position.contains("第 \(page) 页") && session.progress?.start == anchor.start)
+        }
+        book.progress = third
+        let (reopened, other) = try await opened(data: data, book: book)
+        defer { reopened.close(); other.close() }
+        #expect(reopened.position.contains("第 3 页") && !reopened.vertical)
+        #expect(!window.isVisible && !other.isVisible)
+    }
     @Test @MainActor func surrogateBoundaryHasReadableProgressAndUnsupportedMIMERoutesFail() async throws {
         let data = try originalPublication(String(repeating: "A", count: 127) + "🌸 remaining original text café")
         let book = EPUBBook(fileSHA256: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined(), title: "Original Unicode", originalFilename: "original.epub")
