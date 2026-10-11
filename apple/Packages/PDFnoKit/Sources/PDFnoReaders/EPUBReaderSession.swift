@@ -406,6 +406,9 @@ public struct EPUBCanvas: NSViewRepresentable {
     required init?(coder: NSCoder) { fatalError("Programmatic host only") }
     override func setFrameSize(_ newSize: NSSize) {
         let changed = newSize != frame.size
+        // WebKit reflows before the deferred resize command. Retain the
+        // verified reading position from before the native viewport changes.
+        let positionBeforeResize = session?.progress
         super.setFrameSize(newSize)
         guard changed, newSize.width > 100, newSize.height > 100 else { return }
         resize?.cancel()
@@ -416,7 +419,7 @@ public struct EPUBCanvas: NSViewRepresentable {
             guard !Task.isCancelled, let self, let session, self.session === session,
                   ticket.matches(sessionID: session.readerSessionID, documentVersion: session.documentVersion),
                   session.progress != nil else { return }
-            _ = await session.command("resize")
+            _ = await session.command("resize", anchor: positionBeforeResize)
         }
     }
 }

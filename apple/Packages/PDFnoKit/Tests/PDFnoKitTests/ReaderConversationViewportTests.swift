@@ -85,6 +85,59 @@ import PDFnoServices
             #expect(!window.isVisible && !window.isKeyWindow)
         }
     }
+    @Test func chapterJumpAfterReturningAIOriginalSourceKeepsJapaneseParagraphVisible() async throws {
+        NSApplication.shared.setActivationPolicy(.prohibited)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("Original-Japanese-Chapter-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = LibraryModel(root: root, learningTransport: OfflineSelectionUITestTransport())
+        await library.load(); await library.openEPUBSample()
+        try #require(library.epub.book != nil && library.error == nil)
+        let state = InspectorState(), host = NSHostingView(rootView: InspectorHost(library: library, state: state))
+        let window = NSWindow(contentRect: NSRect(x: 0,y: 0,width: 1100,height: 730),styleMask: [],backing: .buffered,defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = host
+        defer { library.epub.close(); window.close() }
+        try await settle(library, host: host)
+        let web = try #require(library.epub.webView)
+        _ = try await web.callAsyncJavaScript("""
+        const d=document.querySelector('iframe').contentDocument,p=d.querySelector('[data-pdfno-spine="0"] p'),r=d.createRange();
+        r.setStart(p.firstChild,0);r.setEnd(p.firstChild,6);d.getSelection().removeAllRanges();d.getSelection().addRange(r);return true;
+        """, arguments: [:], in: nil, contentWorld: .page)
+        _ = try #require(await library.epub.captureSelection())
+        let source = try #require(library.captureAISource())
+        var config = AIProviderConfig(); config.mode = .mock
+        #expect(await library.learning.applyConnection(config, temporarySecret: ""))
+        library.conversation.open(.explain, source: source)
+        let deadline = Date().addingTimeInterval(3)
+        while library.conversation.busy && Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        let answer = try #require(library.conversation.current?.answers.first)
+        #expect(await library.conversation.addToNotes(answer))
+        for _ in 0..<4 {
+            state.panels.show(.notes, profile: .professional)
+            try await settle(library, host: host)
+            #expect(await library.returnToAISource(source))
+            state.panels.notes = false
+            try await settle(library, host: host)
+        }
+        state.panels.show(.navigation, profile: .professional)
+        try await settle(library, host: host)
+        let japanese = try #require(library.epub.outline.first { $0.index == 1 })
+        #expect(await library.epub.jump(to: japanese))
+        state.panels.navigation = false
+        try await settle(library, host: host)
+        let result = try #require(try await web.callAsyncJavaScript("""
+        const f=document.querySelector('iframe'),d=f.contentDocument,p=d.querySelector('[data-pdfno-spine="1"] p'),r=d.createRange();
+        r.selectNodeContents(p);const glyph=r.getBoundingClientRect(),frame=f.getBoundingClientRect(),area=document.getElementById('page-area').getBoundingClientRect();
+        const top=glyph.top+frame.top,bottom=glyph.bottom+frame.top;
+        const hit=d.elementFromPoint(glyph.left+Math.min(5,glyph.width/2),glyph.top+Math.min(5,glyph.height/2));
+        return {source:p.textContent,top,bottom,areaTop:area.top,areaBottom:area.bottom,scrollTop:document.getElementById('page-area').scrollTop,
+          visible:bottom>area.top&&top<area.bottom,clickable:hit===p||p.contains(hit)};
+        """, arguments: [:], in: nil, contentWorld: .page) as? [String: Any])
+        print("PDFNO_JAPANESE_CHAPTER after=\(result) spine=\(library.epub.spineIndex) progress=\(library.epub.progress?.spineIndex ?? -1)")
+        #expect(library.epub.spineIndex == 1 && library.epub.progress?.spineIndex == 1)
+        #expect(result["source"] as? String != nil)
+        #expect(result["visible"] as? Bool == true && result["clickable"] as? Bool == true)
+        #expect(!window.isVisible && !window.isKeyWindow)
+    }
     @Test func actualLearningInspectorRemovalKeepsSelectedParagraphClickableAfterNativeFocus() async throws {
         NSApplication.shared.setActivationPolicy(.prohibited)
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("Original-Inspector-Focus-" + UUID().uuidString)

@@ -18553,7 +18553,7 @@
       const captured = selectedAnchor();
       return JSON.stringify(envelope({ ...state(), capturedSelection: captured }, message.requestID));
     } else if (message.command === "resize") {
-      const selected = selectedAnchor() ?? message.payload.selectionAnchor ?? null, anchor = progress();
+      const selected = selectedAnchor() ?? message.payload.selectionAnchor ?? null, anchor = message.payload.anchor ?? progress();
       if (selected) rangeFor(selected);
       if (anchor) {
         await navigate(anchor, true);
