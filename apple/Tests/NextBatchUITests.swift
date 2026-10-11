@@ -50,7 +50,7 @@ final class NextBatchUITests: XCTestCase {
         try uiSelectPDFWindow(app)
         try uiClick(ui("selection-ai-menu", app))
         try uiClick(ui("selection-ai-english", app))
-        try uiClick(ui("selection-ai-english-review", app))
+        try uiLanguageMenuAction("english", review: true, app)
         XCTAssertFalse(ui("language-compatibility-test-host", app).exists)
     }
     @MainActor private func click(_ item: XCUIElement) {
@@ -103,10 +103,10 @@ final class NextBatchUITests: XCTestCase {
     }
     @MainActor private func chooseDirectory(_ url: URL, trigger: XCUIElement, app: XCUIApplication) throws {
         click(trigger)
-        let open = app.buttons["OKButton"].firstMatch
+        let open = try uiFileControl(app, type: .button, identifier: "OKButton", requireEnabled: false)
         XCTAssertTrue(open.waitForExistence(timeout: 10))
         app.typeKey("g", modifierFlags: [.command, .shift])
-        let path = app.textFields["PathTextField"].firstMatch; click(path)
+        let path = try uiFileControl(app, type: .textField, identifier: "PathTextField"); click(path)
         pastePath(url.path, into: path)
         XCTAssertEqual(path.value as? String, url.path)
         // Same native completion route used by the existing file-panel tests.
@@ -126,9 +126,19 @@ final class NextBatchUITests: XCTestCase {
         let row = try XCTUnwrap(completion, "The real fixture folder completion must be hittable")
         row.doubleClick()
         let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !path.exists || !path.isHittable }, object: app)
-        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed)
-        XCTAssertFalse(path.exists && path.isHittable)
+        let waitResult = XCTWaiter.wait(for: [dismissed], timeout: 5)
+        // A native AX snapshot can finish after the wait deadline. As in the
+        // existing Native file driver, check the actual state before proceeding.
+        // No second click or key event is sent to the completion overlay.
+        let closed = !path.exists || !path.isHittable
         let location = element("pdfno-directory-current-location", app)
+        if !closed {
+            let matchesDirectory = location.exists && (location.label + " " + (location.value as? String ?? "")).contains("当前文件夹：" + url.resolvingSymlinksInPath().path)
+            print("Original directory overlay pathExists=\(path.exists) pathHittable=\(path.isHittable) pathFrame=\(path.frame) overlayExists=\(goTo.exists) overlayHittable=\(goTo.isHittable) expectedDirectory=\(matchesDirectory)")
+        }
+        XCTAssertTrue(waitResult == .completed || (waitResult == .timedOut && closed))
+        XCTAssertFalse(path.exists && path.isHittable)
+        guard closed else { throw NSError(domain: "PDFnoOriginalFixturePanel", code: 1) }
         XCTAssertTrue(location.waitForExistence(timeout: 10))
         text(location, contains: "当前文件夹：" + url.resolvingSymlinksInPath().path)
         click(open)

@@ -20,6 +20,30 @@ import XCTest
         try uiWait("Control must be visible and enabled: " + e.identifier) { e.exists && e.isEnabled && e.isHittable }
         e.click()
     }
+    func uiLanguageMenuAction(_ language: String, review: Bool, _ app: XCUIApplication) throws {
+        XCTAssertTrue(["japanese", "english"].contains(language))
+        let title = review ? (language == "japanese" ? "假名与语法审阅" : "结构与语法审阅") : "对话"
+        // AppKit exposes SwiftUI submenu actions as menuAction:, retaining labels
+        // (the existing native-menu driver fix in 3792279). Only the open submenu
+        // may supply this action; never choose a hidden same-title language action.
+        var matches: [XCUIElement] = []
+        do {
+            try uiWait("One visible public language action: " + title, timeout: 12) {
+                matches = app.menuItems.matching(NSPredicate(format: "label == %@", title))
+                    .allElementsBoundByAccessibilityElement.filter { $0.exists && $0.isEnabled && $0.isHittable }
+                return matches.count == 1
+            }
+        } catch {
+            // Only known application commands, never another app or a complete AX tree.
+            for known in ["对话", "假名与语法审阅", "结构与语法审阅"] {
+                let items = app.menuItems.matching(NSPredicate(format: "label == %@", known)).allElementsBoundByAccessibilityElement
+                print("Original language menu title=\(known) matches=\(items.count) visible=\(items.filter { $0.exists && $0.isHittable }.count)")
+            }
+            throw error
+        }
+        XCTAssertEqual(matches.count, 1)
+        try uiClick(try XCTUnwrap(matches.first))
+    }
     func uiContains(_ e: XCUIElement, _ value: String) throws {
         try uiWait("Expected text: " + value) { e.exists && self.uiText(e).contains(value) }
     }
@@ -186,7 +210,16 @@ import XCTest
             line = app.staticTexts.allElementsBoundByIndex.first { originals.contains(self.uiText($0)) && $0.isHittable }
             return line != nil
         }
-        try uiClick(try XCTUnwrap(line))
+        let target = try XCTUnwrap(line), window = app.windows.firstMatch
+        try uiWait("Physical original PDFKit text inside the reader window") {
+            guard target.exists, target.isHittable, window.exists else { return false }
+            let frame = target.frame
+            return !frame.isEmpty && !frame.isInfinite && frame.minX.isFinite && frame.minY.isFinite
+                && frame.maxX.isFinite && frame.maxY.isFinite && window.frame.contains(frame)
+        }
+        // PDFKit static text does not expose button-like AXEnabled. A single real
+        // click sets canvas focus; the original physical-page assertions follow.
+        target.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
         app.typeKey(key, modifierFlags: [.command, .option])
     }
     func uiComicOption(_ title: String, picker: String, _ app: XCUIApplication) throws {
