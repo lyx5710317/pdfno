@@ -12,14 +12,9 @@ extension LibraryModel {
         error = nil
         do {
             var learningSource: AISourceSnapshot?
-            if target.kind == .learning {
-                let root = await repository.root
-                let state = try await AILearningRepository(root: root).load()
-                guard let note = state.notes.first(where: { $0.id == target.noteID }),
-                      note.result.source.bookID == target.book.bookID,
-                      note.result.source.anchor.editionID == target.book.editionID,
-                      note.result.source.anchor.fileSHA256 == target.book.fileSHA256 else { return false }
-                learningSource = note.result.source
+            if target.kind == .learning || target.kind == .aiAnnotation {
+                guard let saved = try await savedAISearchSource(target) else { return false }
+                learningSource = saved
             }
             switch target.book.format {
             case .pdf:
@@ -93,17 +88,32 @@ extension LibraryModel {
                 searchDocumentDidOpen?()
                 return error == nil && readingComic && comic.book?.id == book.id && comic.book?.editionID == book.editionID
             }
-            guard target.kind == .learning else { return false }
-            let root = await repository.root
-            let saved = try await AILearningRepository(root: root).load()
-            guard let note = saved.notes.first(where: { $0.id == target.noteID }),
-                  note.result.source.bookID == target.book.bookID,
-                  note.result.source.anchor.editionID == target.book.editionID,
-                  note.result.source.anchor.fileSHA256 == target.book.fileSHA256,
-                  note.result.source == learningSource else { return false }
-            // Persisted session IDs are not reused; each reader verifies the edition/hash and exact anchor.
-            return await returnToAISource(note.result.source)
+            guard target.kind == .learning || target.kind == .aiAnnotation,
+                  let saved = try await savedAISearchSource(target), saved == learningSource else { return false }
+            // Re-read after opening; a deleted/replaced note cannot navigate using a stale hit.
+            // Persisted reader-session IDs are never used to select a live document.
+            return await returnToAISource(saved)
         } catch { return false }
+    }
+    private func savedAISearchSource(_ target: LibrarySearchTarget) async throws -> AISourceSnapshot? {
+        guard let id = target.noteID else { return nil }
+        let source: AISourceSnapshot?
+        switch target.kind {
+        case .learning:
+            let state = try await AILearningRepository(root: await repository.root).load()
+            source = state.notes.first(where: { $0.id == id })?.result.source
+        case .aiAnnotation:
+            let state = try await annotations.repository.load()
+            source = state.notes.first(where: { $0.id == id && $0.origin == .explicitlySavedAI })?.aiResult?.source
+        default: return nil
+        }
+        guard let source, source.bookID == target.book.bookID,
+              source.anchor.editionID == target.book.editionID,
+              source.anchor.fileSHA256 == target.book.fileSHA256 else { return nil }
+        switch (target.book.format, source.anchor) {
+        case (.pdf, .pdf), (.pdf, .pdfPage), (.epub, .epub), (.epub, .epubChapter): return source
+        default: return nil
+        }
     }
     /// Opening creates the view before its canonical document is ready. Keep
     /// this captured reader scope while the native workspace mounts WebKit.

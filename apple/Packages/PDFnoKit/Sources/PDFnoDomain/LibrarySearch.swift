@@ -50,7 +50,7 @@ public struct LibrarySearchBook: Sendable, Equatable, Identifiable {
         self.identity = identity; self.title = title; self.author = author; self.metadataRevision = metadataRevision; self.sourceAvailable = sourceAvailable
     }
 }
-public enum LibrarySearchKind: String, Sendable { case book, note, learning }
+public enum LibrarySearchKind: String, Sendable { case book, note, learning, aiAnnotation }
 public struct LibrarySearchTarget: Sendable, Equatable {
     public let book: LocalBookIdentity
     public let kind: LibrarySearchKind

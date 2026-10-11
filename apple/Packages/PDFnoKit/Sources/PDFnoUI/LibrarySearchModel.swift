@@ -28,6 +28,7 @@ import PDFnoServices
         library.docx.$notes.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &libraryChanges)
         library.docx.$books.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &libraryChanges)
         library.learning.$notes.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &libraryChanges)
+        library.annotations.$records.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &libraryChanges)
     }
     func stopObservingChanges() { libraryChanges.removeAll() }
     #endif

@@ -65,10 +65,12 @@ public actor LibrarySearchRepository {
     private let docx: DOCXRepository
     private let comics: ComicRepository
     private let learning: AILearningRepository
+    private let annotations: AnnotationRepository
     private let metadata: LocalBookMetadataRepository
     public init(root: URL) {
         pdf = LibraryRepository(root: root); epub = EPUBRepository(root: root); docx = DOCXRepository(root: root)
         comics = ComicRepository(root: root); learning = AILearningRepository(root: root); metadata = LocalBookMetadataRepository(root: root)
+        annotations = AnnotationRepository(root: root)
     }
     public func search(_ query: String) async throws -> LibrarySearchResponse {
         guard query.utf16.count <= 1024 else { throw LibrarySearchFailure.queryLimit }
@@ -80,12 +82,13 @@ public actor LibrarySearchRepository {
         let c = try await comics.load(); try Task.checkCancellation()
         let l = try await learning.load(); try Task.checkCancellation()
         let m = try await metadata.load(); try Task.checkCancellation()
+        let a = try await annotations.load(); try Task.checkCancellation()
         let task = Task.detached {
-            try Self.build(query, pdf: p, epub: e, docx: d, comics: c, learning: l, metadata: m)
+            try Self.build(query, pdf: p, epub: e, docx: d, comics: c, learning: l, metadata: m, annotations: a)
         }
         return try await withTaskCancellationHandler(operation: { try await task.value }, onCancel: { task.cancel() })
     }
-    private static func build(_ query: String, pdf: LibraryState, epub: EPUBState, docx: DOCXState, comics: ComicState, learning: AILearningState, metadata: LocalBookMetadataState) throws -> LibrarySearchResponse {
+    private static func build(_ query: String, pdf: LibraryState, epub: EPUBState, docx: DOCXState, comics: ComicState, learning: AILearningState, metadata: LocalBookMetadataState, annotations: AnnotationState) throws -> LibrarySearchResponse {
         var books: [LibrarySearchBook] = [], entries: [LibrarySearchEntry] = []
         let overrides = Dictionary(uniqueKeysWithValues: metadata.records.map { ($0.id, $0) })
         func add(_ format: LocalBookFormat, _ id: UUID, _ edition: UUID, _ hash: String, _ title: String) {
@@ -121,6 +124,22 @@ public actor LibrarySearchRepository {
             let candidate = book(format, source.bookID)
             let b = candidate?.identity == identity ? candidate! : LibrarySearchBook(identity: identity, title: "来源书籍不在书库", sourceAvailable: false)
             entries.append(LibrarySearchEntry(book: b, kind: .learning, noteID: n.id, userText: n.userText, quote: source.anchor.quote, generatedText: n.result.displayText, location: source.anchor.locationLabel))
+        }
+        // Conversation answers live in the annotation sidecar only after explicit save.
+        // Keep their target namespace separate from legacy notes, including colliding UUIDs.
+        for note in annotations.notes where note.origin == .explicitlySavedAI {
+            try Task.checkCancellation()
+            guard let result = note.aiResult else { continue }
+            let source = result.source, format: LocalBookFormat
+            switch source.anchor { case .pdf: format = .pdf; case .epub: format = .epub; default: continue }
+            let identity = LocalBookIdentity(format: format, bookID: note.bookID,
+                editionID: note.anchor.editionID, fileSHA256: note.anchor.fileSHA256)
+            let candidate = book(format, note.bookID)
+            let savedBook = candidate?.identity == identity ? candidate! :
+                LibrarySearchBook(identity: identity, title: "来源书籍不在书库", sourceAvailable: false)
+            entries.append(LibrarySearchEntry(book: savedBook, kind: .aiAnnotation, noteID: note.id,
+                userText: note.userText, quote: note.anchor.quote, generatedText: result.displayText,
+                location: source.anchor.locationLabel))
         }
         return try LibrarySearchIndex.search(query, books: books, entries: entries)
     }

@@ -69,7 +69,7 @@ private struct LibrarySearchContent: View {
                                     Text(kindLabel(hit.entry.target.kind) + (hit.entry.location.isEmpty ? "" : " · " + hit.entry.location))
                                         .font(.caption).foregroundStyle(.secondary)
                                     Text(hit.preview).lineLimit(4).textSelection(.enabled).accessibilityIdentifier("library-search-preview")
-                                    if hit.entry.target.kind == .learning { Text("已保存 AI 结果 · 本地").font(.caption).foregroundStyle(.secondary) }
+                                    if hit.entry.target.kind == .learning || hit.entry.target.kind == .aiAnnotation { Text("已保存 AI 结果 · 本地").font(.caption).foregroundStyle(.secondary) }
                                     Button(hit.entry.target.kind == .book ? "打开书籍" : "回到来源") {
                                         opening = true
                                         Task {
@@ -132,7 +132,7 @@ private struct LibrarySearchContent: View {
         }
     }
     private func kindLabel(_ kind: LibrarySearchKind) -> String {
-        switch kind { case .book: "书目信息"; case .note: "用户笔记／引文"; case .learning: "AI 学习笔记" }
+        switch kind { case .book: "书目信息"; case .note: "用户笔记／引文"; case .learning, .aiAnnotation: "AI 学习笔记" }
     }
 }
 

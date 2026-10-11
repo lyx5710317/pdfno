@@ -33,6 +33,7 @@ final class SavedSearchModel<Response: SavedSearchResponse>: ObservableObject {
         library.docx.$books.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &subscriptions)
         library.docx.$notes.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &subscriptions)
         library.learning.$notes.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &subscriptions)
+        library.annotations.$records.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &subscriptions)
         library.textFormats.$books.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &subscriptions)
         library.textFormats.$notes.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &subscriptions)
         library.ebook.$books.dropFirst().sink { [weak self] _ in self?.refresh() }.store(in: &subscriptions)
