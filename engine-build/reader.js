@@ -250,7 +250,13 @@ function scrollToSource(anchor) {
   }
   const glyph=range.cloneRange();
   glyph.setEnd(range.startContainer,Math.min(range.startContainer.length,range.startOffset+(range.startContainer.data.codePointAt(range.startOffset)>65535?2:1)));
-  const r=glyph.getBoundingClientRect();renderer.element.scrollTo(0,Math.max(0,r.top-24));
+  const r=glyph.getBoundingClientRect(),chapterTop=flowFrames.get(current).offsetTop;
+  const pageHeight=Math.max(1,renderer.element.clientHeight-(renderer.isVertical()?0:50));
+  // The first visible glyph may straddle a page boundary. Use its exclusive
+  // bottom edge to restore that page; subtracting a display margin from the
+  // glyph top moves a saved second/third-page position into the previous page.
+  const page=Math.max(0,Math.floor((r.bottom-chapterTop-0.01)/pageHeight));
+  renderer.element.scrollTo(0,chapterTop+page*pageHeight);
   pinnedProgress={...anchor};pinnedScrollTop=renderer.element.scrollTop;
 }
 function publishViewport() {

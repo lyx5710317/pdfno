@@ -18431,8 +18431,10 @@
     }
     const glyph = range2.cloneRange();
     glyph.setEnd(range2.startContainer, Math.min(range2.startContainer.length, range2.startOffset + (range2.startContainer.data.codePointAt(range2.startOffset) > 65535 ? 2 : 1)));
-    const r = glyph.getBoundingClientRect();
-    renderer.element.scrollTo(0, Math.max(0, r.top - 24));
+    const r = glyph.getBoundingClientRect(), chapterTop = flowFrames.get(current).offsetTop;
+    const pageHeight = Math.max(1, renderer.element.clientHeight - (renderer.isVertical() ? 0 : 50));
+    const page = Math.max(0, Math.floor((r.bottom - chapterTop - 0.01) / pageHeight));
+    renderer.element.scrollTo(0, chapterTop + page * pageHeight);
     pinnedProgress = { ...anchor };
     pinnedScrollTop = renderer.element.scrollTop;
   }
