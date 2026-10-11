@@ -47,9 +47,10 @@ and content geometry and requires the original size and a 24-point drag margin.
 Wide tests remain 1280×800 and narrow tests remain 720×520.
 
 The temporary `diagnostic6` execution scope reruns only the six actual c871185
-failures, keeping their original assertions and limits. It records one bounded
-AX snapshot of the offline fixture window during an unsuccessful original text
-wait. It creates no selection and changes no document. Its result is explicitly
+failures, keeping their original assertions and limits. It records bounded
+source AX attributes and one owned-window image once original text is present,
+then exercises real selection within the original wait. It creates no selection
+and changes no document. Its result is explicitly
 diagnostic; neither the 17-method gate nor the remaining56 runs in this scope.
 Restore execution scope `gate17` for full acceptance after diagnosis.
 

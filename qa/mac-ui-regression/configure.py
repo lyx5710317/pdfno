@@ -60,6 +60,7 @@ env={'PDFNO_UI_TEST_SESSION':token,'PDFNO_UI_TEST_DEEPSEEK':'offline','PDFNO_A_Q
      'PDFNO_ISOLATED_UI_APPLICATION_ID':record['bundle'],'PDFNO_A_QA_EXPECTED_BUNDLE':record['bundle'],
      'PDFNO_A_QA_SHOT_TOKEN':token,'PDFNO_CHROME_ORIGINAL_FILE':record['fixture_long_title_path'],
      'PDFNO_UI_TEST_PANEL_DIAGNOSTICS':'1'}
+if args.scope=='diagnostic6': env['PDFNO_UI_TEST_SOURCE_DIAGNOSTICS']='1'
 conf.setdefault('EnvironmentVariables',{}).update(env);conf.setdefault('UITargetAppEnvironmentVariables',{}).update(env)
 output=products/('QA-'+args.scope+'.xctestrun'); assert not output.exists()
 output.write_bytes(plistlib.dumps(raw))
