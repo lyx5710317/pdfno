@@ -127,6 +127,11 @@ jobs:
             .build/CI-Shared8.xcresult
             .build/CI-Shared8.log
             .build/Mac/Build/Products/SharedContractDiagnostic8.json
+      - name: Preflight the dedicated CI display for original wide windows
+        if: steps.ui-scope.outputs.mode == 'mac73'
+        run: |
+          xcrun swiftc qa/mac-ui-regression/CIReadableDisplay.swift -o .build/CIReadableDisplay
+          .build/CIReadableDisplay --configure-ci
       - name: Prepare and compile current offline Mac original68 plus new5
         if: steps.ui-scope.outputs.mode == 'mac73'
         run: |
@@ -164,6 +169,7 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
           path: |
+            .build/CI-Mac73-Display.json
             .build/CI-Gate17.xcresult
             .build/CI-Gate17.log
             .build/CI-Remaining56.xcresult
@@ -172,6 +178,7 @@ jobs:
             .build/MacFullQA/PLAN-*.json
             .build/MacFullQA/Evidence
             .build/MacFullQA/Diagnostics
+            .build/MacFullQA/Registry/window-geometry-*.json
       - name: Record actual full-regression commit
         if: always() && steps.ui-scope.outputs.mode == 'full'
         run: git rev-parse HEAD > .build/CI-Mac-SHA.txt

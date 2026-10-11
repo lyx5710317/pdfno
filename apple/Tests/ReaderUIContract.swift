@@ -312,10 +312,25 @@ import XCTest
         let record = try JSONSerialization.data(withJSONObject: ["name": name, "path": path.path], options: [.sortedKeys])
         print("PDFNO_A_WINDOW_SHOT " + String(decoding: record, as: UTF8.self))
     }
+    func uiEPUBSourceRoot(_ app: XCUIApplication) -> XCUIElement? {
+        // The production WKWebView already publishes this identifier. Resolve
+        // it without assuming the SDK maps its native AX role to .webView.
+        let ownWindow = app.windows.firstMatch
+        guard ownWindow.exists else { return nil }
+        let identified = ownWindow.descendants(matching: .any).matching(identifier: "epub-content").firstMatch
+        let web = identified.exists ? identified : app.webViews.firstMatch
+        guard web.exists else { return nil }
+        let bounds = web.frame
+        guard !bounds.isEmpty, !bounds.isNull, !bounds.isInfinite,
+              bounds.minX.isFinite, bounds.minY.isFinite,
+              ownWindow.frame.intersects(bounds) else { return nil }
+        return web
+    }
     func uiSelectWeb(_ prefix: String, _ app: XCUIApplication) throws {
         var text: XCUIElement?
         try uiWait("Visible original WebKit paragraph", timeout: 25) {
-            let web = app.webViews.firstMatch, bounds = web.frame
+            guard let web = self.uiEPUBSourceRoot(app) else { return false }
+            let bounds = web.frame
             let candidates = web.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@ OR value BEGINSWITH %@", prefix, prefix)).allElementsBoundByIndex
             text = candidates.first { $0.exists && $0.isHittable && !$0.frame.isEmpty && bounds.intersects($0.frame) }
             return text != nil

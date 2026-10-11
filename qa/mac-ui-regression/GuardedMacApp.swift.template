@@ -120,6 +120,33 @@ private final class QAWindowView: NSView {
             window.subtitle = "设计原型 · 自制离线示例"
             window.setContentSize(self.requestedSize)
             window.center()
+            let frame = window.frame
+            let content = window.contentRect(forFrameRect: frame)
+            let visible = window.screen?.visibleFrame ?? .zero
+            let fits = abs(content.width - self.requestedSize.width) <= 1
+                && abs(content.height - self.requestedSize.height) <= 1
+                && visible.contains(frame.insetBy(dx: -24, dy: -24))
+            let observation: [String: Any] = [
+                "requested_width": self.requestedSize.width, "requested_height": self.requestedSize.height,
+                "window_frame": NSStringFromRect(frame), "content_rect": NSStringFromRect(content),
+                "content_view_bounds": NSStringFromRect(window.contentView?.bounds ?? .zero),
+                "content_layout_rect": NSStringFromRect(window.contentLayoutRect),
+                "screen_frame": NSStringFromRect(window.screen?.frame ?? .zero),
+                "visible_frame": NSStringFromRect(visible), "fits_with_drag_margin": fits,
+                "pid": ProcessInfo.processInfo.processIdentifier,
+                "session": ProcessInfo.processInfo.environment["PDFNO_UI_TEST_SESSION"] ?? ""
+            ]
+            if let data = try? JSONSerialization.data(withJSONObject: observation, options: [.sortedKeys]) {
+                let path = URL(fileURLWithPath: "__REGISTRY_ROOT__")
+                    .appendingPathComponent("window-geometry-\(ProcessInfo.processInfo.processIdentifier).json")
+                try? data.write(to: path, options: .atomic)
+            }
+            // Fail with environment evidence rather than attempting an original
+            // physical click outside the display. Preview windows remain usable.
+            if ProcessInfo.processInfo.environment["PDFNO_A_QA_SCOPE"] != "preview" && !fits {
+                fputs("PDFNO_QA_WINDOW_ENVIRONMENT_BLOCKED: original content size or visible drag margin unavailable\n", stderr)
+                exit(2)
+            }
         }
     }
 }

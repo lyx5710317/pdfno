@@ -144,8 +144,7 @@ final class ReaderConversationUITests: XCTestCase {
     }
 
     @MainActor private func visibleOriginalParagraph(_ app: XCUIApplication, prefix: String) -> XCUIElement? {
-        let web = app.webViews.firstMatch
-        guard web.exists else { return nil }
+        guard let web = uiEPUBSourceRoot(app) else { return nil }
         // Named source candidates only, with stable accessibility bindings.
         // A retained offscreen AX node must not shadow the visible original.
         let labels = web.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", prefix))

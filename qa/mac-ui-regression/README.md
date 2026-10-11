@@ -36,6 +36,16 @@ them on a dedicated GitHub Mac runner. The exact approved branch selects
 production `full60` path. Eight diagnostic passes alone do not establish full
 reader acceptance.
 
+The Mac73 workflow first checks actual logical display and visible-frame sizes.
+`CIReadableDisplay.swift --configure-ci` refuses execution outside the exact
+approved push, repository and disposable GitHub `runner` account. It selects
+only an already supported desktop mode, scoped to that VM's login session;
+it never writes a permanent configuration. Do not run this configuration helper
+on a user's Mac. If no suitable mode exists, the job reports an environment
+block before GUI input. The guarded fixture app also records the actual window
+and content geometry and requires the original size and a 24-point drag margin.
+Wide tests remain 1280×800 and narrow tests remain 720×520.
+
 Run each generated xctestrun with parallel testing disabled and the original
 180/240-second limits. Capture the actual `xcodebuild` exit code and pass it to
 `verify-result.py` with `--qa`, `--scope`, `--result`, `--log` and `--exit-code`.
