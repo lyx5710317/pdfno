@@ -37,7 +37,7 @@ import PDFnoServices
     }
     @Test func realWebKitOrientationToggleKeepsTheCanonicalChapter() async throws {
         NSApplication.shared.setActivationPolicy(.prohibited)
-        let data = try Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/study-sample.epub"))
+        let data = try Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/ReadingModes/original-vertical-continuous.epub"))
         let session = EPUBReaderSession(), book = EPUBBook(fileSHA256: LibraryRepository.digest(data), title: "Original orientation fixture", originalFilename: "original.epub")
         try await session.open(data: data, book: book, notes: [])
         let host = NSHostingView(rootView: EPUBCanvas(session: session))
@@ -58,7 +58,7 @@ import PDFnoServices
     }
     @Test func verticalPagesRemainVerticalAndScrollAcrossChaptersWithRestart() async throws {
         NSApplication.shared.setActivationPolicy(.prohibited)
-        let data = try Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/study-sample.epub"))
+        let data = try Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/ReadingModes/original-vertical-continuous.epub"))
         var book = EPUBBook(fileSHA256: LibraryRepository.digest(data), title: "Original vertical fixture", originalFilename: "original.epub")
         let session = EPUBReaderSession(); try await session.open(data: data, book: book, notes: [])
         let host = NSHostingView(rootView: EPUBCanvas(session: session))
@@ -96,7 +96,7 @@ import PDFnoServices
     }
     @Test func verticalSelectionNotesDirectoryAndReflowKeepCanonicalSource() async throws {
         NSApplication.shared.setActivationPolicy(.prohibited)
-        let data = try Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/study-sample.epub"))
+        let data = try Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/ReadingModes/original-vertical-continuous.epub"))
         let book = EPUBBook(fileSHA256: LibraryRepository.digest(data),title: "Original vertical selection",originalFilename: "original.epub"),session = EPUBReaderSession()
         try await session.open(data: data,book: book,notes: [])
         let host = NSHostingView(rootView: EPUBCanvas(session: session))

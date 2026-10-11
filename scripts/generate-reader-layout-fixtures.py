@@ -26,6 +26,7 @@ AA_BODY = ''.join('<p>第{i}段落。<ruby>日本語<rt>にほんご</rt></ruby>
 AA_CHAPTER = '<html xmlns="http://www.w3.org/1999/xhtml" lang="ja"><head><title>第一章</title></head><body><h1>第一章</h1>{body}</body></html>'
 
 EXPECTED = {
+    'ReadingModes/original-vertical-continuous.epub': '0839cc8788c33696f6b89c27bcbf6fb23193a108aaff0db5ca23edf65a3f1f26',
     'Annotations/original-japanese-annotations.epub': '7a4b7100f072233f3462d0645c5593b64ace41ebd06c8d278c7627b1cad9f484',
     'ReadingModes/original-aa-fixed.epub': 'e985b16039bd346d8711cfaaca7dd76bac11b70fb65f24d54081abc70e40d107',
     'ReadingModes/original-aa-japanese.epub': 'be3e7fe22c22e19a76b95b117d63ab3e0b0589c19264299f5bb20c57e79bc649',
@@ -41,6 +42,10 @@ def archive(annotation=False, fixed=False):
     entries = [('mimetype', 'application/epub+zip'), ('META-INF/container.xml', container),
                ('OEBPS/book.opf', opf), ('OEBPS/nav.xhtml', nav),
                ('OEBPS/' + first, chapter), ('OEBPS/' + second, chapter.replace('第一章', '第二章'))]
+    return zip_entries(entries, annotation=annotation)
+
+
+def zip_entries(entries, annotation=False):
     output = io.BytesIO()
     with zipfile.ZipFile(output, 'w') as zipped:
         for name, text in entries:
@@ -52,12 +57,26 @@ def archive(annotation=False, fixed=False):
     return output.getvalue()
 
 
+def continuous_archive():
+    # Retain a short English selection and the original canonical section names,
+    # while making the document body Japanese for the vertical-layout policy.
+    paragraphs = '<p>window — an original PDFno selection sample.</p>' + ''.join(
+        f'<p>第{i}段落。これは自作の読書資料です。窓のそばで原文を読み、選んだ場所と気づきを記録します。</p>'
+        for i in range(1, 81))
+    first = AA_CHAPTER.format(body=paragraphs)
+    second = AA_CHAPTER.format(body=AA_BODY).replace('第一章', '第二章')
+    return zip_entries([('mimetype', 'application/epub+zip'), ('META-INF/container.xml', AA_CONTAINER),
+                        ('OEBPS/book.opf', AA_OPF), ('OEBPS/nav.xhtml', AA_NAV),
+                        ('OEBPS/english.xhtml', first), ('OEBPS/japanese.xhtml', second)])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true', help='Verify generated and checked-in bytes without writing.')
     args = parser.parse_args()
     for relative, expected in EXPECTED.items():
-        data = archive(annotation=relative.startswith('Annotations/'), fixed=relative.endswith('-fixed.epub'))
+        data = (continuous_archive() if relative.endswith('-vertical-continuous.epub') else
+                archive(annotation=relative.startswith('Annotations/'), fixed=relative.endswith('-fixed.epub')))
         actual = hashlib.sha256(data).hexdigest()
         if actual != expected:
             raise SystemExit(f'Generated fixture changed: {relative}: {actual}')
@@ -68,7 +87,8 @@ def main():
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
-    print('Verified 3 byte-identical original annotation/Aa EPUB fixtures.' if args.check else 'Generated 3 original annotation/Aa EPUB fixtures.')
+    print(f'Verified {len(EXPECTED)} byte-identical original reader EPUB fixtures.' if args.check else
+          f'Generated {len(EXPECTED)} original reader EPUB fixtures.')
 
 
 if __name__ == '__main__':

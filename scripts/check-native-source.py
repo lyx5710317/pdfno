@@ -17,6 +17,7 @@ failures=[]
 private_patterns=[r'/Users/' + r'[^/\s]+/', r'libfile_' + r'[a-z0-9]{20,}', r'-----BEGIN ' + r'(?:RSA |EC |OPENSSH )?PRIVATE KEY-----', r'gh[pousr]_' + r'[A-Za-z0-9]{36,}', r'github_pat_' + r'[A-Za-z0-9_]{40,}', r'sk-' + r'[A-Za-z0-9_-]{32,}']
 pdf_paths={Path('apple/Packages/PDFnoKit')/suffix for suffix in ['Sources/PDFnoUI/Resources/study-sample.pdf','Tests/PDFnoKitTests/Fixtures/study-sample.pdf']}
 epub_hashes={Path('apple/Packages/PDFnoKit')/suffix: digest for suffix,digest in [
+    ('Tests/PDFnoKitTests/Fixtures/ReadingModes/original-vertical-continuous.epub','0839cc8788c33696f6b89c27bcbf6fb23193a108aaff0db5ca23edf65a3f1f26'),
     ('Sources/PDFnoUI/Resources/study-sample.epub','d8db9c9b04dc3d6f55aa3706b552e2cbaecba41e6b0ae3a0f7536ee0d8bfe7fd'),
     ('Tests/PDFnoKitTests/Fixtures/study-sample.epub','d8db9c9b04dc3d6f55aa3706b552e2cbaecba41e6b0ae3a0f7536ee0d8bfe7fd'),
     ('Tests/PDFnoKitTests/Fixtures/security-sample.epub','da599fe9b7760d46dfc2c2b1c63e243af483d808d1355601a7eb31e4bd17c443'),

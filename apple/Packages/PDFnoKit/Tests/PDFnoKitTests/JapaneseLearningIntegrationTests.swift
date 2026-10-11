@@ -156,7 +156,10 @@ struct JapaneseLearningIntegrationTests {
         let root = root(); defer { try? FileManager.default.removeItem(at: root) }
         let transport = JapaneseIntegrationTransport(), session = AppAISession(), library = LibraryModel(root: root, aiSession: session, learningTransport: transport)
         _ = NSApplication.shared
-        await library.load(); await library.importFile(try fixture("epub"))
+        await library.load()
+        let verticalFixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/ReadingModes/original-vertical-continuous.epub")
+        await library.importFile(verticalFixture)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false; window.contentView = library.epub.webView
         defer { library.epub.close(); window.close() }

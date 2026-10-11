@@ -39,7 +39,7 @@ struct EPUBWebKitTests {
         ], deflated: false)
     }
     @Test @MainActor func longParagraphSecondAndThirdPagesRestoreExactVisibleOffsetsAndReopen() async throws {
-        let data = try originalPublication(String(repeating: "Original sentence about a garden. ", count: 300))
+        let data = try originalPublication(String(repeating: "庭のそばで本を読み、原文の位置と気づきを記録します。", count: 300))
         var book = EPUBBook(fileSHA256: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined(), title: "Original long paragraph", originalFilename: "original.epub")
         let (session,window) = try await opened(data: data, book: book)
         defer { session.close();window.close() }
@@ -98,7 +98,7 @@ struct EPUBWebKitTests {
         return try #require(try await view.callAsyncJavaScript(source, arguments: [:], in: nil, contentWorld: .page) as? String)
     }
     @Test @MainActor func sourceRubyReflowAndStaleRequests() async throws {
-        let (session, window) = try await opened("study-sample")
+        let (session, window) = try await opened("ReadingModes/original-vertical-continuous")
         defer { session.close(); window.close() }
         let first = try #require(session.progress)
         _ = try await probe(session, "const d=document.querySelector('iframe').contentDocument;const p=d.querySelector('p');const r=d.createRange();r.setStart(p.firstChild,0);r.setEnd(p.firstChild,6);d.getSelection().removeAllRanges();d.getSelection().addRange(r);return 'selected';")

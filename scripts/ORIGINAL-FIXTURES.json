@@ -216,6 +216,12 @@
     "generator": "scripts/generate-reader-layout-fixtures.py"
   },
   {
+    "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/ReadingModes/original-vertical-continuous.epub",
+    "bytes": 2211,
+    "sha256": "0839cc8788c33696f6b89c27bcbf6fb23193a108aaff0db5ca23edf65a3f1f26",
+    "generator": "scripts/generate-reader-layout-fixtures.py"
+  },
+  {
     "path": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/security-sample.epub",
     "bytes": 2112,
     "sha256": "da599fe9b7760d46dfc2c2b1c63e243af483d808d1355601a7eb31e4bd17c443",
