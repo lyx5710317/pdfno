@@ -313,26 +313,61 @@ import XCTest
         print("PDFNO_A_WINDOW_SHOT " + String(decoding: record, as: UTF8.self))
     }
     func uiEPUBSourceRoot(_ app: XCUIApplication) -> XCUIElement? {
-        // The production WKWebView already publishes this identifier. Resolve
-        // it without assuming the SDK maps its native AX role to .webView.
+        // The production WKWebView publishes the source viewport identifier.
+        // Resolve the visible WebKit area within this test application's window.
         let ownWindow = app.windows.firstMatch
         guard ownWindow.exists else { return nil }
         let identified = ownWindow.descendants(matching: .any).matching(identifier: "epub-content").firstMatch
-        let web = identified.exists ? identified : app.webViews.firstMatch
-        guard web.exists else { return nil }
-        let bounds = web.frame
-        guard !bounds.isEmpty, !bounds.isNull, !bounds.isInfinite,
-              bounds.minX.isFinite, bounds.minY.isFinite,
-              ownWindow.frame.intersects(bounds) else { return nil }
-        return web
+        let hostBounds = identified.exists ? identified.frame : ownWindow.frame
+        // The passing reader-chrome scenario selects a real WebView. Keep that
+        // selector inside this fixture window and the identified source viewport;
+        // whether the native host exposes the same AX subtree is still unproven.
+        return ownWindow.descendants(matching: .webView).allElementsBoundByAccessibilityElement.first { web in
+            guard web.exists else { return false }
+            let bounds = web.frame
+            return !bounds.isEmpty && !bounds.isNull && !bounds.isInfinite
+                && bounds.minX.isFinite && bounds.minY.isFinite
+                && ownWindow.frame.intersects(bounds) && hostBounds.intersects(bounds)
+        }
+    }
+    func uiAuditEPUBSource(_ app: XCUIApplication, prefix: String, root: XCUIElement?, candidates: [XCUIElement]) {
+        // Offline fixture window only. Read AX state; do not create a selection
+        // or change the document. Limit the retained diagnostic to one snapshot.
+        let env = ProcessInfo.processInfo.environment
+        guard env["PDFNO_A_QA_EXPECTED_BUNDLE"]?.hasPrefix("org.pdfno.integration.professionala20261007.qa") == true,
+              env["PDFNO_UI_TEST_DEEPSEEK"] == "offline",
+              UUID(uuidString: app.launchEnvironment["PDFNO_UI_TEST_SESSION"] ?? env["PDFNO_UI_TEST_SESSION"] ?? "") != nil else { return }
+        let ownWindow = app.windows.firstMatch
+        guard ownWindow.exists, ownWindow.identifier == "library" else { return }
+        let webViews = ownWindow.descendants(matching: .webView).allElementsBoundByIndex
+        let summary = "prefix=\(prefix) candidates=\(candidates.count) webViews=\(webViews.count) root=\(root.map { String($0.elementType.rawValue) + " " + $0.identifier + " " + NSStringFromRect($0.frame) } ?? "absent")"
+        print("PDFNO_EPUB_AX_DIAGNOSTIC " + summary)
+        let attachment = XCTAttachment(string: summary + "\n" + String(ownWindow.debugDescription.prefix(96000)))
+        attachment.name = "Original offline EPUB source AX hierarchy"
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
     func uiSelectWeb(_ prefix: String, _ app: XCUIApplication) throws {
         var text: XCUIElement?
+        let diagnosticAt = Date().addingTimeInterval(12)
+        var diagnosed = false
         try uiWait("Visible original WebKit paragraph", timeout: 25) {
-            guard let web = self.uiEPUBSourceRoot(app) else { return false }
+            guard let web = self.uiEPUBSourceRoot(app) else {
+                if !diagnosed && Date() >= diagnosticAt {
+                    diagnosed = true
+                    self.uiAuditEPUBSource(app, prefix: prefix, root: nil, candidates: [])
+                }
+                return false
+            }
             let bounds = web.frame
-            let candidates = web.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@ OR value BEGINSWITH %@", prefix, prefix)).allElementsBoundByIndex
+            let named = web.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", prefix)).allElementsBoundByAccessibilityElement
+            let values = web.staticTexts.allElementsBoundByAccessibilityElement.filter { self.uiText($0).hasPrefix(prefix) }
+            let candidates = named + values
             text = candidates.first { $0.exists && $0.isHittable && !$0.frame.isEmpty && bounds.intersects($0.frame) }
+            if text == nil && !diagnosed && Date() >= diagnosticAt {
+                diagnosed = true
+                self.uiAuditEPUBSource(app, prefix: prefix, root: web, candidates: candidates)
+            }
             return text != nil
         }
         let paragraph = try XCTUnwrap(text)

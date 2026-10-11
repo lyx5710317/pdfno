@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
-"""Configure gate17 or remaining56 on the same freshly compiled QA bundle."""
+"""Configure diagnosis or gate17/remaining56 on the same compiled QA bundle."""
 from pathlib import Path
 import argparse, hashlib, json, platform, plistlib, subprocess, uuid
 
 parser=argparse.ArgumentParser()
 parser.add_argument('--qa', type=Path, required=True)
-parser.add_argument('--scope', choices=['gate17','remaining56'], required=True)
+parser.add_argument('--scope', choices=['diagnostic6','gate17','remaining56'], required=True)
 args=parser.parse_args(); q=args.qa.resolve()
 record=json.loads((q/'PREPARATION.json').read_text()); products=q/'DerivedData/Build/Products'
 sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
@@ -37,7 +37,19 @@ for rel,digest in record['production_inputs'].items():
         assert sha(q/'source'/rel)==digest,rel
 all73=set(record['all_compiled_methods']); gate=set(record['gate17']); remaining=set(record['remaining56'])
 assert len(all73)==73 and len(gate)==17 and len(remaining)==56 and not gate&remaining and gate|remaining==all73
-methods=record['gate17'] if args.scope=='gate17' else record['remaining56']
+if args.scope == 'diagnostic6':
+    names = {
+        'testANarrowEPUBPanelsKeepCanonicalSourceAndDraft',
+        'testShellNarrowDarkEPUBCanonicalSelectionDraftAndLibrary',
+        'testNarrowOverflowBooknoAndOtherFormatPanels',
+        'testNarrowIndependentSettingsDefaultOffAndRetainedDisabledConversation',
+        'testWideConnectionFiveTasksDialogueStopRetryFollowupAndExplicitNotes',
+        'testSavedAIQuoteAndResultSearchExactSourceAndDraftExclusion'
+    }
+    methods=[m for m in record['gate17'] if m.split('/')[1] in names]
+    assert len(methods)==6 and set(methods).issubset(record['gate17'])
+else:
+    methods=record['gate17'] if args.scope=='gate17' else record['remaining56']
 token=str(uuid.uuid4()).upper()
 conf.update(TestHostBundleIdentifier=compiled['runner']['bundle'],UITargetAppPath=compiled['app']['path'],
             TestHostPath=compiled['runner']['path'],UITargetAppBundleIdentifier=record['bundle'],

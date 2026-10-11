@@ -149,8 +149,7 @@ final class ReaderConversationUITests: XCTestCase {
         // A retained offscreen AX node must not shadow the visible original.
         let labels = web.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", prefix))
             .allElementsBoundByAccessibilityElement
-        let values = web.staticTexts.matching(NSPredicate(format: "value BEGINSWITH %@", prefix))
-            .allElementsBoundByAccessibilityElement
+        let values = web.staticTexts.allElementsBoundByAccessibilityElement.filter { text($0).hasPrefix(prefix) }
         return (labels + values).first { candidate in
             guard candidate.exists else { return false }
             let frame = candidate.frame
@@ -209,8 +208,16 @@ final class ReaderConversationUITests: XCTestCase {
     }
     @MainActor private func select(_ prefix: String,_ app: XCUIApplication) throws {
         var paragraph: XCUIElement?
+        let diagnosticAt = Date().addingTimeInterval(7)
+        var diagnosed = false
         let ready = expectation(for: NSPredicate { _,_ in
             paragraph = self.visibleOriginalParagraph(app, prefix: prefix)
+            if paragraph == nil && !diagnosed && Date() >= diagnosticAt {
+                diagnosed = true
+                let root = self.uiEPUBSourceRoot(app)
+                let candidates = root?.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@ OR value BEGINSWITH %@", prefix, prefix)).allElementsBoundByIndex ?? []
+                self.uiAuditEPUBSource(app, prefix: prefix, root: root, candidates: candidates)
+            }
             return paragraph != nil
         },evaluatedWith: app)
         wait(for: [ready],timeout: 15)

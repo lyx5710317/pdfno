@@ -99,7 +99,10 @@ private struct LibrarySearchContent: View {
                         if opened { finishOpening() }
                         return opened
                     }
-                }.overlay {
+                // A new query starts at its first result. Reusing the native
+                // list's previous scroll offset can leave that result above
+                // the viewport when a zero-hit query becomes a saved-note hit.
+                }.id(query).overlay {
                     if model.phase == .idle { Text("输入关键词搜索书库与笔记").foregroundStyle(.secondary).accessibilityIdentifier("library-search-empty") }
                     else if model.phase == .results && model.response.totalCount == 0 { Text("没有匹配结果").foregroundStyle(.secondary).accessibilityIdentifier("library-search-no-results") }
                 }

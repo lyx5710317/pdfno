@@ -6,7 +6,7 @@ import argparse, hashlib, json, re, shutil, subprocess, sys
 
 p=argparse.ArgumentParser()
 p.add_argument('--qa',type=Path,required=True)
-p.add_argument('--scope',choices=['gate17','remaining56'],required=True)
+p.add_argument('--scope',choices=['diagnostic6','gate17','remaining56'],required=True)
 p.add_argument('--result',type=Path,required=True)
 p.add_argument('--log',type=Path,required=True)
 p.add_argument('--exit-code',type=int,required=True)
@@ -63,7 +63,7 @@ for line in lines:
     if not destination.exists(): shutil.copy2(path,destination)
     assert sha(path)==sha(destination)
     shots.append({'name':entry['name'],'original_path':str(path),'retained_path':str(destination),'sha256':sha(destination)})
-record={'source_head':plan['source_head'],'scope':args.scope,'expected_methods':expected,
+record={'diagnostic_only':args.scope=='diagnostic6','source_head':plan['source_head'],'scope':args.scope,'expected_methods':expected,
         'actual_methods':actual,'all_expected_distinct_methods_executed':set(actual)==set(expected),
         'passed':summary['passedTests'],'failed':summary['failedTests'],'skipped':summary['skippedTests'],
         'expected_failures':summary['expectedFailures'],'xcodebuild_exit_code':args.exit_code,'accepted':passed,

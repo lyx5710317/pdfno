@@ -10,6 +10,8 @@ env:
   PDFNO_APPROVED_MAC_PUSH_PLATFORM_SCOPE: mac
   # Authorized diagnosis/full Mac73 on this exact branch; main remains full60.
   PDFNO_APPROVED_SHARED_CONTRACT_SCOPE: mac73
+  # Temporary exact six-method diagnosis; this never permits the remaining56.
+  PDFNO_MAC73_EXECUTION_SCOPE: diagnostic6
 permissions:
   contents: read
 concurrency:
@@ -62,6 +64,9 @@ jobs:
         run: |
           if [ "$PDFNO_EVENT" = push ] && [ "$PDFNO_REF" = refs/heads/fix/public-language-reader-20261011 ]; then
             case "$PDFNO_APPROVED_SHARED_CONTRACT_SCOPE" in shared8|mac73) mode="$PDFNO_APPROVED_SHARED_CONTRACT_SCOPE" ;; *) exit 1 ;; esac
+            if [ "$mode" = mac73 ]; then
+              case "$PDFNO_MAC73_EXECUTION_SCOPE" in diagnostic6|gate17) ;; *) exit 1 ;; esac
+            fi
           elif [ "$PDFNO_EVENT" = push ] && [ "$PDFNO_REF" = refs/heads/feature/mac-reader-viewport-focus-20261008 ]; then
             case "$PDFNO_APPROVED_BRANCH_PUSH_UI_SCOPE" in full|focused) mode="$PDFNO_APPROVED_BRANCH_PUSH_UI_SCOPE" ;; *) exit 1 ;; esac
           else
@@ -139,8 +144,20 @@ jobs:
           xcodebuild -project .build/MacFullQA/source/apple/PDFno.xcodeproj -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/MacFullQA/DerivedData -jobs 1 -disableAutomaticPackageResolution -skipPackageUpdates build-for-testing CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO CODE_SIGN_ENTITLEMENTS=
           python3 -B qa/mac-ui-regression/configure.py --qa .build/MacFullQA --scope gate17
           python3 -B qa/mac-ui-regression/configure.py --qa .build/MacFullQA --scope remaining56
+          python3 -B qa/mac-ui-regression/configure.py --qa .build/MacFullQA --scope diagnostic6
+      - name: Six original Mac73 failures with bounded own-window AX evidence
+        if: steps.ui-scope.outputs.mode == 'mac73' && env.PDFNO_MAC73_EXECUTION_SCOPE == 'diagnostic6'
+        timeout-minutes: 20
+        run: |
+          set -o pipefail
+          set +e
+          xcodebuild -xctestrun .build/MacFullQA/DerivedData/Build/Products/QA-diagnostic6.xctestrun -destination 'platform=macOS' -resultBundlePath .build/CI-Diagnostic6.xcresult -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 240 test-without-building 2>&1 | tee .build/CI-Diagnostic6.log
+          test_code=${PIPESTATUS[0]}
+          set -e
+          python3 -B qa/mac-ui-regression/verify-result.py --qa .build/MacFullQA --scope diagnostic6 --result .build/CI-Diagnostic6.xcresult --log .build/CI-Diagnostic6.log --exit-code "$test_code"
+          exit "$test_code"
       - name: Original12 gate and new5 on the same current Mac candidate
-        if: steps.ui-scope.outputs.mode == 'mac73'
+        if: steps.ui-scope.outputs.mode == 'mac73' && env.PDFNO_MAC73_EXECUTION_SCOPE == 'gate17'
         timeout-minutes: 35
         run: |
           set -o pipefail
@@ -151,7 +168,7 @@ jobs:
           python3 -B qa/mac-ui-regression/verify-result.py --qa .build/MacFullQA --scope gate17 --result .build/CI-Gate17.xcresult --log .build/CI-Gate17.log --exit-code "$test_code"
           exit "$test_code"
       - name: Remaining56 original Mac regressions after accepted gate17
-        if: steps.ui-scope.outputs.mode == 'mac73'
+        if: steps.ui-scope.outputs.mode == 'mac73' && env.PDFNO_MAC73_EXECUTION_SCOPE == 'gate17'
         timeout-minutes: 65
         run: |
           set -o pipefail
@@ -170,6 +187,8 @@ jobs:
           if-no-files-found: warn
           path: |
             .build/CI-Mac73-Display.json
+            .build/CI-Diagnostic6.xcresult
+            .build/CI-Diagnostic6.log
             .build/CI-Gate17.xcresult
             .build/CI-Gate17.log
             .build/CI-Remaining56.xcresult
