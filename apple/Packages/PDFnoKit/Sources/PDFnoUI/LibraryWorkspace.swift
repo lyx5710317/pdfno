@@ -516,6 +516,7 @@ struct ReaderWorkspace: View {
     @State private var navigationTab = PDFnoReaderNavigationTab.contents
     @State private var readerSettings = false
     @FocusState private var searchFocused: Bool
+    @State private var searchRevealID = UUID()
     #endif
     @State private var pageTranslation = false
     @State private var japaneseLearning = false
@@ -609,7 +610,7 @@ struct ReaderWorkspace: View {
         #endif
         #if os(macOS)
         .onChange(of: draft) { _, value in model.recordVisibleDraft(owner: draftOwner, dirty: !value.isEmpty) }
-        .onDisappear { model.recordVisibleDraft(owner: draftOwner, dirty: false) }
+        .onDisappear { searchRevealID = UUID(); model.recordVisibleDraft(owner: draftOwner, dirty: false) }
         .sheet(isPresented: $englishLearning) { EnglishLearningSheet(library: model) }
         .sheet(isPresented: $japaneseLearning) { JapaneseLearningSheet(library: model) }
         .sheet(isPresented: $readerSettings) { AISettingsView(learning: model.learning, byok: model.byok, library: model) }
@@ -762,13 +763,39 @@ struct ReaderWorkspace: View {
                     .accessibilityIdentifier("search-status")
             }
             ForEach(session.searchMatches, id: \.self) { match in
-                Button { if session.show(match) { closeNavigation() } } label: {
+                Button { revealSearchMatch(match) } label: {
                     Text(match.string ?? "匹配结果")
                         .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                 }.accessibilityIdentifier("search-result")
             }
             if searched && session.searchMatches.isEmpty { PDFnoEmptyState(title: "没有匹配文本", detail: "扫描页可能没有可选文字。请更换关键词或检查文字层。", icon: "magnifyingglass") }
         }
+    }
+    private func revealSearchMatch(_ match: PDFSelection) {
+        #if os(macOS)
+        guard let native = session.view, let ownWindow = native.window, let document = session.document else { return }
+        let identity = session.readerSessionID, revision = session.navigationRevision
+        let selection = session.capturedSelection, reveal = UUID()
+        searchRevealID = reveal
+        // Finish the inspector's width change before PDFKit scrolls to the
+        // result. Scrolling first can leave the target above the new viewport.
+        closeNavigation()
+        Task { @MainActor in
+            await Task.yield()
+            @MainActor func current() -> Bool {
+                searchRevealID == reveal && session.readerSessionID == identity && session.navigationRevision == revision
+                    && session.view === native && native.window === ownWindow
+                    && session.document === document && native.document === document
+                    && session.capturedSelection == selection && session.searchMatches.contains(where: { $0 === match })
+            }
+            guard current() else { return }
+            ownWindow.contentView?.layoutSubtreeIfNeeded()
+            guard current() else { return }
+            _ = session.show(match)
+        }
+        #else
+        if session.show(match) { closeNavigation() }
+        #endif
     }
     @ViewBuilder private func contentsResults(navigationSessionID: UUID) -> some View {
         Section {

@@ -27,8 +27,16 @@ public final class PDFReaderSession: ObservableObject {
     private var navigationHistory = ReaderNavigationHistory<Int>()
     private var restorationID: UUID?
     private var restorationTask: Task<Void, Never>?
+    #if os(macOS)
+    /// A newer explicit navigation or user scroll supersedes a deferred reveal.
+    public private(set) var navigationRevision = UUID()
+    func userScrollBegan() { cancelRestoration() }
+    #endif
     var isRestoringPosition: Bool { restorationID != nil }
     private func cancelRestoration() {
+        #if os(macOS)
+        navigationRevision = UUID()
+        #endif
         restorationTask?.cancel(); restorationTask = nil; restorationID = nil
     }
     private func clearNavigation() {

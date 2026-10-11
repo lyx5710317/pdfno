@@ -9,9 +9,19 @@ public final class PDFCanvasCoordinator: NSObject {
     func observe(_ view: PDFView) {
         NotificationCenter.default.addObserver(self, selector: #selector(pageChanged), name: .PDFViewPageChanged, object: view)
         NotificationCenter.default.addObserver(self, selector: #selector(selectionChanged), name: .PDFViewSelectionChanged, object: view)
+        #if os(macOS)
+        NotificationCenter.default.addObserver(self, selector: #selector(userScrollStarted), name: NSScrollView.willStartLiveScrollNotification, object: nil)
+        #endif
     }
     @objc func pageChanged() { session.updatePage() }
     @objc func selectionChanged() { session.captureSelection() }
+    #if os(macOS)
+    @objc private func userScrollStarted(_ notification: Notification) {
+        guard let scroll = notification.object as? NSScrollView, let view = session.view,
+              scroll.isDescendant(of: view) else { return }
+        session.userScrollBegan()
+    }
+    #endif
     deinit { NotificationCenter.default.removeObserver(self) }
 }
 

@@ -188,7 +188,8 @@ struct AnnotationList: View {
                                 Label(record.displayTitle,systemImage: record.aiResult == nil ? record.kind.symbol : "sparkles").font(.caption).foregroundStyle(.secondary)
                                 Text(verbatim: record.anchor.quote).lineLimit(5).accessibilityIdentifier("annotation-excerpt")
                             }.frame(maxWidth: .infinity,alignment: .leading).contentShape(Rectangle())
-                        }.buttonStyle(.plain).accessibilityIdentifier("annotation-row-"+record.id.uuidString)
+                        }.buttonStyle(.plain).accessibilityElement(children: .contain)
+                            .accessibilityIdentifier("annotation-row-"+record.id.uuidString)
                         if let result=record.aiResult { AIResultNoteBox(result: result,identifier: "annotation-ai-result") }
                         if model.editor.drafts[AnnotationBodySnapshot(record).key] != nil { Text("未保存批注 · 右键继续编辑").font(.caption).foregroundStyle(.orange) }
                         if !record.userText.isEmpty {

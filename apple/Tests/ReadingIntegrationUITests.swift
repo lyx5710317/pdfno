@@ -171,20 +171,50 @@ final class ReadingIntegrationUITests: XCTestCase {
         navigateWorkspace("ai-settings", in: app)
         try click(element("ai-settings", in: app))
         try uiClick(ui("ai-provider-mode", app)); try uiClick(app.menuItems["DeepSeek"].firstMatch)
-        try uiClick(ui("ai-connection-advanced", app))
+        try revealSettingsField("ai-connection-advanced", in: app)
+        try uiPanel("ai-connection-advanced", open: true, app)
         let label = element("ai-provider-label", in: app)
+        try revealSettingsField("ai-provider-label", in: app)
         try paragraphPaste("Original pending label", into: label, replacing: true)
         try category("AI工具", id: "tools", in: app)
         XCTAssertFalse(element("ai-settings-save", in: app).exists && element("ai-settings-save", in: app).isEnabled)
         XCTAssertTrue(element("planned-semantic", in: app).exists)
         try category("AI", id: "ai", in: app)
-        if !ui("ai-provider-label", app).isHittable { try uiClick(ui("ai-connection-advanced", app)) }
+        try revealSettingsField("ai-connection-advanced", in: app)
+        try uiPanel("ai-connection-advanced", open: true, app)
+        try revealSettingsField("ai-provider-label", in: app)
         XCTAssertEqual(element("ai-provider-label", in: app).value as? String, "Original pending label")
+        try revealSettingsField("settings-return", in: app)
         try click(element("settings-return", in: app))
         navigateWorkspace("ai-settings", in: app)
         try click(element("ai-settings", in: app))
-        if !ui("ai-provider-label", app).isHittable { try uiClick(ui("ai-connection-advanced", app)) }
+        try revealSettingsField("ai-connection-advanced", in: app)
+        try uiPanel("ai-connection-advanced", open: true, app)
+        try revealSettingsField("ai-provider-label", in: app)
         XCTAssertNotEqual(element("ai-provider-label", in: app).value as? String, "Original pending label")
+    }
+
+    @MainActor private func revealSettingsField(_ id: String, in app: XCUIApplication) throws {
+        let scroll = element("ai-settings-form", in: app)
+        let field = element(id, in: app)
+        try uiWait("Actual settings form") { scroll.exists && !scroll.frame.isEmpty }
+        scroll.scroll(byDeltaX: 0, deltaY: 2400)
+        // Native AX can omit controls clipped below a scroll viewport. Reveal
+        // the field by scrolling the real form; never toggle an expanded group
+        // merely because its child has not yet become hittable.
+        for _ in 0..<12 {
+            let viewport = scroll.frame.insetBy(dx: 3, dy: 6)
+            if field.exists {
+                let frame = field.frame
+                if field.isEnabled && field.isHittable && viewport.contains(frame) { return }
+                scroll.scroll(byDeltaX: 0, deltaY: frame.minY < viewport.minY ? 240 : -240)
+            } else {
+                scroll.scroll(byDeltaX: 0, deltaY: -240)
+            }
+        }
+        try uiWait("Visible settings field: " + id) {
+            field.exists && field.isEnabled && field.isHittable && scroll.frame.contains(field.frame)
+        }
     }
 
     @MainActor private func paragraphClick(_ target: XCUIElement, in app: XCUIApplication) throws {

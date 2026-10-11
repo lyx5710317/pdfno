@@ -27,12 +27,13 @@ struct ComicWorkspace: View {
                 PDFnoReaderRailButton(title: "页面", symbol: "list.bullet", identifier: "comic-pages", active: pages, disabled: session.book == nil) { pages.toggle() }
             } content: {
                 PDFnoReaderShell(panels: readerPanels, profile: .professional) {
-                    ComicCanvas(session: session).overlay(alignment: .bottom) {
-                        ReadingPageButtons(previousEnabled: !session.busy && session.hasPrevious,nextEnabled: !session.busy && session.hasNext,previous: { Task { await session.previous() } },next: { Task { await session.next() } })
-                    }
+                    ComicCanvas(session: session)
                 }
                     navigation: { pagesContent } notes: { EmptyView() }
             }
+            // Keep real controls outside WebKit's edge-click hit region.
+            // One button click must produce one spread transition.
+            ReadingPageButtons(previousEnabled: !session.busy && session.hasPrevious,nextEnabled: !session.busy && session.hasNext,previous: { Task { await session.previous() } },next: { Task { await session.next() } })
             HStack { Text(session.position).accessibilityIdentifier("comic-position"); Spacer(); Text("点击阅读区边缘翻页 · 单页／双页") }.font(.caption).padding(10)
             if let error = session.error { Text(error).foregroundStyle(.red).padding().accessibilityIdentifier("comic-error") }
         }.navigationTitle(session.book?.title ?? "漫画")

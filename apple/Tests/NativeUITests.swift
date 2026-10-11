@@ -1685,9 +1685,9 @@ final class NativeUITests: XCTestCase {
         let fixture = NSPredicate(format: "label == %@ OR value == %@", url.lastPathComponent, url.lastPathComponent)
         var completion: XCUIElement?
         try uiWait("One physical completion for the exact entered fixture path", timeout: 12) {
-            let fullRows = goTo.exists ? goTo.tables.tableRows.containing(fullPath).allElementsBoundByAccessibilityElement : []
+            let fullRows = goTo.exists ? goTo.tables.tableRows.containing(fullPath).allElementsBoundByIndex : []
             let observedRows = fullRows.isEmpty ? [XCUIElement.ElementType.cell, .tableRow, .outlineRow].flatMap {
-                panel.descendants(matching: $0).containing(fixture).allElementsBoundByAccessibilityElement
+                panel.descendants(matching: $0).containing(fixture).allElementsBoundByIndex
             } : fullRows
             completion = observedRows.first { row in
                 let frame = row.frame

@@ -79,7 +79,19 @@ import XCTest
     func uiPanel(_ id: String, open: Bool, _ app: XCUIApplication) throws {
         let control = ui(id, app)
         try uiWait("Reader panel toggle") { control.exists && control.isEnabled }
-        if (control.value as? String == "已展开") != open { try uiClick(control) }
+        if (control.value as? String == "已展开") != open {
+            if id == "ai-connection-advanced" {
+                try uiWait("Visible native disclosure triangle") { control.exists && control.isEnabled && control.isHittable }
+                let frame = control.frame
+                try uiWait("Physical disclosure triangle bounds") {
+                    !frame.isEmpty && !frame.isInfinite && [frame.minX, frame.minY, frame.maxX, frame.maxY].allSatisfy(\.isFinite)
+                }
+                // The native disclosure's generic click reaches the arrow's
+                // right edge on macOS 15. Use the visible triangle's left side.
+                control.coordinate(withNormalizedOffset: .zero)
+                    .withOffset(CGVector(dx: min(4, frame.width / 2), dy: frame.height / 2)).click()
+            } else { try uiClick(control) }
+        }
         try uiWait("Panel state: " + id) { (control.value as? String == "已展开") == open }
     }
     func uiExample(_ id: String, _ app: XCUIApplication) throws {
@@ -199,7 +211,12 @@ import XCTest
     func uiEditNote(_ app: XCUIApplication) throws {
         let row = uiAnnotationRows(app).firstMatch
         try uiWait("Saved annotation row") { row.exists && row.isHittable }
-        row.doubleClick(); XCTAssertTrue(ui("annotation-comment-input", app).waitForExistence(timeout: 10))
+        // The saved row's primary action returns to its source. Edit through
+        // the visible native context menu, as offered by the current reader.
+        row.rightClick()
+        let edit = app.menuItems["编辑批注"].firstMatch
+        try uiClick(edit)
+        XCTAssertTrue(ui("annotation-comment-input", app).waitForExistence(timeout: 10))
     }
     func uiResumeDraft(_ app: XCUIApplication) throws {
         let draft = ui("annotation-resume-draft", app)
@@ -250,14 +267,21 @@ import XCTest
     func uiFileControl(_ app: XCUIApplication, type: XCUIElement.ElementType, identifier: String, requireEnabled: Bool = true) throws -> XCUIElement {
         var found: XCUIElement?
         try uiWait("Physical native file control: " + identifier, timeout: 12) {
-            let windows = app.windows.allElementsBoundByAccessibilityElement + app.sheets.allElementsBoundByAccessibilityElement
-            for window in windows where window.exists && !window.frame.isEmpty && !window.frame.isInfinite {
-                found = window.descendants(matching: type).matching(identifier: identifier).allElementsBoundByAccessibilityElement.first { control in
-                    guard control.exists && (!requireEnabled || (control.isEnabled && control.isHittable)) else { return false }
-                    let frame = control.frame
-                    return !frame.isEmpty && !frame.isInfinite && frame.minX.isFinite && frame.minY.isFinite && window.frame.intersects(frame)
-                }
-                if found != nil { break }
+            found = nil
+            // Query the real modal root before the document window. Queries
+            // refresh after a panel transition; bound AX tokens can go stale.
+            for scope in [app.sheets, app.dialogs, app.windows] {
+                let panel = scope.containing(type, identifier: identifier).firstMatch
+                guard panel.exists else { continue }
+                let control = panel.descendants(matching: type).matching(identifier: identifier).firstMatch
+                guard control.exists && (!requireEnabled || (control.isEnabled && control.isHittable)) else { continue }
+                let panelFrame = panel.frame, frame = control.frame
+                guard !panelFrame.isEmpty, !panelFrame.isInfinite,
+                      !frame.isEmpty, !frame.isInfinite,
+                      [panelFrame.minX, panelFrame.minY, panelFrame.maxX, panelFrame.maxY,
+                       frame.minX, frame.minY, frame.maxX, frame.maxY].allSatisfy(\.isFinite),
+                      panelFrame.intersects(frame) else { continue }
+                found = control; break
             }
             return found != nil
         }

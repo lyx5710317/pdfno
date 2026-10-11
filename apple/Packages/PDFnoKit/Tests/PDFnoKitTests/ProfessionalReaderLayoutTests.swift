@@ -2,6 +2,7 @@
 #if os(macOS)
 import AppKit
 import SwiftUI
+import PDFKit
 import Testing
 import PDFnoDomain
 import PDFnoReaders
@@ -93,6 +94,34 @@ struct ProfessionalReaderLayoutTests {
             }
         }
         print("Professional hidden-host AX children: \(host.accessibilityChildren()?.count ?? 0); system AX / pointer acceptance is separate")
+    }
+
+    @Test func explicitPDFSearchTargetRemainsVisibleAfterNavigationPanelCloses() async throws {
+        NSApplication.shared.setActivationPolicy(.prohibited)
+        let data = try originalSample(), session = PDFReaderSession()
+        try session.open(data: data, book: BookRecord(title: "Original search viewport", fileSHA256: LibraryRepository.digest(data), originalFilename: "original.pdf", pageCount: 2))
+        let state = ProfessionalFixtureState()
+        let host = NSHostingView(rootView: ProfessionalPDFHost(session: session, state: state))
+        let window = hiddenWindow(host)
+        defer { window.close() }
+        for width in [CGFloat(814), 720, 1280] {
+            state.width = width
+            host.frame.size.width = width; window.setContentSize(NSSize(width: width, height: 520))
+            state.panels.show(.navigation, profile: .professional)
+            await settle(host)
+            session.search("window")
+            let match = try #require(session.searchMatches.first)
+            #expect(session.show(match))
+            state.panels.navigation = false
+            await settle(host)
+            let native = try #require(session.view), page = try #require(match.pages.first)
+            let target = native.convert(match.bounds(for: page), from: page)
+            print("Original PDF search viewport width=\(width) target=\(target) viewport=\(native.bounds) scale=\(native.scaleFactor)")
+            #expect(!target.isEmpty && native.bounds.contains(target))
+            #expect(session.pageIndex == 0 && native.currentSelection?.string == "window")
+            #expect(!window.isVisible && !window.isKeyWindow)
+        }
+        #expect(data == (try originalSample()))
     }
 
     @Test func embeddedLearningLayoutKeepsExactResultAndUserBodyWithoutSendOrSave() async throws {

@@ -241,7 +241,11 @@ struct AILearningWorkspace: View {
                 }.id("ai-task-state")
                 if let result = learning.result {
                     PDFnoSettingsCard("结果 · \(result.provider.mode == .mock ? "本地 mock" : "模型生成")") {
-                        AIResultNoteBox(result: result)
+                        if let explanation = result.paragraphExplanation {
+                            ParagraphExplanationResultView(explanation: explanation, source: result.source, library: library) { finish() }
+                        } else {
+                            AIResultNoteBox(result: result)
+                        }
                         Button("引用 · 回到原文") { Task { if result.paragraphExplanation != nil && !library.isCurrentParagraphSource(result.source) { learning.error = AIFailure.stale.localizedDescription; return }; learning.cancel(); if await library.returnToAISource(result.source) { finish() } } }
                             .accessibilityIdentifier("ai-result-source")
                         AnnotationCommentInput(text: $learning.userText,identifier: "ai-user-note",enabled: !library.addingAIToNotes).frame(height: 120)

@@ -8,6 +8,8 @@ env:
   # Explicit Mac-first scope for the approved integration and main pushes.
   # Other refs and every PR retain the mobile build; set all to restore it here.
   PDFNO_APPROVED_MAC_PUSH_PLATFORM_SCOPE: mac
+  # Authorized shared-contract diagnosis on this exact branch; main remains full60.
+  PDFNO_APPROVED_SHARED_CONTRACT_SCOPE: shared8
 permissions:
   contents: read
 concurrency:
@@ -56,13 +58,15 @@ jobs:
           PDFNO_EVENT: ${{ github.event_name }}
           PDFNO_REF: ${{ github.ref }}
         run: |
-          if [ "$PDFNO_EVENT" = push ] && [ "$PDFNO_REF" = refs/heads/feature/mac-reader-viewport-focus-20261008 ]; then
+          if [ "$PDFNO_EVENT" = push ] && [ "$PDFNO_REF" = refs/heads/fix/public-language-reader-20261011 ] && [ "$PDFNO_APPROVED_SHARED_CONTRACT_SCOPE" = shared8 ]; then
+            mode=shared8
+          elif [ "$PDFNO_EVENT" = push ] && [ "$PDFNO_REF" = refs/heads/feature/mac-reader-viewport-focus-20261008 ]; then
             case "$PDFNO_APPROVED_BRANCH_PUSH_UI_SCOPE" in full|focused) mode="$PDFNO_APPROVED_BRANCH_PUSH_UI_SCOPE" ;; *) exit 1 ;; esac
           else
             mode=full
           fi
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
-          echo "Explicit GUI scope: $mode (focused10 and full60 results are distinct)"
+          echo "Explicit GUI scope: $mode (diagnostic8, focused10 and full60 results are distinct)"
       - name: Source and original fixture guards
         run: |
           python3 scripts/check-native-source.py
@@ -102,6 +106,25 @@ jobs:
             .build/CI-Focused.xcresult
             .build/CI-Focused.log
             .build/Mac/Build/Products/FocusedDiagnostic10.json
+      - name: Eight representative shared-contract regressions with original assertions
+        if: steps.ui-scope.outputs.mode == 'shared8'
+        timeout-minutes: 35
+        run: |
+          xcodebuild -workspace apple/PDFno.xcworkspace -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/Mac CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- build-for-testing
+          python3 scripts/prepare-native-focused-ui.py --scope shared8 --products .build/Mac/Build/Products --output .build/Mac/Build/Products/SharedContractDiagnostic8.xctestrun
+          set -o pipefail
+          xcodebuild -xctestrun .build/Mac/Build/Products/SharedContractDiagnostic8.xctestrun -destination 'platform=macOS' -resultBundlePath .build/CI-Shared8.xcresult -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 240 test-without-building 2>&1 | tee .build/CI-Shared8.log
+      - name: Retain actual shared-contract diagnostic evidence
+        if: always() && steps.ui-scope.outputs.mode == 'shared8'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-shared-contract-diagnostic8
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            .build/CI-Shared8.xcresult
+            .build/CI-Shared8.log
+            .build/Mac/Build/Products/SharedContractDiagnostic8.json
       - name: Record actual full-regression commit
         if: always() && steps.ui-scope.outputs.mode == 'full'
         run: git rev-parse HEAD > .build/CI-Mac-SHA.txt

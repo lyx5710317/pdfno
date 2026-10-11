@@ -44,6 +44,7 @@ struct AIConnectionSettings: View {
                 Text("阅读请求沿用本次应用共用 3 次上限；连接测试另有 3 次上限。每次最多 1024 输出 tokens、30 秒、64 KiB 响应。失败或取消也计数，不自动重试。").font(.caption).foregroundStyle(.secondary)
                 if learning.hasSessionCredential { Button("清除 API Key") { secret = ""; Task { await learning.clearSessionCredential() } }.accessibilityIdentifier("ai-clear-key") }
             }.accessibilityIdentifier("ai-connection-advanced")
+                .accessibilityValue(advanced ? "已展开" : "已收起")
         }.textFieldStyle(.roundedBorder)
             .onChange(of: draft.endpoint) { _, _ in secret = ""; learning.cancelConnectionProbe() }
             .onDisappear { secret = ""; learning.cancelConnectionProbe() }

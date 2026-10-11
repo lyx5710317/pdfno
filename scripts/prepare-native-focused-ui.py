@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
-"""Configure an explicit ten-method diagnostic run without changing original tests."""
+"""Configure explicit diagnostic runs without changing original test methods."""
 import argparse
 import hashlib
 import json
@@ -10,6 +10,7 @@ import plistlib
 parser = argparse.ArgumentParser()
 parser.add_argument('--products', type=Path, required=True)
 parser.add_argument('--output', type=Path, required=True)
+parser.add_argument('--scope', choices=['focused10', 'shared8'], default='focused10')
 args = parser.parse_args()
 products = args.products.resolve()
 output = args.output.resolve()
@@ -20,7 +21,7 @@ original = generated[0].read_bytes()
 raw = plistlib.loads(original)
 conf = raw['PDFnoMacUITests']
 assert not conf.get('OnlyTestIdentifiers') and not conf.get('SkipTestIdentifiers')
-methods = [
+scopes = {'focused10': [
     'NativeUITests/testMacLibraryLayoutSelectionAndOriginalSampleEntrypoints',
     'NativeUITests/testMacBooknoExplicitOfflinePreviewSavedBodyMockReplayAndClose',
     'NativeUITests/testMacCB7ImportSpreadsDirectionPageJumpAndRestart',
@@ -31,8 +32,18 @@ methods = [
     'ReadingIntegrationUITests/testMacPDFSearchTOCReturnAndTextInputProtection',
     'ReadingIntegrationUITests/testMacSettingsCategoriesPreserveUnappliedConfiguration',
     'ReadingIntegrationUITests/testMacToolsRouteRequiresConsentAndManualSave',
-]
-assert len(set(methods)) == 10
+], 'shared8': [
+    'NativeUITests/testLocalPDFReadingAndNoteFlow',
+    'NativeUITests/testMacSavedTextBodyDraftRestartUnifiedSearchAndExactSource',
+    'NativeUITests/testMacCB7ImportSpreadsDirectionPageJumpAndRestart',
+    'EbookFormatUITests/testMOBISelectionNoteProgressRestart',
+    'ReadingIntegrationUITests/testMacParagraphTypedEvidenceConsentManualSaveAndSource',
+    'ReadingIntegrationUITests/testMacParagraphInsufficientAndInvalidResponsesCannotSave',
+    'ReadingIntegrationUITests/testMacParagraphEPUBCitationReturnsToCanonicalRange',
+    'ReadingIntegrationUITests/testMacSettingsCategoriesPreserveUnappliedConfiguration',
+]}
+methods = scopes[args.scope]
+assert len(set(methods)) == (10 if args.scope == 'focused10' else 8)
 repo = Path(__file__).resolve().parent.parent
 for method in methods:
     suite, name = method.split('/')
@@ -42,12 +53,12 @@ conf['SkipTestIdentifiers'] = []
 conf['TestTimeoutsEnabled'] = True
 conf['DefaultTestExecutionTimeAllowance'] = 180
 conf['MaximumTestExecutionTimeAllowance'] = 240
-conf['SystemAttachmentLifetime'] = 'keepNever'
+conf['SystemAttachmentLifetime'] = 'keepNever' if args.scope == 'focused10' else 'keepAlways'
 conf['UserAttachmentLifetime'] = 'keepAlways'
 conf.setdefault('EnvironmentVariables', {})['PDFNO_UI_TEST_PANEL_DIAGNOSTICS'] = '1'
 output.write_bytes(plistlib.dumps(raw))
 receipt = {
-    'scope': 'Focused diagnostic10; never claim original60 passed from this run.',
+    'scope': args.scope + ' diagnostic only; never claim original60, original68 or all73 passed from this run.',
     'original_plan': str(generated[0]), 'original_plan_sha256': hashlib.sha256(original).hexdigest(),
     'configured_plan': str(output), 'configured_plan_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
     'expected_methods': methods, 'original_assertions_changed': False,

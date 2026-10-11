@@ -109,7 +109,7 @@ final class EbookFormatUITests: XCTestCase {
         let row = app.descendants(matching: .any).matching(identifier: "library-ebook-" + format).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 15)); row.click()
         XCTAssertTrue(nav.waitForExistence(timeout: 25)); waitEnabled(nav)
-        app.buttons["ebook-notes"].firstMatch.click()
+        try uiPanel("ebook-notes", open: true, app)
         XCTAssertTrue(ui("annotation-excerpt", app).waitForExistence(timeout: 8))
         let data = try Data(contentsOf: manifest), state = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let note = try uiOnlyAnnotation(app), book = try XCTUnwrap((state["books"] as? [[String: Any]])?.first)
