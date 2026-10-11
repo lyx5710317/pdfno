@@ -10,8 +10,8 @@ env:
   PDFNO_APPROVED_MAC_PUSH_PLATFORM_SCOPE: mac
   # Authorized diagnosis/full Mac73 on this exact branch; main remains full60.
   PDFNO_APPROVED_SHARED_CONTRACT_SCOPE: mac73
-  # Temporary exact six-method diagnosis; this never permits the remaining56.
-  PDFNO_MAC73_EXECUTION_SCOPE: diagnostic6
+  # Acceptance executes same-binary shared8, gate17, then remaining56.
+  PDFNO_MAC73_EXECUTION_SCOPE: gate17
 permissions:
   contents: read
 concurrency:
@@ -22,9 +22,9 @@ jobs:
     runs-on: macos-15
     # Run 37784399153 exceeded 65m: prechecks/builds plus the full 60-method GUI run took ~69m.
     # Original per-assertion and per-test limits are retained in both scopes.
-    # Budget 35m + 65m UI steps, prechecks/builds and evidence upload on this branch.
+    # Budget 25m + 35m + 85m UI steps, prechecks/builds and evidence upload on this branch.
     # Main/PR stay at 80m; individual 180/240s test limits are unchanged.
-    timeout-minutes: ${{ github.event_name == 'push' && github.ref == 'refs/heads/fix/public-language-reader-20261011' && 125 || 80 }}
+    timeout-minutes: ${{ github.event_name == 'push' && github.ref == 'refs/heads/fix/public-language-reader-20261011' && 170 || 80 }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # verified v4, 2026-10-03
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # verified v4, 2026-10-03
@@ -142,6 +142,7 @@ jobs:
         run: |
           python3 -B qa/mac-ui-regression/prepare.py --output .build/MacFullQA
           xcodebuild -project .build/MacFullQA/source/apple/PDFno.xcodeproj -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/MacFullQA/DerivedData -jobs 1 -disableAutomaticPackageResolution -skipPackageUpdates build-for-testing CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO CODE_SIGN_ENTITLEMENTS=
+          python3 -B qa/mac-ui-regression/configure.py --qa .build/MacFullQA --scope shared8
           python3 -B qa/mac-ui-regression/configure.py --qa .build/MacFullQA --scope gate17
           python3 -B qa/mac-ui-regression/configure.py --qa .build/MacFullQA --scope remaining56
           python3 -B qa/mac-ui-regression/configure.py --qa .build/MacFullQA --scope diagnostic6
@@ -156,6 +157,17 @@ jobs:
           set -e
           python3 -B qa/mac-ui-regression/verify-result.py --qa .build/MacFullQA --scope diagnostic6 --result .build/CI-Diagnostic6.xcresult --log .build/CI-Diagnostic6.log --exit-code "$test_code"
           exit "$test_code"
+      - name: Eight representative regressions before the current Mac17 gate
+        if: steps.ui-scope.outputs.mode == 'mac73' && env.PDFNO_MAC73_EXECUTION_SCOPE == 'gate17'
+        timeout-minutes: 25
+        run: |
+          set -o pipefail
+          set +e
+          xcodebuild -xctestrun .build/MacFullQA/DerivedData/Build/Products/QA-shared8.xctestrun -destination 'platform=macOS' -resultBundlePath .build/CI-Mac73Shared8.xcresult -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 240 test-without-building 2>&1 | tee .build/CI-Mac73Shared8.log
+          test_code=${PIPESTATUS[0]}
+          set -e
+          python3 -B qa/mac-ui-regression/verify-result.py --qa .build/MacFullQA --scope shared8 --result .build/CI-Mac73Shared8.xcresult --log .build/CI-Mac73Shared8.log --exit-code "$test_code"
+          exit "$test_code"
       - name: Original12 gate and new5 on the same current Mac candidate
         if: steps.ui-scope.outputs.mode == 'mac73' && env.PDFNO_MAC73_EXECUTION_SCOPE == 'gate17'
         timeout-minutes: 35
@@ -169,7 +181,7 @@ jobs:
           exit "$test_code"
       - name: Remaining56 original Mac regressions after accepted gate17
         if: steps.ui-scope.outputs.mode == 'mac73' && env.PDFNO_MAC73_EXECUTION_SCOPE == 'gate17'
-        timeout-minutes: 65
+        timeout-minutes: 85
         run: |
           set -o pipefail
           set +e
@@ -187,6 +199,8 @@ jobs:
           if-no-files-found: warn
           path: |
             .build/CI-Mac73-Display.json
+            .build/CI-Mac73Shared8.xcresult
+            .build/CI-Mac73Shared8.log
             .build/CI-Diagnostic6.xcresult
             .build/CI-Diagnostic6.log
             .build/CI-Gate17.xcresult

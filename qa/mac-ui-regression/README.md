@@ -1,10 +1,12 @@
 # Offline Mac reader regression
 
 This harness compiles the current checkout's original 68 Mac UI methods and the
-five accepted reader chrome, conversation and saved-search scenarios. The first
-run contains the original 12 gates plus those five scenarios. Only an accepted
-17-method result permits the disjoint remaining 56 methods on the same binary.
-The method inventory records all three sets.
+five accepted reader chrome, conversation and saved-search scenarios. Acceptance
+first runs the original eight representative methods, then the original 12 gates
+plus those five scenarios. Only accepted eight- and 17-method results permit the
+disjoint remaining 56 on the same binary. The eight overlap the remaining56;
+full acceptance counts the distinct gate17 plus remaining56 as 73, never 81.
+The method inventory records every set.
 
 `prepare.py` creates a new source snapshot, unique bundle and original fixtures.
 It never launches an application. The snapshot uses the existing QA guards to
@@ -25,6 +27,7 @@ xcodebuild -project .build/MacFullQA/source/apple/PDFno.xcodeproj \
   -disableAutomaticPackageResolution -skipPackageUpdates build-for-testing \
   CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
   CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO CODE_SIGN_ENTITLEMENTS=
+python3 -B qa/mac-ui-regression/configure.py --qa .build/MacFullQA --scope shared8
 python3 -B qa/mac-ui-regression/configure.py --qa .build/MacFullQA --scope gate17
 python3 -B qa/mac-ui-regression/configure.py --qa .build/MacFullQA --scope remaining56
 ```
@@ -46,13 +49,15 @@ block before GUI input. The guarded fixture app also records the actual window
 and content geometry and requires the original size and a 24-point drag margin.
 Wide tests remain 1280×800 and narrow tests remain 720×520.
 
-The temporary `diagnostic6` execution scope reruns only the six actual c871185
+The separate `diagnostic6` execution scope reruns only the six actual c871185
 failures, keeping their original assertions and limits. It records bounded
 source AX attributes and one owned-window image once original text is present,
 then exercises real selection within the original wait. It creates no selection
 and changes no document. Its result is explicitly
 diagnostic; neither the 17-method gate nor the remaining56 runs in this scope.
-Restore execution scope `gate17` for full acceptance after diagnosis.
+Execution scope `gate17` runs representative8, gate17 and remaining56 in order.
+Each verifier checks the precise preceding PLAN, method set, head and products;
+a failing prerequisite prevents subsequent GUI execution. Main/PR remains full60.
 
 Run each generated xctestrun with parallel testing disabled and the original
 180/240-second limits. Capture the actual `xcodebuild` exit code and pass it to

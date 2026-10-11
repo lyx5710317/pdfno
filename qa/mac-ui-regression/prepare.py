@@ -110,12 +110,14 @@ for method in methods:
     assert re.search(r'func\s+'+re.escape(name)+r'\s*\(', (tests/(cls+'.swift')).read_text())
 record.update(expected_methods=methods, all_compiled_methods=methods, gate17=inventory['gate17'],
               remaining56=[x for x in methods if x not in inventory['gate17']],
+              representative8=inventory['representative8'],
               fixture_seed_hashes=seed_hashes, fixture_note_id=note_id, fixture_book_id=book_id,
               fixture_long_title_path=str(fixture), diagnostics=str(out/'Diagnostics'),
-              scope='Approved Mac original68 plus new5; gate17 then remaining56, distinct exact current candidate',
+              scope='Approved Mac original68 plus new5; representative8 then gate17 then remaining56, distinct exact current candidate',
               GUI_started=False, network_refused=True, keychain_refused=True,
               original_generated_ui_plan_unfiltered=True, new_accounts_or_packages=False)
 assert len(record['remaining56'])==56
+assert len(set(record['representative8']))==8 and set(record['representative8']).issubset(inventory['original68'])
 (out/'PREPARATION.json').write_text(json.dumps(record,indent=2)+'\n')
 (out/'DerivedData').mkdir()
 print(json.dumps({'source_head':record['source_head'],'bundle':record['bundle'],'methods':73,'gate':17,'remaining':56,'GUI_started':False}))

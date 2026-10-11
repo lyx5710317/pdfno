@@ -96,5 +96,15 @@
     "ReaderConversationUITests/testNarrowIndependentSettingsDefaultOffAndRetainedDisabledConversation",
     "SavedAISearchUITests/testSavedAIQuoteAndResultSearchExactSourceAndDraftExclusion"
   ],
-  "fixture_long_title_sha256": "11ea45e263bc54ce1238ba22717639d7a03cfdb8ec29e3bf201f563c74eda884"
+  "fixture_long_title_sha256": "11ea45e263bc54ce1238ba22717639d7a03cfdb8ec29e3bf201f563c74eda884",
+  "representative8": [
+    "NativeUITests/testLocalPDFReadingAndNoteFlow",
+    "NativeUITests/testMacSavedTextBodyDraftRestartUnifiedSearchAndExactSource",
+    "NativeUITests/testMacCB7ImportSpreadsDirectionPageJumpAndRestart",
+    "EbookFormatUITests/testMOBISelectionNoteProgressRestart",
+    "ReadingIntegrationUITests/testMacParagraphTypedEvidenceConsentManualSaveAndSource",
+    "ReadingIntegrationUITests/testMacParagraphInsufficientAndInvalidResponsesCannotSave",
+    "ReadingIntegrationUITests/testMacParagraphEPUBCitationReturnsToCanonicalRange",
+    "ReadingIntegrationUITests/testMacSettingsCategoriesPreserveUnappliedConfiguration"
+  ]
 }

@@ -6,7 +6,7 @@ import argparse, hashlib, json, re, shutil, subprocess, sys
 
 p=argparse.ArgumentParser()
 p.add_argument('--qa',type=Path,required=True)
-p.add_argument('--scope',choices=['diagnostic6','gate17','remaining56'],required=True)
+p.add_argument('--scope',choices=['shared8','diagnostic6','gate17','remaining56'],required=True)
 p.add_argument('--result',type=Path,required=True)
 p.add_argument('--log',type=Path,required=True)
 p.add_argument('--exit-code',type=int,required=True)
@@ -63,15 +63,29 @@ for line in lines:
     if not destination.exists(): shutil.copy2(path,destination)
     assert sha(path)==sha(destination)
     shots.append({'name':entry['name'],'original_path':str(path),'retained_path':str(destination),'sha256':sha(destination)})
-record={'diagnostic_only':args.scope=='diagnostic6','source_head':plan['source_head'],'scope':args.scope,'expected_methods':expected,
+record={'diagnostic_only':args.scope in ['diagnostic6','shared8'],'source_head':plan['source_head'],'scope':args.scope,'expected_methods':expected,
         'actual_methods':actual,'all_expected_distinct_methods_executed':set(actual)==set(expected),
         'passed':summary['passedTests'],'failed':summary['failedTests'],'skipped':summary['skippedTests'],
         'expected_failures':summary['expectedFailures'],'xcodebuild_exit_code':args.exit_code,'accepted':passed,
         'own_screenshot_root':str(own_root) if own_root else None,'own_window_screenshots':shots,
         'compiled_products':plan['compiled_products'],'automatic_retries':0}
+if args.scope=='gate17':
+    representative=json.loads((evidence/'shared8-verification.json').read_text())
+    representative_plan=json.loads((q/'PLAN-shared8.json').read_text())
+    assert representative['accepted'] and representative['scope']=='shared8'
+    assert representative['source_head']==representative_plan['source_head']==plan['source_head']
+    assert representative['compiled_products']==representative_plan['compiled_products']==plan['compiled_products']
+    assert len(representative['actual_methods'])==len(set(representative['actual_methods']))==8
+    assert set(representative['actual_methods'])==set(representative['expected_methods'])==set(representative_plan['expected_methods'])
+    record['representative8_accepted']=True
 if args.scope=='remaining56':
     gate=json.loads((evidence/'gate17-verification.json').read_text())
-    assert gate['accepted'] and gate['compiled_products']==plan['compiled_products']
+    gate_plan=json.loads((q/'PLAN-gate17.json').read_text())
+    assert gate['accepted'] and gate['scope']=='gate17' and gate['representative8_accepted'] is True
+    assert gate['source_head']==gate_plan['source_head']==plan['source_head']
+    assert gate['compiled_products']==gate_plan['compiled_products']==plan['compiled_products']
+    assert len(gate['actual_methods'])==len(set(gate['actual_methods']))==17
+    assert set(gate['actual_methods'])==set(gate['expected_methods'])==set(gate_plan['expected_methods'])
     assert not set(actual)&set(gate['actual_methods'])
     assert set(actual)|set(gate['actual_methods'])==set(plan['all_compiled_methods'])
     record['accepted_distinct_total']=73 if passed else None

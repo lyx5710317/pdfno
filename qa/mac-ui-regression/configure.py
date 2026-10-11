@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
-"""Configure diagnosis or gate17/remaining56 on the same compiled QA bundle."""
+"""Configure diagnosis or shared8/gate17/remaining56 on the same compiled QA bundle."""
 from pathlib import Path
 import argparse, hashlib, json, platform, plistlib, subprocess, uuid
 
 parser=argparse.ArgumentParser()
 parser.add_argument('--qa', type=Path, required=True)
-parser.add_argument('--scope', choices=['diagnostic6','gate17','remaining56'], required=True)
+parser.add_argument('--scope', choices=['shared8','diagnostic6','gate17','remaining56'], required=True)
 args=parser.parse_args(); q=args.qa.resolve()
 record=json.loads((q/'PREPARATION.json').read_text()); products=q/'DerivedData/Build/Products'
 sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
@@ -37,7 +37,10 @@ for rel,digest in record['production_inputs'].items():
         assert sha(q/'source'/rel)==digest,rel
 all73=set(record['all_compiled_methods']); gate=set(record['gate17']); remaining=set(record['remaining56'])
 assert len(all73)==73 and len(gate)==17 and len(remaining)==56 and not gate&remaining and gate|remaining==all73
-if args.scope == 'diagnostic6':
+if args.scope == 'shared8':
+    methods=record['representative8']
+    assert len(set(methods))==8 and set(methods).issubset(all73)
+elif args.scope == 'diagnostic6':
     names = {
         'testANarrowEPUBPanelsKeepCanonicalSourceAndDraft',
         'testShellNarrowDarkEPUBCanonicalSelectionDraftAndLibrary',
