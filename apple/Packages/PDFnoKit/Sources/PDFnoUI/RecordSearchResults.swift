@@ -12,7 +12,7 @@ struct RecordSearchResults: View {
     @State private var opening = false
     @State private var sourceError: String?
     var body: some View {
-        Section("文本、电子书与语言学习记录") {
+        Section("已保存批注、文本与语言学习记录") {
             ForEach(response.hits) { hit in
                 VStack(alignment: .leading, spacing: 6) {
                     Text(hit.entry.title + " · " + hit.entry.target.book.format.label).font(.caption)

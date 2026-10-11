@@ -7,15 +7,16 @@ import PDFnoServices
 struct AIConnectionSettings: View {
     @ObservedObject var learning: AILearningModel
     var active = true
-    @State private var draft: AIProviderConfig
-    @State private var secret = ""
+    @Binding private var draft: AIProviderConfig
+    @Binding private var secret: String
     @State private var advanced = false
     @State private var confirmTest = false
     private enum Provider: String, CaseIterable { case deepSeek = "DeepSeek", compatible = "OpenAI 兼容", mock = "本地示例", unconfigured = "未配置" }
     @State private var provider: Provider
-    init(learning: AILearningModel, active: Bool = true) {
-        self.learning = learning; self.active = active; _draft = State(initialValue: learning.config)
-        _provider = State(initialValue: learning.config.mode == .mock ? .mock : learning.config.mode == .unconfigured ? .unconfigured : DeepSeekSelectionPolicy.supports(learning.config) ? .deepSeek : .compatible)
+    init(learning: AILearningModel, draft: Binding<AIProviderConfig>, secret: Binding<String>, active: Bool = true) {
+        self.learning = learning; self.active = active; _draft = draft; _secret = secret
+        let config = draft.wrappedValue
+        _provider = State(initialValue: config.mode == .mock ? .mock : config.mode == .unconfigured ? .unconfigured : DeepSeekSelectionPolicy.supports(config) ? .deepSeek : .compatible)
     }
     var body: some View {
         PDFnoSettingsCard("AI 连接",symbol: "sparkles") {

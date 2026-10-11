@@ -3,12 +3,12 @@ import Foundation
 
 /// Local namespaces only; these values enable no cover, conversion or exchange capability.
 public enum RecordSourceFormat: Codable, Sendable, Equatable {
-    case pdf, epub, text(TextFileFormat), ebook(EbookFormat)
+    case pdf, epub, docx, text(TextFileFormat), ebook(EbookFormat)
     public var label: String {
-        switch self { case .pdf: "PDF"; case .epub: "EPUB"; case .text(let f): f.label; case .ebook(let f): f.rawValue.uppercased() }
+        switch self { case .pdf: "PDF"; case .epub: "EPUB"; case .docx: "DOCX"; case .text(let f): f.label; case .ebook(let f): f.rawValue.uppercased() }
     }
     public var namespace: String {
-        switch self { case .pdf: "pdf"; case .epub: "epub"; case .text(let f): "text:" + f.rawValue; case .ebook(let f): "ebook:" + f.rawValue }
+        switch self { case .pdf: "pdf"; case .epub: "epub"; case .docx: "docx"; case .text(let f): "text:" + f.rawValue; case .ebook(let f): "ebook:" + f.rawValue }
     }
 }
 public struct RecordBookIdentity: Sendable, Equatable, Identifiable {
@@ -21,7 +21,7 @@ public struct RecordBookIdentity: Sendable, Equatable, Identifiable {
         self.format = format; self.bookID = bookID; self.editionID = editionID; self.fileSHA256 = fileSHA256
     }
 }
-public enum RecordSearchKind: String, Sendable { case book, note, japanese, english }
+public enum RecordSearchKind: String, Sendable { case book, note, japanese, english, annotation }
 public struct RecordSearchTarget: Sendable, Equatable, Identifiable {
     public let book: RecordBookIdentity
     public let kind: RecordSearchKind
@@ -69,7 +69,7 @@ public struct RecordSearchResponse: SavedSearchResponse {
     public init(hits: [RecordSearchHit] = [], totalCount: Int = 0) { self.hits = hits; self.totalCount = totalCount }
 }
 public enum ResolvedRecordSearchSource: Sendable {
-    case text(TextFormatBook, TextFormatAnchor?), ebook(EbookBook, EbookAnchor?), japanese(AISourceSnapshot), english(AISourceSnapshot)
+    case text(TextFormatBook, TextFormatAnchor?), ebook(EbookBook, EbookAnchor?), docx(DOCXBook, DOCXAnchor), japanese(AISourceSnapshot), english(AISourceSnapshot), annotation(AISourceSnapshot)
 }
 /// The integration UI can group each typed result by its original identity without inventing format aliases.
 public struct SavedRecordSearchResponse: SavedSearchResponse {

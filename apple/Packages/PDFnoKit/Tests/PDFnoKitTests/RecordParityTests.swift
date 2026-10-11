@@ -51,6 +51,32 @@ private actor RecordParitySearchGate {
 #endif
 
 struct RecordParityTests {
+    @Test(arguments: [false, true]) func currentTextAndEbookAnnotationsHaveDistinctSearchNamespaceAndExactLocators(ebook: Bool) async throws {
+        let root = parityRoot(); defer { try? FileManager.default.removeItem(at: root) }
+        let annotation: AnchoredAnnotation
+        if ebook {
+            let (book, note, _) = try await parityEbook(root)
+            annotation = AnchoredAnnotation(id: note.id, bookID: book.id, anchor: .ebook(note.anchor), kind: .note)
+        } else {
+            let (book, note, _) = try await parityText(root)
+            annotation = AnchoredAnnotation(id: note.id, bookID: book.id, anchor: .text(note.anchor), kind: .note)
+        }
+        let saved = try await AnnotationRepository(root: root).save(expected: annotation, text: "Current annotation marker café")
+        let repository = RecordSearchRepository(root: root), response = try await repository.search("annotation marker CAFÉ")
+        #expect(response.totalCount == 1)
+        let hit = try #require(response.hits.first)
+        #expect(hit.entry.target.kind == .annotation && hit.entry.target.noteID == saved.id)
+        #expect(hit.entry.quote == saved.anchor.quote && hit.entry.userText == saved.userText)
+        switch (try await repository.resolve(hit.entry.target), saved.anchor) {
+        case (.text(_, let actual), .text(let expected)): #expect(actual == expected)
+        case (.ebook(_, let actual), .ebook(let expected)): #expect(actual == expected)
+        default: Issue.record("Original format and canonical locator must survive resolution")
+        }
+        let legacy = RecordSearchTarget(book: hit.entry.target.book, kind: .note, noteID: saved.id)
+        #expect(legacy.id != hit.entry.target.id)
+        _ = try await repository.resolve(legacy)
+    }
+
     @Test(arguments: TextFileFormat.allCases) func allTextV1NamespacesEditWithoutChangingLocatorOrMigrating(format: TextFileFormat) async throws {
         let root = parityRoot(); defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

@@ -80,6 +80,35 @@ private actor BooknoDeferredCatalog {
         #expect(sameID.count == 7)
     }
 
+    @Test func currentAnnotationsExportOnlyCommittedBodyAndImmutableAIWithExactSource() async throws {
+        let root = root(); defer { try? FileManager.default.removeItem(at: root) }
+        let (book, legacy) = try await seedPDF(root)
+        let repository = AnnotationRepository(root: root)
+        let note = try await repository.save(expected: AnchoredAnnotation(bookID: book.id, anchor: .pdf(legacy.anchor), kind: .note), text: "Original current note")
+        let editor = SavedBodyEditingModel<AnnotationBodySnapshot>(root: root) { snapshot, text in
+            AnnotationBodySnapshot(try await repository.save(expected: snapshot.annotation, text: text))
+        }
+        editor.begin(AnnotationBodySnapshot(note)); editor.setText("Original uncommitted exclusion marker", for: AnnotationBodySnapshot(note))
+        let source = AISourceSnapshot(bookID: book.id, readerSessionID: UUID(), documentVersion: 0, anchor: .pdf(legacy.anchor))
+        var provider = AIProviderConfig(); provider.mode = .mock; provider.label = "Original local provider"
+        let result = AIResult(request: AIRequest(source: source, provider: provider, kind: .translate), text: "Original generated result", fromCache: false)
+        let ai = try await repository.addAIResult(result, comment: "Original separate comment")
+        let preview = BooknoLibraryPreviewRepository(root: root), choices = try await preview.catalog()
+        let before = try files(root)
+        let omitted = try await preview.materialize(choices, includeSavedNotes: false, includeCovers: false)
+        #expect(omitted.payloads.count == 1)
+        let material = try await preview.materialize(choices, includeSavedNotes: true, includeCovers: false)
+        let notes = material.payloads.compactMap { if case .note(let value) = $0 { return value }; return nil }
+        #expect(notes.count == 3) // Historical and both current records coexist without loss.
+        let actual = try #require(notes.first { $0.noteUUID == note.id }), savedAI = try #require(notes.first { $0.noteUUID == ai.id })
+        #expect(actual.userText == "Original current note" && actual.source.anchor == BooknoSourceAnchor(.pdf(legacy.anchor)))
+        #expect(actual.localEditRevision == note.revision && actual.aiAttachments.isEmpty)
+        #expect(savedAI.userText == "Original separate comment" && savedAI.aiAttachments.first?.text == result.text)
+        #expect(savedAI.annotationKind == .learning && savedAI.source == actual.source)
+        #expect(!notes.contains { $0.userText.contains("uncommitted exclusion") })
+        #expect(try files(root) == before)
+    }
+
     @Test func nativeSavedEditsMetadataDraftExclusionRestartAndMockReplayUseFreshReadOnlySnapshots() async throws {
         let root = root(); defer { try? FileManager.default.removeItem(at: root) }
         let (book, note) = try await seedPDF(root), source = LibraryRepository(root: root)

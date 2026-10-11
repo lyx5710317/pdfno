@@ -185,6 +185,26 @@ public enum BooknoExportAdapter {
         try BooknoExchangeCodec.validate(.note(dto))
         guard BooknoExchangeCodec.sourceMatches(dto, book: book) else { throw BooknoPreviewError.sourceMismatch }; return dto
     }
+    /// Current document annotations use the same bounded source/body contract as historical notes.
+    /// Only committed values are accepted; provider configuration and edit journals are excluded.
+    public static func note(_ note: AnchoredAnnotation, book: BooknoBookDTO) throws -> BooknoNoteDTO {
+        guard note.isValid, note.revision > 0 else { throw BooknoPreviewError.invalidContract }
+        let source: BooknoSourceDTO
+        switch note.anchor {
+        case .pdf(let anchor): source = BooknoSourceDTO(bookUUID: note.bookID, format: .pdf, anchor: .pdf(anchor))
+        case .epub(let anchor): source = BooknoSourceDTO(bookUUID: note.bookID, format: .epub, anchor: .epub(anchor))
+        case .text(let anchor):
+            guard [.txt, .markdown, .html].contains(book.edition.format) else { throw BooknoPreviewError.sourceMismatch }
+            source = BooknoSourceDTO(bookUUID: note.bookID, format: book.edition.format, textAnchor: anchor)
+        case .docx, .ebook: throw BooknoPreviewError.unsupportedFormat(book.edition.format.rawValue)
+        }
+        let attachments = note.aiResult.map { [BooknoAIAttachmentDTO(kind: $0.kind, text: $0.text, promptVersion: $0.promptVersion)] } ?? []
+        let dto = BooknoNoteDTO(noteUUID: note.id, annotationKind: note.aiResult == nil ? .highlight : .learning,
+            userText: note.userText, source: source, localEditRevision: note.revision, aiAttachments: attachments)
+        try BooknoExchangeCodec.validate(.note(dto))
+        guard BooknoExchangeCodec.sourceMatches(dto, book: book) else { throw BooknoPreviewError.sourceMismatch }
+        return dto
+    }
     public static func book(_ book: TextFormatBook) throws -> BooknoBookDTO {
         guard let format = BooknoFormat(book.format) else { throw BooknoPreviewError.unsupportedFormat(book.format.label) }
         let dto = BooknoBookDTO(bookUUID: book.id,

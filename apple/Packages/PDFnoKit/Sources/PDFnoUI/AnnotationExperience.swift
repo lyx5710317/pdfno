@@ -100,7 +100,15 @@ import PDFnoReaders
     private let owner = "annotations:"+UUID().uuidString
     init(root: URL) {
         self.root=root; let repository=AnnotationRepository(root: root);self.repository=repository
-        editor=SavedBodyEditingModel(root: root) { note,text in AnnotationBodySnapshot(try await repository.save(expected: note.annotation,text: text)) }
+        #if DEBUG
+        let failureFixture = NoteEditingFilesystemUITestFixture(root: root, manifest: AnnotationRepository.filename)
+        #endif
+        editor=SavedBodyEditingModel(root: root) { note,text in
+            #if DEBUG
+            if note.annotation.revision > 0 { try failureFixture?.prepareAttempt() }
+            #endif
+            return AnnotationBodySnapshot(try await repository.save(expected: note.annotation,text: text))
+        }
         changes=editor.objectWillChange.sink { [weak self] in
             self?.objectWillChange.send()
             Task { @MainActor [weak self] in self?.updateDraftOwner() }

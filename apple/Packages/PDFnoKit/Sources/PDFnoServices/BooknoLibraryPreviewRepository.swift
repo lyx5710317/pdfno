@@ -67,6 +67,7 @@ public actor BooknoLibraryPreviewRepository {
         let epubNotes = includeSavedNotes && formats.contains(.epub) ? try await EPUBRepository(root: root).load().notes : []
         let learning = includeSavedNotes && !formats.isDisjoint(with: [.pdf, .epub]) ? try await AILearningRepository(root: root).load().notes : []
         let text = try await TextFormatRepository(root: root).load()
+        let annotations = includeSavedNotes ? try await AnnotationRepository(root: root).load().notes : []
         let covers = CoverRepository(root: root)
         var payloads: [BooknoPayload] = [], assets: [String: BooknoCoverAssetDTO] = [:], bytes: [String: Data] = [:], notices: [String] = []
         for chosen in selected {
@@ -105,6 +106,9 @@ public actor BooknoLibraryPreviewRepository {
                           original.editionID == book.edition.id, original.fileSHA256 == book.edition.sourceFileSHA256 else { throw BooknoPreviewError.sourceMismatch }
                     payloads += try text.notes.filter { $0.bookID == original.id }.map { .note(try BooknoExportAdapter.note($0, book: original)) }
                 case .cbz, .docx: notices.append(book.title + "：本次仅书目与既存封面，未包含漫画／Word 笔记。")
+                }
+                if [.pdf, .epub, .txt, .markdown, .html].contains(book.edition.format) {
+                    payloads += try annotations.filter { $0.bookID == book.bookUUID }.map { .note(try BooknoExportAdapter.note($0, book: book)) }
                 }
                 for note in learning where note.result.source.bookID == book.bookUUID {
                     let format: BooknoFormat

@@ -49,7 +49,21 @@ extension LibraryModel {
                 guard case .ebook(let freshBook, let freshAnchor) = try await repository.resolve(target), freshBook.id == book.id,
                       let freshAnchor, freshAnchor == anchor, recordSearchReaderScope() == activeScope, !Task.isCancelled else { return false }
                 return await ebook.reader.navigate(to: freshAnchor)
-            case .japanese(let source), .english(let source):
+            case .docx(let book, let anchor):
+                let verifier = DOCXReaderSession(); defer { verifier.close() }
+                try await verifier.open(data: try await docx.repository.read(book), book: book, notes: [])
+                guard verifier.document?.resolves(anchor) == true else { return false }
+                try Task.checkCancellation()
+                guard !isBusy, recordSearchReaderScope() == initialScope else { return false }
+                if !preservingCurrentReader || displayedDocumentID != book.id { await openDOCX(book) }
+                guard docx.isActive, docx.reader.book?.id == book.id, docx.reader.book?.editionID == book.editionID,
+                      docx.reader.ready, !Task.isCancelled else { return false }
+                searchDocumentDidOpen?()
+                let activeScope = recordSearchReaderScope()
+                guard case .docx(let freshBook, let freshAnchor) = try await repository.resolve(target), freshBook.id == book.id,
+                      freshAnchor == anchor, recordSearchReaderScope() == activeScope, !Task.isCancelled else { return false }
+                return await docx.reader.navigate(to: freshAnchor)
+            case .japanese(let source), .english(let source), .annotation(let source):
                 let format: LocalBookFormat
                 switch source.anchor {
                 case .pdf(let anchor):
@@ -80,10 +94,12 @@ extension LibraryModel {
                 switch try await repository.resolve(target) {
                 case .japanese(let value) where target.kind == .japanese: fresh = value
                 case .english(let value) where target.kind == .english: fresh = value
+                case .annotation(let value) where target.kind == .annotation: fresh = value
                 default: return false
                 }
                 let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
                 guard try encoder.encode(fresh) == encoder.encode(source), recordSearchReaderScope() == activeScope, !Task.isCancelled else { return false }
+                if target.kind == .annotation { return await returnToAISource(fresh) }
                 return target.kind == .english ? await returnToEnglishSource(fresh) : await returnToJapaneseSource(fresh)
             }
         } catch { return false }

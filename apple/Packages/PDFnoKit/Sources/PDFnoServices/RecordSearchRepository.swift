@@ -11,7 +11,10 @@ public actor RecordSearchRepository {
     private let japanese: JapaneseLearningRepository
     private let pdf: LibraryRepository
     private let epub: EPUBRepository
+    private let docx: DOCXRepository
+    private let annotations: AnnotationRepository
     public init(root: URL) {
+        annotations = AnnotationRepository(root: root); docx = DOCXRepository(root: root)
         gate = .shared(root: root); english = EnglishLearningRepository(root: root)
         text = TextFormatRepository(root: root); ebook = EbookRepository(root: root)
         japanese = JapaneseLearningRepository(root: root); pdf = LibraryRepository(root: root); epub = EPUBRepository(root: root)
@@ -26,8 +29,10 @@ public actor RecordSearchRepository {
         let en = try await english.load(); try Task.checkCancellation()
         let p = try await pdf.load(); try Task.checkCancellation()
         let u = try await epub.load(); try Task.checkCancellation()
+        let d = try await docx.load(); try Task.checkCancellation()
+        let a = try await annotations.load(); try Task.checkCancellation()
         guard gate.snapshot.phase == .writable, gate.snapshot.epoch == epoch else { throw LibrarySearchFailure.store }
-        let task = Task.detached { try Self.build(tokens, text: t, ebook: e, japanese: j, english: en, pdf: p, epub: u, limit: limit) }
+        let task = Task.detached { try Self.build(tokens, text: t, ebook: e, japanese: j, english: en, pdf: p, epub: u, docx: d, annotations: a, limit: limit) }
         let result = try await withTaskCancellationHandler(operation: { try await task.value }, onCancel: { task.cancel() })
         guard gate.snapshot.phase == .writable, gate.snapshot.epoch == epoch else { throw LibrarySearchFailure.store }
         return result
@@ -39,7 +44,7 @@ public actor RecordSearchRepository {
         RecordBookIdentity(format: .ebook(b.format), bookID: b.id, editionID: b.editionID, fileSHA256: b.fileSHA256)
     }
     private static func build(_ tokens: [String], text: TextFormatState, ebook: EbookState, japanese: JapaneseLearningState, english: EnglishLearningState,
-                              pdf: LibraryState, epub: EPUBState, limit: Int) throws -> RecordSearchResponse {
+                              pdf: LibraryState, epub: EPUBState, docx: DOCXState, annotations: AnnotationState, limit: Int) throws -> RecordSearchResponse {
         guard !tokens.isEmpty else { return RecordSearchResponse() }
         var entries: [RecordSearchEntry] = []
         for b in text.books {
@@ -106,6 +111,28 @@ public actor RecordSearchRepository {
                 title: title ?? "来源书籍不在书库", userText: n.userText, quote: source.anchor.quote,
                 generatedText: fields.joined(separator: "\n"), location: source.anchor.locationLabel, sourceAvailable: title != nil))
         }
+        // Explicitly saved AI is indexed in LibrarySearchRepository. Manual annotations
+        // get their own namespace, including when a historical note reuses the UUID.
+        for note in annotations.notes where note.origin == .manual {
+            try Task.checkCancellation()
+            let format: RecordSourceFormat, title: String?, location: String
+            switch note.anchor {
+            case .pdf(let anchor): format = .pdf; location = "第 \(anchor.regions.first.map { $0.pageIndex + 1 } ?? 1) 页"
+                title = pdfBooks[note.bookID].flatMap { $0.editionID == anchor.editionID && $0.fileSHA256 == anchor.fileSHA256 ? $0.title : nil }
+            case .epub(let anchor): format = .epub; location = "第 \(anchor.spineIndex + 1) 章"
+                title = epubBooks[note.bookID].flatMap { $0.accepts(anchor) ? $0.title : nil }
+            case .text(let anchor):
+                guard let book = textBooks[note.bookID] else { continue }
+                format = .text(book.format); location = "段落 \(anchor.blockID + 1)"; title = book.accepts(anchor) ? book.title : nil
+            case .ebook(let anchor): format = .ebook(anchor.format); location = "段落 \(anchor.blockID + 1)"
+                title = ebookBooks[note.bookID].flatMap { $0.accepts(anchor) ? $0.title : nil }
+            case .docx(let anchor): format = .docx; location = "段落 \(anchor.blockID + 1)"
+                title = docx.books.first(where: { $0.id == note.bookID && $0.accepts(anchor) })?.title
+            }
+            let identity = RecordBookIdentity(format: format, bookID: note.bookID, editionID: note.anchor.editionID, fileSHA256: note.anchor.fileSHA256)
+            entries.append(RecordSearchEntry(target: RecordSearchTarget(book: identity, kind: .annotation, noteID: note.id),
+                title: title ?? "来源书籍不在书库", userText: note.userText, quote: note.anchor.quote, location: location, sourceAvailable: title != nil))
+        }
         var hits: [RecordSearchHit] = [], count = 0
         for entry in entries.sorted(by: { $0.id < $1.id }) {
             try Task.checkCancellation()
@@ -120,22 +147,46 @@ public actor RecordSearchRepository {
     /// Activation re-reads current records and validates exact persisted identity, never a preview string.
     public func resolve(_ target: RecordSearchTarget) async throws -> ResolvedRecordSearchSource {
         try Task.checkCancellation()
+        let manual: AnchoredAnnotation?
+        if target.kind == .annotation {
+            guard let note = try await annotations.load().notes.first(where: { $0.id == target.noteID && $0.origin == .manual }),
+                  note.bookID == target.book.bookID, note.anchor.editionID == target.book.editionID,
+                  note.anchor.fileSHA256 == target.book.fileSHA256 else { throw LibrarySearchFailure.source }
+            manual = note
+        } else { manual = nil }
         switch target.book.format {
         case .text(let format):
             let state = try await text.load()
             guard let b = state.books.first(where: { Self.identity($0) == target.book && $0.format == format }) else { throw LibrarySearchFailure.source }
             if target.kind == .book, target.noteID == nil { return .text(b, nil) }
+            if let manual {
+                guard case .text(let anchor) = manual.anchor, b.accepts(anchor) else { throw LibrarySearchFailure.source }
+                return .text(b, anchor)
+            }
             guard target.kind == .note, let n = state.notes.first(where: { $0.id == target.noteID && $0.bookID == b.id }), b.accepts(n.anchor) else { throw LibrarySearchFailure.source }
             return .text(b, n.anchor)
         case .ebook(let format):
             let state = try await ebook.load()
             guard let b = state.books.first(where: { Self.identity($0) == target.book && $0.format == format }) else { throw LibrarySearchFailure.source }
             if target.kind == .book, target.noteID == nil { return .ebook(b, nil) }
+            if let manual {
+                guard case .ebook(let anchor) = manual.anchor, b.accepts(anchor) else { throw LibrarySearchFailure.source }
+                return .ebook(b, anchor)
+            }
             guard target.kind == .note, let n = state.notes.first(where: { $0.id == target.noteID && $0.bookID == b.id }), b.accepts(n.anchor) else { throw LibrarySearchFailure.source }
             return .ebook(b, n.anchor)
+        case .docx:
+            guard let manual, case .docx(let anchor) = manual.anchor,
+                  let book = try await docx.load().books.first(where: { $0.id == manual.bookID && $0.accepts(anchor) }) else { throw LibrarySearchFailure.source }
+            return .docx(book, anchor)
         case .pdf, .epub:
             let source: AISourceSnapshot
             switch target.kind {
+            case .annotation:
+                guard let manual else { throw LibrarySearchFailure.source }
+                let anchor: AISelectionAnchor
+                switch manual.anchor { case .pdf(let value): anchor = .pdf(value); case .epub(let value): anchor = .epub(value); default: throw LibrarySearchFailure.source }
+                source = AISourceSnapshot(bookID: manual.bookID, readerSessionID: manual.id, documentVersion: 0, anchor: anchor)
             case .japanese:
                 guard let n = try await japanese.load().notes.first(where: { $0.id == target.noteID }) else { throw LibrarySearchFailure.source }
                 source = n.review.source
@@ -153,6 +204,7 @@ public actor RecordSearchRepository {
                 guard try await epub.load().books.contains(where: { $0.id == source.bookID && $0.accepts(a) }) else { throw LibrarySearchFailure.source }
             default: throw LibrarySearchFailure.source
             }
+            if target.kind == .annotation { return .annotation(source) }
             return target.kind == .english ? .english(source) : .japanese(source)
         }
     }

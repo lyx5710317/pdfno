@@ -89,7 +89,7 @@ struct AISettingsView: View {
     private var contentHeading: some View {
         HStack {
             Spacer()
-            Button("返回") { clearUnappliedSecrets(); close?() }
+            Button("返回") { draft = learning.config; clearUnappliedSecrets(); close?() }
                 .disabled(childBusy).accessibilityIdentifier("settings-return")
         }
     }
@@ -175,7 +175,7 @@ struct AISettingsView: View {
         }
     }
     private var aiContent: some View {
-        AIConnectionSettings(learning: learning, active: active)
+        AIConnectionSettings(learning: learning, draft: $draft, secret: $secret, active: active)
     }
 }
 struct AILearningWorkspace: View {

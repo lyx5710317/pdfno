@@ -33,6 +33,39 @@ struct SavedAIAnnotationSearchTests {
         return (book, AIResult(request: AIRequest(source: source, provider: config, kind: .explain),
             text: "Original saved annotation explanation marker", fromCache: false))
     }
+    @Test func manualAnnotationSearchExcludesDraftsSeparatesLegacyIdentityAndReturnsExactPDF() async throws {
+        let directory = root(); defer { try? FileManager.default.removeItem(at: directory) }
+        let (book, result) = try await fixture(directory)
+        guard case .pdf(let anchor) = result.source.anchor else { Issue.record("Original PDF fixture required"); return }
+        let repository = AnnotationRepository(root: directory), search = SavedRecordSearchRepository(root: directory)
+        let note = AnchoredAnnotation(bookID: book.id, anchor: .pdf(anchor), kind: .note)
+        let editor = SavedBodyEditingModel<AnnotationBodySnapshot>(root: directory) { baseline, text in
+            AnnotationBodySnapshot(try await repository.save(expected: baseline.annotation, text: text))
+        }
+        editor.begin(AnnotationBodySnapshot(note)); editor.setText("Original manual draft marker", for: AnnotationBodySnapshot(note))
+        #expect(try await search.search("manual draft marker").totalCount == 0)
+        let saved = try #require(await editor.save(AnnotationBodySnapshot(note))).annotation
+        try await LibraryRepository(root: directory).saveNote(ReadingNote(id: saved.id, bookID: book.id, anchor: anchor, userText: "Original manual draft marker"))
+        let response = try await search.search("manual draft marker")
+        #expect(response.totalCount == 2)
+        let hit = try #require(response.records.hits.first)
+        #expect(hit.entry.target.kind == .annotation && hit.entry.target.noteID == saved.id)
+        #expect(hit.entry.quote == anchor.quote && hit.entry.userText == saved.userText && hit.entry.generatedText.isEmpty)
+        #expect(hit.id != response.legacy.groups.first?.hits.first?.id)
+        editor.begin(AnnotationBodySnapshot(saved)); editor.setText("Original unpublished edit", for: AnnotationBodySnapshot(saved))
+        #expect(try await search.search("unpublished edit").totalCount == 0)
+        let library = LibraryModel(root: directory, aiSession: AppAISession()); await library.load(); await library.open(book)
+        defer { library.reader.close() }
+        let view = PDFView(); library.reader.attach(view)
+        #expect(library.reader.jump(to: 1, in: library.reader.readerSessionID))
+        #expect(await library.openRecordSearchTarget(hit.entry.target, preservingCurrentReader: true))
+        library.reader.captureSelection()
+        #expect(library.reader.pageIndex == 0 && library.reader.capturedSelection?.quote == anchor.quote)
+        let forged = RecordSearchTarget(book: RecordBookIdentity(format: .pdf, bookID: book.id, editionID: UUID(), fileSHA256: book.fileSHA256), kind: .annotation, noteID: saved.id)
+        #expect(!(await library.openRecordSearchTarget(forged)))
+        #expect(try await repository.load().notes.first == saved)
+    }
+
     @Test func explicitlySavedAIAnnotationIsFoundByExactQuoteAndGeneratedText() async throws {
         let directory = root(); defer { try? FileManager.default.removeItem(at: directory) }
         let (_, result) = try await fixture(directory)
