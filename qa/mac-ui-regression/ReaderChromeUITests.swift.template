@@ -222,6 +222,9 @@ final class ReaderChromeUITests: XCTestCase {
         try shot("CH-03-aa-no-header-two-tabs-plus", app)
         try click(item("reading-mode-scroll", app)); selected("reading-mode-scroll", app, "已选中"); try click(item("epub-aa", app))
         try selectWindow(app); try click(item("selection-annotation-note", app))
+        // Opening an anchored note is asynchronous. Wait for the same actual
+        // native editor used by uiBeginNote before checking its original controls.
+        XCTAssertTrue(item("annotation-comment-input", app).waitForExistence(timeout: 10))
         XCTAssertTrue(item("annotation-editor-cancel", app).exists && item("annotation-editor-save", app).exists)
         let input = item("annotation-comment-input", app); try click(input); try pasteOriginalFixture("Original saved comment", into: input)
         try click(item("annotation-editor-save", app)); try click(item("epub-notes", app))
