@@ -183,12 +183,12 @@ struct AnnotationList: View {
                 if model.bookRecords.isEmpty { Text("选中文字后，在浮动工具条添加高亮、下划线或笔记。").foregroundStyle(.secondary) }
                 ForEach(model.bookRecords) { record in
                     VStack(alignment: .leading,spacing: 8) {
+                        Label(record.displayTitle,systemImage: record.aiResult == nil ? record.kind.symbol : "sparkles").font(.caption).foregroundStyle(.secondary)
+                        Text(verbatim: record.anchor.quote).lineLimit(5).accessibilityIdentifier("annotation-excerpt")
+                            .contentShape(Rectangle()).onTapGesture { Task { await model.navigate(record) } }
                         Button { Task { await model.navigate(record) } } label: {
-                            VStack(alignment: .leading,spacing: 8) {
-                                Label(record.displayTitle,systemImage: record.aiResult == nil ? record.kind.symbol : "sparkles").font(.caption).foregroundStyle(.secondary)
-                                Text(verbatim: record.anchor.quote).lineLimit(5).accessibilityIdentifier("annotation-excerpt")
-                            }.frame(maxWidth: .infinity,alignment: .leading).contentShape(Rectangle())
-                        }.buttonStyle(.plain).accessibilityElement(children: .contain)
+                            Label("回到原文",systemImage: "arrow.up.left")
+                        }.buttonStyle(.plain).font(.caption).foregroundStyle(.tint)
                             .accessibilityIdentifier("annotation-row-"+record.id.uuidString)
                         if let result=record.aiResult { AIResultNoteBox(result: result,identifier: "annotation-ai-result") }
                         if model.editor.drafts[AnnotationBodySnapshot(record).key] != nil { Text("未保存批注 · 右键继续编辑").font(.caption).foregroundStyle(.orange) }

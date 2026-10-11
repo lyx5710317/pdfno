@@ -37,14 +37,18 @@ struct AIConnectionSettings: View {
             }
             Text(learning.connectionStatus).font(.caption).accessibilityIdentifier("ai-connection-status")
             if let error = learning.error { PDFnoStatusMessage(text: error,kind: .error,identifier: "ai-settings-error") }
-            DisclosureGroup("高级",isExpanded: $advanced) {
+            Button { advanced.toggle() } label: {
+                Label("高级",systemImage: advanced ? "chevron.down" : "chevron.right")
+                    .frame(maxWidth: .infinity,alignment: .leading).contentShape(Rectangle())
+            }.buttonStyle(.plain).accessibilityIdentifier("ai-connection-advanced")
+                .accessibilityValue(advanced ? "已展开" : "已收起")
+            if advanced {
                 PDFnoSettingsField("服务名称") { TextField("服务名称",text: $draft.label).accessibilityIdentifier("ai-provider-label") }
                 if let url = try? BYOKSelectionPolicy.finalURL(draft) { Text(verbatim: "请求地址：" + url.absoluteString).font(.caption).textSelection(.enabled).fixedSize(horizontal: false,vertical: true) }
                 Text("使用 HTTPS chat/completions 与 JSON 返回协议。每次只发送固定选文和该对话的消息；不读取整本书或其他文档。API Key 不写入磁盘；重开应用需重新输入。").font(.caption).foregroundStyle(.secondary)
                 Text("阅读请求沿用本次应用共用 3 次上限；连接测试另有 3 次上限。每次最多 1024 输出 tokens、30 秒、64 KiB 响应。失败或取消也计数，不自动重试。").font(.caption).foregroundStyle(.secondary)
                 if learning.hasSessionCredential { Button("清除 API Key") { secret = ""; Task { await learning.clearSessionCredential() } }.accessibilityIdentifier("ai-clear-key") }
-            }.accessibilityIdentifier("ai-connection-advanced")
-                .accessibilityValue(advanced ? "已展开" : "已收起")
+            }
         }.textFieldStyle(.roundedBorder)
             .onChange(of: draft.endpoint) { _, _ in secret = ""; learning.cancelConnectionProbe() }
             .onDisappear { secret = ""; learning.cancelConnectionProbe() }

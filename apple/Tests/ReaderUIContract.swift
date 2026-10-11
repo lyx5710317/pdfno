@@ -80,17 +80,7 @@ import XCTest
         let control = ui(id, app)
         try uiWait("Reader panel toggle") { control.exists && control.isEnabled }
         if (control.value as? String == "已展开") != open {
-            if id == "ai-connection-advanced" {
-                try uiWait("Visible native disclosure triangle") { control.exists && control.isEnabled && control.isHittable }
-                let frame = control.frame
-                try uiWait("Physical disclosure triangle bounds") {
-                    !frame.isEmpty && !frame.isInfinite && [frame.minX, frame.minY, frame.maxX, frame.maxY].allSatisfy(\.isFinite)
-                }
-                // The native disclosure's generic click reaches the arrow's
-                // right edge on macOS 15. Use the visible triangle's left side.
-                control.coordinate(withNormalizedOffset: .zero)
-                    .withOffset(CGVector(dx: min(4, frame.width / 2), dy: frame.height / 2)).click()
-            } else { try uiClick(control) }
+            try uiClick(control)
         }
         try uiWait("Panel state: " + id) { (control.value as? String == "已展开") == open }
     }

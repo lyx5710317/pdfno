@@ -95,11 +95,7 @@ final class NativeUITests: XCTestCase {
         guard ProcessInfo.processInfo.environment["PDFNO_UI_TEST_PANEL_DIAGNOSTICS"] == "1" else { return }
         print("PDFno original workspace entry diagnostic id=\(id) exists=\(element.exists)")
         guard element.exists else { return }
-        print("PDFno original workspace entry AX \(id)\n\(element.debugDescription)")
-        let attachment = XCTAttachment(screenshot: element.screenshot())
-        attachment.name = "Original own workspace control - " + id
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        print("PDFno original workspace control role=\(element.elementType.rawValue) id=\(element.identifier) frame=\(element.frame) hittable=\(element.isHittable)")
     }
 
     #if os(macOS)
@@ -1675,7 +1671,14 @@ final class NativeUITests: XCTestCase {
         app.typeKey("g", modifierFlags: [.command, .shift])
         let location = try uiFileControl(app, type: .textField, identifier: "PathTextField")
         XCTAssertTrue(location.waitForExistence(timeout: 5))
-        enterSearch(url.path, into: location, replacing: true)
+        // The modal field owns keyboard focus after its physical click. Send
+        // the two native shortcuts to that app, avoiding a full reader/WebKit
+        // AX traversal for each key. The exact path and completion stay checked.
+        press(location)
+        app.typeKey("a", modifierFlags: .command)
+        NSPasteboard.general.clearContents()
+        XCTAssertTrue(NSPasteboard.general.setString(url.path, forType: .string))
+        app.typeKey("v", modifierFlags: .command)
         XCTAssertEqual(location.value as? String, url.path)
         traceFixturePanel("literal-path-confirmed", url: url, panel: panel, started: diagnosticStarted)
         // The completion label is not hittable on macOS; select its actual row/cell by mouse.
@@ -1714,13 +1717,9 @@ final class NativeUITests: XCTestCase {
         let elapsed = ProcessInfo.processInfo.systemUptime - started
         print("PDFno fixture-panel diagnostic stage=\(stage) file=\(url.lastPathComponent) seconds=\(elapsed) rootType=\(panel.elementType.rawValue)")
         guard stage == "qualified-completion", let evidence else { return }
-        // Limit AX and images to the exact synthetic completion cell. The file
-        // panel's unrelated directory listing and the desktop are never dumped.
-        print("PDFno fixture-completion AX begin \(url.lastPathComponent)\n\(evidence.debugDescription)\nPDFno fixture-completion AX end")
-        let attachment = XCTAttachment(screenshot: evidence.screenshot())
-        attachment.name = "Original fixture completion - " + url.lastPathComponent
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        // Read only the exact synthetic completion's attributes. Avoid the
+        // full AX debug description, which traverses the reader behind it.
+        print("PDFno fixture-completion role=\(evidence.elementType.rawValue) id=\(evidence.identifier) frame=\(evidence.frame) hittable=\(evidence.isHittable)")
     }
     @MainActor private func originalPNG(width: Int, height: Int) throws -> Data {
         let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
