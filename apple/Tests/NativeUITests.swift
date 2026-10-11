@@ -246,7 +246,7 @@ final class NativeUITests: XCTestCase {
         try uiCloseLegacyAI(app); try uiSettings(app)
         try uiClick(ui("ai-provider-mode", app)); try uiClick(app.menuItems["OpenAI 兼容"].firstMatch)
         try uiPaste("https://joint-ui.example/v1", ui("ai-endpoint", app)); try uiPaste("original-ui-model", ui("ai-model", app))
-        try uiPaste("synthetic-reading-ui-credential", ui("ai-session-key", app))
+        try uiSyntheticCredential("synthetic-reading-ui-credential", ui("ai-session-key", app))
         XCTAssertEqual(try uiAnnotations(app).count, 0)
         try uiClick(ui("ai-settings-save", app)); try uiContains(ui("ai-connection-status", app), "已应用")
         try uiContains(ui("ai-credential-status", app), "已配置"); try uiClick(ui("settings-return", app))
@@ -801,7 +801,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertTrue(ui("ai-result", app).waitForExistence(timeout: 15)); XCTAssertEqual(try uiAnnotations(app).count, 0)
         try uiReveal(ui("ai-save-note", app), scroll: "ai-notes-list", app); try uiClick(ui("ai-save-note", app))
         try uiContains(ui("ai-result-save-state", app), "已添加到当前文档笔记"); let before = try uiOnlyAnnotation(app)
-        try uiClick(ui("ai-close", app)); try uiClick(ui("workspace-tool-return", app)); try uiPanel("reader-notes", open: true, app)
+        try uiCloseLegacyAI(app); try uiPanel("reader-notes", open: true, app)
         try uiEditNote(app); try uiPaste("Original independent edited AI body", ui("annotation-comment-input", app)); try uiSaveNote(app)
         let after = try uiOnlyAnnotation(app)
         XCTAssertEqual(Set(before.keys), Set(after.keys)); XCTAssertEqual(before["aiResult"] as? NSDictionary, after["aiResult"] as? NSDictionary)
@@ -1822,7 +1822,7 @@ final class NativeUITests: XCTestCase {
         let saved = app.staticTexts["ai-saved-user-note"].firstMatch
         XCTAssertTrue(saved.waitForExistence(timeout: 5)); XCTAssertEqual(textValue(saved), "Original synthetic whole page note")
         press(app.buttons["ai-saved-source"].firstMatch)
-        if ui("workspace-tool-return", app).exists { try uiClick(ui("workspace-tool-return", app)) }
+        try uiCloseToolDirectory(app)
         XCTAssertTrue(textValue(app.staticTexts["page-position"].firstMatch).contains("1 / 1"))
         app.terminate()
     }
@@ -1885,7 +1885,7 @@ final class NativeUITests: XCTestCase {
         let savedText = app.descendants(matching: .any).matching(identifier: "ai-saved-user-note").firstMatch
         XCTAssertTrue(savedText.waitForExistence(timeout: 5)); XCTAssertEqual(textValue(savedText), "Original synthetic whole chapter note")
         press(app.buttons["ai-saved-source"].firstMatch)
-        if ui("workspace-tool-return", app).exists { try uiClick(ui("workspace-tool-return", app)) }
+        try uiCloseToolDirectory(app)
         waitForText(["第 2 章"], in: app.staticTexts["epub-position"].firstMatch, timeout: 10)
     }
     @MainActor func testMacEPUBChapterOversizeRefusesWholeDocumentWithoutKeyOrSend() throws {
@@ -2236,7 +2236,6 @@ final class NativeUITests: XCTestCase {
         input.typeText(text)
         #endif
     }
-    @MainActor
     @MainActor func testLocalPDFReadingAndNoteFlow() throws {
         #if os(macOS)
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString

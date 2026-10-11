@@ -200,7 +200,7 @@ final class ProfessionalReaderUITests: XCTestCase {
         XCTAssertEqual(note["userText"] as? String, body); XCTAssertNotNil(note["aiResult"])
         XCTAssertEqual(try uiAnchorPayload(note)["quote"] as? String, "window")
         try uiReveal(item("ai-result-source", app), scroll: "ai-notes-list", app); try click(item("ai-result-source", app))
-        if item("workspace-tool-return", app).exists { try click(item("workspace-tool-return", app)) }
+        try uiCloseToolDirectory(app)
         XCTAssertFalse(item("reader-notes-panel", app).exists); contains(item("page-position", app), "1 / 2")
     }
 
@@ -274,7 +274,7 @@ final class ProfessionalReaderUITests: XCTestCase {
         let body = "Shell retained AI draft 日本語"
         try uiReveal(item("ai-user-note", app), scroll: "ai-notes-list", app); try uiPaste(body, item("ai-user-note", app))
         let result = uiText(item("ai-result", app)); XCTAssertEqual(try uiAnnotations(app).count, 0)
-        try click(item("ai-close", app)); try click(item("workspace-tool-return", app)); try click(item("workspace-back-library", app))
+        try uiCloseLegacyAI(app); try click(item("workspace-back-library", app))
         try click(item("library-category-examples", app)); try click(item("library-grid-layout", app))
         try capture("A-shell-03-library-grid-regular-dark", app: app); try click(item("library-book", app))
         try uiLegacyAI(app); try uiReveal(item("ai-user-note", app), scroll: "ai-notes-list", app)

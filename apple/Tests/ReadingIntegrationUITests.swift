@@ -279,7 +279,7 @@ final class ReadingIntegrationUITests: XCTestCase {
         let draft = element("ai-user-note", in: app); try paragraphClick(draft, in: app); try paragraphPaste("Original paragraph user body", into: draft)
         XCTAssertEqual(draft.value as? String, "Original paragraph user body")
         try paragraphClick(element("ai-save-note", in: app), in: app); value(element("ai-result-save-state", in: app), contains: "已添加到当前文档笔记")
-        try paragraphClick(element("paragraph-source-c1", in: app), in: app); if ui("workspace-tool-return", app).exists { try uiClick(ui("workspace-tool-return", app)) }; value(element("page-position", in: app), contains: "1 / 2")
+        try paragraphClick(element("paragraph-source-c1", in: app), in: app); try uiCloseToolDirectory(app); value(element("page-position", in: app), contains: "1 / 2")
     }
     @MainActor func testMacParagraphInsufficientAndInvalidResponsesCannotSave() throws {
         for scenario in ["insufficient", "invalid", "truncated"] {
@@ -308,7 +308,7 @@ final class ReadingIntegrationUITests: XCTestCase {
         let app = app(paragraphScenario: "typed"); defer { app.terminate() }
         try prepareParagraph(app, epub: true); try sendParagraph(app)
         value(element("paragraph-quote-c1", in: app), contains: "w")
-        try paragraphClick(element("paragraph-source-c1", in: app), in: app); if ui("workspace-tool-return", app).exists { try uiClick(ui("workspace-tool-return", app)) }; value(element("epub-position", in: app), contains: "第 1 章")
+        try paragraphClick(element("paragraph-source-c1", in: app), in: app); try uiCloseToolDirectory(app); value(element("epub-position", in: app), contains: "第 1 章")
         XCTAssertFalse(element("epub-error", in: app).exists)
     }
 

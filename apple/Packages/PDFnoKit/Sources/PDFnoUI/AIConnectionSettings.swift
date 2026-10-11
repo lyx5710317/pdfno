@@ -12,16 +12,15 @@ struct AIConnectionSettings: View {
     @State private var advanced = false
     @State private var confirmTest = false
     private enum Provider: String, CaseIterable { case deepSeek = "DeepSeek", compatible = "OpenAI 兼容", mock = "本地示例", unconfigured = "未配置" }
-    @State private var provider: Provider
+    private var provider: Provider {
+        draft.mode == .mock ? .mock : draft.mode == .unconfigured ? .unconfigured : DeepSeekSelectionPolicy.supports(draft) ? .deepSeek : .compatible
+    }
     init(learning: AILearningModel, draft: Binding<AIProviderConfig>, secret: Binding<String>, active: Bool = true) {
         self.learning = learning; self.active = active; _draft = draft; _secret = secret
-        let config = draft.wrappedValue
-        _provider = State(initialValue: config.mode == .mock ? .mock : config.mode == .unconfigured ? .unconfigured : DeepSeekSelectionPolicy.supports(config) ? .deepSeek : .compatible)
     }
     var body: some View {
         PDFnoSettingsCard("AI 连接",symbol: "sparkles") {
-            Picker("服务商",selection: $provider) { ForEach(Provider.allCases,id: \.self) { Text($0.rawValue).tag($0) } }.accessibilityIdentifier("ai-provider-mode")
-                .onChange(of: provider) { _, value in preset(value) }
+            Picker("服务商",selection: Binding(get: { provider }, set: { preset($0) })) { ForEach(Provider.allCases,id: \.self) { Text($0.rawValue).tag($0) } }.accessibilityIdentifier("ai-provider-mode")
             if draft.mode == .openAICompatible {
                 PDFnoSettingsField("API URL") { TextField("HTTPS API 地址",text: $draft.endpoint).accessibilityIdentifier("ai-endpoint") }
                 PDFnoSettingsField("API Key") { SecureField(learning.hasSessionCredential ? "已配置 · 留空保留" : "仅保留在本次应用会话",text: $secret).accessibilityIdentifier("ai-session-key") }

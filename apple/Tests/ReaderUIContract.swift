@@ -30,6 +30,12 @@ import XCTest
         try uiWait("Original fixture input must match exactly") { e.value as? String == text }
         XCTAssertEqual(e.value as? String, text)
     }
+    func uiSyntheticCredential(_ text: String, _ e: XCUIElement) throws {
+        // Only test-authored credentials; secure fields intentionally expose no plaintext value.
+        try uiClick(e); e.typeKey("a", modifierFlags: .command)
+        NSPasteboard.general.clearContents(); XCTAssertTrue(NSPasteboard.general.setString(text, forType: .string))
+        e.typeKey("v", modifierFlags: .command)
+    }
     func uiPanel(_ id: String, open: Bool, _ app: XCUIApplication) throws {
         let control = ui(id, app)
         try uiWait("Reader panel toggle") { control.exists && control.isEnabled }
@@ -47,7 +53,7 @@ import XCTest
     }
     func uiProvider(_ title: String, _ app: XCUIApplication, key: String? = nil) throws {
         try uiClick(ui("ai-provider-mode", app)); try uiClick(app.menuItems[title].firstMatch)
-        if let key { try uiPaste(key, ui("ai-session-key", app)) }
+        if let key { try uiSyntheticCredential(key, ui("ai-session-key", app)) }
         try uiClick(ui("ai-settings-save", app))
         try uiContains(ui("ai-connection-status", app), "已应用")
     }
@@ -79,7 +85,12 @@ import XCTest
     }
     func uiCloseLegacyAI(_ app: XCUIApplication) throws {
         try uiClick(ui("ai-close", app))
-        if ui("workspace-tool-return", app).exists { try uiClick(ui("workspace-tool-return", app)) }
+        try uiCloseToolDirectory(app)
+    }
+    func uiCloseToolDirectory(_ app: XCUIApplication) throws {
+        if ui("ai-tools-close", app).exists { try uiClick(ui("ai-tools-close", app)) }
+        else if ui("workspace-tool-return", app).exists { try uiClick(ui("workspace-tool-return", app)) }
+        try uiWait("Reading tools directory closes") { !self.ui("ai-tools-directory", app).exists }
     }
     func uiSaveLegacyAI(_ body: String, _ app: XCUIApplication) throws {
         let input = ui("ai-user-note", app); try uiReveal(input, scroll: "ai-notes-list", app); try uiPaste(body, input)
@@ -89,7 +100,7 @@ import XCTest
     }
     func uiReturnLegacyAI(_ app: XCUIApplication) throws {
         let source = ui("ai-result-source", app); try uiReveal(source, scroll: "ai-notes-list", app); try uiClick(source)
-        if ui("workspace-tool-return", app).exists { try uiClick(ui("workspace-tool-return", app)) }
+        try uiCloseToolDirectory(app)
     }
     func uiStore(_ app: XCUIApplication) throws -> URL {
         let token = try XCTUnwrap(app.launchEnvironment["PDFNO_UI_TEST_SESSION"])
