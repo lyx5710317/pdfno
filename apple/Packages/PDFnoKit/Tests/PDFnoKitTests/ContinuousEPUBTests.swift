@@ -123,6 +123,13 @@ import PDFnoServices
         for width in [CGFloat(1280),720] {
             window.setContentSize(NSSize(width: width,height: 520));host.layoutSubtreeIfNeeded()
             try await Task.sleep(for: .milliseconds(350))
+            // The container also debounces a native resize command. On a
+            // loaded runner it may still be in flight after this layout wait;
+            // let it finish before asserting our explicit command succeeds.
+            let resizeDeadline = Date().addingTimeInterval(3)
+            while session.busy && Date() < resizeDeadline {
+                try await Task.sleep(for: .milliseconds(50))
+            }
             #expect(await session.command("resize"));#expect(session.selection == source && session.vertical)
             let exactHeight = try await web.callAsyncJavaScript("const f=document.querySelector('iframe');return parseFloat(f.style.height)===f.contentDocument.body.scrollHeight;",arguments: [:],in: nil,contentWorld: .page) as? Bool
             #expect(exactHeight == true)
