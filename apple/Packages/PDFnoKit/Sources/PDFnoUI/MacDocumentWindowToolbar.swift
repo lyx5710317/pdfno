@@ -23,6 +23,10 @@ struct MacDocumentWindowToolbar: NSViewRepresentable {
         override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); owner?.attach(window) }
     }
     final class DocumentBandHost: NSHostingView<AnyView> {
+        // This host handles blank-gap gestures explicitly with performDrag.
+        // Let the mouseDown reach it instead of using AppKit's background-drag
+        // heuristic for a transparent hosting view inside a titlebar accessory.
+        override var mouseDownCanMoveWindow: Bool { false }
         var controlFrames: [CGRect] = []
         var nativeDoubleClick: ((NSEvent) -> Void)?
         private func isEmptySpace(_ point: NSPoint) -> Bool {
