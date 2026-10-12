@@ -247,10 +247,9 @@ final class ReaderConversationUITests: XCTestCase {
         let app = try launch(1280); defer { app.terminate() }
         try open("open-epub-sample",app)
         try click(item("ai-settings",app)); try category("ai",title: "AI",app)
-        try click(item("ai-provider-mode",app)); try click(app.menuItems["OpenAI 兼容"].firstMatch)
-        XCTAssertTrue(item("ai-endpoint",app).exists && item("ai-session-key",app).exists && item("ai-model",app).exists)
-        XCTAssertFalse(item("ai-provider-label",app).exists)
-        try shot("AI-00-unified-connection-fields",app); try configureMock(app)
+        // User paused BYOK validation. Preserve all ordinary dialogue and
+        // explicit-note assertions below with the in-memory local provider.
+        try configureMock(app)
         try category("aiTools",title: "AI工具",app)
         let japanese = item("settings-japanese-learning",app), english = item("settings-english-learning",app)
         XCTAssertEqual(state(japanese),"0"); XCTAssertEqual(state(english),"0")

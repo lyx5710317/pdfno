@@ -3,12 +3,15 @@
 """Configure diagnosis or shared8/gate17/remaining56 on the same compiled QA bundle."""
 from pathlib import Path
 import argparse, hashlib, json, platform, plistlib, subprocess, uuid
+from nonbyok_scope import load_scope, MANIFEST, SCOPES
 
 parser=argparse.ArgumentParser()
 parser.add_argument('--qa', type=Path, required=True)
-parser.add_argument('--scope', choices=['shared8','diagnostic6','gate17','remaining56'], required=True)
+parser.add_argument('--scope', choices=['shared8','diagnostic6','gate17','remaining56']+SCOPES, required=True)
 args=parser.parse_args(); q=args.qa.resolve()
 record=json.loads((q/'PREPARATION.json').read_text()); products=q/'DerivedData/Build/Products'
+if record.get('execution_scope')=='user-approved-nonbyok':
+    assert args.scope in SCOPES, 'This preparation cannot re-enable user-excluded BYOK methods'
 sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
 generated=list(products.glob('PDFnoMac_*.xctestrun')); assert len(generated)==1
 raw=plistlib.loads(generated[0].read_bytes()); conf=raw['PDFnoMacUITests']
@@ -37,7 +40,14 @@ for rel,digest in record['production_inputs'].items():
         assert sha(q/'source'/rel)==digest,rel
 all73=set(record['all_compiled_methods']); gate=set(record['gate17']); remaining=set(record['remaining56'])
 assert len(all73)==73 and len(gate)==17 and len(remaining)==56 and not gate&remaining and gate|remaining==all73
-if args.scope == 'shared8':
+if args.scope in SCOPES:
+    approved=load_scope()
+    assert record['execution_scope']=='user-approved-nonbyok' and record['scope_manifest_sha256']==sha(MANIFEST)
+    assert record['accepted_scope_methods']==approved['gui']['retained']
+    assert record['excluded_not_accepted']==approved['gui']['excluded'] and record['exclusions_are_accepted'] is False
+    methods=approved['gui'][args.scope]
+    assert set(methods).issubset(record['accepted_scope_methods'])
+elif args.scope == 'shared8':
     methods=record['representative8']
     assert len(set(methods))==8 and set(methods).issubset(all73)
 elif args.scope == 'diagnostic6':
@@ -64,6 +74,11 @@ env={'PDFNO_UI_TEST_SESSION':token,'PDFNO_UI_TEST_DEEPSEEK':'offline','PDFNO_A_Q
      'PDFNO_A_QA_SHOT_TOKEN':token,'PDFNO_CHROME_ORIGINAL_FILE':record['fixture_long_title_path'],
      'PDFNO_UI_TEST_PANEL_DIAGNOSTICS':'1'}
 if args.scope=='diagnostic6': env['PDFNO_UI_TEST_SOURCE_DIAGNOSTICS']='1'
+if args.scope in SCOPES:
+    env.pop('PDFNO_UI_TEST_DEEPSEEK')
+    env['PDFNO_A_QA_SCOPE']='nonbyok55'
+    for values in [conf.get('EnvironmentVariables',{}),conf.get('UITargetAppEnvironmentVariables',{})]:
+        values.pop('PDFNO_UI_TEST_DEEPSEEK',None)
 conf.setdefault('EnvironmentVariables',{}).update(env);conf.setdefault('UITargetAppEnvironmentVariables',{}).update(env)
 output=products/('QA-'+args.scope+'.xctestrun'); assert not output.exists()
 output.write_bytes(plistlib.dumps(raw))
@@ -75,8 +90,14 @@ plan={'source_head':record['source_head'],'scope':args.scope,'compiled_products'
       'allowed_own_documents_roots':[
           str(Path.home()/'Documents'/('PDFno-A-WindowShots-'+token)),
           str(Path.home()/'Library/Containers'/compiled['runner']['bundle']/'Data/Documents'/('PDFno-A-WindowShots-'+token))]}
+if args.scope in SCOPES:
+    plan.update(execution_scope=record['execution_scope'], authorization=record['authorization'],
+                scope_manifest_sha256=record['scope_manifest_sha256'], accepted_scope_methods=record['accepted_scope_methods'],
+                excluded_not_accepted=record['excluded_not_accepted'], exclusions_are_accepted=False)
 previous=q/'PLAN-gate17.json'
 if args.scope=='remaining56':
     first=json.loads(previous.read_text()); assert first['compiled_products']==compiled
+if args.scope=='remaining38':
+    first=json.loads((q/'PLAN-nonbyok-gate17.json').read_text()); assert first['compiled_products']==compiled
 (q/('PLAN-'+args.scope+'.json')).write_text(json.dumps(plan,indent=2)+'\n')
 print(json.dumps({'source_head':record['source_head'],'scope':args.scope,'expected_methods':len(methods),'all73_compiled_symbols_verified':True,'GUI_started':False}))

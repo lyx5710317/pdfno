@@ -8,11 +8,13 @@ add only the reviewed QA mock/ownership diagnostics and deny HTTP/Keychain.
 from pathlib import Path
 from collections import Counter
 import argparse, difflib, hashlib, json, re, shutil, subprocess, uuid
+from nonbyok_scope import load_scope, MANIFEST
 
 HERE = Path(__file__).resolve().parent
 parser = argparse.ArgumentParser()
 parser.add_argument('--output', type=Path, required=True)
 parser.add_argument('--repo', type=Path, default=HERE.parents[1])
+parser.add_argument('--scope', choices=['current73', 'nonbyok'], default='nonbyok')
 args = parser.parse_args()
 repo, out = args.repo.resolve(), args.output.resolve()
 assert not out.exists(), 'Preserve previous QA evidence; use a fresh output directory.'
@@ -118,6 +120,14 @@ record.update(expected_methods=methods, all_compiled_methods=methods, gate17=inv
               original_generated_ui_plan_unfiltered=True, new_accounts_or_packages=False)
 assert len(record['remaining56'])==56
 assert len(set(record['representative8']))==8 and set(record['representative8']).issubset(inventory['original68'])
+if args.scope == 'nonbyok':
+    approved = load_scope(repo)
+    record.update(execution_scope='user-approved-nonbyok', scope_manifest_sha256=sha(MANIFEST),
+                  authorization=approved['authorization'], exclusions_are_accepted=False,
+                  excluded_not_accepted=approved['gui']['excluded'], accepted_scope_methods=approved['gui']['retained'],
+                  representative6=approved['gui']['representative6'], nonbyok_gate17=approved['gui']['nonbyok-gate17'],
+                  remaining38=approved['gui']['remaining38'],
+                  scope='Compile original73; execute non-BYOK representative6, gate17, remaining38; 55 distinct retained, 18 user-excluded not accepted')
 (out/'PREPARATION.json').write_text(json.dumps(record,indent=2)+'\n')
 (out/'DerivedData').mkdir()
 print(json.dumps({'source_head':record['source_head'],'bundle':record['bundle'],'methods':73,'gate':17,'remaining':56,'GUI_started':False}))

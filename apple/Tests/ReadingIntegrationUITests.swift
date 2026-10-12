@@ -170,7 +170,9 @@ final class ReadingIntegrationUITests: XCTestCase {
         let app = app(); defer { app.terminate() }
         navigateWorkspace("ai-settings", in: app)
         try click(element("ai-settings", in: app))
-        try uiClick(ui("ai-provider-mode", app)); try uiClick(app.menuItems["DeepSeek"].firstMatch)
+        // The approved scope keeps ordinary unapplied-setting persistence in
+        // the local provider; user-supplied connection validation is paused.
+        try uiClick(ui("ai-provider-mode", app)); try uiClick(app.menuItems["本地示例"].firstMatch)
         try revealSettingsField("ai-connection-advanced", in: app)
         try uiPanel("ai-connection-advanced", open: true, app)
         let label = element("ai-provider-label", in: app)

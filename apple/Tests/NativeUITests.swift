@@ -2072,7 +2072,13 @@ final class NativeUITests: XCTestCase {
             .appendingPathComponent("Packages/PDFnoKit/Tests/PDFnoKitTests/Fixtures/ReadingModes/original-vertical-continuous.epub")
         try chooseInput(fixture, trigger: nativeImportEntry(app), app: app)
         let position = ui("epub-position", app); waitForText(["第 1 章"], in: position, timeout: 25)
-        XCTAssertFalse(ui("epub-error", app).exists); try uiSelectWeb("window", app); try uiBeginNote(app); try uiSaveNote(app)
+        XCTAssertFalse(ui("epub-error", app).exists)
+        // New books default to continuous scrolling. Establish the actual
+        // paginated mode before asserting a physical first-to-second-page turn.
+        try uiPanel("epub-aa", open: true, app); try uiClick(ui("reading-mode-single", app))
+        try uiWait("Actual single-column pagination selected") { self.ui("reading-mode-single", app).value as? String == "已选中" }
+        try uiPanel("epub-aa", open: false, app); waitForText(["第 1 页"], in: position, timeout: 10)
+        try uiSelectWeb("window", app); try uiBeginNote(app); try uiSaveNote(app)
         try uiPanel("epub-notes", open: true, app); let quote = ui("annotation-excerpt", app)
         XCTAssertTrue(quote.waitForExistence(timeout: 8)); let selectedText = uiText(quote)
         XCTAssertEqual(selectedText, "window"); XCTAssertFalse(selectedText.isEmpty)

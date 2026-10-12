@@ -11,8 +11,10 @@ guard CommandLine.arguments == [CommandLine.arguments[0], "--configure-ci"],
       environment["RUNNER_OS"] == "macOS",
       environment["RUNNER_ENVIRONMENT"] == "github-hosted",
       environment["GITHUB_REPOSITORY"] == "lyx5710317/pdfno",
-      environment["GITHUB_EVENT_NAME"] == "push",
-      environment["GITHUB_REF"] == "refs/heads/fix/public-language-reader-20261011",
+      ((environment["GITHUB_EVENT_NAME"] == "push" &&
+        (environment["GITHUB_REF"] ?? "").hasPrefix("refs/heads/")) ||
+       (environment["GITHUB_EVENT_NAME"] == "pull_request" &&
+        (environment["GITHUB_REF"] ?? "").hasPrefix("refs/pull/"))),
       NSUserName() == "runner",
       let workspace = environment["GITHUB_WORKSPACE"],
       URL(fileURLWithPath: workspace).resolvingSymlinksInPath().path ==
