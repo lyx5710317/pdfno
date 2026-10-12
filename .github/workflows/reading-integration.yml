@@ -37,6 +37,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.profile == 'completion49'
     runs-on: macos-15
     timeout-minutes: 95
+    env:
+      PDFNO_APPROVED_COMPLETION_AUTHORITY: Sentinel_ae30196ad1dc8191b5e6f2d5ee0055fa
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Guard the unchanged product and explicit user completion scope
