@@ -110,6 +110,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: native-current-mac-nonbyok55
+          include-hidden-files: true
           retention-days: 7
           if-no-files-found: warn
           path: |
@@ -132,6 +133,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: native-current-mac-nonbyok55-verifications
+          include-hidden-files: true
           retention-days: 7
           if-no-files-found: warn
           path: |
