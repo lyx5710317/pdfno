@@ -6,7 +6,7 @@ import hashlib, json, re
 
 HERE = Path(__file__).resolve().parent
 MANIFEST = HERE / 'nonbyok-scope.json'
-SCOPES = ['representative6', 'nonbyok-gate17', 'remaining38']
+SCOPES = ['representative6', 'nonbyok-gate17', 'remaining38', 'completion49']
 AUTHORITY = 'Sentinel_16e90e990010819186595583a4bde414'
 
 def sha(path):
@@ -33,6 +33,11 @@ def load_scope(repo=None):
     assert set(gui['nonbyok-gate17']) | set(gui['remaining38']) == set(retained)
     assert len(gui['representative6']) == len(set(gui['representative6'])) == 6
     assert set(gui['representative6']).issubset(retained)
+    completion = scope['completion_authorization']
+    assert completion['message_id'] == 'Sentinel_ae30196ad1dc8191b5e6f2d5ee0055fa'
+    assert completion['deferred_failed_method'] == 'NativeUITests/testMacEPUBSelectionRubyNotesAndRestart'
+    assert len(gui['completion49']) == len(set(gui['completion49'])) == 49
+    assert set(gui['completion49']) == set(retained) - set(gui['representative6'])
     swift = scope['swift']
     all_methods = swift['all_methods']
     excluded_swift = [item['method'] for item in swift['excluded']]

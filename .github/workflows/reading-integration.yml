@@ -2,12 +2,19 @@
 name: Isolated reading integration UI checks
 on:
   workflow_dispatch:
+    inputs:
+      profile:
+        description: 'User-authorized one-pass completion, or the original integration suite'
+        type: choice
+        options: [completion49, original-integration]
+        default: completion49
   push:
     branches: [feature/reading-local-integration-20261006]
 permissions:
   contents: read
 jobs:
   reading-integration:
+    if: github.event_name != 'workflow_dispatch' || inputs.profile == 'original-integration'
     runs-on: macos-15
     timeout-minutes: 20
     steps:
@@ -26,3 +33,64 @@ jobs:
           name: reading-integration-${{ github.sha }}
           path: .build/ReadingIntegration.xcresult
           retention-days: 7
+  completion49:
+    if: github.event_name == 'workflow_dispatch' && inputs.profile == 'completion49'
+    runs-on: macos-15
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Guard the unchanged product and explicit user completion scope
+        run: |
+          python3 -B qa/mac-ui-regression/nonbyok_scope.py
+          python3 -B scripts/check-native-source.py
+          python3 -B scripts/generate-apple-project.py
+          git diff --exit-code -- apple
+      - name: Preflight the dedicated CI display
+        run: |
+          mkdir -p .build
+          xcrun swiftc qa/mac-ui-regression/CIReadableDisplay.swift -o .build/CIReadableDisplay
+          .build/CIReadableDisplay --configure-ci
+      - name: Compile all73 and configure only the remaining49
+        run: |
+          python3 -B qa/mac-ui-regression/prepare.py --scope nonbyok --output .build/MacCompletionQA
+          xcodebuild -project .build/MacCompletionQA/source/apple/PDFno.xcodeproj -scheme PDFnoMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .build/MacCompletionQA/DerivedData -jobs 1 -disableAutomaticPackageResolution -skipPackageUpdates build-for-testing CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO CODE_SIGN_ENTITLEMENTS=
+          python3 -B qa/mac-ui-regression/configure.py --qa .build/MacCompletionQA --scope completion49
+      - name: Execute remaining49 once; record failures without a repair loop
+        run: |
+          set -o pipefail
+          set +e
+          xcodebuild -xctestrun .build/MacCompletionQA/DerivedData/Build/Products/QA-completion49.xctestrun -destination 'platform=macOS' -resultBundlePath .build/CI-Completion49.xcresult -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 240 test-without-building 2>&1 | tee .build/CI-Completion49.log
+          test_code=${PIPESTATUS[0]}
+          set -e
+          python3 -B qa/mac-ui-regression/verify-result.py --qa .build/MacCompletionQA --scope completion49 --result .build/CI-Completion49.xcresult --log .build/CI-Completion49.log --exit-code "$test_code"
+          exit "$test_code"
+      - name: Keep official one-pass results and own-fixture evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-fast-completion49
+          include-hidden-files: true
+          retention-days: 7
+          path: |
+            .build/CI-Mac73-Display.json
+            .build/CI-Completion49.xcresult
+            .build/CI-Completion49.log
+            .build/MacCompletionQA/PREPARATION.json
+            .build/MacCompletionQA/PLAN-completion49.json
+            .build/MacCompletionQA/Evidence
+            qa/mac-ui-regression/nonbyok-scope.json
+      - name: Keep small official method exports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-fast-completion49-verifications
+          include-hidden-files: true
+          retention-days: 7
+          path: |
+            .build/CI-Completion49.log
+            .build/MacCompletionQA/PREPARATION.json
+            .build/MacCompletionQA/PLAN-completion49.json
+            .build/MacCompletionQA/Evidence/*-verification.json
+            .build/MacCompletionQA/Evidence/*-official-summary.json
+            .build/MacCompletionQA/Evidence/*-official-tests.json
+            qa/mac-ui-regression/nonbyok-scope.json

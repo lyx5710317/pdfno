@@ -99,6 +99,9 @@ if args.scope in SCOPES:
     record.update(execution_scope=plan['execution_scope'], authorization=plan['authorization'],
                   scope_manifest_sha256=plan['scope_manifest_sha256'],
                   excluded_not_accepted=plan['excluded_not_accepted'], exclusions_are_accepted=False)
+if args.scope=='completion49':
+    record.update(completion_authorization=approved['completion_authorization'],
+                  acceptance_of_all55=False, prior_results_reused_by_source_identity_only=True)
 
 def require_previous(scope, count):
     previous=json.loads((evidence/(scope+'-verification.json')).read_text())

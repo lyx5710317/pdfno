@@ -309,6 +309,57 @@
         "removed_validation": "OpenAI-compatible endpoint/key/model controls and connection screenshot",
         "retained_validation": "All local five-task, default-off preferences, source, stop/retry, follow-up, copy and explicit-note assertions."
       }
+    ],
+    "completion49": [
+      "EbookFormatUITests/testAZW3SelectionNoteProgressRestart",
+      "EbookFormatUITests/testAZWSelectionNoteProgressRestart",
+      "EbookFormatUITests/testFB2SelectionNoteProgressRestart",
+      "NativeUITests/testMacAISelectionConsentMockNotesAndRestart",
+      "NativeUITests/testMacBooknoExplicitOfflinePreviewSavedBodyMockReplayAndClose",
+      "NativeUITests/testMacCBRImportSpreadsDirectionPageJumpAndRestart",
+      "NativeUITests/testMacCBTImportSpreadsDirectionPageJumpAndRestart",
+      "NativeUITests/testMacCBZImportSpreadsDirectionPageJumpAndRestart",
+      "NativeUITests/testMacCoverSelectionGridListRestartAndRestore",
+      "NativeUITests/testMacDOCXConversionFailureRecoveryAndEscapedHTML",
+      "NativeUITests/testMacDOCXConversionSavePanelCancelAndOverwriteRefusal",
+      "NativeUITests/testMacDOCXConversionWorkerCancellationLeavesNoOutput",
+      "NativeUITests/testMacDOCXDefaultCoverInListGridAndRestart",
+      "NativeUITests/testMacDOCXFailureRecoveryAndPDFEPUBTransitions",
+      "NativeUITests/testMacDOCXImportSemanticSelectionNotesAndRestart",
+      "NativeUITests/testMacDOCXReadingPDFEntryCancelExportAndOverwriteRefusal",
+      "NativeUITests/testMacEPUBBodyEditingBookSwitchRestartAndSource",
+      "NativeUITests/testMacEditedNoteSearchDraftExclusionCoverLayoutsAndExactSource",
+      "NativeUITests/testMacHTMLAliasImportSelectionNotesNavigationAndRestart",
+      "NativeUITests/testMacLearningBodyEditingPreservesResultRestartAndSource",
+      "NativeUITests/testMacLibraryLayoutSelectionAndOriginalSampleEntrypoints",
+      "NativeUITests/testMacLibrarySearchMetadataUnicodeEmptyNoResultsAndRestart",
+      "NativeUITests/testMacLibrarySearchUserNoteSavedLocalMockAIAndExactSource",
+      "NativeUITests/testMacMHTMLImportSelectionNotesNavigationAndRestart",
+      "NativeUITests/testMacMarkdownImportSelectionNotesNavigationAndRestart",
+      "NativeUITests/testMacPDFBodyEditingCancelDraftRestartEmptyAndSource",
+      "NativeUITests/testMacPDFBodyEditingDiskFailureKeepsDraftAndExplicitRetry",
+      "NativeUITests/testMacPDFPanelSwitchRetainsOriginalSelectionAndUnsavedDraft",
+      "NativeUITests/testMacReadableXMLImportSelectionNotesNavigationAndRestart",
+      "NativeUITests/testMacSavedMOBIBodyDraftRestartUnifiedSearchAndExactSource",
+      "NativeUITests/testMacTXTImportSelectionNotesNavigationAndRestart",
+      "NativeUITests/testMacXHTMLImportSelectionNotesNavigationAndRestart",
+      "NextBatchUITests/testTrashConfirmationRestoreAndRestartPreserveOriginalBook",
+      "ProfessionalReaderUITests/testANarrowEPUBPanelsKeepCanonicalSourceAndDraft",
+      "ProfessionalReaderUITests/testANarrowPDFKeyboardSearchAndNoteDraftSurviveCollapse",
+      "ProfessionalReaderUITests/testARegularDarkLearningPanelConsentDraftAndManualSave",
+      "ProfessionalReaderUITests/testARegularLightPanelsRestoreReadingArea",
+      "ProfessionalReaderUITests/testShellNarrowDarkEPUBCanonicalSelectionDraftAndLibrary",
+      "ProfessionalReaderUITests/testShellNarrowLightPDFPageAndHelpToolsRoutes",
+      "ProfessionalReaderUITests/testShellRegularDarkAIResultAndUncommittedDraftSurviveLibrary",
+      "ProfessionalReaderUITests/testShellRegularLightPDFDraftSelectionAndExamplePartition",
+      "ReadingIntegrationUITests/testMacEPUBTOCAndCanonicalReturnUseActualRuntime",
+      "ReadingIntegrationUITests/testMacPDFSearchTOCReturnAndTextInputProtection",
+      "ReadingIntegrationUITests/testMacToolsRouteRequiresConsentAndManualSave",
+      "ReaderChromeUITests/testWideHeaderlessPanelsRetainEditorAndAIAndFollowingAdd",
+      "ReaderChromeUITests/testNarrowOverflowBooknoAndOtherFormatPanels",
+      "ReaderConversationUITests/testWideConnectionFiveTasksDialogueStopRetryFollowupAndExplicitNotes",
+      "ReaderConversationUITests/testNarrowIndependentSettingsDefaultOffAndRetainedDisabledConversation",
+      "SavedAISearchUITests/testSavedAIQuoteAndResultSearchExactSourceAndDraftExclusion"
     ]
   },
   "swift": {
@@ -2257,5 +2308,14 @@
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/WebComicArchiveIntegrationTests.swift": "fe66dd872f6433931b70c8d38b6797b8ea8278a87ebc987cec02a2c449f2e87c",
       "apple/Packages/PDFnoKit/Package.swift": "c45a74ea9071eb1d04af9b212bb663a1c9e5bedffd19ef836081a34b6713482e"
     }
+  },
+  "completion_authorization": {
+    "message_id": "Sentinel_ae30196ad1dc8191b5e6f2d5ee0055fa",
+    "at_utc": "2026-10-12T05:21:00Z",
+    "instruction": "最快的速度完成验收，是在验收不过去的先放弃，这样一直卡住也不是办法啊",
+    "deferred_failed_method": "NativeUITests/testMacEPUBSelectionRubyNotesAndRestart",
+    "prior_source_head": "2196eb430ac89685cd9f0439ec4f726f0dc4020f",
+    "prior_run_id": 38205599306,
+    "new_failures_recorded_without_repair_loop": true
   }
 }
