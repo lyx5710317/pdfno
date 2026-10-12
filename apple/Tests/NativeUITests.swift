@@ -753,7 +753,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(after["userText"] as? String, "Original recovered 日本語🌸 café")
         XCTAssertEqual(before["anchor"] as? NSDictionary, after["anchor"] as? NSDictionary); XCTAssertEqual(after["id"] as? String, before["id"] as? String)
         try uiEditNote(app); try uiPaste("", ui("annotation-comment-input", app))
-        XCTAssertEqual(uiText(ui("annotation-comment-input", app)), ""); try uiSaveNote(app)
+        XCTAssertEqual(ui("annotation-comment-input", app).value as? String, ""); try uiSaveNote(app)
         XCTAssertEqual(try uiOnlyAnnotation(app)["userText"] as? String, "")
         XCTAssertEqual(uiText(ui("annotation-excerpt", app)), "window")
         try uiReturnNote(app); waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 8)
@@ -2078,7 +2078,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(selectedText, "window"); XCTAssertFalse(selectedText.isEmpty)
         let anchor = try uiOnlyAnnotation(app)["anchor"] as? NSDictionary
         try uiReturnNote(app); try uiPanel("epub-notes", open: false, app)
-        let next = ui("epub-next", app); try uiWait("Source return and reader layout finish before next page") { next.exists && next.isEnabled && next.isHittable && !self.ui("annotation-list", app).exists }
+        let next = ui("reading-bottom-next", app); try uiWait("Source return and reader layout finish before next page") { next.exists && next.isEnabled && next.isHittable && !self.ui("annotation-list", app).exists }
         try uiClick(next); waitForText(["第 2 页"], in: position, timeout: 10)
         try uiPanel("epub-contents", open: true, app); try uiClick(ui("epub-chapter-1", app)); waitForText(["第 2 章"], in: position, timeout: 10)
         try uiPanel("epub-aa", open: true, app); try uiClick(ui("reading-vertical", app))

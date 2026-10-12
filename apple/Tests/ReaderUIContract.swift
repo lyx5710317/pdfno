@@ -111,11 +111,21 @@ import XCTest
         let category = ui("settings-category-aiTools", app)
         if category.exists { try uiClick(category) }
         else { try uiClick(ui("settings-category-picker", app)); try uiClick(app.menuItems["AI工具"].firstMatch) }
-        let toggle = ui("settings-" + language + "-learning", app)
-        try uiWait("Public language preference") { toggle.exists && toggle.isEnabled }
-        if toggle.value as? String != "1" { try uiClick(toggle) }
-        XCTAssertEqual(toggle.value as? String, "1")
+        let toggle = app.checkBoxes.matching(identifier: "settings-" + language + "-learning").firstMatch
+        try uiWait("Public language preference with a decoded native checkbox state") {
+            toggle.exists && toggle.isEnabled && self.uiCheckboxState(toggle) != nil
+        }
+        if uiCheckboxState(toggle) == "0" { try uiClick(toggle) }
+        try uiWait("Public language preference is actually enabled") { self.uiCheckboxState(toggle) == "1" }
+        XCTAssertEqual(uiCheckboxState(toggle), "1")
         try uiClick(ui("settings-return", app))
+    }
+    func uiCheckboxState(_ element: XCUIElement) -> String? {
+        guard element.exists, element.elementType == .checkBox else { return nil }
+        let raw = element.value
+        if let value = raw as? String, ["0", "1"].contains(value) { return value }
+        if let value = raw as? NSNumber, [0.0, 1.0].contains(value.doubleValue) { return String(value.intValue) }
+        return nil
     }
     func uiCloseLanguageReview(_ app: XCUIApplication) throws {
         try uiWait("Structured review returns to the current reader") {
