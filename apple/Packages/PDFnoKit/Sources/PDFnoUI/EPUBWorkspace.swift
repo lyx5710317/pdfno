@@ -28,11 +28,12 @@ struct EPUBWorkspace: View {
                 PDFnoReaderShell(panels: panels, profile: .professional) {
                     VStack(spacing: 0) {
                         EPUBCanvas(session: session).background(PDFnoDesign.Palette.canvas)
-                            .overlay(alignment: .bottom) {
-                                if session.readingLayout.mode != .scroll {
-                                    ReadingPageButtons(previousEnabled: !session.busy && session.hasPreviousPage,nextEnabled: !session.busy && session.hasNextPage,previous: { Task { _=await session.command("previous") } },next: { Task { _=await session.command("next") } })
-                                }
-                            }
+                        // Keep physical page controls outside the native WebKit
+                        // viewport so the source view cannot cover their hit area.
+                        if session.readingLayout.mode != .scroll {
+                            ReadingPageButtons(previousEnabled: !session.busy && session.hasPreviousPage,nextEnabled: !session.busy && session.hasNextPage,previous: { Task { _=await session.command("previous") } },next: { Task { _=await session.command("next") } })
+                                .padding(.top,8).background(PDFnoDesign.Palette.canvas)
+                        }
                     }
                 } navigation: {
                     PDFnoPanel(title: "目录", icon: "list.bullet", closeIdentifier: "epub-close-contents", close: { panels.navigation = false }, surface: PDFnoDesign.Palette.surface,showsHeading: false,showsHeader: false) { contentsContent }

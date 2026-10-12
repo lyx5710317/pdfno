@@ -145,6 +145,7 @@ jobs:
             .build/MacFullQA/Evidence/*-verification.json
             .build/MacFullQA/Evidence/*-official-summary.json
             .build/MacFullQA/Evidence/*-official-tests.json
+            .build/MacFullQA/Evidence/representative6-OwnWindowShots/EPUB-pagination-*.png
             .build/CI-NonBYOKRepresentative6.log
             .build/CI-NonBYOKGate17.log
             .build/CI-NonBYOKRemaining38.log

@@ -2084,7 +2084,28 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(selectedText, "window"); XCTAssertFalse(selectedText.isEmpty)
         let anchor = try uiOnlyAnnotation(app)["anchor"] as? NSDictionary
         try uiReturnNote(app); try uiPanel("epub-notes", open: false, app)
-        let next = ui("reading-bottom-next", app); try uiWait("Source return and reader layout finish before next page") { next.exists && next.isEnabled && next.isHittable && !self.ui("annotation-list", app).exists }
+        let next = ui("reading-bottom-next", app)
+        let pagerFailure = { () -> String in
+            // Bounded diagnostics from this original-fixture window only,
+            // evaluated after the unchanged readiness predicate times out.
+            if app.windows.firstMatch.exists {
+                do { try self.uiCaptureOwnWindow("EPUB-pagination-failed", app) }
+                catch { print("EPUB pagination own-window capture failed: \(error.localizedDescription)") }
+            }
+            let exists = next.exists
+            let enabled = exists ? String(next.isEnabled) : "unavailable"
+            let hittable = exists ? String(next.isHittable) : "unavailable"
+            let frame = exists ? NSStringFromRect(next.frame) : "unavailable"
+            let modeControl = self.ui("epub-reading-mode-description", app)
+            let mode = modeControl.exists ? self.uiText(modeControl) : "unavailable"
+            let page = position.exists ? self.uiText(position) : "unavailable"
+            let notesVisible = self.ui("annotation-list", app).exists
+            let errorVisible = self.ui("epub-error", app).exists
+            print("EPUB pagination after-source-return exists=\(exists) enabled=\(enabled) hittable=\(hittable) frame=\(frame) position=\(page) mode=\(mode) notes=\(notesVisible) error=\(errorVisible)")
+            return "Source return and reader layout finish before next page"
+        }
+        try uiWait(pagerFailure()) { next.exists && next.isEnabled && next.isHittable && !self.ui("annotation-list", app).exists }
+        try uiCaptureOwnWindow("EPUB-pagination-ready", app)
         try uiClick(next); waitForText(["第 2 页"], in: position, timeout: 10)
         try uiPanel("epub-contents", open: true, app); try uiClick(ui("epub-chapter-1", app)); waitForText(["第 2 章"], in: position, timeout: 10)
         try uiPanel("epub-aa", open: true, app); try uiClick(ui("reading-vertical", app))
