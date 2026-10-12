@@ -19,9 +19,12 @@ command = ['swift', 'test', '--package-path', str(repo/'apple/Packages/PDFnoKit'
 started = datetime.datetime.now(datetime.timezone.utc).isoformat()
 with (out/'swift.log').open('x') as log:
     code = subprocess.call(command, cwd=repo, stdout=log, stderr=subprocess.STDOUT)
+# SwiftPM writes Swift Testing separately from the requested XCTest XML path.
+# This repository's @Test methods are in the suffixed Swift Testing report.
+xml = out/'swift-testing-swift-testing.xml'
 cases = []
-if (out/'swift-testing.xml').exists():
-    for case in ET.parse(out/'swift-testing.xml').getroot().iter('testcase'):
+if xml.exists():
+    for case in ET.parse(xml).getroot().iter('testcase'):
         cases.append({'method': case.attrib['classname'].split('.')[-1] + '/' + case.attrib['name'].split('(')[0],
                       'failed': case.find('failure') is not None or case.find('error') is not None,
                       'skipped': case.find('skipped') is not None})
@@ -37,7 +40,7 @@ record = {'source_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], c
           'excluded_not_accepted': scope['swift']['excluded'], 'accepted': accepted,
           'passed': sum(not c['failed'] and not c['skipped'] for c in cases),
           'failed': sum(c['failed'] for c in cases), 'skipped': sum(c['skipped'] for c in cases),
-          'xml_sha256': sha(out/'swift-testing.xml') if (out/'swift-testing.xml').exists() else None,
+          'xml_path': str(xml), 'xml_sha256': sha(xml) if xml.exists() else None,
           'log_sha256': sha(out/'swift.log'), 'automatic_retries': 0}
 (out/'VERIFICATION.json').write_text(json.dumps(record, indent=2) + '\n')
 print(json.dumps({key: record[key] for key in ['source_head', 'scope', 'passed', 'failed', 'skipped', 'accepted']}))

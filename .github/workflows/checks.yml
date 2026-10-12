@@ -136,7 +136,7 @@ jobs:
           if-no-files-found: warn
           path: |
             .build/SwiftNonBYOK/VERIFICATION.json
-            .build/SwiftNonBYOK/swift-testing.xml
+            .build/SwiftNonBYOK/swift-testing-swift-testing.xml
             .build/SwiftNonBYOK/swift.log
             .build/MacFullQA/PREPARATION.json
             .build/MacFullQA/PLAN-*.json
