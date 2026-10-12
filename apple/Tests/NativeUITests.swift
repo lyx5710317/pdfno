@@ -93,9 +93,9 @@ final class NativeUITests: XCTestCase {
 
     @MainActor private func traceWorkspaceEntry(_ id: String, element: XCUIElement) {
         guard ProcessInfo.processInfo.environment["PDFNO_UI_TEST_PANEL_DIAGNOSTICS"] == "1" else { return }
-        print("PDFno original workspace entry diagnostic id=\(id) exists=\(element.exists)")
-        guard element.exists else { return }
-        print("PDFno original workspace control role=\(element.elementType.rawValue) id=\(element.identifier) frame=\(element.frame) hittable=\(element.isHittable)")
+        // The caller has already awaited this exact public entry. Successful
+        // diagnostics must not repeatedly traverse the reader's AX tree.
+        print("PDFno original workspace entry diagnostic id=\(id) ready-after-existence-wait")
     }
 
     #if os(macOS)
@@ -1620,6 +1620,7 @@ final class NativeUITests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: archive), bytes)
     }
     @MainActor private func waitUntilEnabled(_ element: XCUIElement) {
+        if element.exists && element.isEnabled && element.isHittable { return }
         let ready = expectation(for: NSPredicate(format: "enabled == true AND hittable == true"), evaluatedWith: element)
         wait(for: [ready], timeout: 10)
     }
@@ -2123,11 +2124,13 @@ final class NativeUITests: XCTestCase {
         (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label
     }
     @MainActor private func waitForText(_ parts: [String], in element: XCUIElement, timeout: TimeInterval) {
-        let ready = expectation(for: NSPredicate { _, _ in
+        let matches = {
             guard element.exists else { return false }
             let text = self.textValue(element)
             return parts.allSatisfy { text.contains($0) }
-        }, evaluatedWith: element)
+        }
+        if matches() { return }
+        let ready = expectation(for: NSPredicate { _, _ in matches() }, evaluatedWith: element)
         wait(for: [ready], timeout: timeout)
     }
     @MainActor private func webText(in app: XCUIApplication, matching text: String, prefix: Bool, timeout: TimeInterval) throws -> XCUIElement {

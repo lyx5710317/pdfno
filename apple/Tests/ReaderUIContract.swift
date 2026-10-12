@@ -10,11 +10,17 @@ import XCTest
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
     func uiText(_ e: XCUIElement) -> String { (e.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? e.label }
-    func uiWait(_ message: String, timeout: TimeInterval = 15, _ predicate: @escaping () -> Bool) throws {
+    func uiWait(_ message: @autoclosure () -> String, timeout: TimeInterval = 15, _ predicate: @escaping () -> Bool) throws {
+        // Observe the same real condition immediately. XCTest's first polling
+        // tick otherwise costs a second even when the control is already ready.
+        if predicate() { return }
         let check = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in predicate() }, object: nil)
         let result = XCTWaiter.wait(for: [check], timeout: timeout)
-        XCTAssertEqual(result, .completed, message)
-        guard result == .completed else { throw NSError(domain: "OriginalReaderContract", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }
+        // Construct the same diagnostic only on failure; uiClick's identifier
+        // would otherwise add an AX query before every successful click.
+        let failureMessage = result == .completed ? "" : message()
+        XCTAssertEqual(result, .completed, failureMessage)
+        guard result == .completed else { throw NSError(domain: "OriginalReaderContract", code: 1, userInfo: [NSLocalizedDescriptionKey: failureMessage]) }
     }
     func uiClick(_ e: XCUIElement) throws {
         try uiWait("Control must be visible and enabled: " + e.identifier) { e.exists && e.isEnabled && e.isHittable }
@@ -130,7 +136,7 @@ import XCTest
     }
     func uiReveal(_ e: XCUIElement, scroll id: String, _ app: XCUIApplication) throws {
         let scroll = ui(id, app)
-        XCTAssertTrue(scroll.waitForExistence(timeout: 10)); XCTAssertTrue(e.waitForExistence(timeout: 10))
+        XCTAssertTrue(scroll.exists || scroll.waitForExistence(timeout: 10)); XCTAssertTrue(e.exists || e.waitForExistence(timeout: 10))
         for _ in 0..<16 {
             let viewport = scroll.frame.insetBy(dx: 3, dy: 6)
             if viewport.contains(e.frame) && e.isHittable { return }

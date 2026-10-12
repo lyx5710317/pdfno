@@ -16,11 +16,14 @@ actor OfflineSelectionUITestTransport: AIHTTPTransport {
         guard request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic-reading-ui-credential",
               let data = request.httpBody, let body = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let messages = body["messages"] as? [[String: String]], let input = messages.last?["content"]?.data(using: .utf8),
-              let payload = try JSONSerialization.jsonObject(with: input) as? [String: String], let quote = payload["sourceText"] else { throw AIFailure.credentials }
+              // Conversation requests also carry structured authorReadings.
+              // Validate the fields used here without rejecting that real wire format.
+              let payload = try JSONSerialization.jsonObject(with: input) as? [String: Any],
+              let quote = payload["sourceText"] as? String, let task = payload["task"] as? String else { throw AIFailure.credentials }
         requests += 1
         if pageScenario == "slow" { try await Task.sleep(for: .seconds(30)) }
         if pageScenario == "fail-second", requests == 2 { return AIHTTPResponse(status: 402, body: Data()) }
-        if payload["task"] == "english-selection-learning" {
+        if task == "english-selection-learning" {
             // Exact synthetic spans exercise review/save/source UI only. These
             // ambiguous suggestions deliberately make no grammar quality claim.
             let content = try JSONSerialization.data(withJSONObject: ["schemaVersion": 1, "language": "en", "sourceQuote": quote,
@@ -35,7 +38,7 @@ actor OfflineSelectionUITestTransport: AIHTTPTransport {
                 "index": 0, "finish_reason": "stop", "message": ["role": "assistant", "tool_calls": NSNull(), "content": String(decoding: content, as: UTF8.self)]
             ]]]))
         }
-        if payload["task"] == "japanese-selection-learning" {
+        if task == "japanese-selection-learning" {
             if japaneseScenario == "slow" { try await Task.sleep(for: .seconds(30)) }
             let first = String(quote.first ?? "日"), end = first.unicodeScalars.count
             let components: [[String: Any]]
@@ -62,7 +65,7 @@ actor OfflineSelectionUITestTransport: AIHTTPTransport {
                 "finish_reason": "stop", "message": ["role": "assistant", "tool_calls": NSNull(), "content": String(decoding: content, as: UTF8.self)]
             ]]]))
         }
-        if payload["task"] == ParagraphExplanationPolicy.skillID {
+        if task == ParagraphExplanationPolicy.skillID {
             let citation = String(quote.prefix(1))
             let scenario = ProcessInfo.processInfo.environment["PDFNO_UI_TEST_PARAGRAPH_RESPONSE"]
             if scenario == "slow" { try await Task.sleep(for: .seconds(30)) }
@@ -81,7 +84,7 @@ actor OfflineSelectionUITestTransport: AIHTTPTransport {
             ]]]))
         }
         let output = try JSONSerialization.data(withJSONObject: ["schemaVersion": 1, "sourceQuote": quote,
-            "text": "[离线 DeepSeek UI 替身] " + (payload["task"] == "translate" ? "翻译" : "解释") + " · 只验证来源与笔记，不代表真实语言质量。"])
+            "text": "[离线 DeepSeek UI 替身] " + (task == "translate" ? "翻译" : "解释") + " · 只验证来源与笔记，不代表真实语言质量。"])
         return AIHTTPResponse(status: 200, body: try JSONSerialization.data(withJSONObject: ["choices": [[
             "finish_reason": "stop", "message": ["role": "assistant", "tool_calls": NSNull(), "content": String(decoding: output, as: UTF8.self)]
         ]]]))

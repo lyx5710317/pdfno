@@ -24,6 +24,33 @@ private func diagnosticCredential(_ exact: Bool) -> String {
 /// This isolates a credentials failure from changes to the legacy request/response contracts.
 struct OfflineUITestTransportTests {
     @Test(arguments: [true, false]) @MainActor
+    func conversationBYOKWithExactAndAlteredFixtureCredential(exact: Bool) async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Conversation-Transport-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let session = AppAISession()
+        let model = AILearningModel(root: root, transport: OfflineSelectionUITestTransport(), offlineTransport: true, aiSession: session)
+        var config = DeepSeekSelectionPolicy.configuration()
+        config.endpoint = "https://joint-ui.example/v1"; config.model = "original-ui-model"
+        #expect(await model.applyConnection(config, temporarySecret: diagnosticCredential(exact)))
+        let source = diagnosticSource()
+        let plan = try ReadingConversationPlan(conversationID: UUID(), task: .translate, source: source,
+            provider: model.config, question: ReadingConversationTask.translate.initialQuestion)
+        #expect(plan.receiverURL?.absoluteString == "https://joint-ui.example/v1/chat/completions")
+        let provider = try model.conversationProvider()
+        if exact {
+            let text = try await provider.answer(plan)
+            #expect(text.contains("离线 DeepSeek UI 替身") && text.contains("翻译"))
+            let result = try plan.result(text)
+            #expect(result.source == source && result.provider.endpoint == config.endpoint)
+            #expect(result.conversation?.task == .translate && result.isValidAnnotationResult)
+        } else {
+            await #expect(throws: AIFailure.credentials) { try await provider.answer(plan) }
+        }
+        #expect(await session.selection.attemptsUsed() == 1)
+        #expect(model.notes.isEmpty, "The real conversation HTTP adapter must never save automatically")
+    }
+
+    @Test(arguments: [true, false]) @MainActor
     func legacyDeepSeekTranslationWithExactAndAlteredFixtureCredential(exact: Bool) async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Transport-Diagnostic-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
