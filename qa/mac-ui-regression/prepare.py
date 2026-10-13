@@ -90,6 +90,20 @@ for cls in ['NativeUITests','EbookFormatUITests','NextBatchUITests','ReadingInte
     path=tests/(cls+'.swift'); text=path.read_text()
     guarded,count=re.subn(r'(func test\w+\([^)]*\)(?:\s+async)?(?:\s+throws)?\s*\{)',lambda m:m[0]+install,text)
     assert count>0 and guarded.replace(install,'')==text
+    if cls == 'NativeUITests':
+        # An existing live credential process must never be relaunched. Its
+        # original first activation and ownDesktop() admit the exact window;
+        # intercept subsequent inputs only after that authorized admission.
+        name = 'func testFinalFourUIRealSelectionAndFullDocumentConsent() throws {'
+        assert guarded.count(name) == 1
+        start = guarded.index(name)
+        prefix, live = guarded[:start], guarded[start:]
+        assert live.count(install) == 1
+        live = live.replace(install, '\n        continueAfterFailure = false\n', 1)
+        activation = 'app.activate();try ownDesktop()'
+        assert live.count(activation) == 1
+        live = live.replace(activation, activation + '; QAOwnDesktopFence.install()', 1)
+        guarded = prefix + live
     if cls=='ProfessionalReaderUITests':
         guarded=guarded.replace('FileManager.default.temporaryDirectory.appendingPathComponent(',
             'FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(')

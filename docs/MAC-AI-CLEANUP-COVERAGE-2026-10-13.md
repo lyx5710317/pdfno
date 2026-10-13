@@ -77,3 +77,12 @@ User reported applied Key, but current public status remains “填写后点击�
 Local evidence: `.build/MacGlobal/2026-10-13/CURRENT-FAILURE-MIGRATION-COVERAGE.json`, `TWO-GUI-OUTCOME.json`, per-round official verification, and `CurrentRepair/LiveAPI/PRECHECK-01.json`. Main upload status is reported separately. No App publication or iOS validation is implied.
 
 The current main repair upload uses `[skip ci]` to obey the current no-full-regression instruction. Workflow files and frozen scopes stay unchanged. CI skipped is not accepted or counted as pass. [GitHub skip rule](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs).
+
+
+## Final real-window verification
+
+`LIVE-03.xcresult` records1 failed/0 passed/0 skipped before business interaction: the QA input interceptor was installed before the existing App initial activation. It sent0 requests. Release14:58:02 UTC /22:58:02 Asia/Shanghai. The QA preparation now installs the interceptor only after the original authorized activation and exact-window `ownDesktop()` admission; all subsequent input guards and original assertions remain. Only the Runner was recompiled and signed. Every App file hash and PID68526 remained unchanged; all73 symbols verified. No App/Key restart or transfer occurred.
+
+`LIVE-04.xcresult` then reached the actual foreground window and read its public status. The original “已配置” assertion failed after15.827 seconds: “填写后点击应用连接；所有 AI 功能共用此配置。” and “尚未测试连接”. Official count1 executed,0 passed,1 failed,0 skipped. Requests0, responses0; explanation/follow-up/save/full-document assertions never executed. Desk released15:06:44 UTC /23:06:44 Asia/Shanghai. The earlier background-state ambiguity is now corroborated by the real foreground UI. User reported configured, but cause of that discrepancy remains unproved. No further automatic retry or repeated Key-entry question is pending. Same App remains open. Real API acceptance stays blocked until this exact window actually applies its configuration.
+
+Authoritative compact record: `.build/MacGlobal/2026-10-13/CurrentRepair/LiveAPI/REAL-API-OUTCOME.json`; official result exports and original failure evidence remain local. This failure does not invalidate the separately accepted2/2 offline repair result, nor establish all73/global acceptance.
