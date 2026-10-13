@@ -106,6 +106,14 @@ struct AISettingsView: View {
         if let close { close() } else { dismiss() }
     }
 
+    private var aboutVersion: String {
+        guard let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+              !version.isEmpty else { return "开发构建" }
+        guard let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String,
+              !build.isEmpty else { return "开发版 \(version)" }
+        return "开发版 \(version)（\(build)）"
+    }
+
     @ViewBuilder private var categoryContent: some View {
         switch category {
         case .ai: AIConnectionSettings(learning: learning, draft: $draft, secret: $secret, active: active)
@@ -150,9 +158,9 @@ struct AISettingsView: View {
                 Text("本片未新增日志上传或导出。打开此页面不会发送测试请求。").foregroundStyle(.secondary)
             }
         case .about:
-            PDFnoSettingsCard("PDFno", detail: "原生本地阅读与可核对的学习记录。", symbol: "book.closed") {
-                Text("AGPL-3.0-or-later")
-                Text("现有阅读、笔记与有限 AI 入口各保留原能力范围。语义检索、MCP 和工具调用仍为规划。")
+            PDFnoSettingsCard("PDFno", detail: "Mac 优先的本地阅读器。", symbol: "book.closed") {
+                Text("\(aboutVersion) · AGPL-3.0-or-later")
+                Text("本地书库、多文档阅读与来源笔记。PDF／EPUB 选文与全文对话共用“配置api”，主动发送后才联网。Mac 持续完善，iPhone／iPad 功能尚未完成。")
             }
             ForEach(PDFnoPlannedCapability.settings) { PDFnoPlannedCapabilityCard(capability: $0) }
             PDFnoSettingsCard("工具目录", status: "规划中") { PDFnoPlannedDirectory() }

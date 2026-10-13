@@ -469,28 +469,29 @@ public struct FeatureStatusView: View {
         NavigationStack {
             List {
                 Section("当前可以使用") {
-                    Label("本地 PDF 导入、阅读、目录与搜索", systemImage: "checkmark.circle")
-                    Label("选区高亮、笔记与本地保存", systemImage: "checkmark.circle")
+                    Label("本地 PDF 导入、阅读、目录与文字层搜索", systemImage: "checkmark.circle")
+                    Label("选文高亮、来源笔记、本地保存与原文跳转", systemImage: "checkmark.circle")
                     #if os(macOS)
-                    Text("TXT／Markdown／HTML／XHTML／MHTML／可读 XML：Mac 本地正文、标题导航、选文笔记与进度；图片、样式与链接目标不加载")
-                    Text("电子书候选：MOBI / AZW / AZW3 / FB2；无 DRM 正文、目录与笔记代码已接入，隔离 Mac 验收待完成")
-                    Text("DOCX：Mac 语义重排阅读、标题目录与选文笔记；与 Word 原版式不同；DOC 未支持")
-                    Label("CBZ / CBT / 有限 CB7 / CBR 漫画：导入、页序、左右方向、单双页与进度恢复", systemImage: "checkmark.circle")
-                    Label("DOCX 正文转 TXT / 简化 HTML（有损副本）", systemImage: "checkmark.circle")
-                    Text("DOCX 阅读版PDF：本机语义正文重新分页，不能还原Word原版式；独立导出入口已接，实际UI待验收")
-                    Text("有限HTTPS 配置api选文：PDF/EPUB最多500 UTF-16，逐次确认域名/模型/完整原文；仅会话密钥，实际服务质量待验收")
+                    Text("多文档标签与列表／网格书库；EPUB 重排、横竖排、目录、笔记与进度。")
+                    Text("TXT／Markdown／HTML／HTM／XHTML／MHTML／可读 XML：有限正文、标题导航、笔记与进度，不加载外部页面、图片或样式。")
+                    Text("MOBI／AZW／AZW3／FB2：有限的无 DRM 正文、目录、笔记与进度，完整兼容与界面验收尚未完成。")
+                    Text("DOCX：语义重排、标题目录、简单表格／列表与笔记；不保留 Word 原版式，不支持旧 DOC。")
+                    Label("有限 CBZ／CBT／CB7／CBR 漫画：页序、左右方向、单双页与进度", systemImage: "checkmark.circle")
+                    Label("DOCX 正文导出 TXT／简化 HTML／阅读版 PDF（有损副本）", systemImage: "checkmark.circle")
+                    Text("PDF／EPUB 选文解释、翻译、总结与追问，共用“配置api”；日语、英语学习可按需开启，结构化审阅的真实服务限 DeepSeek。")
+                    Text("PDF／EPUB 全文对话：完整可提取正文最多 60000 UTF-16 单元，首次发送前确认；另有受限的 PDF 当前页／EPUB 当前正文文档双语翻译。")
+                    Text("本地回收站、校验目录备份与恢复到新目录；备份不含未保存草稿、缓存或密钥，恢复不自动切换当前书库。")
                     #endif
                 }
-                Section("后续接入") {
-                    Text("EPUB：Mac 本地重排阅读；移动适配与固定版式待验收")
-                    Text("Mac AI：选文翻译／解释、受限 PDF 当前页与 EPUB 当前完整文档双语对照；范围预览、手动确认发送和学习笔记。当前 EPUB 文档不等于目录逻辑章节；日语选文读音与中文语法建议可审阅并手动保存；英语选文结构与语法及保存／搜索／编辑入口已接；真实语言质量与实际新界面闭环待验收")
-                    Text("本地回收站、校验目录备份和恢复到新目录：Mac候选已接线；实际目录选择与新界面闭环待隔离验收。未保存草稿不进入备份。")
-                    Text("Bookno API：尚未接入")
-                    Text("iCloud：未配置容器，数据仅保存在本地")
-                    Text("CBZ / CBT：移动阅读适配待验收；当前 Mac 支持静态 PNG / JPEG，CBT 限未压缩 POSIX USTAR；CB7 限非 solid COPY/LZMA/LZMA2 和明文头；CBR 限 RAR4/RAR5 STORE")
-                    Text("其他格式阅读 / PDF、Word、EPUB 高保真互转 / OCR / Apple Pencil：尚未实现")
+                Section("当前边界与规划") {
+                    Text("Mac 优先；iPhone／iPad 目前以基础 PDF 为主，其他阅读与学习功能尚未完成适配。")
+                    Text("EPUB 固定版式、全面图片／字体保真未支持。漫画限静态 PNG／JPEG；CBT 限未压缩 POSIX USTAR，CB7 限明文头及非 solid COPY／LZMA／LZMA2，CBR 限 RAR4／RAR5 STORE。")
+                    Text("阅读数据保存在本机；主动发起的 AI 任务会发送对应正文和对话消息。Key 仅在会话内存中，未启用 Keychain 持久化，退出后需重新填写。")
+                    Text("部分格式与当前界面仍待完整验收；定向真实 API 检查不代表全部语言质量或所有服务通过。")
+                    Text("Bookno 仅离线预览，API 与 iCloud 同步尚未接入。语义搜索、MCP、AI 工具调用、在线网页与公共搜索仍为规划。")
+                    Text("OCR、Apple Pencil 与 PDF／Word／EPUB 高保真互转尚未实现；正式签名、公证与发行尚未完成。")
                 }
-                Section("开源") { Text("PDFno · AGPL-3.0-or-later").font(.footnote) }
+                Section("开源") { Text("PDFno 自有代码 · AGPL-3.0-or-later；第三方组件保留各自许可证与来源声明。").font(.footnote) }
             }.navigationTitle("功能状态")
             .toolbar { if !embedded { ToolbarItem { Button("完成") { dismiss() } } } }
         }.frame(minWidth: 300, minHeight: 420)

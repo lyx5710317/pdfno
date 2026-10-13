@@ -131,10 +131,10 @@ struct PDFnoPlannedCapability: Identifiable {
     let dependency: String
     let symbol: String
     static let settings = [
-        Self(id: "semantic", title: "本地索引与语义搜索", detail: "规划本机索引和语义检索。现有书名与已保存笔记搜索仍走原入口。", dependency: "索引、模型及范围授权尚未实现。", symbol: "magnifyingglass"),
-        Self(id: "mcp-client", title: "连接外部工具 · MCP Client", detail: "规划由 PDFno 主动连接外部工具。", dependency: "连接协议、工具配置及逐次授权尚未实现。", symbol: "point.3.connected.trianglepath.dotted"),
-        Self(id: "tool-calling", title: "允许 AI 工具调用", detail: "规划受控调用链；当前阅读任务只使用原有固定指令。", dependency: "工具运行时与调用审阅尚未实现。", symbol: "gearshape.2"),
-        Self(id: "mcp-server", title: "对外只读访问 · MCP Server", detail: "规划让外部 AI 读取经授权的本地范围。", dependency: "只读服务、读取范围与访问控制尚未实现。", symbol: "server.rack")
+        Self(id: "semantic", title: "本地语义搜索", detail: "现有书名与已保存笔记支持关键词搜索。", dependency: "语义索引与检索模型尚未实现。", symbol: "magnifyingglass"),
+        Self(id: "mcp-client", title: "连接外部工具 · MCP Client", detail: "规划由 PDFno 连接经授权的外部工具。", dependency: "MCP 连接与工具授权尚未实现。", symbol: "point.3.connected.trianglepath.dotted"),
+        Self(id: "tool-calling", title: "AI 工具调用", detail: "规划在阅读对话中审阅并授权工具操作。", dependency: "工具运行与调用审阅尚未实现。", symbol: "gearshape.2"),
+        Self(id: "mcp-server", title: "对外只读访问 · MCP Server", detail: "规划向外部 AI 提供获授权的本地内容。", dependency: "只读服务与访问控制尚未实现。", symbol: "server.rack")
     ]
 }
 
@@ -142,7 +142,7 @@ struct PDFnoPlannedCapabilityCard: View {
     let capability: PDFnoPlannedCapability
     var body: some View {
         PDFnoSettingsCard(capability.title, detail: capability.detail, symbol: capability.symbol,
-                          status: "未实现 · 默认关闭") {
+                          status: "规划中 · 未实现") {
             PDFnoStatusMessage(text: capability.dependency)
         }.accessibilityIdentifier("planned-" + capability.id)
     }
