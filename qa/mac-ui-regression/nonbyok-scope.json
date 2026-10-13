@@ -2212,7 +2212,7 @@
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/AllFormatIntegrationTests.swift": "7f083491e22b1264137e283f016fdfde410e1542ad2b75e26b7c3884b38d2539",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/AnchoredAnnotationTests.swift": "e551d76e42b8ce233207398200fa034a024d60b09d45e93682a8d609f21cd302",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/AnnotationReaderTests.swift": "d72b1d284663e7ccf8429cbc5fecca529f839411f7759040e864b6049a806180",
-      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/AppAISessionTests.swift": "eee1d05a4b2043e6cc1693cb91e737bdd744f5b35c7a74f3cba66d24f59be98c",
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/AppAISessionTests.swift": "eab50aae293e6f1332f75345489ff92966796f5f4f2fe5c68eed71e2e50c9b24",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/AuditFunctionalTests.swift": "c8be1bb3c41c7805b9d50118ff74c642f4970f35c05906beaaf0a848e0039d68",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/BYOKProviderTests.swift": "60661643912e82a136b4d4931b6a9df5954e470f4882946980fc9f3abda6489d",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/BooknoExchangeTests.swift": "15b9b305333f67ca646d59774d27f6b613683b9e171e83a5dbdb34c0fd8ec3b8",
@@ -2317,5 +2317,22 @@
     "prior_source_head": "2196eb430ac89685cd9f0439ec4f726f0dc4020f",
     "prior_run_id": 38205599306,
     "new_failures_recorded_without_repair_loop": true
-  }
+  },
+  "classification_reviews": [
+    {
+      "authorization_message_id": "Sentinel_63459d1b28dc8191b5cc2ca04107b2d1",
+      "at_utc": "2026-10-13T04:46:09.744104+00:00",
+      "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/AppAISessionTests.swift",
+      "previous_sha256": "eee1d05a4b2043e6cc1693cb91e737bdd744f5b35c7a74f3cba66d24f59be98c",
+      "reviewed_sha256": "eab50aae293e6f1332f75345489ff92966796f5f4f2fe5c68eed71e2e50c9b24",
+      "baseline_for_original_test_body_comparison": "c78df77fc4ba71ecd3c883302a60920f9bc595a4",
+      "review": "Only two additive isolated QA checks. Removing those additions restores the exact original file bytes; original test body and assertions are unchanged.",
+      "added_methods_not_in_original_execution_scope": [
+        "AppAISessionTests/unlimitedReadingQARequiresItsExplicitIsolatedLaunchScope",
+        "AppAISessionTests/explicitlyUnlimitedReadingQACountsMoreThanThreeAttempts"
+      ],
+      "added_methods_execution": "Separate explicit QA validation only; not part of the original700 inventory or retained591 CI filter; not accepted by this manifest.",
+      "original_frozen_sets_and_exclusions_unchanged": true
+    }
+  ]
 }
