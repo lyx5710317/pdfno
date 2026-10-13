@@ -194,43 +194,16 @@ struct ReadingSkillHostIntegrationTests {
         #expect(japanese.readingSkillResult != nil)
         learning.kind = .explain; learning.start(confirmed: true, sourceIsCurrent: fence.sourceIsCurrent); try await hostSkillWait { learning.busy }
         #expect(learning.error == AIFailure.attemptLimit.localizedDescription && learning.readingSkillResult == nil)
-        let byok = BYOKSettingsModel(transport: transport, aiSession: session)
-        byok.temporarySecret = "original-synthetic-host-credential"; #expect(await byok.apply())
-        await byok.prepareSelection(source, kind: .explain); byok.start(confirmed: true, sourceIsCurrent: fence.sourceIsCurrent); try await hostSkillWait { byok.busy }
-        #expect(byok.error == AIFailure.attemptLimit.localizedDescription && byok.readingSkillResult == nil)
+        let configured = AILearningModel(root: FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Configured-Budget-" + UUID().uuidString), transport: transport, aiSession: session)
+        try #require(await configured.applyConnection(DeepSeekSelectionPolicy.configuration(), temporarySecret: "original-synthetic-host-credential")); configured.prepare(source); configured.kind = .explain; configured.start(confirmed: true, sourceIsCurrent: fence.sourceIsCurrent); try await hostSkillWait { configured.busy }
+        #expect(configured.error == AIFailure.attemptLimit.localizedDescription && configured.readingSkillResult == nil)
         #expect(await transport.requests.count == 3)
         #expect(await session.selection.attemptsUsed() == 3)
         #expect(await session.page.attemptsUsed() == 0)
         #expect(await session.chapter.attemptsUsed() == 0)
         #expect(await session.probe.attemptsUsed() == 0)
     }
-    @Test @MainActor func customBYOKExistingActionsRouteWithoutChangingWireConfirmationOrKeyRevocation() async throws {
-        let transport = HostSkillHTTP(), session = AppAISession(), byok = BYOKSettingsModel(transport: transport, aiSession: session)
-        var config = byok.draft; config.endpoint = "https://original-fixture.invalid/v1"; config.model = "original-synthetic-model"
-        byok.draft = config; byok.temporarySecret = "original-synthetic-host-credential"; #expect(await byok.apply())
-        let source = hostSkillSource("cafe\u{301} 👩🏽‍💻"), fence = HostSkillFence(source: source, config: byok.draft)
-        for (kind, id) in [(AILearningKind.translate, ReadingSkillID.translateSelection), (.explain, .paragraphExplanation)] {
-            await byok.prepareSelection(source, kind: kind)
-            let before = await transport.requests.count
-            byok.start(confirmed: false, sourceIsCurrent: fence.sourceIsCurrent); #expect(!byok.busy)
-            #expect(await transport.requests.count == before)
-            byok.start(confirmed: true, sourceIsCurrent: fence.sourceIsCurrent); try await hostSkillWait { byok.busy }
-            #expect(byok.readingSkillResult?.manifest.skillID == id.rawValue && byok.result != nil)
-            #expect(byok.readingSkillPlan?.receiverURL?.absoluteString == "https://original-fixture.invalid/v1/chat/completions")
-            let request = try #require(await transport.requests.last), body = try #require(request.httpBody)
-            let wire = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
-            #expect(wire["stream"] as? Bool == false && wire["max_tokens"] as? Int == 1024)
-            let messages = try #require(wire["messages"] as? [[String: String]]), content = try #require(messages.last?["content"])
-            let input = try #require(JSONSerialization.jsonObject(with: Data(content.utf8)) as? [String: String])
-            #expect(Set(input.keys) == (kind == .explain ? ["sourceText", "sourceRefID", "task", "targetLanguage"] : ["sourceText", "task", "targetLanguage"]))
-            #expect(input["sourceText"]?.utf8.elementsEqual(source.anchor.quote.utf8) == true)
-        }
-        await byok.clearCredential(); await byok.prepareSelection(source, kind: .explain)
-        byok.start(confirmed: true, sourceIsCurrent: fence.sourceIsCurrent); try await hostSkillWait { byok.busy }
-        #expect(byok.error == AIFailure.credentials.localizedDescription && byok.readingSkillResult == nil)
-        #expect(await transport.requests.count == 2)
-        #expect(await session.selection.attemptsUsed() == 2)
-    }
+
     @Test @MainActor func sourceOnlyUnavailableLanguageReviewsPreserveOriginalUIAndCannotSave() async throws {
         var mock = AIProviderConfig(); mock.mode = .mock
         let source = hostSkillSource(), fence = HostSkillFence(source: source, config: mock)
@@ -310,24 +283,7 @@ struct ReadingSkillHostIntegrationTests {
         fence.source = source; model.prepare(original, provider: LocalMockJapaneseLearningProvider())
         #expect(model.userText.utf8.elementsEqual("原始日语草稿 e\u{301}".utf8))
     }
-    @Test(arguments: ["dismiss", "receiver", "credential"]) @MainActor func byokRevocationWhileRequestIsInFlightRejectsLateEnvelope(action: String) async throws {
-        let transport = HostSkillDeferredHTTP(), session = AppAISession(), byok = BYOKSettingsModel(transport: transport, aiSession: session)
-        byok.temporarySecret = "original-synthetic-host-credential"; #expect(await byok.apply())
-        let source = hostSkillSource(), fence = HostSkillFence(source: source, config: byok.draft)
-        await byok.prepareSelection(source, kind: .translate)
-        byok.start(confirmed: true, sourceIsCurrent: fence.sourceIsCurrent); try await hostSkillWaitForHTTP(transport)
-        switch action {
-        case "dismiss": byok.invalidate()
-        case "receiver": byok.draft.endpoint = "https://replacement-original.invalid/v1"
-        default: await byok.clearCredential()
-        }
-        try await transport.finish(); try await Task.sleep(for: .milliseconds(30))
-        #expect(!byok.busy && byok.result == nil && byok.readingSkillResult == nil && byok.preview == nil)
-        byok.start(confirmed: true, sourceIsCurrent: fence.sourceIsCurrent)
-        #expect(byok.error == AIFailure.consent.localizedDescription)
-        #expect(await transport.requests.count == 1)
-        #expect(await session.selection.attemptsUsed() == 1)
-    }
+
     @Test @MainActor func textSkillsResultStillSavesNativeNotesWithoutOverwritingEditedBody() async throws {
         let root = hostSkillRoot(); defer { try? FileManager.default.removeItem(at: root) }
         let model = AILearningModel(root: root, transport: HostSkillHTTP(), aiSession: AppAISession())

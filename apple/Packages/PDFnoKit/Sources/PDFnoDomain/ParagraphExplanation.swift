@@ -12,7 +12,7 @@ public enum ParagraphExplanationPolicy {
         guard request.source.isValid, !request.source.anchor.quote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, request.source.anchor.quote.utf16.count <= 500 else { throw AIFailure.remoteInputLimit }
         guard request.provider.isValid, request.provider.mode != .unconfigured,
               request.timeoutSeconds.isFinite, request.timeoutSeconds > 0, request.timeoutSeconds <= 30 else { throw AIFailure.configuration }
-        if request.provider.mode != .mock { try BYOKSelectionPolicy.validate(request) }
+        if request.provider.mode != .mock { try ConfiguredAPISelectionPolicy.validate(request) }
     }
 }
 public struct ParagraphCitation: Codable, Sendable, Equatable, Identifiable {

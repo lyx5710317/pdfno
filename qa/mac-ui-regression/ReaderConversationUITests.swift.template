@@ -135,9 +135,6 @@ final class ReaderConversationUITests: XCTestCase {
 
 
     @MainActor private func returnToCurrentSource(_ app: XCUIApplication) throws {
-        if !item("ai-conversation-return", app).exists {
-            try click(item("ai-conversation-source-toggle", app))
-        }
         // Exercise the real source anchor before the next original selection;
         // do not scroll to a guessed location or omit the hittable assertion.
         try click(item("ai-conversation-return", app))
@@ -264,12 +261,13 @@ final class ReaderConversationUITests: XCTestCase {
         XCTAssertTrue(item("ai-conversation-retry",app).waitForExistence(timeout: 10)); XCTAssertEqual(answers(app).count,0)
         try shot("AI-02-stopped-fixed-source",app); try click(item("ai-conversation-retry",app)); waitAnswers(1,app)
         let first = try XCTUnwrap(answers(app).first), answerID = first.identifier.replacingOccurrences(of: "ai-conversation-answer-",with: "")
-        try click(item("ai-conversation-source-toggle",app)); XCTAssertEqual(item("ai-conversation-source-toggle",app).value as? String,"已展开")
-        XCTAssertTrue(item("ai-conversation-source",app).exists && item("ai-conversation-return",app).exists)
+        XCTAssertFalse(item("ai-conversation-source-toggle",app).exists)
+        XCTAssertTrue(item("ai-conversation-return",app).exists)
         try click(item("ai-conversation-copy-" + answerID,app)); XCTAssertEqual(item("ai-conversation-copy-" + answerID,app).label,"已复制")
         try click(item("ai-conversation-save-" + answerID,app))
         let saved = expectation(for: NSPredicate { _,_ in self.item("ai-conversation-save-" + answerID,app).label == "已加入笔记" },evaluatedWith: app)
         wait(for: [saved],timeout: 12); XCTAssertEqual(item("ai-conversation-save-" + answerID,app).label,"已加入笔记")
+        XCTAssertEqual(try uiAnchorPayload(uiOnlyAnnotation(app))["quote"] as? String,"window", "The immutable original quote survives the simplified conversation UI")
         let input = item("ai-conversation-input",app); try click(input); try pasteOriginalFixture("Original follow-up about this source", into: input)
         try click(item("ai-conversation-send",app)); waitAnswers(2,app)
         try shot("AI-03-wide-followup-explicit-save",app)

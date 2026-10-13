@@ -106,11 +106,10 @@ private actor NextBatchTransport: AIHTTPTransport {
         _ = try await learning.japaneseLearningProvider().analyze(JapaneseLearningRequest(source: source, provider: learning.config))
         learning.prepare(source); learning.start(confirmed: true, sourceIsCurrent: { _ in true }); try await wait { !learning.busy }
         #expect(learning.result != nil); #expect(await app.selection.attemptsUsed() == 3); #expect(await transport.calls == 3)
-        let byok = BYOKSettingsModel(transport: transport, aiSession: app)
-        byok.draft = DeepSeekSelectionPolicy.configuration(); byok.temporarySecret = "synthetic-next-host"
-        #expect(await byok.apply()); await byok.prepareSelection(source, kind: .explain)
-        byok.start(confirmed: true, sourceIsCurrent: { _ in true }); try await wait { !byok.busy }
-        #expect(byok.error == AIFailure.attemptLimit.localizedDescription); #expect(await transport.calls == 3)
+        let configured = AILearningModel(root: FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Configured-Budget-" + UUID().uuidString), transport: transport, aiSession: app)
+        try #require(await configured.applyConnection(DeepSeekSelectionPolicy.configuration(), temporarySecret: "synthetic-next-host")); configured.prepare(source); configured.kind = .explain
+        configured.start(confirmed: true, sourceIsCurrent: { _ in true }); try await wait { !configured.busy }
+        #expect(configured.error == AIFailure.attemptLimit.localizedDescription); #expect(await transport.calls == 3)
         await learning.clearSessionCredential()
         #expect(throws: AIFailure.credentials) { try learning.englishLearningProvider() }
         #expect(await app.selection.attemptsUsed() == 3)

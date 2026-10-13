@@ -42,17 +42,4 @@ struct ReadingSelectionWorkspace: View {
     let close: () -> Void
     var body: some View { ReadingConversationWorkspace(library: library, close: close) }
 }
-extension LibraryModel {
-    var hasUnsavedBYOKPresentation: Bool {
-        guard let result = byok.result else { return !byokUserText.isEmpty }
-        return !learning.notes.contains { $0.result.requestID == result.requestID && $0.userText == byokUserText }
-    }
-    func reconnectBYOKPresentation(kind: AILearningKind) -> Bool {
-        guard let result = byok.result, result.kind == kind,
-              ReadingSkillIdentity.matches(result.source, learning.source),
-              ReadingSkillIdentity.matches(result.provider, byok.draft), isCurrentAISource(result.source) else { return false }
-        byokSource = result.source
-        return true
-    }
-}
 #endif

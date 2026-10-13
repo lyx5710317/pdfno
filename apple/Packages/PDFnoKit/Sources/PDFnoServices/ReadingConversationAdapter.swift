@@ -16,7 +16,7 @@ public struct ReadingConversationHTTPProvider: ReadingConversationProvider {
     public func answer(_ plan: ReadingConversationPlan) async throws -> String {
         try Task.checkCancellation()
         guard plan.provider.mode == .openAICompatible, let url = plan.receiverURL,
-              url == (try BYOKSelectionPolicy.finalURL(plan.provider)) else { throw AIFailure.configuration }
+              url == (try ConfiguredAPISelectionPolicy.finalURL(plan.provider)) else { throw AIFailure.configuration }
         guard let key = try await credentials.read(reference), CredentialValidation.valid(key) else { throw AIFailure.credentials }
         try Task.checkCancellation()
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: plan.timeoutSeconds)

@@ -60,7 +60,7 @@ public struct ReadingSkillInputPlan: Sendable {
             id = value.profile == .paragraphExplanation ? .paragraphExplanation : value.kind == .translate ? .translateSelection : value.kind == .summarize ? .summarizeSelection : .explainSelection
             taskID = value.id; provider = value.provider; promptVersion = value.promptVersion
             snapshots = [value.source]; timeout = value.timeoutSeconds; readings = []; language = sourceLanguage
-            if provider.mode == .openAICompatible { try BYOKSelectionPolicy.validate(value) }
+            if provider.mode == .openAICompatible { try ConfiguredAPISelectionPolicy.validate(value) }
         case .japanese(let value):
             try value.validate(); id = .japaneseSelection; taskID = value.id; provider = value.provider
             promptVersion = JapaneseLearningPolicy.promptVersion; snapshots = [value.source]; timeout = value.timeoutSeconds
@@ -109,7 +109,7 @@ public struct ReadingSkillInputPlan: Sendable {
         }
         guard manifest.sourceLanguages.contains(language) else { throw ReadingSkillFailure.language }
         let resolved = try manifest.resolveParameters(parameters)
-        let receiverURL = provider.mode == .mock ? nil : try BYOKSelectionPolicy.finalURL(provider)
+        let receiverURL = provider.mode == .mock ? nil : try ConfiguredAPISelectionPolicy.finalURL(provider)
         struct Identity: Encodable {
             let manifest: ReadingSkillManifest; let provider: AIProviderConfig; let receiver: String?
             let sourceLanguage: ReadingSkillLanguage; let parameters: [String: ReadingSkillParameterValue]

@@ -38,7 +38,7 @@ struct DocumentConversationAnswer: Identifiable {
     var receiverDescription: String {
         guard let config = library?.learning.config else { return "未配置" }
         if config.mode == .mock { return "本地示例（不联网）" }
-        return ((try? BYOKSelectionPolicy.finalURL(config).host) ?? "未配置") + " · " + config.model
+        return ((try? ConfiguredAPISelectionPolicy.finalURL(config).host) ?? "未配置") + " · " + config.model
     }
     var hasUnsavedWork: Bool { !draft.isEmpty || !answers.isEmpty }
     func prepare() async {

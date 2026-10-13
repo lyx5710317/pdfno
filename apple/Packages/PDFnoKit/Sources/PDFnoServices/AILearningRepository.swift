@@ -50,7 +50,7 @@ public actor AILearningRepository {
             return result.promptVersion == EPUBChapterTranslationPolicy.promptVersion && result.kind == .translate && DeepSeekSelectionPolicy.supports(result.provider)
         }
         if result.promptVersion == ParagraphExplanationPolicy.promptVersion {
-            return (result.provider.mode == .mock || (try? BYOKSelectionPolicy.finalURL(result.provider)) != nil) && result.paragraphExplanation?.canSave == true
+            return (result.provider.mode == .mock || (try? ConfiguredAPISelectionPolicy.finalURL(result.provider)) != nil) && result.paragraphExplanation?.canSave == true
         }
         return ["selection-1", DeepSeekSelectionPolicy.promptVersion].contains(result.promptVersion)
     }

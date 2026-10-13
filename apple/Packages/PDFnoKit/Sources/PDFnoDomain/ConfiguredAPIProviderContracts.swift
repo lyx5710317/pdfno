@@ -2,7 +2,7 @@
 import Foundation
 
 /// A finite wire contract, not a claim that every vendor or model implements it.
-public enum BYOKProviderCapability: String, Sendable {
+public enum ConfiguredAPIProviderCapability: String, Sendable {
     case officialDeepSeek, httpsChatCompletionsJSON
     public var explanation: String {
         switch self {
@@ -13,11 +13,11 @@ public enum BYOKProviderCapability: String, Sendable {
         }
     }
 }
-public enum BYOKSelectionPolicy {
+public enum ConfiguredAPISelectionPolicy {
     public static let maxSourceUTF16 = DeepSeekSelectionPolicy.maxSourceUTF16
     public static let maxOutputTokens = DeepSeekSelectionPolicy.maxOutputTokens
     public static let timeoutSeconds: Double = 30
-    public static func capability(_ config: AIProviderConfig) throws -> BYOKProviderCapability {
+    public static func capability(_ config: AIProviderConfig) throws -> ConfiguredAPIProviderCapability {
         _ = try finalURL(config)
         return DeepSeekSelectionPolicy.supports(config) ? .officialDeepSeek : .httpsChatCompletionsJSON
     }

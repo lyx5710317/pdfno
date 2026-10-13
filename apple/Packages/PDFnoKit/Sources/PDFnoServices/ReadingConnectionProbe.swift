@@ -18,7 +18,7 @@ public actor ReadingConnectionProbe {
         guard confirmed else { throw AIFailure.consent }
         guard pending == nil, !preparing, timeoutSeconds.isFinite, timeoutSeconds > 0, timeoutSeconds <= 30 else { throw AIFailure.configuration }
         preparing = true; defer { preparing = false }
-        let url = try BYOKSelectionPolicy.finalURL(configuration)
+        let url = try ConfiguredAPISelectionPolicy.finalURL(configuration)
         try Task.checkCancellation(); guard await current(configuration) else { throw AIFailure.stale }
         guard let key = try await credentials.read(reference), CredentialValidation.valid(key) else { throw AIFailure.credentials }
         guard await current(configuration) else { throw AIFailure.stale }; try Task.checkCancellation()

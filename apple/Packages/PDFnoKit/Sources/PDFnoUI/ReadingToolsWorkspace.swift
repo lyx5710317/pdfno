@@ -5,7 +5,7 @@ import PDFnoDomain
 import PDFnoServices
 
 enum PDFnoReadingTool: String, CaseIterable, Identifiable {
-    case translate, explain, japanese, english, page, spine, byok, savedSearch
+    case translate, explain, japanese, english, page, spine, savedSearch
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -15,7 +15,6 @@ enum PDFnoReadingTool: String, CaseIterable, Identifiable {
         case .english: "英语结构与语法"
         case .page: "当前 PDF 物理页翻译"
         case .spine: "当前 EPUB spine 文档翻译"
-        case .byok: "HTTPS 配置api 选文"
         case .savedSearch: "书名与已保存笔记搜索"
         }
     }
@@ -27,22 +26,20 @@ enum PDFnoReadingTool: String, CaseIterable, Identifiable {
         case .english: "结构分色与语法候选；真实语言质量尚未验收。"
         case .page: "预览当前物理页完整文字与分段预算。"
         case .spine: "处理当前完整 spine 文档，不推断目录逻辑章节。"
-        case .byok: "使用独立 HTTPS 会话配置，逐次确认后发送。"
         case .savedSearch: "仅检索书名与已保存记录；未保存草稿不入索引。"
         }
     }
     var scope: String {
         switch self {
-        case .page: "PDF · 独立 6 次预算 · 本次手动输入密钥"
-        case .spine: "EPUB · 独立 6 次预算 · 本次手动输入密钥"
+        case .page: "PDF · 当前物理页 · 共享连接"
+        case .spine: "EPUB · 当前 spine · 共享连接"
         case .savedSearch: "本地保存记录 · 无语义检索或书籍全文索引"
-        case .byok: "PDF / EPUB 选文 · 独立配置 · 共享 3 次预算"
         default: "PDF / EPUB 选文 · 官方 DeepSeek / 原创 mock · 共享 3 次预算"
         }
     }
     var symbol: String {
         switch self {
-        case .translate, .byok: "character.bubble"
+        case .translate: "character.bubble"
         case .explain: "text.bubble"
         case .japanese, .english: "textformat.abc"
         case .page: "doc.text"
@@ -57,20 +54,19 @@ enum PDFnoToolAvailability: String {
     var canOpen: Bool { self != .unsupported }
 }
 
-/// Read-only projection of the existing reader and independent configuration owners.
+/// Read-only projection of the current reader and shared applied connection.
 struct PDFnoReadingToolContext {
     enum Format { case none, pdf, epub, other }
     var format: Format
     var hasSelection: Bool
     var readingConfigured: Bool
-    var byokConfigured: Bool
     func availability(_ tool: PDFnoReadingTool) -> PDFnoToolAvailability {
         if tool == .savedSearch { return .enter }
         if tool == .page { return format == .pdf ? .enter : .unsupported }
         if tool == .spine { return format == .epub ? .enter : .unsupported }
         guard format == .pdf || format == .epub else { return .unsupported }
         guard hasSelection else { return .selection }
-        return (tool == .byok ? byokConfigured : readingConfigured) ? .enter : .configuration
+        return readingConfigured ? .enter : .configuration
     }
     @MainActor init(library: LibraryModel) {
         if library.readingComic || library.docx.isActive || library.textFormats.isActive || library.ebook.isActive { format = .other }
@@ -81,20 +77,17 @@ struct PDFnoReadingToolContext {
         } else if format == .pdf {
             hasSelection = library.reader.capturedSelection.map { library.reader.resolution(of: $0) == .exact } ?? false
         } else { hasSelection = false }
-        readingConfigured = library.learning.config.mode == .mock ||
-            (DeepSeekSelectionPolicy.supports(library.learning.config) && library.learning.hasSessionCredential)
-        byokConfigured = library.byok.hasSessionCredential
+        readingConfigured = library.learning.conversationConnectionAvailable
     }
-    init(format: Format, hasSelection: Bool, readingConfigured: Bool, byokConfigured: Bool) {
+    init(format: Format, hasSelection: Bool, readingConfigured: Bool) {
         self.format = format; self.hasSelection = hasSelection
-        self.readingConfigured = readingConfigured; self.byokConfigured = byokConfigured
+        self.readingConfigured = readingConfigured
     }
 }
 
 struct ReadingToolsWorkspace: View {
     @ObservedObject var library: LibraryModel
     @ObservedObject private var learning: AILearningModel
-    @ObservedObject private var byok: BYOKSettingsModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.pdfnoInlineDismiss) private var inlineDismiss
     @State private var route: PDFnoReadingTool?
@@ -103,7 +96,7 @@ struct ReadingToolsWorkspace: View {
     @Environment(\.pdfnoWorkspaceNavigation) private var workspaceNavigation
     @State private var width: CGFloat = 0
     private let settingsAction: (() -> Void)?
-    init(library: LibraryModel, settingsAction: (() -> Void)? = nil) { self.library = library; learning = library.learning; byok = library.byok; self.settingsAction = settingsAction }
+    init(library: LibraryModel, settingsAction: (() -> Void)? = nil) { self.library = library; learning = library.learning; self.settingsAction = settingsAction }
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -162,11 +155,10 @@ struct ReadingToolsWorkspace: View {
                 case .english: EnglishLearningSheet(library: library)
                 case .page: PDFPageTranslationWorkspace(library: library, translation: library.pageTranslation, learning: learning)
                 case .spine: EPUBChapterTranslationWorkspace(library: library, translation: library.chapterTranslation, learning: learning)
-                case .byok: BYOKLearningWorkspace(library: library, model: byok)
                 case .savedSearch: LibrarySearchWorkspace(library: library)
                 } }.environment(\.pdfnoInlineDismiss, nil)
             }
-            .sheet(isPresented: $settings) { AISettingsView(learning: learning, byok: byok, library: library) }
+            .sheet(isPresented: $settings) { AISettingsView(learning: learning, library: library) }
     }
     private func toolRow(_ tool: PDFnoReadingTool) -> some View {
         let status = PDFnoReadingToolContext(library: library).availability(tool)
@@ -201,7 +193,6 @@ struct ReadingToolsWorkspace: View {
         case .english: library.prepareEnglishLearning(); route = tool
         case .page: library.preparePageTranslation(); route = tool
         case .spine: Task { await library.prepareChapterTranslation(); route = tool }
-        case .byok: Task { await library.prepareBYOKSelection(); route = tool }
         case .savedSearch: route = tool
         }
     }

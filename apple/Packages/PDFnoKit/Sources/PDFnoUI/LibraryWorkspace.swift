@@ -101,7 +101,7 @@ public struct LibraryWorkspace: View {
             }
             if workspaceNavigation.route == .tool { inlineTool }
             if workspaceNavigation.hasOpenedSettings {
-                AISettingsView(learning: model.learning, byok: model.byok, library: model, embedded: true,
+                AISettingsView(learning: model.learning, library: model, embedded: true,
                     active: workspaceNavigation.route == .settings,
                     close: { workspaceNavigation.returnFromSettings(readerAvailable: displayedBookID != nil) })
                     .opacity(workspaceNavigation.route == .settings ? 1 : 0)
@@ -182,7 +182,7 @@ public struct LibraryWorkspace: View {
                 case .cover: if let coverEditor { LibraryCoverEditor(covers: model.covers, item: coverEditor) }
                 case .conversion: ConversionWorkspace()
                 case .bookno: BooknoPreviewWorkspace(model: model.booknoPreview)
-                case .tools: AISettingsView(learning: model.learning, byok: model.byok, library: model, initialCategory: .aiTools)
+                case .tools: AISettingsView(learning: model.learning, library: model, initialCategory: .aiTools)
                 case .help: FeatureStatusView()
                 case .recovery:
                     NavigationStack {
@@ -522,7 +522,6 @@ struct ReaderWorkspace: View {
     @State private var japaneseLearning = false
     @State private var englishLearning = false
     @State private var draftOwner = UUID().uuidString
-    @State private var byokLearning = false
     @State private var aiTools = false
     var body: some View {
         Group {
@@ -613,14 +612,13 @@ struct ReaderWorkspace: View {
         .onDisappear { searchRevealID = UUID(); model.recordVisibleDraft(owner: draftOwner, dirty: false) }
         .sheet(isPresented: $englishLearning) { EnglishLearningSheet(library: model) }
         .sheet(isPresented: $japaneseLearning) { JapaneseLearningSheet(library: model) }
-        .sheet(isPresented: $readerSettings) { AISettingsView(learning: model.learning, byok: model.byok, library: model) }
+        .sheet(isPresented: $readerSettings) { AISettingsView(learning: model.learning, library: model) }
         .sheet(isPresented: $pageTranslation) { PDFPageTranslationWorkspace(library: model, translation: model.pageTranslation, learning: model.learning) }
         #if os(macOS)
         .annotationExperience(model.annotations,reader: .pdf(session),aiLibrary: model)
         .sheet(isPresented: $legacyNotes) { NavigationStack { List { savedNotesContent }.accessibilityIdentifier("pdf-notes-list").navigationTitle("旧笔记与学习记录").toolbar { ToolbarItem { Button("完成") { legacyNotes = false }.accessibilityIdentifier("legacy-notes-close") } } } }
         #endif
-        .sheet(isPresented: $byokLearning) { BYOKLearningWorkspace(library: model, model: model.byok) }
-        .sheet(isPresented: $aiTools) { AISettingsView(learning: model.learning, byok: model.byok, library: model, initialCategory: .aiTools) }
+        .sheet(isPresented: $aiTools) { AISettingsView(learning: model.learning, library: model, initialCategory: .aiTools) }
         #endif
     }
     private var navigationVisible: Bool {

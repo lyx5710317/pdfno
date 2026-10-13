@@ -11,11 +11,8 @@ struct AISettingsView: View {
     @State private var secret = ""
     @State private var category = PDFnoSettingsCategory.ai
     @State private var showDeepSeekTest = false
-    private let byok: BYOKSettingsModel?
     private let library: LibraryModel?
     private let toolContext: SettingsAIContext?
-    @State private var showBYOKSettings = false
-    @State private var hasLoadedBYOK = false
     @State private var childBusy = false
     @State private var showTools = false
     @State private var showRecovery = false
@@ -24,10 +21,10 @@ struct AISettingsView: View {
     private let embedded: Bool
     private let active: Bool
     private let close: (() -> Void)?
-    init(learning: AILearningModel, byok: BYOKSettingsModel? = nil, library: LibraryModel? = nil,
+    init(learning: AILearningModel, library: LibraryModel? = nil,
          initialCategory: PDFnoSettingsCategory = .ai, embedded: Bool = false, active: Bool = true,
          close: (() -> Void)? = nil, toolContext: SettingsAIContext? = nil) {
-        self.learning = learning.connectionSettingsOwner; self.byok = byok; self.library = library
+        self.learning = learning.connectionSettingsOwner; self.library = library
         self.embedded = embedded; self.active = active; self.close = close
         self.toolContext=toolContext
         _draft = State(initialValue: learning.config)
@@ -48,7 +45,7 @@ struct AISettingsView: View {
                         settingsSubpage.frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 } else {
-                    ScrollViewReader { proxy in
+                    ScrollViewReader { _ in
                         ScrollView {
                             VStack(alignment: .leading, spacing: PDFnoDesign.Space.regular) {
                                 if embedded { contentHeading }
@@ -56,7 +53,6 @@ struct AISettingsView: View {
                             }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }.accessibilityIdentifier("ai-settings-form")
-                            .onChange(of: showBYOKSettings) { _, shown in if shown && embedded { proxy.scrollTo("settings-inline-byok", anchor: .top) } }
                     }
                 }
             }.disabled(childBusy && !hasSubpage)
@@ -68,7 +64,6 @@ struct AISettingsView: View {
             }
         }.frame(minWidth: embedded ? 0 : PDFnoDesign.Metric.sheetMinimum, idealWidth: 980, minHeight: embedded ? 0 : 560)
         .sheet(isPresented: Binding(get: { showDeepSeekTest && !embedded }, set: { showDeepSeekTest = $0 })) { DeepSeekSelfTestView(model: learning.deepSeekTest) }
-        .sheet(isPresented: Binding(get: { showBYOKSettings && !embedded }, set: { showBYOKSettings = $0 })) { if let byok { BYOKSettingsSheet(model: byok) } }
         .sheet(isPresented: Binding(get: { showTools && !embedded }, set: { showTools = $0 })) { if let library { ReadingToolsWorkspace(library: library) } }
         .sheet(isPresented: Binding(get: { showBookno && !embedded }, set: { showBookno = $0 })) { if let library { BooknoPreviewWorkspace(model: library.booknoPreview) } }
         .sheet(isPresented: Binding(get: { showRecovery && !embedded }, set: { showRecovery = $0 })) {
@@ -94,7 +89,7 @@ struct AISettingsView: View {
         }
     }
     private var hasSubpage: Bool { showDeepSeekTest || showTools || showBookno || showRecovery }
-    private func clearUnappliedSecrets() { secret = ""; if embedded { byok?.temporarySecret = "" } }
+    private func clearUnappliedSecrets() { secret = "" }
     private func closeSubpage() { showDeepSeekTest = false; showTools = false; showBookno = false; showRecovery = false }
     @ViewBuilder private var settingsSubpage: some View {
         Group {
@@ -113,14 +108,7 @@ struct AISettingsView: View {
         draft = learning.config; clearUnappliedSecrets()
         if let close { close() } else { dismiss() }
     }
-    private func saveConfiguration() {
-        Task {
-            if await learning.saveConfig(draft, temporarySecret: secret) {
-                secret = ""
-                if let close { close() } else { dismiss() }
-            }
-        }
-    }
+
     @ViewBuilder private var categoryContent: some View {
         switch category {
         case .ai: AIConnectionSettings(learning: learning, draft: $draft, secret: $secret, active: active)

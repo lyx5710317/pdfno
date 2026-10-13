@@ -16,7 +16,7 @@ Mac 已增加 **CBZ / 有限 CBT、CB7、CBR 漫画阅读**：本地导入、稳
 
 Mac 已合入 **Kookit 参考的实际 Mammoth1.13.0 DOCX 语义阅读**：导入／书库、标准标题目录、简单表格／列表、选文笔记、精确回跳与进度恢复。独立adapter直接调用同一引擎，原始DocxRender类仅作来源参考。图片／分页／字体／页眉页脚与复杂Word内容不保真；旧DOC与移动Word未支持。见[引擎与来源边界](docs/ADR-DOCX-KOOKIT-MAMMOTH.md)及[验证](docs/DOCX-VALIDATION.md)。
 
-Mac 的现有「模型与 BYOK 设置」和「选文 AI」已接入 **DeepSeek 选文翻译／简短解释**，复用 PDF/EPUB 来源引用和独立学习笔记。用户在设置里选择 DeepSeek 预设、手动输入会话临时 key 并保存，再在阅读窗口确认固定选文、接收方与费用后亲自点击开始。仅官方 HTTPS origin 和 `deepseek-flash` 支持真实发送；其他配置仍为预览，本地 mock 必须明确选择。打开设置／书籍／学习窗口、改选区或换模式均不发送，没有失败后自动 mock。
+Mac 的设置 → AI 使用一套共享配置api：服务商、HTTPS API 地址、模型和会话 API Key。选文解释、翻译、总结以及日语/英语对话共用此连接；日语/英语开关在 AI工具中。全文对话另行确认当前完整文档，整页/spine 翻译保留各自范围与确认。Key 不回填、不写入笔记或磁盘；改变接收地址会撤销旧引用，无自动重试。旧独立 BYOK 设置、路由与独立选文状态已清理，必要旧数据/内存配置兼容改为迁移职责。
 
 远程选文最多 **500 UTF-16 单元、1024 输出 tokens、30 秒、每次应用会话三次网络尝试**；失败／取消也计次数，无自动重试。1024 包含 JSON 和回显引文，并非人民币费用硬上限。仅固定选文和任务发送，不添加前后文、书目、笔记、其他页或历史。响应须完整结束、JSON 有效且引文逐 Unicode scalar 匹配，引用由原生快照生成；结果不会自动保存，用户明确保存后才写独立学习文件。密钥仅在内存，清除或退出失效；空 key 保存会清除旧值。当前结果与本书最近请求记录在会话内保留；关闭学习窗口取消未完成工作。持久 Keychain、其他真实服务、SSE 与完整语言质量验收仍待实现。详见 [选文请求边界](docs/ADR-0006-DEEPSEEK-SELECTION.md)。
 
@@ -31,7 +31,7 @@ Mac 增加 **XHTML／MHTML／可阅读 XML** 的有限离线正文阅读，复�
 
 Mac 的“格式转换”入口可将普通 DOCX 正文导出为 UTF-8 TXT／简化 HTML：选择原件、输出格式与新保存位置，后台阶段进度、取消和失败后手动重试。原件及已有文件不会覆盖；图片、页眉页脚、复杂版式等明确不保真。见[转换矩阵与 ADR](docs/ADR-0009-LOCAL-CONVERSION.md)及[实际验证](docs/CONVERSION-VALIDATION.md)。
 
-**其他漫画容器、其他格式阅读、其他真实 BYOK 服务、文档问答、EPUB章节／多页／整书双语翻译、生成假名、英日语法质量、Bookno API、iCloud、OCR、PDF/Word/EPUB 高保真互转和 Apple Pencil 尚未接入或验收。** 其他格式优先沿独立 Kookit adapter 路线逐项审计与验收，不因 EPUB 接入自动开放。完整功能目标和三端规划见 [v0.3 主规格](docs/PDFno_AI_Development_Spec_v0.3_Native.md)、[实施状态](docs/NATIVE-TASKS.md) 和 [引擎审计](docs/EPUB-ENGINE-AUDIT.md)。
+正式签名/发布、旧系统与 Intel 实机、真实语言质量、Bookno API、iCloud、OCR、PDF/Word/EPUB 高保真互转和 Apple Pencil 仍需分别验证或实现。当前阅读格式、共享 AI 与全局验收结果应以对应版本的验证记录为准；历史报告不代替最新版本。
 
 最终阅读目标完整保留18种扩展名：**EPUB、MOBI、AZW、AZW3、FB2、PDF、TXT、DOCX、MD、CBZ、CBR、CBT、CB7、HTML、HTM、XHTML、MHTML、XML**。逐项实现状态、三端缺口和验收门槛见[完整目标矩阵](docs/PDFno_AI_Development_Spec_v0.3_Native.md#53-完整18种格式阅读目标与实际状态)。输入限定DRM-free；XML指可阅读标记文档，`.doc`不在这18种内。未来漫画AI翻译仍是目标。阅读支持与有向转换矩阵分别验收。
 
@@ -47,7 +47,7 @@ Mac EPUB 首片接受非加密重排内容。限额为 20 MiB 归档、1000 条�
 
 本批本地候选新增 Mac 书库回收站／校验目录备份、PDF／EPUB 英语结构与语法、英语笔记搜索和正文编辑；共享写入暂停、来源提交复核及启动恢复已接线。完整本地证据与实际 UI 尚待验收的边界见 [UI／数据／英语整合记录](docs/UI-DATA-ENGLISH-INTEGRATION-2026-10-05.md)。
 
-独立临时 UI 候选按已脱敏的闪念布局组织 Mac 设置分类、阅读工具目录和现有详情卡片，保留两套 BYOK 身份及原请求／保存流程。语义检索、MCP 与工具调用只显示未实现状态；最终 Figma 稿与完整隔离 UI 验收仍待完成。见[临时布局依赖、验证与整合边界](docs/TEMP-AI-SETTINGS-LAYOUT-2026-10-05.md)。
+Mac 设置分类和阅读工具目录已采用当前共享连接方案；原临时双 BYOK 布局记录仅作历史证据。语义检索、MCP 与工具调用仍为规划。最新清理与 Mac 全局验证边界见 [共享 AI 清理说明](docs/MAC-SHARED-AI-CLEANUP-2026-10-13.md)。
 
 ## 构建与验证
 

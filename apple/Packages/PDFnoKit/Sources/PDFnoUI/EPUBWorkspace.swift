@@ -19,7 +19,6 @@ struct EPUBWorkspace: View {
     @State private var japaneseLearning = false
     @State private var englishLearning = false
     @State private var draftOwner = UUID().uuidString
-    @State private var byokLearning = false
     @State private var aiTools = false
     var body: some View {
         VStack(spacing: 0) {
@@ -76,9 +75,8 @@ struct EPUBWorkspace: View {
         .onDisappear { model.recordVisibleDraft(owner: draftOwner, dirty: false) }
         .sheet(isPresented: $englishLearning) { EnglishLearningSheet(library: model) }
         .sheet(isPresented: $japaneseLearning) { JapaneseLearningSheet(library: model) }
-        .sheet(isPresented: $byokLearning) { BYOKLearningWorkspace(library: model, model: model.byok) }
         .sheet(isPresented: $aiTools) { ReadingToolsWorkspace(library: model) }
-        .sheet(isPresented: $readerSettings) { AISettingsView(learning: model.learning, byok: model.byok, library: model) }
+        .sheet(isPresented: $readerSettings) { AISettingsView(learning: model.learning, library: model) }
     }
     private var readingModeDescription: String {
         switch session.readingLayout.mode {

@@ -24,28 +24,20 @@ struct TemporaryAILayoutTests {
         #expect(PDFnoTemporaryLayout.directoryColumns(width: 639) == 1)
         #expect(PDFnoTemporaryLayout.directoryColumns(width: 640) == 2)
         for format in [PDFnoReadingToolContext.Format.none, .other] {
-            let context = PDFnoReadingToolContext(format: format, hasSelection: true, readingConfigured: true, byokConfigured: true)
+            let context = PDFnoReadingToolContext(format: format, hasSelection: true, readingConfigured: true)
             for tool in PDFnoReadingTool.allCases where tool != .savedSearch {
                 #expect(context.availability(tool) == .unsupported)
                 #expect(!context.availability(tool).canOpen)
             }
             #expect(context.availability(.savedSearch) == .enter)
         }
-        let pdf = PDFnoReadingToolContext(format: .pdf, hasSelection: false, readingConfigured: false, byokConfigured: false)
+        let pdf = PDFnoReadingToolContext(format: .pdf, hasSelection: false, readingConfigured: false)
         #expect(pdf.availability(.translate) == .selection && pdf.availability(.translate).canOpen)
         #expect(pdf.availability(.page) == .enter && pdf.availability(.spine) == .unsupported)
-        let epub = PDFnoReadingToolContext(format: .epub, hasSelection: false, readingConfigured: false, byokConfigured: false)
+        let epub = PDFnoReadingToolContext(format: .epub, hasSelection: false, readingConfigured: false)
         #expect(epub.availability(.spine) == .enter && epub.availability(.page) == .unsupported)
     }
 
-    @Test func configurationOwnersRemainIndependentInTheDirectory() {
-        let officialOnly = PDFnoReadingToolContext(format: .pdf, hasSelection: true, readingConfigured: true, byokConfigured: false)
-        for tool in [PDFnoReadingTool.translate, .explain, .japanese, .english] { #expect(officialOnly.availability(tool) == .enter) }
-        #expect(officialOnly.availability(.byok) == .configuration)
-        let byokOnly = PDFnoReadingToolContext(format: .epub, hasSelection: true, readingConfigured: false, byokConfigured: true)
-        #expect(byokOnly.availability(.byok) == .enter)
-        for tool in [PDFnoReadingTool.translate, .explain, .japanese, .english] { #expect(byokOnly.availability(tool) == .configuration) }
-    }
 
     @Test func actualSettingsAndCatalogRenderWithoutRequestsOrWrites() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-TemporaryAI-" + UUID().uuidString)
@@ -55,8 +47,6 @@ struct TemporaryAILayoutTests {
         #expect(await library.learning.saveConfig(DeepSeekSelectionPolicy.configuration(), temporarySecret: "original-layout-fixture-credential"))
         // Repository assigns its own config identity/generation on explicit save.
         let configuration = library.learning.config
-        library.byok.temporarySecret = "original-independent-layout-credential"
-        #expect(await library.byok.apply())
         let sample = try Data(contentsOf: #require(Bundle.module.url(forResource: "study-sample", withExtension: "pdf", subdirectory: "Fixtures")))
         let book = BookRecord(title: "Original layout PDF", fileSHA256: LibraryRepository.digest(sample), originalFilename: "original.pdf", pageCount: 2)
         try library.reader.open(data: sample, book: book)
@@ -79,30 +69,27 @@ struct TemporaryAILayoutTests {
         for scheme in [ColorScheme.light, .dark] {
             for width in [CGFloat(360), 759, 760, 1120] {
                 let label = (scheme == .light ? "light" : "dark") + "-" + String(Int(width))
-                try await render(AISettingsView(learning: library.learning, byok: library.byok, library: library), width: width, scheme: scheme, name: "settings-ai-" + label)
-                try await render(AISettingsView(learning: library.learning, byok: library.byok, library: library, initialCategory: .tools), width: width, scheme: scheme, name: "settings-tools-" + label)
+                try await render(AISettingsView(learning: library.learning, library: library), width: width, scheme: scheme, name: "settings-ai-" + label)
+                try await render(AISettingsView(learning: library.learning, library: library, initialCategory: .tools), width: width, scheme: scheme, name: "settings-tools-" + label)
                 try await render(ReadingToolsWorkspace(library: library), width: width, scheme: scheme, name: "catalog-" + label)
             }
         }
         for width in [CGFloat(360), 1120] {
             for category in [PDFnoSettingsCategory.general, .backup, .shortcuts, .diagnostics, .about] {
-                try await render(AISettingsView(learning: library.learning, byok: library.byok, library: library, initialCategory: category),
+                try await render(AISettingsView(learning: library.learning, library: library, initialCategory: category),
                                  width: width, scheme: .light, name: "settings-" + category.rawValue + "-light-" + String(Int(width)))
             }
-            try await render(BYOKSettingsView(model: library.byok), width: width, scheme: .light, name: "byok-light-" + String(Int(width)))
             try await render(AILearningWorkspace(library: library, learning: library.learning), width: width, scheme: .light, name: "selection-detail-light-" + String(Int(width)))
         }
         #expect(library.reader.capturedSelection == anchor && library.reader.resolution(of: anchor) == .exact)
         #expect(library.learning.source == source && library.learning.result == result)
         #expect(library.learning.userText == "Original unsaved draft · 日本語 cafe\u{301}")
         #expect(library.learning.config == configuration && library.learning.hasSessionCredential)
-        let byokSnapshot = await library.byok.session.snapshot()
-        #expect(library.byok.hasSessionCredential && byokSnapshot.hasSessionCredential)
         #expect(await session.selection.attemptsUsed() == 0)
         #expect(await transport.count == 0 && library.learning.notes.isEmpty)
         #expect(try Data(contentsOf: file) == before)
         let context = PDFnoReadingToolContext(library: library)
-        #expect(context.availability(.english) == .enter && context.availability(.byok) == .enter)
+        #expect(context.availability(.english) == .enter && context.availability(.translate) == .enter)
     }
 
     @Test func planningAndLongRecipientCardsRenderInBothColumnCounts() async throws {

@@ -221,18 +221,8 @@ final class NativeUITests: XCTestCase {
         waitForText(["1 / 2"], in: app.staticTexts["page-position"].firstMatch, timeout: 10)
         XCTAssertEqual(try originalSavedNote(token, manifest: "japanese-learning-v1.json")["review"] as? NSDictionary, before["review"] as? NSDictionary)
     }
-    @MainActor private func scrollBYOKElement(_ element: XCUIElement, in app: XCUIApplication) {
-        let scroll = app.scrollViews["byok-selection-workspace"].firstMatch
-        XCTAssertTrue(scroll.waitForExistence(timeout: 5)); XCTAssertTrue(element.waitForExistence(timeout: 5))
-        for _ in 0..<12 {
-            let viewport = scroll.frame.insetBy(dx: 4, dy: 8), target = element.frame
-            if !target.isEmpty, viewport.contains(target), element.isHittable { return }
-            let delta: CGFloat = target.minY < viewport.minY ? 250 : -250
-            scroll.scroll(byDeltaX: 0, deltaY: delta)
-        }
-        XCTAssertTrue(element.isHittable)
-    }
-    @MainActor func testMacBYOKExplicitRecipientManualSaveAndDefaultChainsStaySeparate() throws {
+
+    @MainActor func testMacConfiguredAPIExplicitRecipientManualSaveAndSharedTranslation() throws {
         let app = XCUIApplication(); app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = UUID().uuidString
         app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
         app.launch(); app.activate(); defer { app.terminate() }
@@ -249,25 +239,26 @@ final class NativeUITests: XCTestCase {
         let answers = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'ai-conversation-answer-'"))
         try uiWait("One offline answer for the explicit selected task") { answers.count == 1 && !self.ui("ai-conversation-stop", app).exists }
         let answer = answers.firstMatch; XCTAssertTrue(uiText(answer).contains("离线"))
-        try uiClick(ui("ai-conversation-source-toggle", app)); try uiContains(ui("ai-conversation-source", app), "window")
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'joint-ui.example'")).firstMatch.exists)
+        XCTAssertFalse(ui("ai-conversation-source-toggle", app).exists)
+        try uiClick(ui("ai-conversation-return", app)); try uiContains(ui("page-position", app), "1 / 2")
+        // The applied receiver is verified in the saved typed result below.
         XCTAssertEqual(try uiAnnotations(app).count, 0, "An applied connection and generated answer do not save notes")
         let save = ui(answer.identifier.replacingOccurrences(of: "ai-conversation-answer-", with: "ai-conversation-save-"), app)
         try uiClick(save); try uiWait("Explicit answer save") { save.label == "已加入笔记" }
         try uiClick(ui("ai-close", app)); try uiPanel("reader-notes", open: true, app); try uiEditNote(app)
-        try uiPaste("Original saved BYOK body", ui("annotation-comment-input", app)); try uiSaveNote(app)
+        try uiPaste("Original saved configured API body", ui("annotation-comment-input", app)); try uiSaveNote(app)
         let saved = try uiOnlyAnnotation(app), result = try XCTUnwrap(saved["aiResult"] as? [String: Any])
         XCTAssertEqual((result["provider"] as? [String: Any])?["endpoint"] as? String, "https://joint-ui.example/v1")
-        XCTAssertEqual(saved["userText"] as? String, "Original saved BYOK body"); XCTAssertEqual(try uiAnchorPayload(saved)["quote"] as? String, "window")
+        XCTAssertEqual(saved["userText"] as? String, "Original saved configured API body"); XCTAssertEqual(try uiAnchorPayload(saved)["quote"] as? String, "window")
         let store = try uiStore(app).appendingPathComponent("annotations-v1.json")
         XCTAssertFalse(String(decoding: try Data(contentsOf: store), as: UTF8.self).contains("synthetic-reading-ui-credential"))
         try uiSettings(app); try uiPaste("https://different-ui.example/v1", ui("ai-endpoint", app))
         XCTAssertEqual(ui("ai-session-key", app).value as? String, "")
-        try uiClick(ui("ai-settings-save", app)); try uiContains(ui("ai-credential-status", app), "需要 API Key")
+        try uiClick(ui("ai-settings-save", app)); try uiContains(ui("ai-credential-status", app), "填写后点击应用连接")
         XCTAssertEqual(try uiOnlyAnnotation(app)["aiResult"] as? NSDictionary, result as NSDictionary)
         try uiClick(ui("settings-return", app)); openCurrentFileAction("document-page-translation", app: app)
-        XCTAssertTrue(ui("page-session-key", app).waitForExistence(timeout: 5)); XCTAssertEqual(ui("page-session-key", app).value as? String, "")
-        XCTAssertFalse(ui("page-start", app).isEnabled, "The whole-page route does not inherit the selected-text connection credential or consent")
+        XCTAssertFalse(ui("page-session-key", app).exists, "Page translation uses the shared connection without another credential field")
+        XCTAssertFalse(ui("page-start", app).isEnabled, "Revoking the shared credential blocks page translation; separate scope consent is still required")
     }
     @MainActor func testMacDOCXReadingPDFEntryCancelExportAndOverwriteRefusal() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Reading-PDF-UI-" + UUID().uuidString)
@@ -2197,31 +2188,22 @@ final class NativeUITests: XCTestCase {
     @MainActor private func revealCurrentSettingsElement(_ element: XCUIElement, app: XCUIApplication) {
         let outer = app.scrollViews["ai-settings-form"].firstMatch
         XCTAssertTrue(outer.waitForExistence(timeout: 5)); XCTAssertTrue(element.waitForExistence(timeout: 5))
-        let inner = app.scrollViews["byok-settings-form"].firstMatch
         let returning = element.identifier == "settings-return"
         for _ in 0..<12 {
             let target = element.frame, viewport = outer.frame.insetBy(dx: 4, dy: 8)
-            let nested = element.identifier.hasPrefix("byok-") && inner.exists
-            let nestedVisible = !nested || inner.frame.insetBy(dx: 4, dy: 8).contains(target)
             // The native header button may extend into the scroll content inset.
             // It must still be fully inside this App's window and actually hittable.
-            if !target.isEmpty, (returning || viewport.contains(target)), nestedVisible,
+            if !target.isEmpty, (returning || viewport.contains(target)),
                app.windows.firstMatch.frame.contains(target), element.isHittable { return }
-            let scroll = nested && !nestedVisible ? inner : outer
+            let scroll = outer
             let bounds = scroll.frame.insetBy(dx: 4, dy: 8)
             scroll.scroll(byDeltaX: 0, deltaY: target.minY < bounds.minY ? 250 : -250)
         }
         if !returning { XCTAssertTrue(outer.frame.insetBy(dx: 4, dy: 8).contains(element.frame)) }
         XCTAssertTrue(app.windows.firstMatch.frame.contains(element.frame)); XCTAssertTrue(element.isHittable)
     }
-    @MainActor private func enterCurrentBYOKSetting(_ text: String, into input: XCUIElement, app: XCUIApplication) {
-        revealCurrentSettingsElement(input, app: app)
-        enterSearch(text, into: input, replacing: true)
-    }
-    @MainActor private func applyCurrentBYOKSettings(_ app: XCUIApplication) {
-        let apply = app.buttons["byok-apply"].firstMatch
-        revealCurrentSettingsElement(apply, app: app); press(apply)
-    }
+
+
     @MainActor private func currentSettingsReturn(_ app: XCUIApplication) -> XCUIElement {
         let back = app.buttons["settings-return"].firstMatch
         revealCurrentSettingsElement(back, app: app); return back

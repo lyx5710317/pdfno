@@ -94,7 +94,7 @@ extension AIResult {
             return promptVersion == ReadingConversationPlan.promptVersion && conversation.isValid &&
                 conversation.answerID == requestID && conversation.task.legacyKind == kind && !fromCache &&
                 source.anchor.quote.utf16.count <= DeepSeekSelectionPolicy.maxSourceUTF16 &&
-                (provider.mode == .mock || (try? BYOKSelectionPolicy.finalURL(provider)) != nil)
+                (provider.mode == .mock || (try? ConfiguredAPISelectionPolicy.finalURL(provider)) != nil)
         }
         guard promptVersion != ReadingConversationPlan.promptVersion else { return false }
         if kind == .summarize { return promptVersion == "selection-summary-1" }

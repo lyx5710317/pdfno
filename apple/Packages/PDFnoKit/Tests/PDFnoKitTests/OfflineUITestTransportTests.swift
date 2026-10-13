@@ -74,14 +74,15 @@ struct OfflineUITestTransportTests {
     }
 
     @Test(arguments: [true, false]) @MainActor
-    func legacyBYOKTranslationWithExactAndAlteredFixtureCredential(exact: Bool) async throws {
+    func configuredAPITranslationWithExactAndAlteredFixtureCredential(exact: Bool) async throws {
         let session = AppAISession()
-        let model = BYOKSettingsModel(transport: OfflineSelectionUITestTransport(), aiSession: session)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Configured-Transport-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let model = AILearningModel(root: root, transport: OfflineSelectionUITestTransport(), offlineTransport: true, aiSession: session)
         var config = DeepSeekSelectionPolicy.configuration()
         config.endpoint = "https://joint-ui.example/v1"; config.model = "original-ui-model"
-        model.draft = config; model.temporarySecret = diagnosticCredential(exact)
-        #expect(await model.apply())
-        await model.prepareSelection(diagnosticSource(), kind: .translate)
+        #expect(await model.applyConnection(config, temporarySecret: diagnosticCredential(exact)))
+        model.prepare(diagnosticSource()); model.kind = .translate
         model.start(confirmed: true, sourceIsCurrent: { _ in true })
         try await diagnosticIdle { model.busy }
         if exact {

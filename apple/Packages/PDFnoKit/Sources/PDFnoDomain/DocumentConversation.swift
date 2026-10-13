@@ -1,7 +1,7 @@
 // Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
 import Foundation
 
-public enum DocumentConversationFailure: LocalizedError, Sendable {
+public enum DocumentConversationFailure: LocalizedError, Sendable, Equatable {
     case tooLarge, incomplete, historyLimit, cancelled
     public var errorDescription: String? {
         switch self {
@@ -56,6 +56,6 @@ public struct DocumentConversationPlan: Sendable {
                   turn.sourceIdentity == source.identity && turn.role == (index.isMultiple(of: 2) ? .user : .assistant)
               }) else { throw DocumentConversationFailure.historyLimit }
         self.source = source; self.provider = provider; self.history = history; self.question = question
-        receiverURL = provider.mode == .mock ? nil : try BYOKSelectionPolicy.finalURL(provider)
+        receiverURL = provider.mode == .mock ? nil : try ConfiguredAPISelectionPolicy.finalURL(provider)
     }
 }

@@ -26,13 +26,7 @@ import PDFnoDomain
     private let documentFactory: (@MainActor (URL) -> LibraryModel)?
     init(catalogue: LibraryModel, documentFactory: (@MainActor (URL) -> LibraryModel)? = nil) {
         self.catalogue = catalogue; self.documentFactory = documentFactory
-        catalogue.byok.sessionDidChange = { [weak self] in
-            guard let self else { return }
-            for tab in tabs where tab.model !== catalogue {
-                tab.model.invalidateBYOKSelection()
-                Task { await tab.model.byok.load() }
-            }
-        }
+
     }
     var active: MacDocumentTab? { tabs.first { $0.id == activeID } }
     func adopt(_ model: LibraryModel) {
@@ -50,7 +44,7 @@ import PDFnoDomain
         activeID = id
     }
     func makeDocumentModel() -> LibraryModel {
-        let model = documentFactory?(catalogue.recordRoot) ?? LibraryModel(root: catalogue.recordRoot, byokSession: catalogue.byok.session)
+        let model = documentFactory?(catalogue.recordRoot) ?? LibraryModel(root: catalogue.recordRoot)
         model.learning.shareSessionConfiguration(with: catalogue.learning)
         return model
     }
@@ -150,7 +144,7 @@ extension LibraryModel {
         return reader.book?.title ?? "PDFno"
     }
     var hasDocumentSaveInFlight: Bool {
-        !conversation.savingAnswers.isEmpty || addingAIToNotes || bookmarks.saving || learning.saving || byok.saving || japaneseLearning.saving || englishLearning.saving ||
+        !conversation.savingAnswers.isEmpty || addingAIToNotes || bookmarks.saving || learning.saving || japaneseLearning.saving || englishLearning.saving ||
         !noteEditing.saving.isEmpty || !recordEditing.editor.saving.isEmpty || annotations.saving || !annotations.editor.saving.isEmpty
     }
     var hasDocumentEditorChanges: Bool {
@@ -160,13 +154,11 @@ extension LibraryModel {
         recordEditing.editor.drafts.values.contains { $0.baseline.bookID == displayedDocumentID && $0.text != $0.baseline.userText }
     }
     var hasDocumentRunningTasks: Bool {
-        conversation.busy || documentConversation.busy || documentConversation.loading || learning.busy || byok.busy || pageTranslation.busy || chapterTranslation.busy || japaneseLearning.busy || englishLearning.busy
+        conversation.busy || documentConversation.busy || documentConversation.loading || learning.busy || pageTranslation.busy || chapterTranslation.busy || japaneseLearning.busy || englishLearning.busy
     }
     var hasUnsavedDocumentLearning: Bool {
         conversation.hasUnsavedWork || documentConversation.hasUnsavedWork || learning.hasRetainedUserDraft || englishLearning.hasRetainedUserDraft || japaneseLearning.hasRetainedUserDraft ||
-        (!byokUserText.isEmpty && !learning.notes.contains { $0.result.requestID == byok.result?.requestID && $0.userText == byokUserText }) ||
         learning.result.map { result in !learning.savedAnnotationRequests.contains(result.requestID) && !learning.notes.contains { $0.result.requestID == result.requestID } } == true ||
-        byok.result.map { result in !learning.notes.contains { $0.result.requestID == result.requestID } } == true ||
         pageTranslation.segments.contains { segment in segment.result.map { result in !learning.notes.contains { $0.result.requestID == result.requestID && $0.userText == segment.userText } } ?? !segment.userText.isEmpty } ||
         (chapterTranslation.segments + chapterTranslation.retainedBatches.flatMap(\.segments)).contains { segment in segment.result.map { result in !learning.notes.contains { $0.result.requestID == result.requestID && $0.userText == segment.userText } } ?? !segment.userText.isEmpty } ||
         (englishLearning.review != nil && !englishLearning.saved) || (japaneseLearning.review != nil && !japaneseLearning.saved)
@@ -191,15 +183,15 @@ extension LibraryModel {
         selectionAIRoute = nil
         conversation.discard()
         documentConversation.discard()
-        learning.discardDocumentPresentation(); byok.discardDocumentPresentation()
+        learning.discardDocumentPresentation()
         englishLearning.discardDocumentPresentation(); japaneseLearning.discardDocumentPresentation()
-        byokUserText = ""; pageTranslation.cancel(); pageTranslation.segments = []
+        pageTranslation.cancel(); pageTranslation.segments = []
         chapterTranslation.cancel(); chapterTranslation.segments = []; chapterTranslation.retainedBatches = []
     }
     func cancelDocumentTasks() {
         conversation.stop()
         learning.cancel(); pageTranslation.cancel(); chapterTranslation.cancel()
-        englishLearning.cancel(); japaneseLearning.cancel(); invalidateBYOKSelection()
+        englishLearning.cancel(); japaneseLearning.cancel()
     }
 }
 #endif

@@ -113,7 +113,7 @@ final class HomeSettingsUITests: XCTestCase {
             app.terminate()
         } }
     }
-    @MainActor func testSettingsOrdinaryDraftReturnCancelAndInlineBYOKNeverAutoSave() throws {
+    @MainActor func testSettingsOrdinaryDraftReturnCancelAndSharedConnectionNeverAutoSave() throws {
         let app = try app(); defer { app.terminate() }
         try sample(app); try click(item("ai-settings", app))
         let label = item("ai-provider-label", app)
@@ -126,17 +126,16 @@ final class HomeSettingsUITests: XCTestCase {
         XCTAssertEqual(try persistentBytes(app), before)
         try click(item("ai-settings-cancel", app)); try click(item("ai-settings", app))
         XCTAssertNotEqual(label.value as? String, pending)
-        try click(item("byok-settings-open", app))
-        let endpoint = item("byok-endpoint", app)
+        let endpoint = item("ai-endpoint", app)
         try reveal(endpoint, scrollID: "ai-settings-form", app: app)
         try paste("https://fixture-config.example/v1", into: endpoint, app: app)
-        let byokPending = endpoint.value as? String
+        let connectionPending = endpoint.value as? String
         try category("通用", id: "general", app: app); try category("AI", id: "ai", app: app)
-        try reveal(endpoint, scrollID: "ai-settings-form", app: app); value(endpoint, try XCTUnwrap(byokPending))
+        try reveal(endpoint, scrollID: "ai-settings-form", app: app); value(endpoint, try XCTUnwrap(connectionPending))
         XCTAssertEqual(app.windows.count, 1)
         XCTAssertFalse(app.sheets.firstMatch.exists)
         XCTAssertEqual(try persistentBytes(app), before)
-        try capture("H-settings-inline-BYOK-unapplied", app: app)
+        try capture("H-settings-shared-connection-unapplied", app: app)
         try click(item("settings-return", app)); contains(item("page-position", app), "1 / 2")
     }
     @MainActor func testReaderPositionSelectionNoteAndAIDraftsSurviveSettingsAndLibrary() throws {

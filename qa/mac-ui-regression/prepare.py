@@ -23,7 +23,10 @@ record = json.loads((out/'PREPARATION.json').read_text())
 source = out/'source'
 sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
 inventory = json.loads((HERE/'method-inventory.json').read_text())
-assert sorted(record['expected_methods']) == sorted(inventory['original68'])
+approved = load_scope(repo)
+aliases = approved.get('architecture_cleanup_review', {}).get('gui_replacements', {})
+current_method = lambda method: aliases.get(method, method)
+assert sorted(record['expected_methods']) == sorted(map(current_method, inventory['original68']))
 assert len(inventory['new5']) == 5 and len(inventory['gate17']) == 17
 
 seed = out/'FixtureSeed'
@@ -105,7 +108,7 @@ fixture_name='Original-only-long-document-title-for-local-reader-chrome-overflow
 assert sha(HERE/fixture_name)==inventory['fixture_long_title_sha256']
 fixture=out/'ReaderPanelSimplification/2026-10-10/QA01/FixtureInput'/fixture_name
 fixture.parent.mkdir(parents=True); shutil.copy2(HERE/fixture_name,fixture)
-methods=inventory['original68']+inventory['new5']
+methods=list(map(current_method, inventory['original68']+inventory['new5']))
 assert len(set(methods))==73
 for method in methods:
     cls,name=method.split('/')
@@ -118,6 +121,7 @@ record.update(expected_methods=methods, all_compiled_methods=methods, gate17=inv
               scope='Approved Mac original68 plus new5; representative8 then gate17 then remaining56, distinct exact current candidate',
               GUI_started=False, network_refused=True, keychain_refused=True,
               original_generated_ui_plan_unfiltered=True, new_accounts_or_packages=False)
+record['historical_gui_replacements'] = aliases
 assert len(record['remaining56'])==56
 assert len(set(record['representative8']))==8 and set(record['representative8']).issubset(inventory['original68'])
 if args.scope == 'nonbyok':

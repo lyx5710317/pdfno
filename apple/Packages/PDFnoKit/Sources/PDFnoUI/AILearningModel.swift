@@ -39,7 +39,7 @@ public final class AILearningModel: ObservableObject {
     @Published private(set) var connectionBusy = false
     @Published private(set) var connectionStatus = "尚未测试连接"
     @Published private(set) var legacyConnectionConfiguration: AIProviderConfig?
-    private var pendingLegacySession: BYOKProviderSession?
+    private var pendingLegacySession: LegacyAIConnectionSession?
     private var reconciledLegacySessions: Set<ObjectIdentifier> = []
     private let connectionProbe = ReadingConnectionProbe()
     private var connectionTask: Task<Void, Never>?
@@ -159,10 +159,11 @@ public final class AILearningModel: ObservableObject {
         cancelConnectionProbe()
         do {
             guard legacyConnectionConfiguration == nil else { throw AIFailure.configuration }
-            guard candidate.isValid else { throw AIFailure.configuration }
-            if candidate.mode == .openAICompatible { _ = try BYOKSelectionPolicy.finalURL(candidate) }
-            guard temporarySecret.isEmpty || CredentialValidation.valid(temporarySecret) else { throw AIFailure.credentials }
             let endpointChanged = !candidate.endpoint.utf8.elementsEqual(config.endpoint.utf8) || candidate.mode != config.mode
+            if endpointChanged { await clearSessionCredential() }
+            guard candidate.isValid else { throw AIFailure.configuration }
+            if candidate.mode == .openAICompatible { _ = try ConfiguredAPISelectionPolicy.finalURL(candidate) }
+            guard temporarySecret.isEmpty || CredentialValidation.valid(temporarySecret) else { throw AIFailure.credentials }
             if endpointChanged, candidate.mode == .openAICompatible, temporarySecret.isEmpty { throw AIFailure.credentials }
             cancel()
             let saved = try await repository.saveConfig(candidate)
@@ -180,17 +181,17 @@ public final class AILearningModel: ObservableObject {
         } catch { self.error = AIJobCoordinator.safeError(error).localizedDescription; return false }
     }
     var conversationConnectionAvailable: Bool {
-        connectionSettingsOwner.legacyConnectionConfiguration == nil && (config.mode == .mock || (config.mode == .openAICompatible && hasSessionCredential && (try? BYOKSelectionPolicy.finalURL(config)) != nil))
+        connectionSettingsOwner.legacyConnectionConfiguration == nil && (config.mode == .mock || (config.mode == .openAICompatible && hasSessionCredential && (try? ConfiguredAPISelectionPolicy.finalURL(config)) != nil))
     }
     var connectionSettingsOwner: AILearningModel { configurationOwner?.connectionSettingsOwner ?? self }
-    func reconcileLegacyConnection(_ session: BYOKProviderSession) async {
+    func reconcileLegacyConnection(_ session: LegacyAIConnectionSession) async {
         let owner = connectionSettingsOwner
         if owner !== self { await owner.reconcileLegacyConnection(session); return }
         let identity = ObjectIdentifier(session)
         guard !reconciledLegacySessions.contains(identity) else { return }
         let legacy = await session.snapshot()
         guard legacy.hasSessionCredential else { reconciledLegacySessions.insert(identity); return }
-        let equivalent = (try? BYOKSelectionPolicy.finalURL(config)) == (try? BYOKSelectionPolicy.finalURL(legacy.configuration)) && config.model == legacy.configuration.model
+        let equivalent = (try? ConfiguredAPISelectionPolicy.finalURL(config)) == (try? ConfiguredAPISelectionPolicy.finalURL(legacy.configuration)) && config.model == legacy.configuration.model
         if config.mode == .unconfigured || (equivalent && !hasSessionCredential) {
             await importLegacyConnection(session, snapshot: legacy, preserveCurrent: equivalent)
         } else {
@@ -207,11 +208,11 @@ public final class AILearningModel: ObservableObject {
             legacyConnectionConfiguration = nil; connectionStatus = "已保留当前配置api"
         }
     }
-    private func importLegacyConnection(_ session: BYOKProviderSession, snapshot: BYOKSessionSnapshot, preserveCurrent: Bool) async {
+    private func importLegacyConnection(_ session: LegacyAIConnectionSession, snapshot: LegacyAIConnectionSnapshot, preserveCurrent: Bool) async {
         let reference = UUID()
         do {
             let candidate = preserveCurrent ? config : snapshot.configuration
-            _ = try BYOKSelectionPolicy.finalURL(candidate)
+            _ = try ConfiguredAPISelectionPolicy.finalURL(candidate)
             try await session.transferCredential(to: sessionCredentials, reference: reference, expected: snapshot.configuration)
             let saved = try await repository.saveConfig(candidate)
             if let old = temporaryCredentialReference { await sessionCredentials.remove(old) }
@@ -228,8 +229,14 @@ public final class AILearningModel: ObservableObject {
         guard conversationConnectionAvailable else { throw AIFailure.configuration }
         if config.mode == .mock { return LocalMockAIProvider() }
         guard let reference = temporaryCredentialReference else { throw AIFailure.credentials }
-        return try BYOKProviderFactory.configuredSelection(configuration: config, credentials: sessionCredentials,
-            reference: reference, transport: transport, budget: budget ?? connectionSettingsOwner.remoteBudget, batchID: batchID)
+        let applied = config, owner = connectionSettingsOwner
+        return try ConfiguredAPIProviderFactory.configuredSelection(configuration: applied, credentials: sessionCredentials,
+            reference: reference, transport: transport, budget: budget ?? owner.remoteBudget, batchID: batchID,
+            permitsContentUnits: budget != nil, configurationIsCurrent: {
+                await MainActor.run {
+                    owner.conversationConnectionAvailable && ReadingSkillIdentity.matches(owner.config, applied)
+                }
+            })
     }
     func conversationProvider() throws -> any ReadingConversationProvider {
         if config.mode == .mock {
@@ -241,7 +248,7 @@ public final class AILearningModel: ObservableObject {
             return LocalReadingConversationProvider()
             #endif
         }
-        _ = try BYOKSelectionPolicy.finalURL(config)
+        _ = try ConfiguredAPISelectionPolicy.finalURL(config)
         guard hasSessionCredential, let reference = temporaryCredentialReference else { throw AIFailure.credentials }
         return ReadingConversationHTTPProvider(transport: transport, credentials: sessionCredentials, reference: reference, budget: configurationOwner?.remoteBudget ?? remoteBudget)
     }
@@ -339,11 +346,11 @@ public final class AILearningModel: ObservableObject {
         let provider: any AIProvider
         if config.mode == .mock { provider = LocalMockAIProvider() }
         else {
-            guard DeepSeekSelectionPolicy.supports(config) else { error = AIFailure.configuration.localizedDescription; return }
             guard source.anchor.quote.utf16.count <= DeepSeekSelectionPolicy.maxSourceUTF16 else { error = AIFailure.remoteInputLimit.localizedDescription; return }
-            guard hasSessionCredential, let reference = temporaryCredentialReference else { error = AIFailure.credentials.localizedDescription; return }
+            guard hasSessionCredential else { error = AIFailure.credentials.localizedDescription; return }
             guard remoteBudget.requestLimit.map({ remoteAttemptsUsed < $0 }) ?? true else { error = AIFailure.attemptLimit.localizedDescription; return }
-            provider = DeepSeekSelectionProvider(transport: transport, credentials: sessionCredentials, credentialReference: reference, budget: remoteBudget)
+            do { provider = try configuredSelectionProvider() }
+            catch { self.error = AIJobCoordinator.safeError(error).localizedDescription; return }
         }
         guard !busy, !saving else { return }
         cancel(); let token = generation, request = AIRequest(source: source, provider: config, kind: kind, timeoutSeconds: timeoutSeconds, profile: kind == .explain ? .paragraphExplanation : .legacy)

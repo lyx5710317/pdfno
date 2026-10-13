@@ -22,8 +22,8 @@ struct AIConnectionSettings: View {
         PDFnoSettingsCard("配置api",symbol: "sparkles") {
             if let legacy = learning.legacyConnectionConfiguration {
                 Text("检测到两套配置api，请选择保留哪一套。")
-                Text("当前：\((try? BYOKSelectionPolicy.finalURL(learning.config).host) ?? "未配置") · \(learning.config.model)").font(.caption)
-                Text("旧配置：\((try? BYOKSelectionPolicy.finalURL(legacy).host) ?? "未配置") · \(legacy.model)").font(.caption)
+                Text("当前：\((try? ConfiguredAPISelectionPolicy.finalURL(learning.config).host) ?? "未配置") · \(learning.config.model)").font(.caption)
+                Text("旧配置：\((try? ConfiguredAPISelectionPolicy.finalURL(legacy).host) ?? "未配置") · \(legacy.model)").font(.caption)
                 HStack {
                     Button("保留当前") { Task { await learning.chooseLegacyConnection(useLegacy: false); draft = learning.config } }
                     Button("使用旧配置") { Task { await learning.chooseLegacyConnection(useLegacy: true); draft = learning.config } }
@@ -56,7 +56,7 @@ struct AIConnectionSettings: View {
                 .accessibilityValue(advanced ? "已展开" : "已收起")
             if advanced {
                 PDFnoSettingsField("服务名称") { TextField("服务名称",text: $draft.label).accessibilityIdentifier("ai-provider-label") }
-                if let url = try? BYOKSelectionPolicy.finalURL(draft) { Text(verbatim: "请求地址：" + url.absoluteString).font(.caption).textSelection(.enabled).fixedSize(horizontal: false,vertical: true) }
+                if let url = try? ConfiguredAPISelectionPolicy.finalURL(draft) { Text(verbatim: "请求地址：" + url.absoluteString).font(.caption).textSelection(.enabled).fixedSize(horizontal: false,vertical: true) }
                 Text("选文对话发送固定选文；全文对话经单独确认发送当前完整文档。API Key 仅保留在本次应用会话。").font(.caption).foregroundStyle(.secondary)
                 Text("阅读请求共用本次会话额度；连接测试单独计数。请求失败或取消也计数，不自动重试。").font(.caption).foregroundStyle(.secondary)
                 if learning.hasSessionCredential { Button("清除 API Key") { secret = ""; Task { await learning.clearSessionCredential() } }.accessibilityIdentifier("ai-clear-key") }

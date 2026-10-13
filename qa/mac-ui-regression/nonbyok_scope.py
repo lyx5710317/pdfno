@@ -39,6 +39,21 @@ def load_scope(repo=None):
     assert len(gui['completion49']) == len(set(gui['completion49'])) == 49
     assert set(gui['completion49']) == set(retained) - set(gui['representative6'])
     swift = scope['swift']
+    cleanup = scope.get('architecture_cleanup_review')
+    if cleanup is not None:
+        assert cleanup['authorization_message_id'] == 'Sentinel_961aedf64a208191afc1cb734f2de5bd'
+        assert cleanup['validation_authorization_message_id'] == 'Sentinel_e0cf63b4333c8191a85b9fc2f8ae5b4b'
+        assert cleanup['original_700_591_109_and_GUI73_55_18_sets_unchanged'] is True
+        retired = {item['method'] for item in cleanup['retired_original_swift_methods']}
+        assert retired.issubset({item['method'] for item in swift['excluded']})
+        assert not retired.intersection(swift['retained'])
+        assert set(cleanup['gui_replacements']).issubset(excluded)
+        assert not set(cleanup['gui_replacements']).intersection(retained)
+        assert len(set(cleanup['gui_replacements'].values())) == len(cleanup['gui_replacements'])
+        assert all(item['original'] in swift['all_methods'] for item in cleanup['replacement_swift_methods'])
+        assert all(item['source'] in swift['source_sha256'] and
+                   swift['source_sha256'][item['source']] == item['reviewed_sha256']
+                   for item in cleanup['reviewed_source_digests'])
     all_methods = swift['all_methods']
     excluded_swift = [item['method'] for item in swift['excluded']]
     assert len(all_methods) == len(set(all_methods)) == 700

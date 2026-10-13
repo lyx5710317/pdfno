@@ -2214,7 +2214,6 @@
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/AnnotationReaderTests.swift": "d72b1d284663e7ccf8429cbc5fecca529f839411f7759040e864b6049a806180",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/AppAISessionTests.swift": "eab50aae293e6f1332f75345489ff92966796f5f4f2fe5c68eed71e2e50c9b24",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/AuditFunctionalTests.swift": "c8be1bb3c41c7805b9d50118ff74c642f4970f35c05906beaaf0a848e0039d68",
-      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/BYOKProviderTests.swift": "60661643912e82a136b4d4931b6a9df5954e470f4882946980fc9f3abda6489d",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/BooknoExchangeTests.swift": "15b9b305333f67ca646d59774d27f6b613683b9e171e83a5dbdb34c0fd8ec3b8",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/BooknoIntegrationTests.swift": "9694277fa466a5ec4c4903c37ee20aa749de0ff1bd56ef2d6edf4d1cded2587c",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/BoundedFileReaderTests.swift": "4d9b6a96c0d7bd52c911fdd010f1229da3e6a4a155ec6e3fc9791841f196e07e",
@@ -2248,7 +2247,7 @@
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/EnglishLearningRemoteTests.swift": "761fd24303e0a037ac392bf48339df403380f40eaddeb508d410d0182c7c5bb0",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/EnglishLearningRepositoryTests.swift": "88951cbb5bf6a34c4cff1ae76bc378cd882e8f551e5d5d0bfcd9bd35deda8d41",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/FormatsJapaneseIntegrationTests.swift": "1431153e5256cb27dd2c6a134870ea4cc6a1b75d5dad7ccda6e812e7e7413ce7",
-      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/FourSliceIntegrationTests.swift": "ef474491a93b341a0b55caa9ff0abe1465a97eea89a8442605740dbe30378867",
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/FourSliceIntegrationTests.swift": "0fc4a0f37c7a1bcca5b2e8647c672d14b082571f8bd4fdd41d5d566955be2c4b",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/HomeSettingsNavigationTests.swift": "7be2fbf48e446266eb4033781c2e7e38afab7c228415e5f3d37a05e86e244fb6",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/JapaneseLearningComponentTests.swift": "31d04322c16b8e6ca8c150b1eb3622c70be7bcb88e13d6f8a978716372549675",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/JapaneseLearningDomainTests.swift": "27ba92a4192a38eb88ecbd11d29384af03f96bb8987302912a8f39a7c5f6f5ff",
@@ -2264,18 +2263,18 @@
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/LibrarySearchTests.swift": "58c5ef051182df9403389071e055a064d2b7038aea67f13158f425e4d89f8cb2",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/LocalRecoveryTests.swift": "17c33dd163a2ca4d58ce1eeb41fc2c9e828971fdc1cf2853fc86080185412ba2",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/LocalStoreWriteGateTests.swift": "eea5b9fcdc0fd918eb501590dadd7d58d2b7ba4713090a21925c1212ddf5399e",
-      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/MacDocumentTabsTests.swift": "83dcc017a85b46a7c73e56dd71daf914ea73c4d5368b3ecdca1701f2da77507b",
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/MacDocumentTabsTests.swift": "82f261935795dfadfa4d6baeaa39d7b7e41a6a61d20f9e7214c08ccf22f56dfd",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/NativeComicTests.swift": "abc892c344ece94e3546162da0e702fc60cdf4eb0e3f8ce84ac86a065c50dee7",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/NativeJapaneseSourceTextTests.swift": "3cd4aebc51ac73998052d0facfe383d6e5e0e49fba0e75ebfd700adf2040467f",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/NativeNoteBodyUpdateTests.swift": "c8dcfb7034a06f9f4b17604dfed7ba174cb68cfd0325c6da9adee01b83adc93c",
-      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/NextBatchHostTests.swift": "af1ea097c588f71a725ecd5181144568bd2a2275dc6fcd5e308ba95bcd816d56",
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/NextBatchHostTests.swift": "3e28e3087153c8cfde98d0b5356a71b5bb8a1d7e66c4c47861685ac212413423",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/NoteEditingTests.swift": "afd7d2e55dbf536c44fb9fd9e35110b5f704f2eb60140245eb2943278eb3f2ec",
-      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/OfflineUITestTransportTests.swift": "41712d2847ac69695f3387784217812ae605b8dde84ae31603bc1d4a4671060f",
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/OfflineUITestTransportTests.swift": "62f8bae56e045766cf0802d30776ce10e8b65d056e5620bbb3fa99aabe3a7ea3",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/PDFNoteComposerInteractionTests.swift": "e51b20fa5cac42d275b36ae4bccdc30d9a851319b7c561d6fed233740f222960",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/PDFPageTranslationTests.swift": "4313074e30616f210725bab01c46a22c02c11201335b273a549e579ab8ae04c2",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/PDFQuoteConsistencyTests.swift": "2dbde92114dbc4b149a1333bb7eee8a8384045a4a1447bf749a719e3b91f9cbe",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/PDFReaderTests.swift": "c25cc5f5abfabbec9920d1f53bc6fc386e0f047b7aa6acea526c5c0b8d0f1e98",
-      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ParagraphExplanationTests.swift": "c9533d70d5910e4314c5fa04f9208997380d1d22569337cc93f77fdc24049a07",
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ParagraphExplanationTests.swift": "3fe975fe0339a2ca486e8f352ff7e1deae16cdc1c06dd63b90c110ca3fae2c41",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ProfessionalReaderLayoutTests.swift": "71f0b08d5d01e92b217a07ee645af449adea761552a61fc9b47d54875308e14f",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReaderConversationViewportTests.swift": "568d32a5463443f15d1eba11fbc836e8ad516460453a6bb640b346fb4a376788",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReaderNavigationTests.swift": "e5d002854d3b952d80da86d13cb167e0e03b37160b1babbd0f56bae7d9aa7747",
@@ -2289,14 +2288,14 @@
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReadingLayoutTests.swift": "17d6f309fe1f920b8d072cea260439e5d37e1745e47a2507e8f104e863c36f48",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReadingLayoutWebKitTests.swift": "80e784630b3cc6e91609ef3360750a5700624beaea989196f1ae1961f6c0a280",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReadingSkillFoundationTests.swift": "3d1098e5f9520917a2c9a66c032d97f4f1a673b0e97405fc329621e0ba635baa",
-      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReadingSkillHostIntegrationTests.swift": "4fbfd4f45c95d09c26e7783b3b4343efe8637379eaa1b119dd7e429ca30f52d3",
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReadingSkillHostIntegrationTests.swift": "83f2be489fd7c141fc8117d6b6801debd1281d2bc7dfd65312a5ea7de9052aeb",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/RecordParityTests.swift": "2c5e51b6e88cb200559a15c08cfa8aecd36688b3b0ddd5c5c0b7e105a8aaa563",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/RecoveryEnglishIntegrationTests.swift": "e4c9a5be4b9b59a5b310ea177a8cba2f8f2a18a4aa45a3348f9e1f17ec36765b",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/RepositoryTests.swift": "ac37e5769e5bb0eb416b74827d85afdcdb0cadc57b391a069feae9672b243633",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/SavedAIAnnotationSearchTests.swift": "234bd7707627db15e5adb696597189e70e1ebb245d9abbe533cc1d3ebc30b2cb",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/SearchPreviewRegressionTests.swift": "11882d258bcc4dd25355b8a21ba6ed08ad7881ea9db94ce76e9134a81227d6ff",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/SelectionAIMenuNativeTests.swift": "7f5ea9081f33e1f30804b68d2b3e264edf2ddd369ed1308f0c6f681739cfc4dd",
-      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/TemporaryAILayoutTests.swift": "2255c0ba08a62ae4e7416498280349cbbdeb17817e40a6b0d3eccbf5ba27386c",
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/TemporaryAILayoutTests.swift": "dde2f4d83887ecee6a068fab1e835b89bec76a07b277392b8f914203933d7b5a",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/TextChapterIntegrationTests.swift": "6932dd24135b900a7457f9a9b18ea50c652440a90dd332a7b2533ba37a3c1ac2",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/TextFormatBridgeTests.swift": "cfa4114eccc172f8c1c24c1b27b05aed18e25647d0bc066bdf949398ae233eed",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/TextFormatTests.swift": "ccc95e12916dbbc96d7a066ef78cc69fff60398d9454d5684fb4447d6bfb4e95",
@@ -2306,7 +2305,11 @@
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/WebArchiveBridgeTests.swift": "73e9100e201cd445c17714ba4a874db5d27494200495f18805e1ce99bff926af",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/WebArchiveFormatTests.swift": "d756e4e99338c20e12a041255ea8545bf4bb67f35ae3bc4260e2020c37f4592a",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/WebComicArchiveIntegrationTests.swift": "fe66dd872f6433931b70c8d38b6797b8ea8278a87ebc987cec02a2c449f2e87c",
-      "apple/Packages/PDFnoKit/Package.swift": "c45a74ea9071eb1d04af9b212bb663a1c9e5bedffd19ef836081a34b6713482e"
+      "apple/Packages/PDFnoKit/Package.swift": "c45a74ea9071eb1d04af9b212bb663a1c9e5bedffd19ef836081a34b6713482e",
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ConfiguredAPIProviderTests.swift": "1c9f18f9e270b0bc761e5bfc53145a52fcba6376dd3ee110053702773407377b",
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/DocumentConversationTests.swift": "8bb0d8d518c8f1afa0fb9aad00b2b93ac75cebe102f348ac45c9a1c29c85a29a",
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/SharedAIConnectionTests.swift": "3d5e32ee6c4febfd6f525828694d178b19ff68f4bc8aeea751916af0cd9dddfe",
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/AnnotationSourceNavigationTests.swift": "cad38ab4096bbfb15f41812766d0ac6576d3cafd054d61736b4d058c0b7df34c"
     }
   },
   "completion_authorization": {
@@ -2358,5 +2361,231 @@
       "review": "Replace stale240/320 implicit layout expectations with explicit current reader defaults280/340. Use a fresh isolated AppStorage suite and independent numeric dock/overlay/closed canvas widths. Preserve the original sub-one-point native width requirement and all existing source, selection, result, draft, identity, no-send and no-save assertions. No method added, removed or reclassified.",
       "original_frozen_sets_and_exclusions_unchanged": true
     }
-  ]
+  ],
+  "architecture_cleanup_review": {
+    "authorization_message_id": "Sentinel_961aedf64a208191afc1cb734f2de5bd",
+    "validation_authorization_message_id": "Sentinel_e0cf63b4333c8191a85b9fc2f8ae5b4b",
+    "at_utc": "2026-10-13T07:04:47.134150+00:00",
+    "scope": "Remove retired independent BYOK architecture; maintain current shared API, migration, and original safety assertions. Historical frozen execution sets are not rewritten or counted as acceptance.",
+    "retired_original_swift_methods": [
+      {
+        "method": "MacDocumentTabsTests/appliedReadingConfigurationAndIndependentBYOKSessionReachBothTabsWithoutSending",
+        "reason": "Retired independent owner/selection channel; replace substantive source,scope,explicit-save and lifetime checks using shared connection."
+      },
+      {
+        "method": "MacDocumentTabsTests/BYOKPanelReconnectRetainsResultBodyAndConsentScopeWithoutAnotherRequest",
+        "reason": "Retired independent owner/selection channel; replace substantive source,scope,explicit-save and lifetime checks using shared connection."
+      },
+      {
+        "method": "ReadingSkillHostIntegrationTests/customBYOKExistingActionsRouteWithoutChangingWireConfirmationOrKeyRevocation",
+        "reason": "Retired independent owner/selection channel; replace substantive source,scope,explicit-save and lifetime checks using shared connection."
+      },
+      {
+        "method": "ReadingSkillHostIntegrationTests/byokRevocationWhileRequestIsInFlightRejectsLateEnvelope",
+        "reason": "Retired independent owner/selection channel; replace substantive source,scope,explicit-save and lifetime checks using shared connection."
+      },
+      {
+        "method": "FourSliceIntegrationTests/libraryRetainsRecordAdapterAndPanelChangesKeepPDFSourceAndBothDrafts",
+        "reason": "Retired independent owner/selection channel; replace substantive source,scope,explicit-save and lifetime checks using shared connection."
+      },
+      {
+        "method": "FourSliceIntegrationTests/wiredBYOKManualSaveSharesBudgetAndPreservesDefaultLearningChainsAndOriginalResult",
+        "reason": "Retired independent owner/selection channel; replace substantive source,scope,explicit-save and lifetime checks using shared connection."
+      },
+      {
+        "method": "FourSliceIntegrationTests/switchToTextCancelsLateBYOKWithoutResettingBudgetOrOldDraftAndKeyNeverMovesDomains",
+        "reason": "Retired independent owner/selection channel; replace substantive source,scope,explicit-save and lifetime checks using shared connection."
+      },
+      {
+        "method": "FourSliceIntegrationTests/readingPDFExportKeepsActiveSelectionDraftAndOriginalWhileOldTXTHTMLStillWorkAndExistingPDFRefuses",
+        "reason": "Retired independent owner/selection channel; replace substantive source,scope,explicit-save and lifetime checks using shared connection."
+      },
+      {
+        "method": "TemporaryAILayoutTests/configurationOwnersRemainIndependentInTheDirectory",
+        "reason": "Retired independent owner/selection channel; replace substantive source,scope,explicit-save and lifetime checks using shared connection."
+      },
+      {
+        "method": "BYOKProviderTests/independentSettingsOnlySendAfterPreviewAndKeepResultOnKeyClear",
+        "reason": "Retired independent editable model; cancellation/timeout/consent/key revoke covered by current shared model and provider replacements."
+      },
+      {
+        "method": "BYOKProviderTests/loadingConfiguredSessionDoesNotRevokeKeyButEndpointTypingDoes",
+        "reason": "Retired independent editable model; cancellation/timeout/consent/key revoke covered by current shared model and provider replacements."
+      },
+      {
+        "method": "BYOKProviderTests/independentComponentCancelReportsFailureAndNeverDisplaysLateResult",
+        "reason": "Retired independent editable model; cancellation/timeout/consent/key revoke covered by current shared model and provider replacements."
+      },
+      {
+        "method": "BYOKProviderTests/URLProtocolTimeoutMapsToSafeFailureAndConsumesOneAttempt",
+        "reason": "Retired independent editable model; cancellation/timeout/consent/key revoke covered by current shared model and provider replacements."
+      }
+    ],
+    "retired_source_files": {
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/BYOKProviderTests.swift": "60661643912e82a136b4d4931b6a9df5954e470f4882946980fc9f3abda6489d"
+    },
+    "replacement_swift_methods": [
+      {
+        "original": "BYOKProviderTests/strictHTTPSResolutionAndExplicitCapability",
+        "current": "ConfiguredAPIProviderTests/strictHTTPSResolutionAndExplicitCapability",
+        "assertions": "same transport/schema/HTTPS/consent/current-revision assertions; current shared factory and synthetic store callback"
+      },
+      {
+        "original": "BYOKProviderTests/previewContainsActualDomainAndExactTextWithoutSending",
+        "current": "ConfiguredAPIProviderTests/previewContainsActualDomainAndExactTextWithoutSending",
+        "assertions": "same transport/schema/HTTPS/consent/current-revision assertions; current shared factory and synthetic store callback"
+      },
+      {
+        "original": "BYOKProviderTests/URLProtocolPDFAndEPUBWireContractKeepsSourcesAndBoundedScope",
+        "current": "ConfiguredAPIProviderTests/URLProtocolPDFAndEPUBWireContractKeepsSourcesAndBoundedScope",
+        "assertions": "same transport/schema/HTTPS/consent/current-revision assertions; current shared factory and synthetic store callback"
+      },
+      {
+        "original": "BYOKProviderTests/factoryRetainsOfficialDeepSeekDefaultWireAndSharedBudget",
+        "current": "ConfiguredAPIProviderTests/factoryRetainsOfficialDeepSeekDefaultWireAndSharedBudget",
+        "assertions": "same transport/schema/HTTPS/consent/current-revision assertions; current shared factory and synthetic store callback"
+      },
+      {
+        "original": "BYOKProviderTests/endpointRevisionRevokesOldAdaptersAndOldKeyCannotFollowNewDomain",
+        "current": "ConfiguredAPIProviderTests/endpointRevisionRevokesOldAdaptersAndOldKeyCannotFollowNewDomain",
+        "assertions": "same transport/schema/HTTPS/consent/current-revision assertions; current shared factory and synthetic store callback"
+      },
+      {
+        "original": "BYOKProviderTests/invalidEndpointEditAlsoRevokesCredentials",
+        "current": "ConfiguredAPIProviderTests/invalidEndpointEditAlsoRevokesCredentials",
+        "assertions": "same transport/schema/HTTPS/consent/current-revision assertions; current shared factory and synthetic store callback"
+      },
+      {
+        "original": "BYOKProviderTests/rejectsUnapprovedSourcesAndLimitsBeforeCredentialOrTransport",
+        "current": "ConfiguredAPIProviderTests/rejectsUnapprovedSourcesAndLimitsBeforeCredentialOrTransport",
+        "assertions": "same transport/schema/HTTPS/consent/current-revision assertions; current shared factory and synthetic store callback"
+      },
+      {
+        "original": "BYOKProviderTests/strictResponseSchemaCompletionToolsAndUnicode",
+        "current": "ConfiguredAPIProviderTests/strictResponseSchemaCompletionToolsAndUnicode",
+        "assertions": "same transport/schema/HTTPS/consent/current-revision assertions; current shared factory and synthetic store callback"
+      },
+      {
+        "original": "BYOKProviderTests/URLProtocolHTTPFailuresAreSafeAndNeverRetried",
+        "current": "ConfiguredAPIProviderTests/URLProtocolHTTPFailuresAreSafeAndNeverRetried",
+        "assertions": "same transport/schema/HTTPS/consent/current-revision assertions; current shared factory and synthetic store callback"
+      },
+      {
+        "original": "BYOKProviderTests/allRedirectTargetsRefusedWithoutForwardingCredentials",
+        "current": "ConfiguredAPIProviderTests/allRedirectTargetsRefusedWithoutForwardingCredentials",
+        "assertions": "same transport/schema/HTTPS/consent/current-revision assertions; current shared factory and synthetic store callback"
+      },
+      {
+        "original": "BYOKProviderTests/failuresAndNewCredentialsCannotResetProcessBudget",
+        "current": "ConfiguredAPIProviderTests/failuresAndNewCredentialsCannotResetProcessBudget",
+        "assertions": "same transport/schema/HTTPS/consent/current-revision assertions; current shared factory and synthetic store callback"
+      },
+      {
+        "original": "BYOKProviderTests/consentBindsReceiverModelAndSourceBeforeSending",
+        "current": "ConfiguredAPIProviderTests/consentBindsReceiverModelAndSourceBeforeSending",
+        "assertions": "same transport/schema/HTTPS/consent/current-revision assertions; current shared factory and synthetic store callback"
+      },
+      {
+        "original": "BYOKProviderTests/cancelledAndExpiredJobsRejectNoncooperativeLateOutput",
+        "current": "ConfiguredAPIProviderTests/cancelledAndExpiredJobsRejectNoncooperativeLateOutput",
+        "assertions": "same transport/schema/HTTPS/consent/current-revision assertions; current shared factory and synthetic store callback"
+      },
+      {
+        "original": "BYOKProviderTests/endpointChangeDuringRequestRejectsLateResult",
+        "current": "ConfiguredAPIProviderTests/endpointChangeDuringRequestRejectsLateResult",
+        "assertions": "same transport/schema/HTTPS/consent/current-revision assertions; current shared factory and synthetic store callback"
+      },
+      {
+        "original": "OfflineUITestTransportTests/legacyBYOKTranslationWithExactAndAlteredFixtureCredential",
+        "current": "OfflineUITestTransportTests/configuredAPITranslationWithExactAndAlteredFixtureCredential",
+        "assertions": "same correct/altered synthetic credential HTTP path and no-save assertions through shared AILearningModel"
+      },
+      {
+        "original": "ParagraphExplanationTests/customBYOKWireUsesExactSourceFixedPromptAndExistingIdentity",
+        "current": "ParagraphExplanationTests/customConfiguredAPIWireUsesExactSourceFixedPromptAndExistingIdentity",
+        "assertions": "same exact wire/source and revoked credential refusal through shared configured factory"
+      },
+      {
+        "original": "ParagraphExplanationTests/canonicallyEquivalentTextCannotReuseSourceOrBYOKConsent",
+        "current": "ParagraphExplanationTests/canonicallyEquivalentTextCannotReuseSourceOrConfiguredConsent",
+        "assertions": "same exact Unicode source/draft preservation; actual coordinator refuses old consent for scalar-different configuration before transport"
+      }
+    ],
+    "additional_current_swift_methods": [
+      "DocumentConversationTests/completeSourceIdentityAndHistoryNeverNormalizeOrCrossDocuments",
+      "DocumentConversationTests/prepareAndUnconfirmedFollowupSendNothingThenExplicitConfirmAnswersWithoutSaving",
+      "DocumentConversationTests/interceptedWireContainsOnlyCompleteDocumentAndItsOwnHistory",
+      "DocumentConversationTests/malformedTruncatedOrForeignDocumentRepliesNeverBecomeAnswers",
+      "DocumentConversationTests/stopCredentialClearAndDocumentCloseDiscardNoncooperativeLateOutput",
+      "DocumentConversationTests/incompleteScanAndOversizedOriginalsRefuseBeforeAnyTransport",
+      "SharedAIConnectionTests/tabsToolsAndLegacyTextActionsUseOneAppliedConnectionAndClearTogether",
+      "SharedAIConnectionTests/invalidRecipientRevokesEveryBoundTabWithoutReplacingSavedConfigurationOrSending",
+      "SharedAIConnectionTests/equivalentLegacyMemoryMigratesOnceIntoSharedOwnerWithoutPersistingCredential",
+      "SharedAIConnectionTests/legacyConflictCannotOverwriteCurrentConnectionUntilExplicitChoice",
+      "SharedAIConnectionTests/keepingCurrentConnectionDoesNotImportOrReplaceLegacyCredential",
+      "AnnotationSourceNavigationTests/EPUBSourceReturnWaitsForActualReaderResizeWithoutLosingExactAnchor"
+    ],
+    "gui_replacements": {
+      "NativeUITests/testMacBYOKExplicitRecipientManualSaveAndDefaultChainsStaySeparate": "NativeUITests/testMacConfiguredAPIExplicitRecipientManualSaveAndSharedTranslation"
+    },
+    "reviewed_source_digests": [
+      {
+        "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/MacDocumentTabsTests.swift",
+        "previous_sha256": "83dcc017a85b46a7c73e56dd71daf914ea73c4d5368b3ecdca1701f2da77507b",
+        "reviewed_sha256": "82f261935795dfadfa4d6baeaa39d7b7e41a6a61d20f9e7214c08ccf22f56dfd"
+      },
+      {
+        "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ParagraphExplanationTests.swift",
+        "previous_sha256": "c9533d70d5910e4314c5fa04f9208997380d1d22569337cc93f77fdc24049a07",
+        "reviewed_sha256": "3fe975fe0339a2ca486e8f352ff7e1deae16cdc1c06dd63b90c110ca3fae2c41"
+      },
+      {
+        "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/NextBatchHostTests.swift",
+        "previous_sha256": "af1ea097c588f71a725ecd5181144568bd2a2275dc6fcd5e308ba95bcd816d56",
+        "reviewed_sha256": "3e28e3087153c8cfde98d0b5356a71b5bb8a1d7e66c4c47861685ac212413423"
+      },
+      {
+        "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/DocumentConversationTests.swift",
+        "previous_sha256": null,
+        "reviewed_sha256": "8bb0d8d518c8f1afa0fb9aad00b2b93ac75cebe102f348ac45c9a1c29c85a29a"
+      },
+      {
+        "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReadingSkillHostIntegrationTests.swift",
+        "previous_sha256": "4fbfd4f45c95d09c26e7783b3b4343efe8637379eaa1b119dd7e429ca30f52d3",
+        "reviewed_sha256": "83f2be489fd7c141fc8117d6b6801debd1281d2bc7dfd65312a5ea7de9052aeb"
+      },
+      {
+        "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/SharedAIConnectionTests.swift",
+        "previous_sha256": null,
+        "reviewed_sha256": "3d5e32ee6c4febfd6f525828694d178b19ff68f4bc8aeea751916af0cd9dddfe"
+      },
+      {
+        "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/OfflineUITestTransportTests.swift",
+        "previous_sha256": "41712d2847ac69695f3387784217812ae605b8dde84ae31603bc1d4a4671060f",
+        "reviewed_sha256": "62f8bae56e045766cf0802d30776ce10e8b65d056e5620bbb3fa99aabe3a7ea3"
+      },
+      {
+        "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ConfiguredAPIProviderTests.swift",
+        "previous_sha256": null,
+        "reviewed_sha256": "1c9f18f9e270b0bc761e5bfc53145a52fcba6376dd3ee110053702773407377b"
+      },
+      {
+        "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/TemporaryAILayoutTests.swift",
+        "previous_sha256": "2255c0ba08a62ae4e7416498280349cbbdeb17817e40a6b0d3eccbf5ba27386c",
+        "reviewed_sha256": "dde2f4d83887ecee6a068fab1e835b89bec76a07b277392b8f914203933d7b5a"
+      },
+      {
+        "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/FourSliceIntegrationTests.swift",
+        "previous_sha256": "ef474491a93b341a0b55caa9ff0abe1465a97eea89a8442605740dbe30378867",
+        "reviewed_sha256": "0fc4a0f37c7a1bcca5b2e8647c672d14b082571f8bd4fdd41d5d566955be2c4b"
+      },
+      {
+        "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/AnnotationSourceNavigationTests.swift",
+        "previous_sha256": null,
+        "reviewed_sha256": "cad38ab4096bbfb15f41812766d0ac6576d3cafd054d61736b4d058c0b7df34c"
+      }
+    ],
+    "current_tests_not_selected_by_historical591_filter": "Current replacements/new methods require separately recorded Mac-global execution; never silently added to old allowlist.",
+    "original_700_591_109_and_GUI73_55_18_sets_unchanged": true
+  }
 }

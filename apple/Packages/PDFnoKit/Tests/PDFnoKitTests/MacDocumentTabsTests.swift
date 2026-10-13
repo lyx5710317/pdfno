@@ -102,33 +102,6 @@ private actor TabsLateResponse: AIHTTPTransport {
         #expect(a.model.reader.readerSessionID == identity && a.model.learning.userText == "retained selection draft")
     }
 
-    @Test func appliedReadingConfigurationAndIndependentBYOKSessionReachBothTabsWithoutSending() async throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Tabs-" + UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let transport = TabsNoNetwork()
-        let catalogue = LibraryModel(root: root, aiSession: AppAISession(), learningTransport: transport)
-        await catalogue.load()
-        let tabs = MacDocumentTabs(catalogue: catalogue)
-        #expect(await tabs.openNew { await $0.openSample() })
-        let a = try #require(tabs.active)
-        #expect(await tabs.openNew { await $0.openEPUBSample() })
-        let b = try #require(tabs.active)
-        #expect(await catalogue.learning.saveConfig(DeepSeekSelectionPolicy.configuration(), temporarySecret: "synthetic-reading-ui-credential"))
-        #expect(a.model.learning.hasSessionCredential && b.model.learning.hasSessionCredential)
-        #expect(a.model.learning.config == catalogue.learning.config && b.model.learning.config == catalogue.learning.config)
-        a.model.learning.userText = "A independent source draft"; b.model.learning.userText = "B independent source draft"
-        catalogue.byok.temporarySecret = "synthetic-reading-ui-credential"
-        #expect(await catalogue.byok.apply())
-        await a.model.byok.load(); await b.model.byok.load()
-        #expect(a.model.byok.hasSessionCredential && b.model.byok.hasSessionCredential)
-        #expect(a.model.byok.draft == catalogue.byok.draft && b.model.byok.draft == catalogue.byok.draft)
-        #expect(a.model.learning.config != a.model.byok.draft)
-        await catalogue.learning.clearSessionCredential()
-        #expect(!a.model.learning.hasSessionCredential && !b.model.learning.hasSessionCredential)
-        #expect(a.model.byok.hasSessionCredential && b.model.byok.hasSessionCredential)
-        #expect(a.model.learning.userText == "A independent source draft" && b.model.learning.userText == "B independent source draft")
-        #expect(await transport.calls == 0)
-    }
 
     @Test func savedBookSearchActivatesExistingTabWithoutReopeningItsReaderOrPosition() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Tabs-" + UUID().uuidString)
@@ -148,51 +121,6 @@ private actor TabsLateResponse: AIHTTPTransport {
         #expect(a.model.reader.pageIndex == 1 && a.model.learning.userText == "Search must keep draft")
     }
 
-    @Test func BYOKPanelReconnectRetainsResultBodyAndConsentScopeWithoutAnotherRequest() async throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Tabs-BYOK-" + UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let transport = TabsLateResponse(), session = AppAISession()
-        let catalogue = LibraryModel(root: root, aiSession: session, learningTransport: transport)
-        await catalogue.load()
-        let tabs = MacDocumentTabs(catalogue: catalogue, documentFactory: { LibraryModel(root: $0, aiSession: session, learningTransport: transport, byokSession: catalogue.byok.session) })
-        #expect(await tabs.openNew { await $0.openSample() })
-        let a = try #require(tabs.active), book = try #require(a.model.reader.book)
-        let page = try #require(a.model.reader.document?.page(at: 0)), text = try #require(page.string)
-        let selection = try #require(page.selection(for: (text as NSString).range(of: "window")))
-        let bounds = selection.bounds(for: page)
-        let anchor = PDFSourceAnchor(editionID: book.editionID, fileSHA256: book.fileSHA256, quote: "window",
-            regions: [PageRegion(pageIndex: 0, x: bounds.minX, y: bounds.minY, width: bounds.width, height: bounds.height, quote: "window")])
-        let source = AISourceSnapshot(bookID: book.id, readerSessionID: a.model.reader.readerSessionID, documentVersion: 0, anchor: .pdf(anchor))
-        a.model.learning.prepare(source)
-        catalogue.byok.draft = DeepSeekSelectionPolicy.configuration(); catalogue.byok.temporarySecret = "synthetic-reading-ui-credential"
-        #expect(await catalogue.byok.apply())
-        await a.model.byok.load(); a.model.byokSource = source
-        await a.model.byok.prepareSelection(source, kind: .translate)
-        a.model.byok.start(confirmed: true, sourceIsCurrent: a.model.isCurrentBYOKSource)
-        for _ in 0..<150 { if !a.model.byok.busy { break }; try await Task.sleep(for: .milliseconds(20)) }
-        let result = try #require(a.model.byok.result)
-        a.model.byokUserText = "Original unsaved BYOK body"
-        a.model.invalidateBYOKSelection()
-        #expect(a.model.byok.preview == nil && a.model.hasUnsavedBYOKPresentation)
-        #expect(a.model.reconnectBYOKPresentation(kind: .translate))
-        #expect(a.model.byok.result?.requestID == result.requestID && a.model.isCurrentBYOKSource(source))
-        #expect(!a.model.reconnectBYOKPresentation(kind: .explain))
-        #expect(a.model.byok.result?.requestID == result.requestID && a.model.byokUserText == "Original unsaved BYOK body")
-        #expect(await tabs.openNew { await $0.openEPUBSample() })
-        let b = try #require(tabs.active)
-        #expect(b.model.byok.result == nil && b.model.byokUserText.isEmpty && a.model.hasUnsavedBYOKPresentation)
-        #expect(await transport.calls == 1)
-        #expect(try await catalogue.learning.repository.load().notes.isEmpty)
-        a.model.learning.cancel()
-        #expect(a.model.isCurrentBYOKSource(source))
-        #expect(result.promptVersion == DeepSeekSelectionPolicy.promptVersion)
-        #expect(await a.model.saveBYOKResult())
-        let saved = try await catalogue.learning.repository.load().notes
-        #expect(saved.count == 1 && saved.first?.result.requestID == result.requestID)
-        #expect(saved.first?.userText == "Original unsaved BYOK body")
-        #expect(!a.model.hasUnsavedBYOKPresentation && b.model.byok.result == nil)
-        #expect(await transport.calls == 1)
-    }
 
     @Test func backupAndNewDirectoryRestoreKeepBothTabsAndRejectUnsavedWork() async throws {
         let parent = FileManager.default.temporaryDirectory.appendingPathComponent("PDFno-Tabs-Backup-" + UUID().uuidString)

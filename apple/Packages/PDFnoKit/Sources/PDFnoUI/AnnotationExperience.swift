@@ -91,6 +91,7 @@ import PDFnoReaders
     @Published var error: String?
     @Published var status: String?
     @Published private(set) var saving = false
+    @Published private(set) var navigating = false
     let editor: SavedBodyEditingModel<AnnotationBodySnapshot>
     let repository: AnnotationRepository
     let root: URL
@@ -163,7 +164,23 @@ import PDFnoReaders
         updateDraftOwner()
     }
     func rebase(_ baseline: AnchoredAnnotation) async { await reload();if let fresh=records.first(where: { $0.id==baseline.id }) { editor.rebase(AnnotationBodySnapshot(fresh));editing=fresh } else { editor.reportReloadFailure(AnnotationBodySnapshot(baseline)) } }
-    func navigate(_ record: AnchoredAnnotation) async { guard let reader,reader.bookID==record.bookID,await reader.navigate(record.anchor) else { error="原文无法精确定位；标注和摘录已保留。";return };status="已定位原文" }
+    func navigate(_ record: AnchoredAnnotation) async {
+        guard !navigating, let reader, reader.bookID == record.bookID else { return }
+        let session = reader.sessionID, deadline = Date().addingTimeInterval(2)
+        navigating = true; defer { navigating = false }
+        // Panel changes may be resizing the same EPUB reader. Wait before the
+        // one navigation command; never reuse an anchor across a changed owner.
+        while !reader.ready, reader.sessionID == session, reader.bookID == record.bookID,
+              Date() < deadline, !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        guard !Task.isCancelled, self.reader?.sessionID == session, reader.ready,
+              reader.bookID == record.bookID, reader.accepts(record.anchor),
+              await reader.navigate(record.anchor), self.reader?.sessionID == session else {
+            error = "原文无法精确定位；标注和摘录已保留。"; return
+        }
+        error = nil; status = "已定位原文"
+    }
 }
 
 struct AnnotationList: View {
@@ -189,6 +206,7 @@ struct AnnotationList: View {
                         Button { Task { await model.navigate(record) } } label: {
                             Label("回到原文",systemImage: "arrow.up.left")
                         }.buttonStyle(.plain).font(.caption).foregroundStyle(.tint)
+                            .disabled(model.navigating)
                             .accessibilityIdentifier("annotation-row-"+record.id.uuidString)
                         if let result=record.aiResult { AIResultNoteBox(result: result,identifier: "annotation-ai-result") }
                         if model.editor.drafts[AnnotationBodySnapshot(record).key] != nil { Text("未保存批注 · 右键继续编辑").font(.caption).foregroundStyle(.orange) }

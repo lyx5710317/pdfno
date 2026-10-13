@@ -162,7 +162,7 @@ public struct ReadingSkillRegistry: Sendable {
         if provider.mode == .unconfigured { return .unavailable(.unconfigured) }
         if provider.mode == .mock { return manifest.routing == .selectionAdapter ? .localSynthetic : .unavailable(.configuration) }
         if id == .translateSelection || id == .explainSelection || id == .summarizeSelection || id == .paragraphExplanation {
-            return (try? BYOKSelectionPolicy.finalURL(provider)) != nil ? .boundedRemote : .unavailable(.configuration)
+            return (try? ConfiguredAPISelectionPolicy.finalURL(provider)) != nil ? .boundedRemote : .unavailable(.configuration)
         }
         return DeepSeekSelectionPolicy.supports(provider) ? .boundedRemote : .unavailable(.configuration)
     }

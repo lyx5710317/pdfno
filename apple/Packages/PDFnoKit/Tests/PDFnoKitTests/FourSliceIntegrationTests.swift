@@ -47,7 +47,7 @@ private actor FourSliceTransport: AIHTTPTransport {
         return directory
     }
     private func close(_ library: LibraryModel) {
-        library.invalidateBYOKSelection(); library.epub.close(); library.comic.close()
+        library.learning.cancel(); library.epub.close(); library.comic.close()
         library.docx.deactivate(); library.textFormats.deactivate(); library.ebook.deactivate()
     }
     private func selectPDF(_ library: LibraryModel) async throws -> PDFView {
@@ -61,15 +61,7 @@ private actor FourSliceTransport: AIHTTPTransport {
         try #require(library.captureAISource()?.anchor.quote == "window")
         return view
     }
-    private func configure(_ library: LibraryModel) async throws {
-        var config = AIProviderConfig()
-        config.mode = .openAICompatible; config.label = "Original offline recipient"
-        config.endpoint = "https://four-slice.example/v1"; config.model = "original-offline-model"
-        library.byok.draft = config
-        library.byok.temporarySecret = "synthetic-four-slice-only"
-        try #require(await library.byok.apply())
-        await library.prepareBYOKSelection()
-    }
+
     private func wait(_ condition: () async -> Bool) async throws {
         let deadline = Date().addingTimeInterval(4)
         while !(await condition()), Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
@@ -79,91 +71,8 @@ private actor FourSliceTransport: AIHTTPTransport {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]; return try encoder.encode(value)
     }
 
-    @Test func libraryRetainsRecordAdapterAndPanelChangesKeepPDFSourceAndBothDrafts() async throws {
-        let directory = try root(); defer { try? FileManager.default.removeItem(at: directory) }
-        let library = LibraryModel(root: directory, aiSession: AppAISession(), learningTransport: FourSliceTransport())
-        defer { close(library) }
-        let view = try await selectPDF(library); defer { view.document = nil }
-        let source = try #require(library.captureAISource()), document = try #require(library.reader.document)
-        guard case .pdf(let anchor) = source.anchor else { Issue.record("PDF source required"); return }
-        #expect(await library.saveNote(anchor: anchor, text: "Original saved body"))
-        let note = try #require(library.notes.first), snapshot = NoteBodySnapshot.pdf(note)
-        library.noteEditing.begin(snapshot); library.noteEditing.setText("Unsaved old-body 日本語", for: snapshot)
-        let firstAdapter = library.recordEditing
-        #expect(firstAdapter === library.recordEditing)
-        try await configure(library)
-        library.byokUserText = "Unsaved BYOK body cafe\u{301}"
-        var panels = PDFnoReaderPanels()
-        for width in [CGFloat(1100), 880, 440, 1100] {
-            panels.toggle(.navigation, width: width); panels.toggle(.notes, width: width)
-            #expect(library.reader.document === document && library.reader.readerSessionID == source.readerSessionID)
-            #expect(library.isCurrentBYOKSource(source) && library.byok.preview?.request.source == source)
-            #expect(library.noteEditing.drafts[snapshot.key]?.text == "Unsaved old-body 日本語")
-            #expect(library.byokUserText == "Unsaved BYOK body cafe\u{301}")
-        }
-        let restarted = LibraryModel(root: directory, aiSession: AppAISession()); defer { close(restarted) }
-        #expect(restarted.noteEditing.drafts[snapshot.key]?.text == "Unsaved old-body 日本語")
-        #expect(try await library.repository.load().notes.first?.userText == "Original saved body")
-    }
 
-    @Test func wiredBYOKManualSaveSharesBudgetAndPreservesDefaultLearningChainsAndOriginalResult() async throws {
-        let directory = try root(); defer { try? FileManager.default.removeItem(at: directory) }
-        let app = AppAISession(), transport = FourSliceTransport()
-        let library = LibraryModel(root: directory, aiSession: app, learningTransport: transport); defer { close(library) }
-        let view = try await selectPDF(library); defer { view.document = nil }
-        let defaultConfig = library.learning.config
-        try await configure(library)
-        let preview = try #require(library.byok.preview)
-        #expect(preview.receiverURL.absoluteString == "https://four-slice.example/v1/chat/completions")
-        #expect(preview.sourceText == "window")
-        library.byok.start(confirmed: true, sourceIsCurrent: library.isCurrentBYOKSource)
-        try await wait { !library.byok.busy }
-        let result = try #require(library.byok.result)
-        #expect(library.learning.config == defaultConfig && library.learning.result == nil)
-        #expect(await app.selection.attemptsUsed() == 1)
-        #expect(await app.page.attemptsUsed() == 0)
-        #expect(await app.chapter.attemptsUsed() == 0)
-        #expect(library.japaneseLearning.request == nil && library.pageTranslation.plan == nil && library.chapterTranslation.plan == nil)
-        library.byokUserText = "BYOK saved original body"
-        #expect(await library.saveBYOKResult())
-        let saved = try #require(library.learning.notes.first), beforeResult = try wire(saved.result)
-        library.noteEditing.begin(.learning(saved)); library.noteEditing.setText("Edited saved body 🌸", for: .learning(saved))
-        await library.saveEditedNote(.learning(saved))
-        let edited = try #require(library.learning.notes.first)
-        #expect(edited.userText == "Edited saved body 🌸")
-        #expect(try wire(edited.result) == beforeResult)
-        #expect(try wire(edited.result) == wire(result))
-        let search = SavedRecordSearchModel(root: directory); search.updateQuery("Edited saved body")
-        await search.waitForSearch()
-        #expect(search.response.legacy.totalCount == 1 && search.response.records.totalCount == 0)
-        #expect(!String(decoding: try Data(contentsOf: directory.appendingPathComponent("learning-v1.json")), as: UTF8.self).contains("synthetic-four-slice-only"))
-    }
 
-    @Test func switchToTextCancelsLateBYOKWithoutResettingBudgetOrOldDraftAndKeyNeverMovesDomains() async throws {
-        let directory = try root(); defer { try? FileManager.default.removeItem(at: directory) }
-        let transport = FourSliceTransport(deferred: true), app = AppAISession()
-        let library = LibraryModel(root: directory, aiSession: app, learningTransport: transport); defer { close(library) }
-        let view = try await selectPDF(library); defer { view.document = nil }
-        let originalConfig = library.learning.config
-        try await configure(library); let source = try #require(library.byokSource)
-        library.byokUserText = "Retain late-request user draft"
-        library.byok.start(confirmed: true, sourceIsCurrent: library.isCurrentBYOKSource)
-        try await wait { await transport.started() }
-        let input = directory.appendingPathComponent("Original switch.txt")
-        try Data("Original finite text".utf8).write(to: input); await library.importFile(input)
-        #expect(library.textFormats.isActive && !library.isCurrentBYOKSource(source))
-        #expect(!library.byok.busy && library.byok.preview == nil)
-        try await transport.finish(); try await Task.sleep(for: .milliseconds(30))
-        #expect(library.byok.result == nil && library.learning.notes.isEmpty)
-        #expect(!(await library.saveBYOKResult()))
-        #expect(library.byokUserText == "Retain late-request user draft" && library.learning.config == originalConfig)
-        library.byok.draft.endpoint = "https://another-four-slice.example/v1"
-        await library.byok.load()
-        #expect(!library.byok.hasSessionCredential)
-        #expect(await app.selection.attemptsUsed() == 1)
-        #expect(await transport.calls == 1)
-        #expect(await transport.receivers.map(\.host) == ["four-slice.example"])
-    }
 
     @Test func savedTextAndEbookEditingSearchAndExactReturnUseOneLibraryAdapterAcrossSwitches() async throws {
         let directory = try root(); defer { try? FileManager.default.removeItem(at: directory) }
@@ -226,31 +135,6 @@ private actor FourSliceTransport: AIHTTPTransport {
         #expect(library.reader.capturedSelection?.quote == "window")
     }
 
-    @Test func readingPDFExportKeepsActiveSelectionDraftAndOriginalWhileOldTXTHTMLStillWorkAndExistingPDFRefuses() async throws {
-        let directory = try root(); defer { try? FileManager.default.removeItem(at: directory) }
-        let library = LibraryModel(root: directory, aiSession: AppAISession(), learningTransport: FourSliceTransport()); defer { close(library) }
-        let view = try await selectPDF(library); defer { view.document = nil }
-        let source = try #require(library.captureAISource()), pdf = try #require(library.reader.book)
-        let originalPDF = try await library.repository.readAsset(for: pdf)
-        try await configure(library); library.byokUserText = "Retain during conversion"
-        let input = directory.appendingPathComponent("Original.docx")
-        let fixture = try #require(Bundle.module.url(forResource: "study-sample", withExtension: "docx", subdirectory: "Fixtures/DOCX"))
-        let original = try Data(contentsOf: fixture); try original.write(to: input)
-        let output = directory.appendingPathComponent("Original-reading.pdf")
-        let service = DOCXReadingPDFService(), result = try await service.convert(source: input, destination: output)
-        #expect(result.readingPDFReport != nil)
-        #expect((PDFDocument(url: output)?.pageCount ?? 0) > 0)
-        let installed = try Data(contentsOf: output)
-        await #expect(throws: ConversionError.destinationExists) { try await service.convert(source: input, destination: output) }
-        #expect(try Data(contentsOf: output) == installed && Data(contentsOf: input) == original)
-        #expect(library.isCurrentBYOKSource(source) && library.byokUserText == "Retain during conversion")
-        #expect(library.reader.book?.id == pdf.id && library.reader.capturedSelection?.quote == "window")
-        #expect(try await library.repository.readAsset(for: pdf) == originalPDF)
-        for format in [ConversionFormat.plainText, .html] {
-            let url = directory.appendingPathComponent("Original-copy." + format.fileExtension)
-            let plain = try await DocumentConversionService().convert(ConversionRequest(source: input, destination: url, output: format))
-            #expect(plain.readingPDFReport == nil && plain.byteCount > 0)
-        }
-    }
+
 }
 #endif

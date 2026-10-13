@@ -47,7 +47,7 @@ struct MacTabbedWorkspace: View {
                     }
                     if navigation.route == .tool { toolContent }
                     if navigation.hasOpenedSettings {
-                        AISettingsView(learning: model.learning, byok: model.byok, library: model, embedded: true,
+                        AISettingsView(learning: model.learning, library: model, embedded: true,
                             active: navigation.route == .settings,
                             close: { navigation.returnFromSettings(readerAvailable: documents.active != nil) })
                             .opacity(navigation.route == .settings ? 1 : 0)

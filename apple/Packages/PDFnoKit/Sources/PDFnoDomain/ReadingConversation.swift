@@ -103,7 +103,7 @@ public struct ReadingConversationPlan: Sendable {
         self.requestID = requestID; self.conversationID = conversationID; self.answerID = answerID
         self.task = task; self.source = source; self.provider = provider; self.history = history
         self.question = question; self.authorReadings = authorReadings; self.timeoutSeconds = timeoutSeconds
-        receiverURL = provider.mode == .mock ? nil : try BYOKSelectionPolicy.finalURL(provider)
+        receiverURL = provider.mode == .mock ? nil : try ConfiguredAPISelectionPolicy.finalURL(provider)
         maxOutputTokens = manifest.budget.maxOutputTokensPerRequest
         struct Identity: Encodable {
             let version: String; let requestID: UUID; let conversationID: UUID; let answerID: UUID
