@@ -2,7 +2,7 @@
 
 Current repairs compile and pass four directed background checks and both affected GUI cases. The latest official result is **2 executed,2 passed,0 failed,0 skipped,0 expected failures**, with exact source/product bindings. The desk was released at **13:55:14 UTC / 21:55:14 Asia/Shanghai**. Reconnection did not restart or duplicate completed tests.
 
-Base main is `40bfbcbdebe833cf8c0dcbf32b57039ede07828f`. Repairs are uncommitted. No new full regression, iOS build/test, push, merge or publication occurred in this repair phase. These results do not establish global GUI, all68/73, gate12/17 or live API acceptance.
+The implementation is uploaded in main commit `d0575b2c2299367e6675105d3b57e747b7403e36`, based on `40bfbcbdebe833cf8c0dcbf32b57039ede07828f`. No new full regression, iOS build/test, merge or App publication occurred in this repair phase. These results do not establish global GUI, all68/73, gate12/17 or live API acceptance.
 
 ## Official baseline and preserved assertions
 

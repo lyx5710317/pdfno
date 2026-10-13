@@ -1,6 +1,6 @@
 # Mac AI cleanup and current coverage, 2026-10-13
 
-This ledger separates source migration from executed behavior. It does not establish all73 acceptance. Cleanup commit `3bfd3db` is already uploaded; current repairs are based on `40bfbcb`. Original failed results are preserved.
+This ledger separates source migration from executed behavior. It does not establish all73 acceptance. Cleanup commit `3bfd3db` is already uploaded; current repairs are uploaded as main implementation commit `d0575b2`, based on `40bfbcb`. Original failed results are preserved.
 
 ## Deleted independent ownership
 
