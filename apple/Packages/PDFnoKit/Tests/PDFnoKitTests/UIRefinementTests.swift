@@ -67,7 +67,8 @@ struct UIRefinementTests {
         try library.reader.open(data: data, book: book)
         let layout = RefinementLayout()
         layout.width = 1100
-        let host = NSHostingView(rootView: RefinementPDFHost(library: library, layout: layout))
+        let panelDefaults = try #require(UserDefaults(suiteName: "PDFno-UIRefinement-" + UUID().uuidString))
+        let host = NSHostingView(rootView: RefinementPDFHost(library: library, layout: layout).defaultAppStorage(panelDefaults))
         let window = hiddenWindow(host, width: 1100, height: 680)
         defer { window.close() }
         host.layoutSubtreeIfNeeded(); try await Task.sleep(for: .milliseconds(80))
@@ -80,7 +81,14 @@ struct UIRefinementTests {
         library.learning.result = result; library.learning.userText = unicode + "Original unsaved draft"
         let native = try #require(library.reader.view), document = try #require(library.reader.document)
         let identity = library.reader.readerSessionID
-        for width in [CGFloat(1100), 880, 440, 1100] {
+        // Fresh reader defaults are navigation280/inspector340. The two
+        // toggles repeat for each theme; pin their dock/overlay/closed widths
+        // independently of the native view and the placement implementation.
+        // Overlay leaves both flags open, so the final1100 pass closes them
+        // in light mode before reopening them in dark mode.
+        for (width, expectedLightWidth, expectedDarkWidth) in [
+            (CGFloat(1100), CGFloat(480), CGFloat(1100)), (880, 540, 540), (440, 440, 440), (1100, 1100, 480)
+        ] {
             for scheme in [ColorScheme.light, .dark] {
                 layout.scheme = scheme; layout.width = width
                 layout.panels.toggle(.navigation, width: width); layout.panels.toggle(.notes, width: width)
@@ -91,7 +99,9 @@ struct UIRefinementTests {
                 #expect(library.reader.capturedSelection == anchor && library.reader.resolution(of: anchor) == .exact)
                 #expect(library.learning.source == source && library.learning.result == result)
                 #expect(library.learning.userText == unicode + "Original unsaved draft")
-                #expect(abs(native.frame.width - layout.panels.placement(width: width).canvasWidth) < 1)
+                let placement = layout.panels.placement(width: width, navigationWidth: 280, notesWidth: 340)
+                #expect(placement.canvasWidth == (scheme == .light ? expectedLightWidth : expectedDarkWidth))
+                #expect(abs(native.frame.width - placement.canvasWidth) < 1)
             }
         }
         #expect(await transport.count == 0)

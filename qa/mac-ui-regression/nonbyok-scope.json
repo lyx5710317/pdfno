@@ -2300,8 +2300,8 @@
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/TextChapterIntegrationTests.swift": "6932dd24135b900a7457f9a9b18ea50c652440a90dd332a7b2533ba37a3c1ac2",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/TextFormatBridgeTests.swift": "cfa4114eccc172f8c1c24c1b27b05aed18e25647d0bc066bdf949398ae233eed",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/TextFormatTests.swift": "ccc95e12916dbbc96d7a066ef78cc69fff60398d9454d5684fb4447d6bfb4e95",
-      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/UIFoundationTests.swift": "ed8cc3927a0733ffdb274ec9339072c2e1359e4e84309f8b87e664e6c2b39bdf",
-      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/UIRefinementTests.swift": "37cbad4c465a4e080c38ff3c35268cbaa42ef3eaac93c3a723219b752f8c883d",
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/UIFoundationTests.swift": "b04b90213ce96268d24824f9bae5c505517ed872fae123b1c3624937d72725df",
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/UIRefinementTests.swift": "742eee21d738f3380e2aa49d8853c09b0d02eb82bbe364033bcaf84e4fc5127b",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/UITestIdentityPredicateTests.swift": "0b2cdf07115d64dcbc74b69289eb99feb49d366e8f26dc094fb0002d50e7b22c",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/WebArchiveBridgeTests.swift": "73e9100e201cd445c17714ba4a874db5d27494200495f18805e1ce99bff926af",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/WebArchiveFormatTests.swift": "d756e4e99338c20e12a041255ea8545bf4bb67f35ae3bc4260e2020c37f4592a",
@@ -2332,6 +2332,30 @@
         "AppAISessionTests/explicitlyUnlimitedReadingQACountsMoreThanThreeAttempts"
       ],
       "added_methods_execution": "Separate explicit QA validation only; not part of the original700 inventory or retained591 CI filter; not accepted by this manifest.",
+      "original_frozen_sets_and_exclusions_unchanged": true
+    },
+    {
+      "authorization_message_id": "Sentinel_169b5fa4066c819183b63f81c5b680f5",
+      "at_utc": "2026-10-13T05:30:20.638963+00:00",
+      "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/UIFoundationTests.swift",
+      "previous_sha256": "ed8cc3927a0733ffdb274ec9339072c2e1359e4e84309f8b87e664e6c2b39bdf",
+      "reviewed_sha256": "b04b90213ce96268d24824f9bae5c505517ed872fae123b1c3624937d72725df",
+      "reviewed_methods": [
+        "UIFoundationTests/shellResizeAndPanelSwitchKeepNativePDFViewSelectionSourceAndDraft"
+      ],
+      "review": "Replace stale240/320 implicit layout expectations with explicit current reader defaults280/340. Use a fresh isolated AppStorage suite and independent numeric dock/overlay/closed canvas widths. Preserve the original sub-one-point native width requirement and all existing source, selection, result, draft, identity, no-send and no-save assertions. No method added, removed or reclassified.",
+      "original_frozen_sets_and_exclusions_unchanged": true
+    },
+    {
+      "authorization_message_id": "Sentinel_169b5fa4066c819183b63f81c5b680f5",
+      "at_utc": "2026-10-13T05:33:26.598877+00:00",
+      "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/UIRefinementTests.swift",
+      "previous_sha256": "37cbad4c465a4e080c38ff3c35268cbaa42ef3eaac93c3a723219b752f8c883d",
+      "reviewed_sha256": "742eee21d738f3380e2aa49d8853c09b0d02eb82bbe364033bcaf84e4fc5127b",
+      "reviewed_methods": [
+        "UIRefinementTests/nativePDFResizeThemeAndPanelChangesRetainSourceResultAndDraft"
+      ],
+      "review": "Replace stale240/320 implicit layout expectations with explicit current reader defaults280/340. Use a fresh isolated AppStorage suite and independent numeric dock/overlay/closed canvas widths. Preserve the original sub-one-point native width requirement and all existing source, selection, result, draft, identity, no-send and no-save assertions. No method added, removed or reclassified.",
       "original_frozen_sets_and_exclusions_unchanged": true
     }
   ]

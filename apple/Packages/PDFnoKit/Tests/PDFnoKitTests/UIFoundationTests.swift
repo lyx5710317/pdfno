@@ -93,7 +93,8 @@ struct UIFoundationTests {
         let book = BookRecord(title: "Original shell fixture", fileSHA256: LibraryRepository.digest(data), originalFilename: "original.pdf", pageCount: 2)
         let session = PDFReaderSession(); try session.open(data: data, book: book)
         let state = OriginalShellState()
-        let host = NSHostingView(rootView: OriginalShellFixture(session: session, state: state))
+        let panelDefaults = try #require(UserDefaults(suiteName: "PDFno-UIFoundation-" + UUID().uuidString))
+        let host = NSHostingView(rootView: OriginalShellFixture(session: session, state: state).defaultAppStorage(panelDefaults))
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 620), styleMask: [], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false; window.contentView = host
         defer { window.close() }
@@ -103,13 +104,17 @@ struct UIFoundationTests {
         session.search("window"); session.show(try #require(session.searchMatches.first)); session.captureSelection()
         let anchor = try #require(session.capturedSelection), identity = session.readerSessionID
         state.draft = "Original unsaved 日本語 cafe\u{301} 👩🏽‍🚀"
-        for width in [CGFloat(1100), 880, 440, 1100] {
+        // Fresh reader defaults are navigation280/inspector340. Dock both,
+        // dock notes only, overlay at440, then close both; do not derive these
+        // expected widths from the native view or the placement implementation.
+        for (width, expectedCanvasWidth) in [(CGFloat(1100), CGFloat(480)), (880, 540), (440, 440), (1100, 1100)] {
             state.panels.toggle(.navigation, width: width)
             state.panels.toggle(.notes, width: width)
             host.frame.size.width = width
             host.layoutSubtreeIfNeeded(); try await Task.sleep(for: .milliseconds(50))
-            let layout = state.panels.placement(width: width)
+            let layout = state.panels.placement(width: width, navigationWidth: 280, notesWidth: 340)
             #expect(session.view === native && session.document === document && session.readerSessionID == identity)
+            #expect(layout.canvasWidth == expectedCanvasWidth)
             #expect(abs(native.frame.width - layout.canvasWidth) < 1)
             #expect(session.capturedSelection == anchor && session.resolution(of: anchor) == .exact)
             #expect(state.draft == "Original unsaved 日本語 cafe\u{301} 👩🏽‍🚀" && state.search == "window")
