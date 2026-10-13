@@ -131,20 +131,22 @@ import PDFnoServices
                 let provider = try connection?.configuredSelectionProvider() ?? BYOKProviderFactory.selection(snapshot: snapshot, session: session, transport: transport, aiSession: aiSession)
                 let plan = try ReadingSkillInputPlan(request: .text(preview.request))
                 readingSkillPlan = plan
+                let submittedConnection = connection
                 let envelope = try await ReadingSkillSelectionAdapter.runText(plan,
                     consent: ReadingSkillConsent(taskID: plan.taskID, planFingerprint: plan.confirmationFingerprint),
                     hostConsent: preview.consent, coordinator: coordinator, provider: provider,
-                    sourceAndConfigurationAreCurrent: { [weak self, session] source, config in
-                        if let connection = await MainActor.run(body: { self?.connection }) {
+                    sourceAndConfigurationAreCurrent: { [weak self, session, submittedConnection] source, config in
+                        if let connection = submittedConnection {
                             return await MainActor.run {
-                                self?.generation == token && connection.conversationConnectionAvailable &&
-                                ReadingSkillIdentity.matches(connection.config, config) && sourceIsCurrent(source)
+                                guard let self, self.generation == token, self.connection === connection else { return false }
+                                return connection.conversationConnectionAvailable &&
+                                    ReadingSkillIdentity.matches(connection.config, config) && sourceIsCurrent(source)
                             }
                         }
                         let current = await session.snapshot()
                         guard ReadingSkillIdentity.matches(current.configuration, config), current.hasSessionCredential else { return false }
                         return await MainActor.run {
-                            guard let self, self.generation == token else { return false }
+                            guard let self, self.generation == token, self.connection == nil else { return false }
                             return ReadingSkillIdentity.matches(self.draft, config) && sourceIsCurrent(source)
                         }
                     })
