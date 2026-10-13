@@ -18,7 +18,10 @@ guard CommandLine.arguments == [CommandLine.arguments[0], "--configure-ci"],
        (environment["GITHUB_EVENT_NAME"] == "workflow_dispatch" &&
         environment["GITHUB_WORKFLOW"] == "Isolated reading integration UI checks" &&
         environment["GITHUB_JOB"] == "completion49" &&
-        environment["GITHUB_REF"] == "refs/heads/fix/public-language-reader-20261011" &&
+        // Sentinel_e0cf63b4333c8191a85b9fc2f8ae5b4b authorizes the current
+        // main Mac global check, including this unchanged completion job.
+        ["refs/heads/fix/public-language-reader-20261011", "refs/heads/main"]
+            .contains(environment["GITHUB_REF"] ?? "") &&
         environment["PDFNO_APPROVED_COMPLETION_AUTHORITY"] == "Sentinel_ae30196ad1dc8191b5e6f2d5ee0055fa")),
       NSUserName() == "runner",
       let workspace = environment["GITHUB_WORKSPACE"],
