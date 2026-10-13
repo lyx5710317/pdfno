@@ -144,6 +144,38 @@ struct EPUBWebKitTests {
         // An unknown session cannot navigate even with a well-formed command shape.
         let stale = try await probe(session, "try{await window.PDFno.command({v:1,requestID:'stale',session:'wrong',command:'navigate',documentVersion:0,payload:{anchor:" + json + "}});return 'accepted'}catch{return 'rejected'}")
         #expect(stale == "rejected")
+        let identity: [String: Any] = ["v": 1,"session": session.readerSessionID.uuidString,
+            "bookID": book.id.uuidString,"editionID": book.editionID.uuidString,"fileSHA256": book.fileSHA256,
+            "documentVersion": 0,"requestID": "original-viewport-sync","command": "viewportState","payload": [:]]
+        let envelope = String(decoding: try JSONSerialization.data(withJSONObject: identity),as: UTF8.self)
+        let snapshot = try await probe(session,"return await window.PDFno.command(" + envelope + ");")
+        let state = try #require(JSONSerialization.jsonObject(with: Data(snapshot.utf8)) as? [String: Any])
+        #expect(state["session"] as? String == session.readerSessionID.uuidString)
+        #expect(state["requestID"] as? String == "original-viewport-sync")
+        #expect((state["documentVersion"] as? Int ?? -1) >= session.documentVersion)
+        #expect((state["payload"] as? [String: Any])?["kind"] as? String == "state")
+        let originalAnchorJSON = String(decoding: try JSONEncoder().encode(first),as: UTF8.self)
+        let rejected = try await probe(session,"const m=" + envelope + ";m.command='navigate';m.payload={anchor:" + originalAnchorJSON + "};try{await window.PDFno.command(m);return 'accepted'}catch{return 'rejected'}")
+        #expect(rejected == "rejected", "A read-only sync must never relax navigation's exact-version check")
+        let foreign = try await probe(session,"const m=" + envelope + ";m.session='foreign';try{await window.PDFno.command(m);return 'accepted'}catch{return 'rejected'}")
+        #expect(foreign == "rejected")
+        let future = try await probe(session,"const m=" + envelope + ";m.documentVersion=999999;try{await window.PDFno.command(m);return 'accepted'}catch{return 'rejected'}")
+        #expect(future == "rejected")
+        #expect(await session.applyReadingLayout(ReadingLayout(mode: .single, vertical: true)))
+        #expect(await session.command("navigate", anchor: japanese))
+        // WebKit can retain a range in a hidden resource during reflow. It must
+        // neither retarget a paginated viewport nor invalidate its exact pin.
+        _ = try await probe(session, "const d=document.querySelector('iframe').contentDocument;const p=d.querySelector('[data-pdfno-spine=\"0\"] p');const r=d.createRange();r.setStart(p.firstChild,0);r.setEnd(p.firstChild,6);d.getSelection().removeAllRanges();d.getSelection().addRange(r);return 'hidden-selected';")
+        #expect(await session.captureSelection() == nil)
+        let hiddenSnapshot = try await probe(session,"return await window.PDFno.command(" + envelope + ");")
+        let hiddenState = try #require(JSONSerialization.jsonObject(with: Data(hiddenSnapshot.utf8)) as? [String: Any])
+        let hiddenPayload = try #require(hiddenState["payload"] as? [String: Any])
+        #expect(hiddenPayload["spineIndex"] as? Int == japanese.spineIndex)
+        #expect((hiddenPayload["progress"] as? [String: Any])?["spineIndex"] as? Int == japanese.spineIndex)
+        #expect(await session.command("resize"))
+        #expect(await session.command("navigate", anchor: first))
+        #expect(session.selection?.start == first.start && session.selection?.end == first.end)
+        #expect(session.selection?.quote == first.quote)
         session.close(); #expect(!(await session.command("next")))
     }
     @Test @MainActor func noteProjectionAcknowledgesOnlyTheActualDOMSelectionIncludingSameWordReselection() async throws {

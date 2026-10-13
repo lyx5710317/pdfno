@@ -5,7 +5,7 @@ import PDFnoDomain
 import PDFnoServices
 import PDFnoReaders
 
-enum MacDocumentFileAction { case settings, tools, japanese, english, page, spine, translation, trash }
+enum MacDocumentFileAction { case settings, translation, trash }
 struct MacDocumentFilePanel: Identifiable {
     let id = UUID()
     let model: LibraryModel
@@ -41,11 +41,6 @@ struct MacDocumentFileWorkspace: View {
     var body: some View {
         Group {
             switch panel.action {
-            case .tools: ReadingToolsWorkspace(library: panel.model)
-            case .japanese: JapaneseLearningSheet(library: panel.model)
-            case .english: EnglishLearningSheet(library: panel.model)
-            case .page: PDFPageTranslationWorkspace(library: panel.model, translation: panel.model.pageTranslation, learning: panel.model.learning)
-            case .spine: EPUBChapterTranslationWorkspace(library: panel.model, translation: panel.model.chapterTranslation, learning: panel.model.learning)
             case .translation: ReadingTranslationWorkspace(library: panel.model)
             case .settings:
                 if let cover = panel.model.currentDocumentCover {

@@ -14,7 +14,6 @@ struct AISettingsView: View {
     private let library: LibraryModel?
     private let toolContext: SettingsAIContext?
     @State private var childBusy = false
-    @State private var showTools = false
     @State private var showRecovery = false
     @State private var showBookno = false
     @State private var backupModel: LocalRecoveryManagementModel?
@@ -64,7 +63,6 @@ struct AISettingsView: View {
             }
         }.frame(minWidth: embedded ? 0 : PDFnoDesign.Metric.sheetMinimum, idealWidth: 980, minHeight: embedded ? 0 : 560)
         .sheet(isPresented: Binding(get: { showDeepSeekTest && !embedded }, set: { showDeepSeekTest = $0 })) { DeepSeekSelfTestView(model: learning.deepSeekTest) }
-        .sheet(isPresented: Binding(get: { showTools && !embedded }, set: { showTools = $0 })) { if let library { ReadingToolsWorkspace(library: library) } }
         .sheet(isPresented: Binding(get: { showBookno && !embedded }, set: { showBookno = $0 })) { if let library { BooknoPreviewWorkspace(model: library.booknoPreview) } }
         .sheet(isPresented: Binding(get: { showRecovery && !embedded }, set: { showRecovery = $0 })) {
             if let recovery = library?.recoveryManagement {
@@ -88,13 +86,12 @@ struct AISettingsView: View {
                 .disabled(childBusy).accessibilityIdentifier("settings-return")
         }
     }
-    private var hasSubpage: Bool { showDeepSeekTest || showTools || showBookno || showRecovery }
+    private var hasSubpage: Bool { showDeepSeekTest || showBookno || showRecovery }
     private func clearUnappliedSecrets() { secret = "" }
-    private func closeSubpage() { showDeepSeekTest = false; showTools = false; showBookno = false; showRecovery = false }
+    private func closeSubpage() { showDeepSeekTest = false; showBookno = false; showRecovery = false }
     @ViewBuilder private var settingsSubpage: some View {
         Group {
             if showDeepSeekTest { DeepSeekSelfTestView(model: learning.deepSeekTest) }
-            else if showTools, let library { ReadingToolsWorkspace(library: library, settingsAction: { showTools = false; category = .ai }) }
             else if showBookno, let library { BooknoPreviewWorkspace(model: library.booknoPreview) }
             else if showRecovery, let recovery = library?.recoveryManagement {
                 NavigationStack {

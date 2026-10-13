@@ -237,7 +237,10 @@ final class ReaderChromeUITests: XCTestCase {
         XCTAssertTrue(text(item("annotation-comment", app)).contains("Original saved comment")); XCTAssertFalse(text(item("annotation-comment", app)).contains("unsaved change"))
         try click(item("epub-notes", app)); try selectWindow(app)
         try click(item("selection-ai-menu", app)); try click(item("selection-ai-explain", app))
-        XCTAssertTrue(item("ai-close", app).waitForExistence(timeout: 12)); XCTAssertTrue(app.staticTexts["选文学习"].exists)
+        XCTAssertTrue(item("ai-close", app).waitForExistence(timeout: 12))
+        XCTAssertFalse(app.staticTexts["选文学习"].exists)
+        XCTAssertTrue(item("ai-conversation-return", app).exists)
+        XCTAssertTrue(item("ai-conversation-input", app).exists)
         try shot("CH-04-ai-header-retained", app); try click(item("ai-close", app)); XCTAssertFalse(item("ai-close", app).exists)
         let window = app.windows.firstMatch, original = window.frame
         let add = item("document-add", app), more = item("document-more", app)

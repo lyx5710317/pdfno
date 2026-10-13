@@ -11,6 +11,17 @@ enum SelectionAIRoute: String, Identifiable {
 }
 
 extension LibraryModel {
+    var canResumeSelectionConversation: Bool {
+        guard !storageMaintenance, let source = conversation.current?.source,
+              source.bookID == currentAIBookID else { return false }
+        return source.readerSessionID == (readingEPUB ? epub.readerSessionID : reader.readerSessionID)
+    }
+    /// Restores the existing sheet, including disabled tools and unsent drafts.
+    /// Viewing an answer does not reopen a task or send a request.
+    func resumeSelectionConversation() {
+        guard canResumeSelectionConversation else { return }
+        selectionAIRoute = .conversation
+    }
     func openSelectionAI(_ kind: AILearningKind,anchor: AnnotationAnchor,sessionID: UUID) {
         guard let source = selectionAISource(anchor: anchor,sessionID: sessionID) else { return }
         learning.chooseTask(kind,source: source);selectionAIRoute = .conversation

@@ -179,8 +179,14 @@ private actor NativeConversationDeferredHTTP: AIHTTPTransport {
         #expect(library.conversation.current?.answers.count == 1 && library.annotations.records.first?.aiResult == answer.result)
         library.conversation.setDraft("Must not send while disabled"); library.conversation.sendFollowup()
         #expect(!library.conversation.busy && library.conversation.current?.answers.count == 1)
+        library.dismissSelectionAI(); library.resumeSelectionConversation()
+        #expect(library.selectionAIRoute == .conversation && library.conversation.currentID == english.id)
+        #expect(library.conversation.current?.answers.first?.id == answer.id)
+        #expect(library.conversation.current?.draft == "Must not send while disabled" && !library.conversation.busy)
         library.discardDocumentPresentation()
         #expect(library.conversation.threads.isEmpty && library.conversation.currentID == nil)
+        library.resumeSelectionConversation()
+        #expect(!library.canResumeSelectionConversation && library.selectionAIRoute == nil)
         #expect(try await library.annotations.repository.load().notes.count == 1)
     }
     @Test func modelsShareOnlyConnectionAndToolsWhileConversationContextIsDocumentOwned() async throws {

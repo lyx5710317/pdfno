@@ -18130,8 +18130,10 @@
       const last3 = range2.endContainer.parentElement?.closest("[data-pdfno-spine]");
       if (!first3 || first3 !== last3) return null;
       const index = Number(first3.dataset.pdfnoSpine);
+      if (readingLayout.mode !== "scroll" && index !== current) return null;
       if (index !== current) {
         current = index;
+        pinnedProgress = null;
         version++;
         lastSelection = "";
         publishViewport();
@@ -18242,6 +18244,7 @@
     return [...range2.getClientRects()].some((r) => r.width > 0 && r.height > 0 && r.left < width && r.right > 0 && r.top - top < height && r.bottom - top > 0);
   }
   function progress() {
+    if (pinnedProgress && (pinnedProgress.spineIndex !== current || pinnedProgress.resourceHref !== renderer.book.sections[current].id)) pinnedProgress = null;
     if (pinnedProgress) {
       rangeFor(pinnedProgress);
       return pinnedProgress;
@@ -18364,6 +18367,7 @@
     if (!flow || !doc()?.body) return;
     const width = renderer.element.clientWidth || 640, height = renderer.element.clientHeight || 480;
     if (readingLayout.mode !== "scroll") {
+      const chosen = selectedAnchor();
       const anchor = progress();
       for (const [index, frame2] of flowFrames) {
         frame2.style.display = index === current ? "block" : "none";
@@ -18372,7 +18376,6 @@
       renderer.element.style.overflowY = "hidden";
       const layout = flowLayouts.get(current), key = JSON.stringify([readingLayout, width, height]);
       if (layout && layout.cacheKey !== key) {
-        const chosen = selectedAnchor();
         layout.configure(readingLayout, width, height);
         layout.cacheKey = key;
         if (anchor) scrollToSource(anchor);
@@ -18461,6 +18464,7 @@
     if (visible && visible[0] !== current) {
       doc().getSelection()?.removeAllRanges();
       current = visible[0];
+      pinnedProgress = null;
       version++;
       lastSelection = "";
     }
@@ -18476,7 +18480,14 @@
   }
   window.PDFno = { async command(message) {
     if (message.v !== 1 || typeof message.requestID !== "string") throw Error("Invalid bridge version");
-    if (message.command !== "open" && (!identity2 || ["session", "bookID", "editionID", "fileSHA256"].some((k) => message[k] !== identity2[k]) || message.documentVersion !== version)) throw Error("Stale reader request");
+    if (message.command !== "open") {
+      if (!identity2 || ["session", "bookID", "editionID", "fileSHA256"].some((k) => message[k] !== identity2[k])) throw Error("Stale reader request");
+      if (message.command === "viewportState") {
+        if (!Number.isSafeInteger(message.documentVersion) || message.documentVersion < 0 || message.documentVersion > version) throw Error("Stale reader request");
+        return JSON.stringify(envelope(state(), message.requestID));
+      }
+      if (message.documentVersion !== version) throw Error("Stale reader request");
+    }
     if (message.command === "open") {
       if (identity2) throw Error("A session can only open one book");
       identity2 = { session: message.session, bookID: message.bookID, editionID: message.editionID, fileSHA256: message.fileSHA256 };

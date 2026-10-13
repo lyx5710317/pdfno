@@ -149,11 +149,10 @@ final class ReaderConversationUITests: XCTestCase {
 
     @MainActor private func text(_ element: XCUIElement) -> String { (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label }
     @MainActor private func item(_ id: String,_ app: XCUIApplication) -> XCUIElement {
-        if ["settings-japanese-learning","settings-english-learning"].contains(id) { return app.checkBoxes.matching(identifier: id).firstMatch }
         return app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
     @MainActor private func state(_ element: XCUIElement) -> String? {
-        guard element.exists, element.elementType == .checkBox else { return nil }
+        guard element.exists, [.checkBox, .switch].contains(element.elementType) else { return nil }
         if let value = element.value as? String, ["0","1"].contains(value) { return value }
         if let value = element.value as? NSNumber, [0,1].contains(value.intValue) { return String(value.intValue) }
         return nil
@@ -184,6 +183,25 @@ final class ReaderConversationUITests: XCTestCase {
     @MainActor private func category(_ id: String,title: String,_ app: XCUIApplication) throws {
         if item("settings-category-" + id,app).exists { try click(item("settings-category-" + id,app)) }
         else { try click(item("settings-category-picker",app)); try click(app.menuItems[title].firstMatch) }
+        if id == "aiTools" {
+            try uiWait(languagePreferenceFailure(app), timeout: 12) {
+                self.state(self.item("settings-japanese-learning",app)) != nil
+                    && self.state(self.item("settings-english-learning",app)) != nil
+            }
+        }
+    }
+    @MainActor private func languagePreferenceFailure(_ app: XCUIApplication) -> String {
+        // Failure-only public controls from this offline fixture. No secure
+        // field values or another application's accessibility tree are read.
+        for id in ["settings-category-picker", "settings-japanese-card", "settings-english-card",
+                   "settings-japanese-learning", "settings-english-learning"] {
+            let control = item(id,app)
+            if control.exists {
+                print("PDFNO_LANGUAGE_PREFERENCE id=\(id) role=\(control.elementType.rawValue) value=\(String(describing: control.value)) frame=\(control.frame)")
+            } else { print("PDFNO_LANGUAGE_PREFERENCE id=\(id) exists=false") }
+        }
+        try? shot("AI-tools-transition-unresolved",app)
+        return "Current AI tools preferences must exist with native 0/1 state before the original assertions"
     }
     @MainActor private func configureMock(_ app: XCUIApplication) throws {
         try category("ai",title: "AI",app)
@@ -271,9 +289,10 @@ final class ReaderConversationUITests: XCTestCase {
         let input = item("ai-conversation-input",app); try click(input); try pasteOriginalFixture("Original follow-up about this source", into: input)
         try click(item("ai-conversation-send",app)); waitAnswers(2,app)
         try shot("AI-03-wide-followup-explicit-save",app)
-        try click(item("ai-close",app)); try click(item("epub-ai",app)); waitAnswers(2,app)
+        try click(item("ai-close",app)); try click(item("epub-ai",app))
+        try click(item("document-ai-resume-selection",app)); waitAnswers(2,app)
         XCTAssertTrue(item("ai-conversation-answer-" + answerID,app).exists)
-        try shot("AI-04-rail-reconnects-same-dialogue",app); try click(item("epub-ai",app))
+        try shot("AI-04-rail-reconnects-same-dialogue",app); try click(item("ai-close",app)); try click(item("epub-ai",app))
         for name in ["translate","summarize","english"] {
             try select("window",app); try task(name,app); waitAnswers(1,app)
             XCTAssertTrue(answers(app).first.map { text($0).contains("本地 mock") } == true)
@@ -306,10 +325,11 @@ final class ReaderConversationUITests: XCTestCase {
         try shot("AI-08-narrow-dark-dialogue",app); try click(item("ai-close",app))
         try click(item("ai-settings",app)); try category("aiTools",title: "AI工具",app); try click(item("settings-english-learning",app))
         XCTAssertEqual(state(item("settings-english-learning",app)),"0")
-        try click(item("settings-return",app)); try click(item("epub-ai",app)); waitAnswers(1,app)
+        try click(item("settings-return",app)); try click(item("epub-ai",app))
+        try click(item("document-ai-resume-selection",app)); waitAnswers(1,app)
         XCTAssertTrue(item("ai-conversation-answer-" + answerID,app).exists && !item("ai-conversation-input",app).isEnabled)
         try click(item("ai-conversation-save-" + answerID,app)); try shot("AI-09-disabled-tool-answer-retained",app)
-        try click(item("epub-ai",app)); try select("window",app); try click(item("selection-ai-menu",app))
+        try click(item("ai-close",app)); try click(item("epub-ai",app)); try select("window",app); try click(item("selection-ai-menu",app))
         XCTAssertFalse(item("selection-ai-japanese",app).exists); XCTAssertFalse(item("selection-ai-english",app).exists)
         XCTAssertTrue(item("selection-ai-explain",app).exists && item("selection-ai-translate",app).exists && item("selection-ai-summarize",app).exists)
         app.typeKey(.escape,modifierFlags: [])

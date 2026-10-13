@@ -54,7 +54,11 @@ function selectedAnchor() {
     const last=range.endContainer.parentElement?.closest('[data-pdfno-spine]');
     if (!first || first!==last) return null; // A stored source always belongs to one canonical spine resource.
     const index=Number(first.dataset.pdfnoSpine);
-    if (index!==current) { current=index; version++; lastSelection=''; publishViewport(); }
+    // Paginated resources remain in the DOM but only the current one is
+    // displayed. A retained WebKit range in a hidden chapter is not a new
+    // visible selection and must not retarget the viewport during reflow.
+    if (readingLayout.mode!=='scroll' && index!==current) return null;
+    if (index!==current) { current=index; pinnedProgress=null; version++; lastSelection=''; publishViewport(); }
   }
   const {nodes}=canonical();
   const included=nodes.filter(x=>range.intersectsNode(x.node));
@@ -132,6 +136,9 @@ function visibleRects(range) {
   return [...range.getClientRects()].some(r=>r.width>0 && r.height>0 && r.left<width && r.right>0 && r.top-top<height && r.bottom-top>0);
 }
 function progress() {
+  // A pin caches the visible resource's exact range. Chapter changes evict
+  // that cache; saved anchors still pass rangeFor's full identity/quote checks.
+  if(pinnedProgress && (pinnedProgress.spineIndex!==current || pinnedProgress.resourceHref!==renderer.book.sections[current].id))pinnedProgress=null;
   if(pinnedProgress){rangeFor(pinnedProgress);return pinnedProgress;}
   const {nodes}=canonical();
   const range=doc().createRange();
@@ -207,12 +214,13 @@ function sizeFlow() {
   if(!flow || !doc()?.body)return;
   const width=renderer.element.clientWidth||640,height=renderer.element.clientHeight||480;
   if(readingLayout.mode!=='scroll') {
+    const chosen=selectedAnchor();
     const anchor=progress();
     for(const [index,frame] of flowFrames){frame.style.display=index===current?'block':'none';frame.style.height=height+'px';}
     renderer.element.style.overflowY='hidden';
     const layout=flowLayouts.get(current),key=JSON.stringify([readingLayout,width,height]);
     if(layout&&layout.cacheKey!==key){
-      const chosen=selectedAnchor();layout.configure(readingLayout,width,height);layout.cacheKey=key;
+      layout.configure(readingLayout,width,height);layout.cacheKey=key;
       if(anchor)scrollToSource(anchor);
       if(chosen){const selected=doc().getSelection();selected.removeAllRanges();selected.addRange(rangeFor(chosen));}
     }
@@ -272,7 +280,7 @@ function trackFlowViewport() {
   if(readingLayout.mode!=='scroll'){publishViewport();return;}
   const top=renderer.element.scrollTop;
   const visible=[...flowFrames].find(([,root])=>root.offsetTop+root.offsetHeight>top+24);
-  if(visible && visible[0]!==current){doc().getSelection()?.removeAllRanges();current=visible[0];version++;lastSelection='';}
+  if(visible && visible[0]!==current){doc().getSelection()?.removeAllRanges();current=visible[0];pinnedProgress=null;version++;lastSelection='';}
   publishViewport();
 }
 async function navigate(anchor,preserveVersion=false) {
@@ -283,7 +291,17 @@ async function navigate(anchor,preserveVersion=false) {
 }
 window.PDFno = {async command(message) {
   if (message.v!==1 || typeof message.requestID!=='string') throw Error('Invalid bridge version');
-  if (message.command!=='open' && (!identity || ['session','bookID','editionID','fileSHA256'].some(k=>message[k]!==identity[k]) || message.documentVersion!==version)) throw Error('Stale reader request');
+  if (message.command!=='open') {
+    if (!identity || ['session','bookID','editionID','fileSHA256'].some(k=>message[k]!==identity[k])) throw Error('Stale reader request');
+    // A native viewport notification can be superseded while the reader is
+    // busy restoring its layout. Read the current state before an absolute
+    // source jump; this command cannot navigate, select, project or save.
+    if (message.command==='viewportState') {
+      if (!Number.isSafeInteger(message.documentVersion) || message.documentVersion<0 || message.documentVersion>version) throw Error('Stale reader request');
+      return JSON.stringify(envelope(state(),message.requestID));
+    }
+    if (message.documentVersion!==version) throw Error('Stale reader request');
+  }
   if (message.command==='open') {
     if (identity) throw Error('A session can only open one book');
     identity={session:message.session,bookID:message.bookID,editionID:message.editionID,fileSHA256:message.fileSHA256};

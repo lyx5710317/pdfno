@@ -182,25 +182,25 @@ final class ProfessionalReaderUITests: XCTestCase {
 
     @MainActor func testARegularDarkLearningPanelConsentDraftAndManualSave() throws {
         let app = try originalApp(width: 1280, dark: true); defer { app.terminate() }
-        try uiConfigureMock(app); try uiExample("open-sample", app); try searchOriginal(app)
-        try uiLegacyAI(app)
-        let start = item("ai-start", app)
-        XCTAssertTrue(start.waitForExistence(timeout: 10)); XCTAssertFalse(start.isEnabled)
-        XCTAssertFalse(item("ai-result", app).exists); XCTAssertEqual(try uiAnnotations(app).count, 0)
-        try uiStartLegacyAI(app); XCTAssertTrue(item("ai-result", app).waitForExistence(timeout: 15))
-        let draft = item("ai-user-note", app), body = "A learning draft 日本語 👩🏽‍🚀"
-        try uiReveal(draft, scroll: "ai-notes-list", app); try uiPaste(body, draft)
-        try click(item("ai-close", app)); try uiLegacyAI(app)
-        try uiReveal(draft, scroll: "ai-notes-list", app); value(draft, equals: body)
-        XCTAssertTrue(item("ai-result", app).exists); XCTAssertEqual(try uiAnnotations(app).count, 0)
-        try capture("A-product-04-learning-dark", app: app)
-        let save = item("ai-save-note", app); try uiReveal(save, scroll: "ai-notes-list", app); try click(save)
-        contains(item("ai-result-save-state", app), "已添加到当前文档笔记")
+        try uiConfigureMock(app); try uiExample("open-sample", app); try searchOriginal(app); try uiSelectPDFWindow(app)
+        XCTAssertEqual(try uiAnnotations(app).count, 0); XCTAssertEqual(uiConversationAnswers(app).count, 0)
+        try uiChooseConversationTask("translate", app); let answer = try uiOnlyConversationAnswer(app)
+        XCTAssertTrue(uiText(answer).contains("本地 mock")); XCTAssertEqual(try uiAnnotations(app).count, 0)
+        try uiSaveConversationAnswer(answer, app); let original = try uiOnlyAnnotation(app)
+        XCTAssertEqual(original["userText"] as? String, ""); XCTAssertNotNil(original["aiResult"])
+        try uiCloseConversation(app); try uiPanel("reader-notes", open: true, app); try uiEditNote(app)
+        let draft = item("annotation-comment-input", app), body = "A learning draft 日本語 👩🏽‍🚀"
+        try uiPaste(body, draft); try click(item("annotation-editor-cancel", app))
+        try uiPanel("reader-notes", open: false, app); try uiPanel("reader-notes", open: true, app); try uiResumeDraft(app)
+        value(draft, equals: body)
+        XCTAssertEqual(try uiOnlyAnnotation(app)["userText"] as? String, "", "The uncommitted user draft cannot alter the explicitly saved answer")
+        XCTAssertEqual(try uiOnlyAnnotation(app)["aiResult"] as? NSDictionary, original["aiResult"] as? NSDictionary)
+        try capture("A-product-04-learning-dark", app: app); try uiSaveNote(app)
         let note = try uiOnlyAnnotation(app)
         XCTAssertEqual(note["userText"] as? String, body); XCTAssertNotNil(note["aiResult"])
+        XCTAssertEqual(note["aiResult"] as? NSDictionary, original["aiResult"] as? NSDictionary)
         XCTAssertEqual(try uiAnchorPayload(note)["quote"] as? String, "window")
-        try uiReveal(item("ai-result-source", app), scroll: "ai-notes-list", app); try click(item("ai-result-source", app))
-        try uiCloseToolDirectory(app)
+        try uiReturnNote(app); try uiPanel("reader-notes", open: false, app)
         XCTAssertFalse(item("reader-notes-panel", app).exists); contains(item("page-position", app), "1 / 2")
     }
 
@@ -268,18 +268,20 @@ final class ProfessionalReaderUITests: XCTestCase {
 
     @MainActor func testShellRegularDarkAIResultAndUncommittedDraftSurviveLibrary() throws {
         let app = try originalApp(width: 1280, dark: true); defer { app.terminate() }
-        try uiConfigureMock(app); try uiExample("open-sample", app); try searchOriginal(app)
-        try uiLegacyAI(app); try uiStartLegacyAI(app)
-        XCTAssertTrue(item("ai-result", app).waitForExistence(timeout: 15))
-        let body = "Shell retained AI draft 日本語"
-        try uiReveal(item("ai-user-note", app), scroll: "ai-notes-list", app); try uiPaste(body, item("ai-user-note", app))
-        let result = uiText(item("ai-result", app)); XCTAssertEqual(try uiAnnotations(app).count, 0)
-        try uiCloseLegacyAI(app); try click(item("workspace-back-library", app))
+        try uiConfigureMock(app); try uiExample("open-sample", app); try searchOriginal(app); try uiSelectPDFWindow(app)
+        try uiChooseConversationTask("translate", app); let answer = try uiOnlyConversationAnswer(app)
+        let body = "Shell retained AI draft 日本語", result = uiText(answer), answerID = answer.identifier
+        // The accepted conversation retains its follow-up draft. The separate
+        // annotation editor's user-body draft is covered by the dark-panel case.
+        try uiPaste(body, item("ai-conversation-input", app)); XCTAssertEqual(try uiAnnotations(app).count, 0)
+        try uiCloseConversation(app); try click(item("workspace-back-library", app))
         try click(item("library-category-examples", app)); try click(item("library-grid-layout", app))
         try capture("A-shell-03-library-grid-regular-dark", app: app); try click(item("library-book", app))
-        try uiLegacyAI(app); try uiReveal(item("ai-user-note", app), scroll: "ai-notes-list", app)
-        value(item("ai-user-note", app), equals: body); XCTAssertEqual(uiText(item("ai-result", app)), result)
-        XCTAssertEqual(try uiAnnotations(app).count, 0); try capture("A-shell-04-reader-learning-regular-dark", app: app)
+        try uiPanel("reader-ai", open: true, app)
+        try click(item("document-ai-resume-selection", app))
+        value(item("ai-conversation-input", app), equals: body); XCTAssertEqual(uiText(item(answerID, app)), result)
+        XCTAssertEqual(uiConversationAnswers(app).count, 1); XCTAssertEqual(try uiAnnotations(app).count, 0)
+        try capture("A-shell-04-reader-learning-regular-dark", app: app)
     }
 
     @MainActor func testShellNarrowLightPDFPageAndHelpToolsRoutes() throws {
@@ -293,7 +295,10 @@ final class ProfessionalReaderUITests: XCTestCase {
         XCTAssertFalse(item("professional-library-workspace", app).exists)
         try capture("A-shell-06-reader-page2-narrow-light", app: app)
         try click(item("workspace-tools", app))
-        XCTAssertTrue(item("bookno-preview-open", app).exists); XCTAssertTrue(item("ai-tools-open", app).exists); XCTAssertTrue(item("ai-settings", app).exists)
+        XCTAssertTrue(item("bookno-preview-open", app).exists)
+        XCTAssertTrue(app.menuItems.matching(identifier: "document-reading-translation").firstMatch.exists)
+        XCTAssertTrue(app.menuItems.matching(identifier: "document-file-settings").firstMatch.exists)
+        XCTAssertFalse(app.menuItems.matching(identifier: "document-reading-tools").firstMatch.exists)
         app.typeKey(.escape, modifierFlags: [])
         XCTAssertFalse(item("open-sample", app).exists)
     }

@@ -34,13 +34,13 @@ private struct ReadingToolsPreferencesView: View {
             Toggle("启用日语学习",isOn: Binding(get: { tools.japanese },set: { tools.set(.japanese,enabled: $0) }))
                 .accessibilityIdentifier("settings-japanese-learning")
             Text("选文对话与假名、语法审阅。共用全局配置api；关闭保留回答与笔记。").font(.caption).foregroundStyle(.secondary)
-        }.accessibilityIdentifier("settings-japanese-card")
+        }.accessibilityElement(children: .contain).accessibilityIdentifier("settings-japanese-card")
         PDFnoSettingsCard("英语学习",symbol: "textformat.abc") {
             Toggle("启用英语学习",isOn: Binding(get: { tools.english },set: { tools.set(.english,enabled: $0) }))
                 .accessibilityIdentifier("settings-english-learning")
             Text("选文对话与结构、语法审阅。共用全局配置api；关闭保留回答与笔记。").font(.caption).foregroundStyle(.secondary)
             if let error = tools.error { Text(error).font(.caption).foregroundStyle(.red) }
-        }.accessibilityIdentifier("settings-english-card")
+        }.accessibilityElement(children: .contain).accessibilityIdentifier("settings-english-card")
     }
 }
 #endif

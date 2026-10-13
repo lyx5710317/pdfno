@@ -128,7 +128,18 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
         guard data.count <= 32 * 1024 * 1024 else { throw EPUBError.resourceLimit }
         let result: String = try await withCheckedThrowingContinuation { continuation in
             pending[id] = continuation
-            view.callAsyncJavaScript("return await window.PDFno.command(message)", arguments: ["message": message], in: nil, in: .page) { [weak self] result in
+            let script = command == "navigate" ? """
+                const query = {...message, requestID: message.requestID + '-viewport', command: 'viewportState', payload: {}};
+                const snapshot = JSON.parse(await window.PDFno.command(query));
+                if (['v','session','bookID','editionID','fileSHA256'].some(k => snapshot[k] !== message[k]) ||
+                    snapshot.requestID !== query.requestID || snapshot.payload?.kind !== 'state' ||
+                    !Number.isSafeInteger(snapshot.documentVersion) || snapshot.documentVersion < message.documentVersion)
+                    throw Error('Invalid viewport snapshot');
+                // These consecutive microtasks precede a new viewport event.
+                // The engine still checks this exact version before navigating.
+                return await window.PDFno.command({...message, documentVersion: snapshot.documentVersion});
+                """ : "return await window.PDFno.command(message)"
+            view.callAsyncJavaScript(script, arguments: ["message": message], in: nil, in: .page) { [weak self] result in
                 guard let self, let current = self.pending.removeValue(forKey: id) else { return }
                 switch result {
                 case .failure(let error): current.resume(throwing: error)

@@ -6,15 +6,25 @@ import SwiftUI
 struct DocumentConversationWorkspace: View {
     @ObservedObject var library: LibraryModel
     @ObservedObject private var conversation: DocumentConversationModel
+    @ObservedObject private var selectionConversation: ReadingConversationModel
     @Environment(\.pdfnoWorkspaceNavigation) private var navigation
     @State private var showConsent = false
     let close: () -> Void
     init(library: LibraryModel, close: @escaping () -> Void) {
-        self.library = library; conversation = library.documentConversation; self.close = close
+        self.library = library; conversation = library.documentConversation
+        selectionConversation = library.conversation; self.close = close
     }
     var body: some View {
         VStack(spacing: 0) {
-            HStack { Spacer(); Button(action: close) { Image(systemName: "xmark") }.buttonStyle(.plain).accessibilityLabel("关闭全文对话") }.padding(10)
+            HStack {
+                if selectionConversation.current != nil, library.canResumeSelectionConversation {
+                    Button("选文对话") { library.resumeSelectionConversation() }
+                        .font(.caption).accessibilityIdentifier("document-ai-resume-selection")
+                        .help("恢复已有选文回答与草稿")
+                }
+                Spacer()
+                Button(action: close) { Image(systemName: "xmark") }.buttonStyle(.plain).accessibilityLabel("关闭全文对话")
+            }.padding(10)
             if conversation.loading { ProgressView("正在读取全文…").padding() }
             if let error = conversation.error {
                 Text(error).font(.callout).foregroundStyle(.red).padding(12).accessibilityIdentifier("document-ai-error")

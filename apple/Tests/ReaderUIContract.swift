@@ -111,7 +111,7 @@ import XCTest
         let category = ui("settings-category-aiTools", app)
         if category.exists { try uiClick(category) }
         else { try uiClick(ui("settings-category-picker", app)); try uiClick(app.menuItems["AI工具"].firstMatch) }
-        let toggle = app.checkBoxes.matching(identifier: "settings-" + language + "-learning").firstMatch
+        let toggle = ui("settings-" + language + "-learning", app)
         try uiWait("Public language preference with a decoded native checkbox state") {
             toggle.exists && toggle.isEnabled && self.uiCheckboxState(toggle) != nil
         }
@@ -121,7 +121,7 @@ import XCTest
         try uiClick(ui("settings-return", app))
     }
     func uiCheckboxState(_ element: XCUIElement) -> String? {
-        guard element.exists, element.elementType == .checkBox else { return nil }
+        guard element.exists, [.checkBox, .switch].contains(element.elementType) else { return nil }
         let raw = element.value
         if let value = raw as? String, ["0", "1"].contains(value) { return value }
         if let value = raw as? NSNumber, [0.0, 1.0].contains(value.doubleValue) { return String(value.intValue) }
@@ -136,6 +136,34 @@ import XCTest
     }
     func uiConfigureMock(_ app: XCUIApplication) throws {
         try uiSettings(app); try uiProvider("本地示例", app); try uiClick(ui("settings-return", app))
+    }
+    func uiConversationAnswers(_ app: XCUIApplication) -> XCUIElementQuery {
+        app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'ai-conversation-answer-'"))
+    }
+    func uiChooseConversationTask(_ task: String, _ app: XCUIApplication) throws {
+        XCTAssertTrue(["translate", "explain", "summarize"].contains(task))
+        // Choosing this real menu action is the current explicit selection
+        // consent. Opening the menu alone neither requests nor saves a result.
+        try uiClick(ui("selection-ai-menu", app))
+        try uiClick(app.menuItems.matching(identifier: "selection-ai-" + task).firstMatch)
+        XCTAssertTrue(ui("ai-close", app).waitForExistence(timeout: 10))
+    }
+    func uiOnlyConversationAnswer(_ app: XCUIApplication, timeout: TimeInterval = 15) throws -> XCUIElement {
+        let answers = uiConversationAnswers(app)
+        try uiWait("Exactly one actual conversation answer", timeout: timeout) { answers.count == 1 && !self.ui("ai-conversation-stop", app).exists }
+        XCTAssertEqual(answers.count, 1)
+        return answers.firstMatch
+    }
+    func uiSaveConversationAnswer(_ answer: XCUIElement, _ app: XCUIApplication) throws {
+        XCTAssertTrue(answer.identifier.hasPrefix("ai-conversation-answer-"))
+        let save = ui(answer.identifier.replacingOccurrences(of: "ai-conversation-answer-", with: "ai-conversation-save-"), app)
+        try uiReveal(save, scroll: "ai-conversation-messages", app); try uiClick(save)
+        try uiWait("Answer explicitly committed to the current document") { save.label == "已加入笔记" && !save.isEnabled }
+        XCTAssertEqual(save.label, "已加入笔记"); XCTAssertFalse(save.isEnabled)
+    }
+    func uiCloseConversation(_ app: XCUIApplication) throws {
+        try uiClick(ui("ai-close", app))
+        try uiWait("Conversation panel closes") { !self.ui("ai-conversation-input", app).exists }
     }
     func uiLegacyAI(_ app: XCUIApplication, task: String = "translate") throws {
         if !ui("ai-tools-directory", app).exists {
@@ -245,7 +273,7 @@ import XCTest
         let originals = ["Reading opens a small window onto a wider world.",
                          "A useful note stays connected to the words that inspired it."]
         var line: XCUIElement?
-        try uiWait("Visible original PDFKit page text for canvas focus") {
+        try uiWait(self.uiPDFSourceFailure("Visible original PDFKit page text for canvas focus", app)) {
             line = app.staticTexts.allElementsBoundByIndex.first { originals.contains(self.uiText($0)) && $0.isHittable }
             return line != nil
         }
@@ -425,7 +453,7 @@ import XCTest
         try uiPanel("reader-navigation", open: false, app)
         var text: XCUIElement?
         let phrase = "Reading opens a small window onto a wider world."
-        try uiWait("Original PDFKit accessible line") {
+        try uiWait(self.uiPDFSourceFailure("Original PDFKit accessible line", app)) {
             text = app.staticTexts.allElementsBoundByIndex.first { self.uiText($0) == phrase && $0.isHittable }
             return text != nil
         }
@@ -436,6 +464,27 @@ import XCTest
         let whole = (phrase as NSString).size(withAttributes: attrs).width
         line.coordinate(withNormalizedOffset: CGVector(dx: (prefix + word / 2) / whole, dy: 0.5)).doubleClick()
         XCTAssertTrue(ui("selection-annotation-note", app).waitForExistence(timeout: 10))
+    }
+    private func uiPDFSourceFailure(_ message: String, _ app: XCUIApplication) -> String {
+        // Called only after the original predicate times out. This observes the
+        // dedicated offline fixture window; it never focuses or moves the PDF.
+        let env = ProcessInfo.processInfo.environment
+        guard env["PDFNO_UI_TEST_DEEPSEEK"] == "offline",
+              env["PDFNO_A_QA_EXPECTED_BUNDLE"]?.hasPrefix("org.pdfno.integration.professionala20261007.qa") == true else { return message }
+        let window = app.windows.firstMatch
+        if window.exists {
+            print("PDFNO_ORIGINAL_PDF_WINDOW frame=\(window.frame)")
+            let matches = window.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'Reading opens a small' OR value CONTAINS 'Reading opens a small' OR label CONTAINS 'A useful note stays' OR value CONTAINS 'A useful note stays'"))
+            for node in matches.allElementsBoundByAccessibilityElement.prefix(8) {
+                print("PDFNO_ORIGINAL_PDF_TEXT role=\(node.elementType.rawValue) frame=\(node.frame) hittable=\(node.isHittable) exactText=\(uiText(node))")
+            }
+            for id in ["page-position", "reader-navigation", "reader-notes", "document-more"] {
+                let node = ui(id, app)
+                if node.exists { print("PDFNO_ORIGINAL_PDF_CONTROL id=\(id) frame=\(node.frame) value=\(String(describing: node.value))") }
+            }
+            try? uiCaptureOwnWindow("PDF-visible-source-failure", app)
+        }
+        return message
     }
 }
 #endif

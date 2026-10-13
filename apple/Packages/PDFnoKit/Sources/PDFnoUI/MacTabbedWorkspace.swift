@@ -160,12 +160,6 @@ struct MacTabbedWorkspace: View {
                     Task {
                         guard documents.activeID == active.id, navigation.route == .reader else { return }
                         switch action {
-                        case .tools:
-                            if PDFnoReadingToolContext(library: active.model).format == .pdf { active.model.reader.captureSelection() }
-                        case .japanese: active.model.prepareJapaneseLearning()
-                        case .english: active.model.prepareEnglishLearning()
-                        case .page: active.model.preparePageTranslation()
-                        case .spine: await active.model.prepareChapterTranslation()
                         case .trash:
                             model.prepareRecoveryManagement()
                             guard let recovery = model.recoveryManagement else { return }

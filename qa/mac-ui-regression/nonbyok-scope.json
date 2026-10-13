@@ -2238,7 +2238,7 @@
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/EPUBMultiOwnerTests.swift": "8bbbb088e627b44f932555999b0a273d312a05bdf317969c6067b318825f84ce",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/EPUBSelectionSnapshotTests.swift": "19299c3e1e94e54c556bd04cfee9a8885302f032caa1b6cc12dcf365a24d546b",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/EPUBTests.swift": "487e3f4ffd36bc3b6a96cccbccb6709081c2343f69b3f3ab45cb05d1daf6fba9",
-      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/EPUBWebKitTests.swift": "27cd0bcb8afcf091e6c865731ce9ecb1073cd55cf0cb874fd177aae62c458841",
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/EPUBWebKitTests.swift": "8e65de8ab3a91b8b98e7deb8896c4bc1703d1cdea23a50fd15fed5211419d298",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/EbookReaderTests.swift": "6b0c46f85415f91db345f72c1c19f2124b660d7ef6ad6da86f3a07f1de022c4f",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/EbookTests.swift": "ab6ac5ea163cee18f7ce5e59479e75d63c3f47317b33fc7c0f090ff9d4ad6f83",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/EbookTextChapterIntegrationTests.swift": "1fde9f9d0547b1918b1c86c04e711fc2056de7741e04b5eaea02531dff5729c0",
@@ -2282,7 +2282,7 @@
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReaderRightRailTests.swift": "d22951bca421a8e8637ee58f1f8c5feb26405675a44adb483ec088b20434e578",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReaderTitlebarHitRoutingTests.swift": "6b7c523cebdffc73abce1c14bb1b4ddbee0e611dde3ec5945c0cf3b619497526",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReaderViewportRegressionTests.swift": "aa8d80e3fc6ae6771eacc1cfb17fd9fc61cb74055a8c2c93518125db47141555",
-      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReadingConversationNativeTests.swift": "b287a390103729dcc4e5a55f548e038e0a7c7ed29116d003ce19715b86ac4f32",
+      "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReadingConversationNativeTests.swift": "63177cf0346e230abd4a8fc2acc9d4d81f7467faeca6a3c01baab082335237a7",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReadingConversationTests.swift": "a3c5789ddf4e720f66acb488ab05d7611c7239efc7a93ab0ca8cbf723b060f58",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReadingLayoutEPUBTests.swift": "4e4e21bf6d3d6173e7b9bebeb82607d4d261dfbf65d5c7858b84e025e8bfee00",
       "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReadingLayoutTests.swift": "17d6f309fe1f920b8d072cea260439e5d37e1745e47a2507e8f104e863c36f48",
@@ -2532,57 +2532,84 @@
       {
         "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/MacDocumentTabsTests.swift",
         "previous_sha256": "83dcc017a85b46a7c73e56dd71daf914ea73c4d5368b3ecdca1701f2da77507b",
-        "reviewed_sha256": "82f261935795dfadfa4d6baeaa39d7b7e41a6a61d20f9e7214c08ccf22f56dfd"
+        "reviewed_sha256": "82f261935795dfadfa4d6baeaa39d7b7e41a6a61d20f9e7214c08ccf22f56dfd",
+        "authorization_message_id": "Sentinel_e0cf63b4333c8191a85b9fc2f8ae5b4b"
       },
       {
         "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ParagraphExplanationTests.swift",
         "previous_sha256": "c9533d70d5910e4314c5fa04f9208997380d1d22569337cc93f77fdc24049a07",
-        "reviewed_sha256": "3fe975fe0339a2ca486e8f352ff7e1deae16cdc1c06dd63b90c110ca3fae2c41"
+        "reviewed_sha256": "3fe975fe0339a2ca486e8f352ff7e1deae16cdc1c06dd63b90c110ca3fae2c41",
+        "authorization_message_id": "Sentinel_e0cf63b4333c8191a85b9fc2f8ae5b4b"
       },
       {
         "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/NextBatchHostTests.swift",
         "previous_sha256": "af1ea097c588f71a725ecd5181144568bd2a2275dc6fcd5e308ba95bcd816d56",
-        "reviewed_sha256": "3e28e3087153c8cfde98d0b5356a71b5bb8a1d7e66c4c47861685ac212413423"
+        "reviewed_sha256": "3e28e3087153c8cfde98d0b5356a71b5bb8a1d7e66c4c47861685ac212413423",
+        "authorization_message_id": "Sentinel_e0cf63b4333c8191a85b9fc2f8ae5b4b"
       },
       {
         "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/DocumentConversationTests.swift",
         "previous_sha256": null,
-        "reviewed_sha256": "8bb0d8d518c8f1afa0fb9aad00b2b93ac75cebe102f348ac45c9a1c29c85a29a"
+        "reviewed_sha256": "8bb0d8d518c8f1afa0fb9aad00b2b93ac75cebe102f348ac45c9a1c29c85a29a",
+        "authorization_message_id": "Sentinel_e0cf63b4333c8191a85b9fc2f8ae5b4b"
       },
       {
         "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReadingSkillHostIntegrationTests.swift",
         "previous_sha256": "4fbfd4f45c95d09c26e7783b3b4343efe8637379eaa1b119dd7e429ca30f52d3",
-        "reviewed_sha256": "83f2be489fd7c141fc8117d6b6801debd1281d2bc7dfd65312a5ea7de9052aeb"
+        "reviewed_sha256": "83f2be489fd7c141fc8117d6b6801debd1281d2bc7dfd65312a5ea7de9052aeb",
+        "authorization_message_id": "Sentinel_e0cf63b4333c8191a85b9fc2f8ae5b4b"
       },
       {
         "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/SharedAIConnectionTests.swift",
         "previous_sha256": null,
-        "reviewed_sha256": "3d5e32ee6c4febfd6f525828694d178b19ff68f4bc8aeea751916af0cd9dddfe"
+        "reviewed_sha256": "3d5e32ee6c4febfd6f525828694d178b19ff68f4bc8aeea751916af0cd9dddfe",
+        "authorization_message_id": "Sentinel_e0cf63b4333c8191a85b9fc2f8ae5b4b"
       },
       {
         "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/OfflineUITestTransportTests.swift",
         "previous_sha256": "41712d2847ac69695f3387784217812ae605b8dde84ae31603bc1d4a4671060f",
-        "reviewed_sha256": "62f8bae56e045766cf0802d30776ce10e8b65d056e5620bbb3fa99aabe3a7ea3"
+        "reviewed_sha256": "62f8bae56e045766cf0802d30776ce10e8b65d056e5620bbb3fa99aabe3a7ea3",
+        "authorization_message_id": "Sentinel_e0cf63b4333c8191a85b9fc2f8ae5b4b"
       },
       {
         "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ConfiguredAPIProviderTests.swift",
         "previous_sha256": null,
-        "reviewed_sha256": "1c9f18f9e270b0bc761e5bfc53145a52fcba6376dd3ee110053702773407377b"
+        "reviewed_sha256": "1c9f18f9e270b0bc761e5bfc53145a52fcba6376dd3ee110053702773407377b",
+        "authorization_message_id": "Sentinel_e0cf63b4333c8191a85b9fc2f8ae5b4b"
       },
       {
         "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/TemporaryAILayoutTests.swift",
         "previous_sha256": "2255c0ba08a62ae4e7416498280349cbbdeb17817e40a6b0d3eccbf5ba27386c",
-        "reviewed_sha256": "dde2f4d83887ecee6a068fab1e835b89bec76a07b277392b8f914203933d7b5a"
+        "reviewed_sha256": "dde2f4d83887ecee6a068fab1e835b89bec76a07b277392b8f914203933d7b5a",
+        "authorization_message_id": "Sentinel_e0cf63b4333c8191a85b9fc2f8ae5b4b"
       },
       {
         "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/FourSliceIntegrationTests.swift",
         "previous_sha256": "ef474491a93b341a0b55caa9ff0abe1465a97eea89a8442605740dbe30378867",
-        "reviewed_sha256": "0fc4a0f37c7a1bcca5b2e8647c672d14b082571f8bd4fdd41d5d566955be2c4b"
+        "reviewed_sha256": "0fc4a0f37c7a1bcca5b2e8647c672d14b082571f8bd4fdd41d5d566955be2c4b",
+        "authorization_message_id": "Sentinel_e0cf63b4333c8191a85b9fc2f8ae5b4b"
       },
       {
         "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/AnnotationSourceNavigationTests.swift",
         "previous_sha256": null,
-        "reviewed_sha256": "cad38ab4096bbfb15f41812766d0ac6576d3cafd054d61736b4d058c0b7df34c"
+        "reviewed_sha256": "cad38ab4096bbfb15f41812766d0ac6576d3cafd054d61736b4d058c0b7df34c",
+        "authorization_message_id": "Sentinel_e0cf63b4333c8191a85b9fc2f8ae5b4b"
+      },
+      {
+        "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/EPUBWebKitTests.swift",
+        "reviewed_sha256": "8e65de8ab3a91b8b98e7deb8896c4bc1703d1cdea23a50fd15fed5211419d298",
+        "previous_sha256": "27cd0bcb8afcf091e6c865731ce9ecb1073cd55cf0cb874fd177aae62c458841",
+        "reason": "Extend original sourceRubyReflowAndStaleRequests with read-only viewport-sync identity/version/refusal checks. No original assertions or method identities removed. Preserve original strict bridge, source and ruby assertions; reproduce hidden stale resource selection and require current visible progress plus exact original navigation.",
+        "authorization_message_id": "Sentinel_e0cf63b4333c8191a85b9fc2f8ae5b4b",
+        "at_utc": "2026-10-13T13:38:52.584689+00:00",
+        "previous_reviewed_sha256": "840c61caf6d878d0a308acd90106e3c25eda1130a50ca7c896620debfaecec19"
+      },
+      {
+        "source": "apple/Packages/PDFnoKit/Tests/PDFnoKitTests/ReadingConversationNativeTests.swift",
+        "reason": "Preserve all five tasks, disabled send, explicit save and close assertions; require retained disabled answer/draft reopening without generation, then rejection after document close.",
+        "at_utc": "2026-10-13T13:38:52.584806+00:00",
+        "reviewed_sha256": "63177cf0346e230abd4a8fc2acc9d4d81f7467faeca6a3c01baab082335237a7",
+        "authorization_message_id": "Sentinel_e0cf63b4333c8191a85b9fc2f8ae5b4b"
       }
     ],
     "current_tests_not_selected_by_historical591_filter": "Current replacements/new methods require separately recorded Mac-global execution; never silently added to old allowlist.",
