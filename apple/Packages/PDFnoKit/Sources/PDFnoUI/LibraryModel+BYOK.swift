@@ -47,7 +47,7 @@ extension LibraryModel {
             defer { fence?.invalidate(); if byok.paragraphCommitFence === fence { byok.paragraphCommitFence = nil } }
             try await learning.repository.saveNote(AILearningNote(result: result, userText: body), commitFence: fence)
             learning.notes = try await learning.repository.load().notes
-            byokSaveStatus = "BYOK学习笔记已保存 · 原结果与用户正文独立保留"; return true
+            byokSaveStatus = "配置api学习笔记已保存 · 原结果与用户正文独立保留"; return true
         } catch {
             byokSaveStatus = AIJobCoordinator.safeError(error).localizedDescription; return false
         }

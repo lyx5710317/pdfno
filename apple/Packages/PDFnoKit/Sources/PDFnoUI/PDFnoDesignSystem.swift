@@ -36,7 +36,13 @@ enum PDFnoDesign {
         static let textViewport: CGFloat = 160
     }
     enum Palette {
+        #if os(macOS)
+        static let accent = Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? .controlAccentColor : .systemBlue
+        })
+        #else
         static let accent = Color.accentColor
+        #endif
         static let selection = accent.opacity(0.14)
         static let border = Color.primary.opacity(0.12)
         static let canvas = Color.secondary.opacity(0.08)

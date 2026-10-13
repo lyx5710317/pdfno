@@ -27,8 +27,10 @@ struct PDFnoReaderPanels: Equatable {
         }
         lastOpened = panel
     }
-    func placement(width: CGFloat, profile: PDFnoReaderLayoutProfile = .standard) -> PDFnoReaderPlacement {
-        PDFnoReaderPlacement(width: width, navigation: navigation, notes: notes, preferred: lastOpened, profile: profile)
+    func placement(width: CGFloat, profile: PDFnoReaderLayoutProfile = .standard,
+                   navigationWidth: CGFloat? = nil, notesWidth: CGFloat? = nil) -> PDFnoReaderPlacement {
+        PDFnoReaderPlacement(width: width, navigation: navigation, notes: notes, preferred: lastOpened, profile: profile,
+                             navigationWidth: navigationWidth, notesWidth: notesWidth)
     }
 }
 
@@ -44,16 +46,18 @@ struct PDFnoReaderPlacement: Equatable {
     var canvasWidth: CGFloat { max(0, width - leading - trailing) }
     var notesOffset: CGFloat { max(0, width - notesWidth) }
 
-    init(width: CGFloat, navigation: Bool, notes: Bool, preferred: PDFnoReaderPanel, profile: PDFnoReaderLayoutProfile = .standard) {
+    init(width: CGFloat, navigation: Bool, notes: Bool, preferred: PDFnoReaderPanel, profile: PDFnoReaderLayoutProfile = .standard,
+         navigationWidth requestedNavigation: CGFloat? = nil, notesWidth requestedNotes: CGFloat? = nil) {
         self.width = max(0, width.isFinite ? width : 0)
         let m = PDFnoDesign.Metric.self
-        let navigationSize: CGFloat = profile == .professional ? 210 : m.navigationWidth
-        let preferredNotesSize: CGFloat = profile == .professional ? navigationSize : m.notesWidth
+        let available = self.width
+        let navigationSize: CGFloat = requestedNavigation.map { Self.clampedPanelWidth($0, available: available) } ?? (profile == .professional ? 210 : m.navigationWidth)
+        let preferredNotesSize: CGFloat = requestedNotes.map { Self.clampedPanelWidth($0, available: available) } ?? (profile == .professional ? 210 : m.notesWidth)
         let bothFit = profile != .professional && self.width >= m.readerMinimum + navigationSize + preferredNotesSize
         // The professional inspector can become compact before covering the
         // native document. Keep the full-width, two-panel desktop threshold.
         let notesSize: CGFloat = profile == .professional
-            ? min(preferredNotesSize, max(210, self.width - m.readerMinimum))
+            ? min(preferredNotesSize, max(230, self.width - m.readerMinimum))
             : preferredNotesSize
         showNavigation = navigation && (!notes || bothFit || preferred == .navigation)
         showNotes = notes && (!navigation || bothFit || preferred == .notes)
@@ -64,6 +68,10 @@ struct PDFnoReaderPlacement: Equatable {
         leading = profile == .professional ? 0 : (showNavigation && !overlay ? navigationWidth : 0)
         trailing = !overlay ? ((profile == .professional && showNavigation ? navigationWidth : 0) + (showNotes ? notesWidth : 0)) : 0
     }
+    static func clampedPanelWidth(_ value: CGFloat, available: CGFloat) -> CGFloat {
+        let maximum = min(640, max(230, available - PDFnoDesign.Metric.readerMinimum))
+        return min(maximum, max(230, value.isFinite ? value : 320))
+    }
 }
 
 /// The reader is always the first, stable child; panel/width changes never rehost it.
@@ -73,9 +81,13 @@ struct PDFnoReaderShell<Reader: View, Navigation: View, Notes: View>: View {
     @ViewBuilder let reader: () -> Reader
     @ViewBuilder let navigation: () -> Navigation
     @ViewBuilder let notes: () -> Notes
+    @AppStorage("PDFnoReader.navigationPanelWidth") private var navigationWidth = 280.0
+    @AppStorage("PDFnoReader.inspectorPanelWidth") private var inspectorWidth = 340.0
+    @State private var dragStart: CGFloat?
     var body: some View {
         GeometryReader { geometry in
-            let layout = panels.placement(width: geometry.size.width, profile: profile)
+            let layout = panels.placement(width: geometry.size.width, profile: profile,
+                                          navigationWidth: profile == .professional ? inspectorWidth : navigationWidth, notesWidth: inspectorWidth)
             ZStack(alignment: .topLeading) {
                 reader()
                     // Native PDF/WebKit AX hit tests otherwise resolve to the
@@ -99,6 +111,37 @@ struct PDFnoReaderShell<Reader: View, Navigation: View, Notes: View>: View {
                         .accessibilitySortPriority(10)
                         .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("reader-notes-panel")
+                }
+                if layout.showNavigation || layout.showNotes {
+                    let panelWidth = layout.showNavigation ? layout.navigationWidth : layout.notesWidth
+                    let onRight = profile == .professional || layout.showNotes
+                    #if os(macOS)
+                    PDFnoReaderResizeHandle(width: panelWidth, onRight: onRight) { next in
+                        let clamped = PDFnoReaderPlacement.clampedPanelWidth(next, available: geometry.size.width)
+                        if profile == .professional || layout.showNotes { inspectorWidth = Double(clamped) }
+                        else { navigationWidth = Double(clamped) }
+                    }.frame(width: 14, height: geometry.size.height)
+                        .position(x: onRight ? geometry.size.width - panelWidth : panelWidth, y: geometry.size.height / 2)
+                        .zIndex(3)
+                    #else
+                    Rectangle().fill(Color.primary.opacity(0.13)).frame(width: 1)
+                        .frame(width: 9, height: geometry.size.height).contentShape(Rectangle())
+                        .position(x: onRight ? geometry.size.width - panelWidth : panelWidth, y: geometry.size.height / 2)
+                        .gesture(DragGesture(minimumDistance: 1).onChanged { value in
+                            if dragStart == nil { dragStart = panelWidth }
+                            let next = (dragStart ?? panelWidth) + (onRight ? -value.translation.width : value.translation.width)
+                            let clamped = PDFnoReaderPlacement.clampedPanelWidth(next, available: geometry.size.width)
+                            if layout.showNavigation { navigationWidth = Double(clamped) } else { inspectorWidth = Double(clamped) }
+                        }.onEnded { _ in dragStart = nil })
+                        .accessibilityLabel("调整面板宽度").accessibilityIdentifier("reader-panel-divider")
+                        .accessibilityValue("\(Int(panelWidth))")
+                        .accessibilityAdjustableAction { direction in
+                            let next = panelWidth + (direction == .increment ? 20 : -20)
+                            let clamped = PDFnoReaderPlacement.clampedPanelWidth(next, available: geometry.size.width)
+                            if layout.showNavigation { navigationWidth = Double(clamped) } else { inspectorWidth = Double(clamped) }
+                        }
+                        .zIndex(3)
+                    #endif
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)

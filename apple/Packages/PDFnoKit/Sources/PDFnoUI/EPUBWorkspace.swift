@@ -43,7 +43,7 @@ struct EPUBWorkspace: View {
                     } else if inspector == .bookmarks {
                         BookmarkList(model: model.bookmarks,close: { panels.notes=false },closeIdentifier: "epub-close-bookmarks")
                     } else if inspector == .learning {
-                        ReadingSelectionWorkspace(library: model) { panels.notes = false }
+                                DocumentConversationWorkspace(library: model) { panels.notes = false }
                     } else {
                         PDFnoPanel(title: "文档标注", icon: "note.text", closeIdentifier: "epub-close-notes", close: closeNotes,showsHeader: false) { notesContent }
                     }
@@ -108,7 +108,7 @@ struct EPUBWorkspace: View {
                 if inspector == .bookmarks { panels.toggle(.notes,width: readerWidth,profile: .professional) }
                 else { inspector = .bookmarks;panels.show(.notes,profile: .professional) }
             }
-            PDFnoReaderRailButton(title: "AI", symbol: "brain.head.profile", identifier: "epub-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.selection == nil && model.conversation.current == nil) {
+            PDFnoReaderRailButton(title: "AI", symbol: "brain.head.profile", identifier: "epub-ai", accessibilityTitle: "全文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.book == nil) {
                 if panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning { panels.notes = false }
                 else { inspector = .learning; panels.show(.notes, profile: .professional) }
             }

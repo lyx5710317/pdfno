@@ -44,7 +44,14 @@ public struct ReadingConversationHTTPProvider: ReadingConversationProvider {
         if DeepSeekSelectionPolicy.supports(plan.provider) { body["thinking"] = ["type": "disabled"] }
         request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
         try Task.checkCancellation(); try await budget.reserve()
-        let response = try await transport.send(request)
+        AppAISession.recordQAEvent("transport_dispatch", requestID: plan.requestID)
+        let response: AIHTTPResponse
+        do { response = try await transport.send(request) }
+        catch {
+            AppAISession.recordQAEvent("transport_error", requestID: plan.requestID)
+            throw error
+        }
+        AppAISession.recordQAEvent("server_response", requestID: plan.requestID, status: response.status)
         try Task.checkCancellation()
         // Reject duplicate JSON keys, tools, truncated output, redirects and mismatched source quotes.
         let decoded = try Self.decode(response, quote: plan.source.anchor.quote)

@@ -15,7 +15,7 @@ struct EPUBChapterTranslationWorkspace: View {
             GeometryReader { geometry in
                 ScrollView {
                     VStack(alignment: .leading, spacing: PDFnoDesign.Space.section) {
-                        Text("章节范围：当前完整 spine 文档。一个文档可能包含多个目录章节，一个目录章节也可能跨文档。本首片不按目录锚点推断逻辑章节。")
+                        Text("当前完整 spine 内容单元，不等同目录章节。").font(.caption)
                             .foregroundStyle(.secondary).accessibilityIdentifier("chapter-definition")
                         Text("独立双语正文 · 原 EPUB 字节不改。保留基字，作者 ruby 读音不发送；图片与原版式不重建。结果仅在内存，退出应用前请主动保存需要的学习笔记。")
                             .font(.callout).foregroundStyle(.secondary)
@@ -30,7 +30,7 @@ struct EPUBChapterTranslationWorkspace: View {
                         }
                         if let plan = translation.plan {
                             PDFnoSettingsCard("来源、接收方与现有范围", symbol: "book") {
-                            Text("接收方：api.deepseek.com · deepseek-flash · 简体中文。只发送下列全部原文分段的 sourceText/task；不发送 EPUB、文件名、书籍身份、目录、上下文、笔记或历史结果。")
+                            Text("接收方：\(learning.config.label) · \(learning.config.model)。仅发送当前内容单元可提取文字。").font(.caption)
                             Text(verbatim: "完整计划 \(plan.sources.count) 段 / 最多 6 次请求；每段 ≤500 UTF-16、1024 输出 tokens、30 秒。合计 ≤\(plan.maxOutputTokens) 输出 tokens、\(plan.maxDurationSeconds) 秒请求超时预算。章节会话额度已用 \(translation.attemptsUsed) / 6。失败和取消也计入，费用未知，已发请求可能收费；无自动重试。")
                                 .font(.callout).accessibilityIdentifier("chapter-limits")
                             DisclosureGroup("完整原文预览（全部分段也在下方）") {
@@ -38,16 +38,13 @@ struct EPUBChapterTranslationWorkspace: View {
                                     .accessibilityIdentifier("chapter-full-preview")
                             }
                             if !translation.submitted {
-                                SecureField("亲自输入本次临时密钥", text: $translation.temporarySecret)
-                                    .accessibilityIdentifier("chapter-session-key").disabled(translation.busy)
-                                Text("发送后输入框清空；完成、取消或关闭清除本次凭据。不保存到文件或 Keychain，不使用选文或自测密钥。")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                if !learning.conversationConnectionAvailable { Text("请先在设置 → AI 配置api。").foregroundStyle(.secondary) }
                                 Toggle("我确认发送此 spine 文档全部分段、接收方、预算及可能费用", isOn: $confirmed)
                                     .disabled(translation.busy).accessibilityIdentifier("chapter-scope-consent")
                                 Button("发送完整文档全部 \(plan.sources.count) 段") {
-                                    translation.start(confirmed: confirmed, sourceIsCurrent: library.isCurrentAISource); confirmed = false
+                                    translation.start(confirmed: confirmed, sourceIsCurrent: library.isCurrentAISource, connection: learning); confirmed = false
                                 }.buttonStyle(PDFnoActionStyle(role: .primary)).accessibilityIdentifier("chapter-start")
-                                    .disabled(!confirmed || translation.temporarySecret.isEmpty || translation.busy || plan.sources.count > 6 - translation.attemptsUsed)
+                                    .disabled(!confirmed || !learning.conversationConnectionAvailable || translation.busy || plan.sources.count > 6 - translation.attemptsUsed)
                             }
                             if translation.busy {
                                 Button("取消剩余分段") { translation.cancel(); confirmed = false }.accessibilityIdentifier("chapter-cancel")

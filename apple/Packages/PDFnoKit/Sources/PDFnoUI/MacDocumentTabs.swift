@@ -160,10 +160,10 @@ extension LibraryModel {
         recordEditing.editor.drafts.values.contains { $0.baseline.bookID == displayedDocumentID && $0.text != $0.baseline.userText }
     }
     var hasDocumentRunningTasks: Bool {
-        conversation.busy || learning.busy || byok.busy || pageTranslation.busy || chapterTranslation.busy || japaneseLearning.busy || englishLearning.busy
+        conversation.busy || documentConversation.busy || documentConversation.loading || learning.busy || byok.busy || pageTranslation.busy || chapterTranslation.busy || japaneseLearning.busy || englishLearning.busy
     }
     var hasUnsavedDocumentLearning: Bool {
-        conversation.hasUnsavedWork || learning.hasRetainedUserDraft || englishLearning.hasRetainedUserDraft || japaneseLearning.hasRetainedUserDraft ||
+        conversation.hasUnsavedWork || documentConversation.hasUnsavedWork || learning.hasRetainedUserDraft || englishLearning.hasRetainedUserDraft || japaneseLearning.hasRetainedUserDraft ||
         (!byokUserText.isEmpty && !learning.notes.contains { $0.result.requestID == byok.result?.requestID && $0.userText == byokUserText }) ||
         learning.result.map { result in !learning.savedAnnotationRequests.contains(result.requestID) && !learning.notes.contains { $0.result.requestID == result.requestID } } == true ||
         byok.result.map { result in !learning.notes.contains { $0.result.requestID == result.requestID } } == true ||
@@ -190,6 +190,7 @@ extension LibraryModel {
     func discardDocumentPresentation() {
         selectionAIRoute = nil
         conversation.discard()
+        documentConversation.discard()
         learning.discardDocumentPresentation(); byok.discardDocumentPresentation()
         englishLearning.discardDocumentPresentation(); japaneseLearning.discardDocumentPresentation()
         byokUserText = ""; pageTranslation.cancel(); pageTranslation.segments = []

@@ -123,7 +123,7 @@ struct AISettingsView: View {
     }
     @ViewBuilder private var categoryContent: some View {
         switch category {
-        case .ai: aiContent
+        case .ai: AIConnectionSettings(learning: learning, draft: $draft, secret: $secret, active: active)
         case .aiTools: SettingsLearningTools(context: toolContext, learning: learning)
         case .tools:
             PDFnoSettingsCard("选文与语言学习", detail: "从选文浮动工具条进入解释、翻译与总结；日语和英语可在 AI工具开启。", symbol: "book") {
@@ -132,7 +132,7 @@ struct AISettingsView: View {
                 Button("查看 AI 连接") { category = .ai }.accessibilityIdentifier("settings-reading-configuration")
             }
             PDFnoSettingsCard("整页与 spine 翻译", symbol: "doc.text") {
-                Text("从当前文件的更多菜单进入。PDF 处理当前物理页；EPUB 处理当前完整 spine 文档。先展示完整原文与分段计划，本次密钥由你单独输入。")
+                Text("从当前文件的阅读翻译选择范围。PDF 处理当前物理页；EPUB 处理当前完整 spine 内容单元。确认原文与分段计划后发送，共用设置 → AI 的配置api。")
                 Text("此页只说明现有范围，打开设置不会捕获非活动文件或发送请求。").foregroundStyle(.secondary)
             }
         case .backup:
@@ -173,9 +173,6 @@ struct AISettingsView: View {
             PDFnoSettingsCard("工具目录", status: "规划中") { PDFnoPlannedDirectory() }
             PDFnoSettingsCard("功能状态", symbol: "checklist") { FeatureStatusView(embedded: true).frame(height: 620) }
         }
-    }
-    private var aiContent: some View {
-        AIConnectionSettings(learning: learning, draft: $draft, secret: $secret, active: active)
     }
 }
 struct AILearningWorkspace: View {

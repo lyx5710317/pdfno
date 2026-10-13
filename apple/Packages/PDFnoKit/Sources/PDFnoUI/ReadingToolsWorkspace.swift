@@ -15,7 +15,7 @@ enum PDFnoReadingTool: String, CaseIterable, Identifiable {
         case .english: "英语结构与语法"
         case .page: "当前 PDF 物理页翻译"
         case .spine: "当前 EPUB spine 文档翻译"
-        case .byok: "HTTPS BYOK 选文"
+        case .byok: "HTTPS 配置api 选文"
         case .savedSearch: "书名与已保存笔记搜索"
         }
     }
@@ -143,7 +143,7 @@ struct ReadingToolsWorkspace: View {
                             }.accessibilityIdentifier("ai-tools-external-planned")
                         }
                     }
-                    Button("模型与 BYOK 设置") { if let settingsAction { settingsAction() } else if let workspaceNavigation { workspaceNavigation.showSettings() } else { settings = true } }
+                    Button("模型与 配置api 设置") { if let settingsAction { settingsAction() } else if let workspaceNavigation { workspaceNavigation.showSettings() } else { settings = true } }
                         .buttonStyle(PDFnoActionStyle()).accessibilityIdentifier("ai-tools-settings")
                 }.padding(PDFnoDesign.Space.section).frame(maxWidth: PDFnoTemporaryLayout.contentMaximum, alignment: .leading)
                     .frame(maxWidth: .infinity)

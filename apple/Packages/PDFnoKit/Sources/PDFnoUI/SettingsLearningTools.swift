@@ -30,15 +30,17 @@ struct SettingsLearningTools: View {
 private struct ReadingToolsPreferencesView: View {
     @ObservedObject var tools: AIReadingToolsPreferences
     var body: some View {
-        PDFnoSettingsCard("选文学习工具",symbol: "textformat.abc") {
-            Toggle("日语学习",isOn: Binding(get: { tools.japanese },set: { tools.set(.japanese,enabled: $0) }))
+        PDFnoSettingsCard("日语学习",symbol: "character.ja") {
+            Toggle("启用日语学习",isOn: Binding(get: { tools.japanese },set: { tools.set(.japanese,enabled: $0) }))
                 .accessibilityIdentifier("settings-japanese-learning")
-            Toggle("英语学习",isOn: Binding(get: { tools.english },set: { tools.set(.english,enabled: $0) }))
+            Text("选文对话与假名、语法审阅。共用全局配置api；关闭保留回答与笔记。").font(.caption).foregroundStyle(.secondary)
+        }.accessibilityIdentifier("settings-japanese-card")
+        PDFnoSettingsCard("英语学习",symbol: "textformat.abc") {
+            Toggle("启用英语学习",isOn: Binding(get: { tools.english },set: { tools.set(.english,enabled: $0) }))
                 .accessibilityIdentifier("settings-english-learning")
-            Text("开启后，在选文 AI 菜单中使用。关闭不会删除已有回答或笔记。").font(.callout).foregroundStyle(.secondary)
-            Text("解释、翻译与总结始终可用；连接在设置 → AI 中配置。").font(.caption).foregroundStyle(.secondary)
+            Text("选文对话与结构、语法审阅。共用全局配置api；关闭保留回答与笔记。").font(.caption).foregroundStyle(.secondary)
             if let error = tools.error { Text(error).font(.caption).foregroundStyle(.red) }
-        }
+        }.accessibilityIdentifier("settings-english-card")
     }
 }
 #endif

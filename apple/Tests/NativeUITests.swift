@@ -2368,3 +2368,906 @@ final class NativeUITests: XCTestCase {
         #endif
     }
 }
+
+#if os(macOS)
+final class MacPanelCardsUITests: XCTestCase {
+    @MainActor private func originalPDFViewport(_ app: XCUIApplication) -> XCUIElement {
+        // Recorded PDFKit AX hierarchy: the real viewport is a native scroll
+        // view containing the document group; PDFView's identifier is omitted.
+        app.scrollViews.containing(NSPredicate(format: "label == %@", "document")).firstMatch
+    }
+    @MainActor private func fixedConversationQuote(_ app: XCUIApplication) throws -> String {
+        let viewport = ui("ai-conversation-source", app)
+        XCTAssertTrue(viewport.waitForExistence(timeout: 6))
+        // The identifier belongs to ScrollView. Read its selectable Text child,
+        // never the empty scroll-container value or a hard-coded fixture value.
+        var values: Set<String> = []
+        try uiWait("Actual fixed source text inside the source viewport", timeout: 6) {
+            values = Set(viewport.descendants(matching: .any).allElementsBoundByIndex
+                .filter { [.staticText, .textView, .textField].contains($0.elementType) }
+                .map { self.uiText($0) }.filter { !$0.isEmpty })
+            return !values.isEmpty
+        }
+        XCTAssertEqual(values.count, 1, "Exactly one fixed source quote")
+        return try XCTUnwrap(values.first)
+    }
+
+    @MainActor func testPrepareUncappedQAForUserCredentialEntry() throws {
+        continueAfterFailure = false
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["PDFNO_LIVE_QA_PREPARE"] == "1",
+              let bundle = environment["PDFNO_PANEL_QA_BUNDLE"],
+              bundle.hasPrefix("org.pdfno.integration.professionala20261007.qa"),
+              let token = environment["PDFNO_PANEL_QA_SESSION"], UUID(uuidString: token) != nil else {
+            throw XCTSkip("Prepare only the new isolated QA App without a request or credential read")
+        }
+        let app = XCUIApplication(bundleIdentifier: bundle)
+        XCTAssertNotEqual(app.state, .notRunning)
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token // storage checks only
+        app.activate()
+        func click(_ element: XCUIElement) throws {
+            XCTAssertTrue(element.waitForExistence(timeout: 8))
+            XCTAssertTrue(element.isEnabled && element.isHittable)
+            guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundle else {
+                throw XCTSkip("EXPERIENCE_DESKTOP_CHANGED: stop QA preparation input")
+            }
+            element.click()
+        }
+        XCTAssertEqual(try uiAnnotations(app).count, 0, "New original-fixture Library only")
+        if !originalPDFViewport(app).exists {
+            try click(ui("workspace-help", app)); try click(ui("open-sample", app))
+        }
+        XCTAssertTrue(originalPDFViewport(app).waitForExistence(timeout: 12))
+        let tabs = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'document-tab-' AND NOT identifier BEGINSWITH 'document-tab-close-'")).allElementsBoundByIndex
+        XCTAssertEqual(tabs.count, 1)
+        print("PDFnoUncappedPrepare: original_document_tab=\(try XCTUnwrap(tabs.first).identifier)")
+        try click(ui("ai-settings", app))
+        try click(ui("ai-provider-mode", app))
+        try click(app.menuItems["DeepSeek"].firstMatch)
+        XCTAssertEqual(ui("ai-endpoint", app).value as? String, "https://api.deepseek.com")
+        XCTAssertEqual(ui("ai-model", app).value as? String, "deepseek-flash")
+        XCTAssertTrue(ui("ai-session-key", app).exists) // never read this secure field
+        print("PDFnoUncappedPrepare: DeepSeek preset ready for user-entered Key; no connection probe or AI request")
+    }
+
+    @MainActor func testAuthorizedLiveResumeExplanationFollowupAndExplicitNote() throws {
+        continueAfterFailure = false
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["PDFNO_LIVE_QA_ENABLED"] == "explicit-user-authorized",
+              let bundle = environment["PDFNO_PANEL_QA_BUNDLE"],
+              bundle.hasPrefix("org.pdfno.integration.professionala20261007.qa"),
+              let token = environment["PDFNO_PANEL_QA_SESSION"], let session = UUID(uuidString: token) else {
+            throw XCTSkip("Requires explicit live-test authorization and the existing dedicated session")
+        }
+        let app = XCUIApplication(bundleIdentifier: bundle)
+        XCTAssertNotEqual(app.state, .notRunning, "Never recreate the user-configured app session")
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = session.uuidString // storage checks only
+        app.activate()
+        func ownDesktop() throws {
+            guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundle else {
+                throw XCTSkip("EXPERIENCE_DESKTOP_CHANGED: stop resumed live-test input")
+            }
+        }
+        func click(_ element: XCUIElement) throws {
+            XCTAssertTrue(element.waitForExistence(timeout: 8))
+            XCTAssertTrue(element.isEnabled && element.isHittable)
+            try ownDesktop(); element.click()
+        }
+        func answers() -> [XCUIElement] {
+            app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'ai-conversation-answer-'" )).allElementsBoundByIndex
+        }
+        try ownDesktop()
+        let recordsBefore = try uiAnnotations(app)
+        let manualBefore = recordsBefore.filter { $0["aiResult"] == nil }
+        let manualBytes = try JSONSerialization.data(withJSONObject: manualBefore, options: [.sortedKeys])
+        if answers().isEmpty {
+            // Restore the already-open document through its existing tab; do
+            // not open a sample, create a tab or invoke an AI task to find data.
+            let expectedTab = try XCTUnwrap(environment["PDFNO_LIVE_QA_EXPECTED_DOCUMENT_TAB"])
+            let tab = ui(expectedTab, app)
+            XCTAssertTrue(tab.exists, "The original document tab must still exist")
+            try click(tab)
+            XCTAssertEqual(tab.value as? String, "已选中")
+            print("PDFnoLiveResume: original document tab restored without a request")
+        }
+        if answers().count == 0 {
+            XCTAssertFalse(ui("annotation-comment-input", app).exists)
+            guard environment["PDFNO_LIVE_QA_ALLOW_REPLAY_PATH"] == "explicit-user-authorized" else {
+                print("PDFnoLiveResume: retained conversation exists but no presentation-only entry; replay path prohibited; no request sent")
+                throw XCTSkip("Existing response retained; showing it requires the AI task entry, which may send if cached identity differs. Explicit replay authorization required.")
+            }
+            // Restore exactly the original PDF word in the unchanged document.
+            // open(...fresh:false) displays its retained reply without sending.
+            try ownDesktop(); try uiSelectPDFWindow(app)
+            try click(ui("selection-ai-menu", app))
+            try click(ui("selection-ai-explain", app))
+            if ui("ai-conversation-stop", app).exists {
+                print("PDFnoLiveResume: separately authorized explanation replay submitted")
+                try uiWait("One explicitly authorized replacement explanation; never retry", timeout: 35) {
+                    !answers().isEmpty && !self.ui("ai-conversation-stop", app).exists
+                }
+            }
+            print("PDFnoLiveResume: same-source existing conversation reopened without a pending request")
+        }
+        try uiWait("Original explanation is available", timeout: 8) { !answers().isEmpty }
+        let answerCountBefore = answers().count
+        let answerIdentifiersBefore = Set(answers().map(\.identifier))
+        XCTAssertFalse(ui("ai-conversation-stop", app).exists)
+        if !ui("ai-conversation-source", app).exists { try click(ui("ai-conversation-source-toggle", app)) }
+        XCTAssertEqual(try fixedConversationQuote(app), "window")
+        print("PDFnoLiveResume: original source text verified; no new request")
+        let first = try XCTUnwrap(answers().first), firstText = uiText(first)
+        XCTAssertFalse(firstText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        XCTAssertFalse(firstText.contains("本地 mock")); XCTAssertFalse(firstText.contains("离线 DeepSeek UI 替身"))
+        let beforeSave = try uiAnnotations(app)
+        XCTAssertTrue(try JSONSerialization.data(withJSONObject: beforeSave, options: [.sortedKeys]) == JSONSerialization.data(withJSONObject: recordsBefore, options: [.sortedKeys]))
+        let answerID = first.identifier.replacingOccurrences(of: "ai-conversation-answer-", with: "")
+        let save = ui("ai-conversation-save-" + answerID, app)
+        let messages = ui("ai-conversation-messages", app)
+        XCTAssertTrue(messages.exists)
+        for _ in 0..<8 {
+            let viewport = messages.frame.insetBy(dx: 3, dy: 6)
+            if viewport.contains(save.frame) && save.isHittable { break }
+            try ownDesktop(); messages.scroll(byDeltaX: 0, deltaY: save.frame.minY < viewport.minY ? 220 : -220)
+        }
+        let previouslySaved = beforeSave.filter {
+            (($0["aiResult"] as? [String: Any])?["requestID"] as? String)?.uppercased() == answerID.uppercased()
+        }
+        XCTAssertLessThanOrEqual(previouslySaved.count, 1)
+        if previouslySaved.isEmpty { try click(save) }
+        try uiWait("Explicitly commit the existing live result", timeout: 12) { save.label == "已加入笔记" }
+        let savedRecords = try uiAnnotations(app)
+        XCTAssertEqual(savedRecords.count, recordsBefore.count + (previouslySaved.isEmpty ? 1 : 0))
+        let savedAI = savedRecords.filter {
+            (($0["aiResult"] as? [String: Any])?["requestID"] as? String)?.uppercased() == answerID.uppercased()
+        }
+        XCTAssertEqual(savedAI.count, 1)
+        let note = try XCTUnwrap(savedAI.first)
+        XCTAssertTrue(try JSONSerialization.data(withJSONObject: savedRecords.filter { $0["aiResult"] == nil }, options: [.sortedKeys]) == manualBytes, "Keep existing manual notes unchanged")
+        XCTAssertEqual(try uiAnchorPayload(note)["quote"] as? String, "window")
+        XCTAssertEqual(note["userText"] as? String, "", "AI output remains separate from user-authored text")
+        let result = try XCTUnwrap(note["aiResult"] as? [String: Any])
+        XCTAssertEqual(result["text"] as? String, firstText)
+        XCTAssertEqual(result["fromCache"] as? Bool, false)
+        let provider = try XCTUnwrap(result["provider"] as? [String: Any])
+        XCTAssertEqual(provider["mode"] as? String, "openAICompatible")
+        XCTAssertEqual(provider["endpoint"] as? String, "https://api.deepseek.com")
+        XCTAssertEqual(provider["model"] as? String, "deepseek-flash")
+        print("PDFnoLiveResume: explicit note, exact original and separate remote result verified")
+        let input = ui("ai-conversation-input", app)
+        let draft = input.value as? String ?? ""
+        print("PDFnoLiveInput: isolated follow-up field role=\(input.elementType.rawValue) existing draft=\(String(reflecting: draft))")
+        XCTAssertTrue(["", "Give one short example using this word.", "Give了瘦肉汤example using thisword.", "word.Give one short example using this word."].contains(draft), "Only replace this test's own empty or generated input")
+        try click(input)
+        try ownDesktop(); app.typeKey("a", modifierFlags: .command)
+        XCTAssertTrue(input.exists, "Native Select All must keep the conversation input open")
+        NSPasteboard.general.clearContents()
+        XCTAssertTrue(NSPasteboard.general.setString("Give one short example using this word.", forType: .string))
+        try ownDesktop(); app.typeKey("v", modifierFlags: .command)
+        XCTAssertTrue(input.exists, "Native Paste must keep the conversation input open")
+        let pasted = input.value as? String ?? ""
+        print("PDFnoLiveInput: after application Paste value=\(pasted)")
+        XCTAssertEqual(pasted, "Give one short example using this word.")
+        // One original follow-up. Connection probes and automatic retries stay absent.
+        try click(ui("ai-conversation-send", app))
+        print("PDFnoLiveResume: follow-up submitted; actual requests are recorded without a test ceiling")
+        try uiWait("One resumed real follow-up answer; never retry", timeout: 35) {
+            !self.ui("ai-conversation-stop", app).exists &&
+                (self.ui("ai-conversation-status", app).exists || answers().contains { !answerIdentifiersBefore.contains($0.identifier) })
+        }
+        XCTAssertFalse(ui("ai-conversation-status", app).exists, "A stopped request with a failure is not a received answer")
+        let newAnswers = answers().filter { !answerIdentifiersBefore.contains($0.identifier) }
+        XCTAssertEqual(newAnswers.count, 1, "Exactly one new reply; LazyVStack may omit the offscreen original AX node")
+        XCTAssertEqual(answerCountBefore, 1, "This scoped candidate continues its one original explanation")
+        let followup = try XCTUnwrap(newAnswers.first)
+        XCTAssertFalse(uiText(followup).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        XCTAssertFalse(uiText(followup).contains("本地 mock")); XCTAssertFalse(uiText(followup).contains("离线 DeepSeek UI 替身"))
+        XCTAssertEqual(ui("ai-conversation-save-" + followup.identifier.replacingOccurrences(of: "ai-conversation-answer-", with: ""), app).label, "加入笔记")
+        try ownDesktop()
+        let followupShot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        followupShot.name = "real-original-followup-no-auto-note"; followupShot.lifetime = .keepAlways; add(followupShot)
+        for _ in 0..<8 {
+            if ui("ai-conversation-answer-" + answerID, app).exists { break }
+            try ownDesktop(); messages.scroll(byDeltaX: 0, deltaY: 700)
+        }
+        XCTAssertTrue(ui("ai-conversation-answer-" + answerID, app).waitForExistence(timeout: 8))
+        XCTAssertEqual(uiText(ui("ai-conversation-answer-" + answerID, app)), firstText)
+        XCTAssertEqual(try fixedConversationQuote(app), "window")
+        XCTAssertTrue(try JSONSerialization.data(withJSONObject: uiAnnotations(app), options: [.sortedKeys]) == JSONSerialization.data(withJSONObject: savedRecords, options: [.sortedKeys]), "The follow-up cannot auto-save or change either note")
+        print("PDFnoLiveResume: follow-up received, original preserved, only explicit note persisted")
+        try click(ui("ai-conversation-return", app))
+        XCTAssertTrue(uiText(ui("page-position", app)).contains("1 / 2"))
+        try click(ui("ai-close", app))
+        try ownDesktop(); try uiPDFShortcut(.rightArrow, app)
+        try uiContains(ui("page-position", app), "2 / 2")
+        try ownDesktop(); try uiPanel("reader-notes", open: true, app)
+        let row = ui("annotation-row-" + (try XCTUnwrap(note["id"] as? String)), app)
+        try ownDesktop(); try uiReveal(row, scroll: "annotation-list", app)
+        try click(row)
+        try uiContains(ui("annotation-status", app), "已定位原文")
+        XCTAssertTrue(uiText(ui("page-position", app)).contains("1 / 2"))
+        let excerpts = app.staticTexts.matching(identifier: "annotation-excerpt").allElementsBoundByIndex.map { uiText($0) }
+        XCTAssertTrue(excerpts.contains("window"))
+        print("PDFnoLiveResume: saved AI note located the exact original PDF page and quote")
+        try ownDesktop()
+        let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        attachment.name = "live-two-requests-fixed-source-and-explicit-note"; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
+    @MainActor func testAuthorizedLiveFinishSubmittedFollowupAndSourceNavigation() throws {
+        continueAfterFailure = false
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["PDFNO_LIVE_QA_ENABLED"] == "explicit-user-authorized",
+              environment["PDFNO_LIVE_QA_FOLLOWUP_SUBMITTED"] == "1",
+              let bundle = environment["PDFNO_PANEL_QA_BUNDLE"],
+              bundle.hasPrefix("org.pdfno.integration.professionala20261007.qa"),
+              let token = environment["PDFNO_PANEL_QA_SESSION"], UUID(uuidString: token) != nil,
+              let originalID = environment["PDFNO_LIVE_QA_ORIGINAL_ANSWER_ID"] else {
+            throw XCTSkip("Observe only the already-submitted request in its existing dedicated session")
+        }
+        let app = XCUIApplication(bundleIdentifier: bundle)
+        XCTAssertNotEqual(app.state, .notRunning)
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token // storage checks only; never launch
+        app.activate()
+        func ownDesktop() throws {
+            guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundle else {
+                throw XCTSkip("EXPERIENCE_DESKTOP_CHANGED: stop follow-up observation input")
+            }
+        }
+        func click(_ element: XCUIElement) throws {
+            XCTAssertTrue(element.waitForExistence(timeout: 8))
+            XCTAssertTrue(element.isEnabled && element.isHittable)
+            try ownDesktop(); element.click()
+        }
+        func visibleAnswers() -> [XCUIElement] {
+            app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'ai-conversation-answer-'" )).allElementsBoundByIndex
+        }
+        try ownDesktop()
+        let records = try uiAnnotations(app)
+        let originalNotes = records.filter {
+            (($0["aiResult"] as? [String: Any])?["requestID"] as? String)?.uppercased() == originalID.uppercased()
+        }
+        XCTAssertEqual(originalNotes.count, 1)
+        let note = try XCTUnwrap(originalNotes.first)
+        let result = try XCTUnwrap(note["aiResult"] as? [String: Any])
+        let firstText = try XCTUnwrap(result["text"] as? String)
+        let recordsBytes = try JSONSerialization.data(withJSONObject: records, options: [.sortedKeys])
+        let firstIdentifier = "ai-conversation-answer-" + originalID
+        print("PDFnoLiveFinish: existing answer IDs=\(visibleAnswers().map(\.identifier)); pending=\(ui("ai-conversation-stop", app).exists); service status visible=\(ui("ai-conversation-status", app).exists); no request sent")
+        let failureStatus = ui("ai-conversation-status", app)
+        if failureStatus.exists {
+            // Product maps failures to fixed AIFailure messages; no response body or Key.
+            print("PDFnoLiveFinish: sanitized application failure=\(uiText(failureStatus))")
+        }
+        XCTAssertFalse(failureStatus.exists, "The submitted request must succeed, not merely stop running")
+        // LazyVStack exposes only rendered replies. Observe the new reply's identity,
+        // not a count of offscreen accessibility nodes. Never send or retry here.
+        try uiWait("The already-submitted remote follow-up finishes", timeout: 90) {
+            !self.ui("ai-conversation-stop", app).exists && visibleAnswers().contains {
+                $0.identifier != firstIdentifier && !self.uiText($0).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            }
+        }
+        let followups = visibleAnswers().filter { $0.identifier != firstIdentifier }
+        XCTAssertEqual(followups.count, 1, "Exactly the one submitted follow-up")
+        let followup = try XCTUnwrap(followups.first)
+        let followupText = uiText(followup)
+        XCTAssertFalse(followupText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        XCTAssertFalse(followupText.contains("本地 mock")); XCTAssertFalse(followupText.contains("离线 DeepSeek UI 替身"))
+        XCTAssertEqual(ui("ai-conversation-save-" + followup.identifier.replacingOccurrences(of: "ai-conversation-answer-", with: ""), app).label, "加入笔记")
+        XCTAssertTrue(try JSONSerialization.data(withJSONObject: uiAnnotations(app), options: [.sortedKeys]) == recordsBytes, "No automatic follow-up note or mutation of existing notes")
+        print("PDFnoLiveFinish: submitted real follow-up received; generated result remains unsaved; no new request")
+        try ownDesktop()
+        let replyShot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        replyShot.name = "real-followup-original-fixture-no-auto-note"; replyShot.lifetime = .keepAlways; add(replyShot)
+        let messages = ui("ai-conversation-messages", app)
+        for _ in 0..<8 {
+            if ui(firstIdentifier, app).exists { break }
+            try ownDesktop(); messages.scroll(byDeltaX: 0, deltaY: 700)
+        }
+        XCTAssertTrue(ui(firstIdentifier, app).waitForExistence(timeout: 8))
+        XCTAssertEqual(uiText(ui(firstIdentifier, app)), firstText, "The actual original explanation is unchanged")
+        if !ui("ai-conversation-source", app).exists { try click(ui("ai-conversation-source-toggle", app)) }
+        XCTAssertEqual(try fixedConversationQuote(app), "window")
+        XCTAssertEqual(try uiAnchorPayload(note)["quote"] as? String, "window")
+        XCTAssertEqual(note["userText"] as? String, "")
+        XCTAssertEqual(result["fromCache"] as? Bool, false)
+        let provider = try XCTUnwrap(result["provider"] as? [String: Any])
+        XCTAssertEqual(provider["endpoint"] as? String, "https://api.deepseek.com")
+        XCTAssertEqual(provider["model"] as? String, "deepseek-flash")
+        try click(ui("ai-conversation-return", app))
+        try uiContains(ui("page-position", app), "1 / 2")
+        try click(ui("ai-close", app))
+        try ownDesktop(); try uiPDFShortcut(.rightArrow, app)
+        try uiContains(ui("page-position", app), "2 / 2")
+        try ownDesktop(); try uiPanel("reader-notes", open: true, app)
+        let row = ui("annotation-row-" + (try XCTUnwrap(note["id"] as? String)), app)
+        try ownDesktop(); try uiReveal(row, scroll: "annotation-list", app)
+        try click(row)
+        try uiContains(ui("annotation-status", app), "已定位原文")
+        try uiContains(ui("page-position", app), "1 / 2")
+        XCTAssertTrue(app.staticTexts.matching(identifier: "annotation-excerpt").allElementsBoundByIndex.map { uiText($0) }.contains("window"))
+        XCTAssertTrue(try JSONSerialization.data(withJSONObject: uiAnnotations(app), options: [.sortedKeys]) == recordsBytes)
+        print("PDFnoLiveFinish: explicit AI note returned from page 2 to the exact page 1 quote; original response and all notes unchanged")
+        try ownDesktop(); try uiPanel("reader-notes", open: false, app)
+        try ownDesktop()
+        let sourceShot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        sourceShot.name = "real-ai-note-return-from-page-two-to-page-one"; sourceShot.lifetime = .keepAlways; add(sourceShot)
+    }
+
+    @MainActor func testAuthorizedLiveSavedNoteSourceNavigationWithoutSending() throws {
+        continueAfterFailure = false
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["PDFNO_LIVE_QA_ENABLED"] == "explicit-user-authorized",
+              let bundle = environment["PDFNO_PANEL_QA_BUNDLE"],
+              bundle.hasPrefix("org.pdfno.integration.professionala20261007.qa"),
+              let token = environment["PDFNO_PANEL_QA_SESSION"], UUID(uuidString: token) != nil,
+              let originalID = environment["PDFNO_LIVE_QA_ORIGINAL_ANSWER_ID"] else {
+            throw XCTSkip("Existing dedicated live session and original saved result required")
+        }
+        let app = XCUIApplication(bundleIdentifier: bundle)
+        XCTAssertNotEqual(app.state, .notRunning)
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token // storage checks only
+        app.activate()
+        func ownDesktop() throws {
+            guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundle else {
+                throw XCTSkip("EXPERIENCE_DESKTOP_CHANGED: stop source navigation input")
+            }
+        }
+        func click(_ element: XCUIElement) throws {
+            XCTAssertTrue(element.waitForExistence(timeout: 8))
+            XCTAssertTrue(element.isEnabled && element.isHittable)
+            try ownDesktop(); element.click()
+        }
+        try ownDesktop()
+        let records = try uiAnnotations(app)
+        let originalNotes = records.filter {
+            (($0["aiResult"] as? [String: Any])?["requestID"] as? String)?.uppercased() == originalID.uppercased()
+        }
+        XCTAssertEqual(originalNotes.count, 1)
+        let note = try XCTUnwrap(originalNotes.first)
+        let result = try XCTUnwrap(note["aiResult"] as? [String: Any])
+        let recordsBytes = try JSONSerialization.data(withJSONObject: records, options: [.sortedKeys])
+        let first = ui("ai-conversation-answer-" + originalID, app)
+        XCTAssertTrue(first.waitForExistence(timeout: 8))
+        XCTAssertEqual(uiText(first), result["text"] as? String)
+        XCTAssertEqual(result["fromCache"] as? Bool, false)
+        if !ui("ai-conversation-source", app).exists { try click(ui("ai-conversation-source-toggle", app)) }
+        XCTAssertEqual(try fixedConversationQuote(app), "window")
+        XCTAssertEqual(try uiAnchorPayload(note)["quote"] as? String, "window")
+        XCTAssertEqual(note["userText"] as? String, "")
+        try click(ui("ai-conversation-return", app))
+        try uiContains(ui("page-position", app), "1 / 2")
+        try click(ui("ai-close", app))
+        try ownDesktop(); try uiPDFShortcut(.rightArrow, app)
+        try uiContains(ui("page-position", app), "2 / 2")
+        try ownDesktop(); try uiPanel("reader-notes", open: true, app)
+        let row = ui("annotation-row-" + (try XCTUnwrap(note["id"] as? String)), app)
+        try ownDesktop(); try uiReveal(row, scroll: "annotation-list", app)
+        try click(row)
+        try uiContains(ui("annotation-status", app), "已定位原文")
+        try uiContains(ui("page-position", app), "1 / 2")
+        XCTAssertTrue(app.staticTexts.matching(identifier: "annotation-excerpt").allElementsBoundByIndex.map { uiText($0) }.contains("window"))
+        XCTAssertTrue(try JSONSerialization.data(withJSONObject: uiAnnotations(app), options: [.sortedKeys]) == recordsBytes, "AI and manual notes remain byte-for-byte unchanged")
+        print("PDFnoLiveSource: saved real AI note returned from page 2 to the exact page 1 quote; original response and all notes unchanged; no request")
+        try ownDesktop(); try uiPanel("reader-notes", open: false, app)
+        try ownDesktop()
+        let shot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        shot.name = "real-ai-note-return-from-page-two-to-page-one"; shot.lifetime = .keepAlways; add(shot)
+    }
+
+    @MainActor func testAuthorizedLiveInspectVisibleRoutesWithoutInput() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["PDFNO_LIVE_QA_DIAGNOSTICS"] == "routes-only",
+              let bundle = environment["PDFNO_PANEL_QA_BUNDLE"],
+              bundle.hasPrefix("org.pdfno.integration.professionala20261007.qa") else {
+            throw XCTSkip("Read-only route diagnostics for the already-open dedicated app")
+        }
+        let app = XCUIApplication(bundleIdentifier: bundle)
+        XCTAssertNotEqual(app.state, .notRunning)
+        // Do not activate, launch, click, type, screenshot or read a credential.
+        // Only known public route identifiers and panel state strings are read.
+        let identifiers = ["professional-library-workspace", "ai-settings-form", "document-more", "page-position", "reader-navigation", "reader-notes", "reader-ai", "ai-close", "ai-tools-directory", "ai-conversation-source-toggle", "ai-conversation-source", "ai-conversation-input", "ai-conversation-send", "ai-conversation-retry", "ai-conversation-stop"]
+        var routes: [[String: Any]] = []
+        for identifier in identifiers {
+            let element = ui(identifier, app)
+            var route: [String: Any] = ["identifier": identifier, "exists": element.exists]
+            if element.exists {
+                route["hittable"] = element.isHittable
+                if ["reader-navigation", "reader-notes", "reader-ai", "ai-conversation-source-toggle"].contains(identifier) {
+                    route["panel_state"] = element.value as? String ?? ""
+                }
+            }
+            routes.append(route)
+        }
+        let tabs = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'document-tab-' AND NOT identifier BEGINSWITH 'document-tab-close-'"))
+            .allElementsBoundByIndex.map { ["identifier": $0.identifier, "selected_state": $0.value as? String ?? ""] }
+        let answerCount = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'ai-conversation-answer-'" )).count
+        let data = try JSONSerialization.data(withJSONObject: ["routes": routes, "document_tabs": tabs, "visible_answers": answerCount, "input_actions": 0, "API_requests": 0], options: [.sortedKeys])
+        print("PDFnoLiveRoutes: " + String(decoding: data, as: UTF8.self))
+    }
+
+    // Opt-in only; attach to the dedicated, already-open QA app after the user
+    // applies a credential there. Never launch, restart, migrate or read its key.
+    @MainActor func testAuthorizedLiveSelectionExplanationFollowupAndExplicitNote() throws {
+        continueAfterFailure = false
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["PDFNO_LIVE_QA_ENABLED"] == "explicit-user-authorized",
+              environment["PDFNO_LIVE_QA_EXPLANATION_ALLOWED"] == "1",
+              let bundle = environment["PDFNO_PANEL_QA_BUNDLE"],
+              bundle.hasPrefix("org.pdfno.integration.professionala20261007.qa"),
+              let token = environment["PDFNO_PANEL_QA_SESSION"], let session = UUID(uuidString: token) else {
+            throw XCTSkip("Requires explicit live authorization and a dedicated synthetic QA session")
+        }
+        let app = XCUIApplication(bundleIdentifier: bundle)
+        XCTAssertNotEqual(app.state, .notRunning, "User-configured QA app must already be open")
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = session.uuidString // storage assertions only; no launch()
+        app.activate()
+        func ownDesktop() throws {
+            guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundle else {
+                throw XCTSkip("EXPERIENCE_DESKTOP_CHANGED: stop live-test input")
+            }
+        }
+        func click(_ id: String) throws {
+            let element = ui(id, app)
+            XCTAssertTrue(element.waitForExistence(timeout: 8), id)
+            XCTAssertTrue(element.isHittable && element.isEnabled, id)
+            try ownDesktop(); element.click()
+        }
+        func answers() -> [XCUIElement] {
+            app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'ai-conversation-answer-'" )).allElementsBoundByIndex
+        }
+        func awaitAnswers(_ count: Int) throws {
+            try uiWait("Live answer count \(count); no retry", timeout: 35) {
+                answers().count == count && !self.ui("ai-conversation-stop", app).exists
+            }
+            XCTAssertEqual(answers().count, count)
+        }
+        try ownDesktop()
+        // Activating an existing window does not imply that its settings route
+        // is visible. Navigate through the public entry before checking status.
+        if !ui("ai-credential-status", app).exists { try click("ai-settings") }
+        let credentialStatus = ui("ai-credential-status", app)
+        XCTAssertTrue(credentialStatus.waitForExistence(timeout: 8))
+        XCTAssertTrue(uiText(credentialStatus).contains("本次会话已配置 API Key"), "Read presence status only; never inspect the secure field")
+        XCTAssertEqual(ui("ai-endpoint", app).value as? String, "https://api.deepseek.com")
+        XCTAssertEqual(ui("ai-model", app).value as? String, "deepseek-flash")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: try uiStore(app).path), "Dedicated UUID library must already exist")
+        try click("workspace-help"); try click("open-sample")
+        XCTAssertTrue(originalPDFViewport(app).waitForExistence(timeout: 12))
+        XCTAssertEqual(app.scrollViews.containing(NSPredicate(format: "label == %@", "document")).count, 1)
+        XCTAssertEqual(try uiAnnotations(app).count, 0, "Fresh synthetic library")
+        let phrase = "Reading opens a small window onto a wider world."
+        var selectedLine: XCUIElement?
+        try uiWait("Original PDFKit line", timeout: 12) {
+            selectedLine = app.staticTexts.allElementsBoundByIndex.first { self.uiText($0) == phrase && $0.isHittable }
+            return selectedLine != nil
+        }
+        let line = try XCTUnwrap(selectedLine), font = try XCTUnwrap(NSFont(name: "Helvetica", size: 14))
+        let attributes: [NSAttributedString.Key: Any] = [.font: font]
+        let prefix = ("Reading opens a small " as NSString).size(withAttributes: attributes).width
+        let word = ("window" as NSString).size(withAttributes: attributes).width
+        let total = (phrase as NSString).size(withAttributes: attributes).width
+        try ownDesktop(); line.coordinate(withNormalizedOffset: CGVector(dx: (prefix + word/2)/total, dy: 0.5)).doubleClick()
+        try click("selection-ai-menu")
+        // This public action sends request 1, using the immutable original selection.
+        try click("selection-ai-explain"); try awaitAnswers(1)
+        try click("ai-conversation-source-toggle")
+        XCTAssertEqual(try fixedConversationQuote(app), "window")
+        let first = try XCTUnwrap(answers().first), firstText = uiText(first)
+        XCTAssertFalse(firstText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        XCTAssertFalse(firstText.contains("离线 DeepSeek UI 替身"))
+        XCTAssertEqual(try uiAnnotations(app).count, 0, "Live output must not save automatically")
+        let answerID = first.identifier.replacingOccurrences(of: "ai-conversation-answer-", with: "")
+        try click("ai-conversation-save-" + answerID)
+        try uiWait("Explicit live note commit", timeout: 12) { self.ui("ai-conversation-save-" + answerID, app).label == "已加入笔记" }
+        let note = try uiOnlyAnnotation(app)
+        XCTAssertEqual(try uiAnchorPayload(note)["quote"] as? String, "window")
+        XCTAssertEqual(note["userText"] as? String, "", "Generated output stays separate from user-authored body")
+        let savedResult = try XCTUnwrap(note["aiResult"] as? [String: Any])
+        XCTAssertEqual(savedResult["text"] as? String, firstText, "Persist the exact generated result separately")
+        let input = ui("ai-conversation-input", app)
+        try click("ai-conversation-input")
+        try ownDesktop(); input.typeText("Give one short example using this word.")
+        // Request 2 only. Failure ends the test; never press Retry.
+        try click("ai-conversation-send"); try awaitAnswers(2)
+        XCTAssertEqual(try uiAnnotations(app).count, 1, "Follow-up must not save automatically")
+        try click("ai-conversation-return")
+        XCTAssertTrue(uiText(ui("page-position", app)).contains("1 / 2"))
+        try ownDesktop()
+        let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        attachment.name = "live-original-selection-and-explicit-note"; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
+    @MainActor func testRealDividerDragSharedPanelsPersistenceAndAlwaysVisibleAPICards() throws {
+        continueAfterFailure = false
+        guard let bundle = ProcessInfo.processInfo.environment["PDFNO_PANEL_QA_BUNDLE"],
+              bundle.hasPrefix("org.pdfno.integration.professionala20261007.qa"),
+              let session = ProcessInfo.processInfo.environment["PDFNO_PANEL_QA_SESSION"], UUID(uuidString: session) != nil else {
+            throw XCTSkip("Requires a dedicated offline QA bundle and fresh session; never launch production PDFno")
+        }
+        let app = XCUIApplication(bundleIdentifier: bundle)
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = session
+        app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        app.launchArguments = ["-PDFno.AppAppearance", "light"]
+        func element(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
+        func ownDesktop() throws {
+            guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundle else {
+                throw XCTSkip("EXPERIENCE_DESKTOP_CHANGED: stop input; dedicated test app is not frontmost")
+            }
+        }
+        func click(_ id: String) throws {
+            let target = element(id); XCTAssertTrue(target.waitForExistence(timeout: 12),id)
+            try ownDesktop(); target.click()
+        }
+        func openSample(_ id: String) throws {
+            try click("workspace-help"); try click(id)
+            let reader = id.contains("epub") ? element("epub-aa") : originalPDFViewport(app)
+            XCTAssertTrue(reader.waitForExistence(timeout: 15))
+        }
+        func width() -> CGFloat {
+            let handle = element("reader-panel-divider")
+            return CGFloat(Double(String(describing: handle.value ?? "")) ?? -1)
+        }
+        func awaitWidth(_ expected: CGFloat) {
+            let end = Date().addingTimeInterval(3)
+            while abs(width() - expected) > 5 && Date() < end { RunLoop.current.run(until: Date().addingTimeInterval(0.05)) }
+            XCTAssertEqual(width(),expected,accuracy: 5)
+        }
+        func shot(_ name: String) throws {
+            try ownDesktop(); let window = app.windows.firstMatch
+            XCTAssertTrue(window.exists)
+            let attachment = XCTAttachment(screenshot: window.screenshot()); attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+        }
+        app.launch(); defer { app.terminate() }
+        let frontDeadline = Date().addingTimeInterval(8)
+        while NSWorkspace.shared.frontmostApplication?.bundleIdentifier != bundle && Date() < frontDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.1)) }
+        try ownDesktop()
+        try openSample("open-sample"); try click("reader-navigation")
+        let divider = element("reader-panel-divider"); XCTAssertTrue(divider.waitForExistence(timeout: 5)); XCTAssertTrue(divider.isHittable)
+        let initial = width(), amount = min(35, width() - 230); XCTAssertGreaterThan(amount,10)
+        let canvasBefore = originalPDFViewport(app).frame.width
+        let origin = divider.coordinate(withNormalizedOffset: CGVector(dx: 0.5,dy: 0.5))
+        try ownDesktop(); origin.click(forDuration: 0.15,thenDragTo: origin.withOffset(CGVector(dx: amount,dy: 0)))
+        awaitWidth(initial - amount)
+        XCTAssertGreaterThan(originalPDFViewport(app).frame.width,canvasBefore + 15,"Reader must grow with the narrowing panel")
+        let left = divider.coordinate(withNormalizedOffset: CGVector(dx: 0.5,dy: 0.5))
+        try ownDesktop(); left.click(forDuration: 0.15,thenDragTo: left.withOffset(CGVector(dx: -amount,dy: 0)))
+        awaitWidth(initial)
+        XCTAssertEqual(originalPDFViewport(app).frame.width,canvasBefore,accuracy: 5,"Reader must shrink as the panel widens")
+        let final = divider.coordinate(withNormalizedOffset: CGVector(dx: 0.5,dy: 0.5))
+        try ownDesktop(); final.click(forDuration: 0.15,thenDragTo: final.withOffset(CGVector(dx: amount/2,dy: 0)))
+        awaitWidth(initial - amount/2); let saved = width()
+        try shot("real-left-and-right-directory-drag")
+        for id in ["reader-ai","reader-notes","reader-bookmarks"] { try click(id); awaitWidth(saved) }
+        try click("reader-bookmarks"); XCTAssertFalse(divider.exists,"Icon must collapse the panel")
+        try click("reader-bookmarks"); awaitWidth(saved)
+        try openSample("open-epub-sample"); try click("epub-aa"); awaitWidth(saved)
+        try shot("shared-width-epub-Aa")
+        try ownDesktop(); app.terminate(); app.launch()
+        let restartDeadline = Date().addingTimeInterval(8)
+        while NSWorkspace.shared.frontmostApplication?.bundleIdentifier != bundle && Date() < restartDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.1)) }
+        try ownDesktop(); try openSample("open-sample"); try click("reader-navigation"); awaitWidth(saved)
+        try click("ai-settings")
+        for id in ["ai-endpoint","ai-session-key","ai-model","settings-japanese-card","settings-english-card"] { XCTAssertTrue(element(id).waitForExistence(timeout: 10),id) }
+        let mode = element("ai-provider-mode"); try ownDesktop(); mode.click()
+        XCTAssertFalse(app.menuItems["未配置"].exists,"Unconfigured must not be a provider choice")
+        try ownDesktop(); app.typeKey(.escape,modifierFlags: [])
+        try shot("always-visible-global-api-and-language-cards")
+    }
+}
+#endif
+
+// Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
+#if os(macOS)
+import XCTest
+import AppKit
+
+final class MacFourLayoutUITests: XCTestCase {
+    private var bundle = ""
+    @MainActor private func startApp() throws -> XCUIApplication {
+        continueAfterFailure = false
+        let env = ProcessInfo.processInfo.environment
+        guard let id = env["PDFNO_FOUR_LAYOUT_BUNDLE"], id.contains(".qaMacFourLayout20261013."),
+              let token = env["PDFNO_FOUR_LAYOUT_SESSION"], UUID(uuidString: token) != nil else {
+            throw XCTSkip("Dedicated offline QA bundle and synthetic Library only")
+        }
+        bundle = id
+        let app = XCUIApplication(bundleIdentifier: id)
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"] = token
+        app.launchEnvironment["PDFNO_UI_TEST_DEEPSEEK"] = "offline"
+        app.launchArguments = ["--ui-testing", "--ui-test-session", token, "--ui-test-four-layout-preview", "-PDFno.AppAppearance", "light"]
+        app.launch(); try openOwnWindow(app)
+        try click(ui("ai-settings", app))
+        XCTAssertTrue(ui("ai-provider-mode", app).waitForExistence(timeout: 8))
+        return app
+    }
+    @MainActor private func openOwnWindow(_ app: XCUIApplication) throws {
+        let url = try XCTUnwrap(NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle))
+        XCTAssertTrue(url.path.hasSuffix("/.build/MacFourUI/2026-10-13/Products/PDFnoMac.app"))
+        XCTAssertEqual(Bundle(url: url)?.bundleIdentifier, bundle)
+        // XCTest launch does not always send a reopen event to a single Window
+        // scene. Reopen only this exact registered offline QA product.
+        XCTAssertTrue(NSWorkspace.shared.open(url))
+        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 10))
+        try ownDesktop()
+    }
+    @MainActor private func ownDesktop() throws {
+        guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundle else {
+            throw XCTSkip("EXPERIENCE_DESKTOP_CHANGED: stop scoped offline UI input")
+        }
+    }
+    @MainActor private func click(_ element: XCUIElement) throws {
+        XCTAssertTrue(element.waitForExistence(timeout: 8)); XCTAssertTrue(element.isEnabled && element.isHittable)
+        try ownDesktop(); element.click()
+    }
+    @MainActor private func viewport(_ app: XCUIApplication) -> XCUIElement {
+        app.scrollViews.containing(NSPredicate(format: "label == %@", "document")).firstMatch
+    }
+    @MainActor private func sample(_ app: XCUIApplication, epub: Bool = false) throws {
+        try click(ui("workspace-help", app)); try click(ui(epub ? "open-epub-sample" : "open-sample", app))
+        XCTAssertTrue((epub ? ui("epub-aa", app) : viewport(app)).waitForExistence(timeout: 12))
+    }
+    @MainActor private func shot(_ name: String, _ app: XCUIApplication) throws {
+        try ownDesktop(); let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+    }
+    @MainActor private func blueHoverShot(_ name: String, _ app: XCUIApplication) throws {
+        let divider = ui("reader-panel-divider", app), window = app.windows.firstMatch
+        // Splitter's default hittable point is its bottom edge on this SDK.
+        // Use the native center coordinate inside the same 14-point handle.
+        try ownDesktop(); divider.coordinate(withNormalizedOffset: CGVector(dx: 0.5,dy: 0.5)).hover()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        try ownDesktop(); let screenshot = window.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: screenshot.pngRepresentation))
+        let scale = CGFloat(bitmap.pixelsWide) / window.frame.width
+        let center = Int((divider.frame.midX - window.frame.minX) * scale)
+        let lower = max(0, Int((divider.frame.minY - window.frame.minY + 20) * scale))
+        let upper = min(bitmap.pixelsHigh - 1, Int((divider.frame.maxY - window.frame.minY - 20) * scale))
+        print("PDFnoFourUI hover geometry divider=\(divider.frame) window=\(window.frame) pointer=\(NSEvent.mouseLocation) pixel-column=\(center)")
+        XCTAssertGreaterThan(upper, lower)
+        var blueRows = 0, rows = 0
+        for y in stride(from: lower, through: upper, by: max(1,bitmap.pixelsHigh/180)) {
+            rows += 1
+            if (max(0,center-8)...min(bitmap.pixelsWide-1,center+8)).contains(where: { x in
+                guard let c = bitmap.colorAt(x: x,y: y)?.usingColorSpace(.deviceRGB) else { return false }
+                return c.redComponent < 0.35 && c.blueComponent > 0.7 && c.greenComponent < 0.85
+            }) { blueRows += 1 }
+        }
+        let fraction = Double(blueRows) / Double(max(1,rows))
+        print("PDFnoFourUI visible blue divider \(name): \(fraction)")
+        XCTAssertGreaterThan(fraction,0.7,"The actual window screenshot must show a blue vertical hover cue")
+    }
+    @MainActor func test01SelectionHasNoSourceHeaderAndSettingsRemainSeparated() throws {
+        let app = try startApp()
+        try shot("initial-isolated-QA-window", app)
+        try click(ui("ai-provider-mode", app)); try click(app.menuItems["本地示例"].firstMatch)
+        try click(ui("ai-settings-save", app))
+        XCTAssertFalse(ui("settings-japanese-card", app).exists)
+        XCTAssertFalse(ui("settings-english-card", app).exists)
+        let endpoint = ui("ai-endpoint", app).value as? String
+        let model = ui("ai-model", app).value as? String
+        try shot("settings-AI-only-connection", app)
+        try click(ui("settings-category-aiTools", app))
+        XCTAssertFalse(ui("ai-provider-mode", app).exists)
+        XCTAssertFalse(ui("ai-endpoint", app).exists)
+        XCTAssertTrue(ui("settings-japanese-card", app).exists && ui("settings-english-card", app).exists)
+        try shot("settings-AI-tools-before-toggle", app)
+        print("PDFnoFourUI scoped toggle AX: " + app.checkBoxes.debugDescription)
+        try click(app.checkBoxes["启用日语学习"].firstMatch); try click(app.checkBoxes["启用英语学习"].firstMatch)
+        let preferences = try uiManifest("ai-reading-tools-v1.json", app)
+        XCTAssertEqual(preferences["japanese"] as? Bool, true)
+        XCTAssertEqual(preferences["english"] as? Bool, true)
+        try shot("settings-AI-tools-two-independent-cards", app)
+        try click(ui("settings-category-ai", app))
+        XCTAssertEqual(ui("ai-endpoint", app).value as? String, endpoint)
+        XCTAssertEqual(ui("ai-model", app).value as? String, model)
+        XCTAssertFalse(ui("settings-japanese-card", app).exists)
+        try click(ui("settings-return", app))
+        try sample(app)
+        try ownDesktop(); try uiSelectPDFWindow(app)
+        try click(ui("selection-ai-menu", app)); try click(ui("selection-ai-explain", app))
+        func answers() -> [XCUIElement] {
+            app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'ai-conversation-answer-'" )).allElementsBoundByIndex
+        }
+        try uiWait("Explicit local answer only") { !answers().isEmpty }
+        XCTAssertFalse(ui("ai-conversation-source-toggle", app).exists)
+        XCTAssertFalse(ui("ai-conversation-source", app).exists)
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH '原文 ·'" )).firstMatch.exists)
+        let first = try XCTUnwrap(answers().first), firstText = uiText(first)
+        XCTAssertTrue(firstText.contains("本地 mock"))
+        XCTAssertEqual(try uiAnnotations(app).count, 0)
+        let answerID = first.identifier.replacingOccurrences(of: "ai-conversation-answer-", with: "")
+        try click(ui("ai-conversation-save-" + answerID, app))
+        try uiWait("Explicit note commit only") { (try? self.uiAnnotations(app).count) == 1 }
+        let note = try uiOnlyAnnotation(app)
+        XCTAssertEqual(try uiAnchorPayload(note)["quote"] as? String, "window")
+        XCTAssertEqual((note["aiResult"] as? [String: Any])?["text"] as? String, firstText)
+        let input = ui("ai-conversation-input", app)
+        try click(input); try ownDesktop(); app.typeKey("a", modifierFlags: .command)
+        NSPasteboard.general.clearContents(); XCTAssertTrue(NSPasteboard.general.setString("Give one short example using this word.", forType: .string))
+        try ownDesktop(); app.typeKey("v", modifierFlags: .command)
+        XCTAssertEqual(input.value as? String, "Give one short example using this word.")
+        try click(ui("ai-conversation-send", app))
+        try uiWait("Local follow-up retains the fixed source") { answers().contains { $0.identifier != first.identifier } }
+        XCTAssertEqual(try uiAnnotations(app).count, 1, "Follow-up is not automatically saved")
+        XCTAssertEqual(try uiAnchorPayload(try uiOnlyAnnotation(app))["quote"] as? String, "window")
+        try shot("selection-dialogue-header-and-source-block-removed", app)
+        try click(ui("ai-conversation-return", app)); try uiContains(ui("page-position", app), "1 / 2")
+        try click(ui("ai-close", app))
+        try ownDesktop(); try uiPDFShortcut(.rightArrow, app); try uiContains(ui("page-position", app), "2 / 2")
+        try ownDesktop(); try uiPanel("reader-notes", open: true, app)
+        let row = ui("annotation-row-" + (try XCTUnwrap(note["id"] as? String)), app)
+        try ownDesktop(); try uiReveal(row, scroll: "annotation-list", app); try click(row)
+        try uiContains(ui("annotation-status", app), "已定位原文"); try uiContains(ui("page-position", app), "1 / 2")
+        print("PDFnoFourUI: no source header/block; connection/tools separate; saved flags and config retained; local follow-up not saved; precise note jump passed")
+    }
+    @MainActor func test02BottomDocumentStartConsentAndSharedBlueDivider() throws {
+        let app = try startApp(); try sample(app)
+        try click(ui("reader-navigation", app))
+        func width() -> Double { Double(String(describing: ui("reader-panel-divider", app).value ?? "")) ?? -1 }
+        let divider = ui("reader-panel-divider", app), initial = width(), before = viewport(app).frame.width
+        XCTAssertGreaterThan(initial, 230)
+        try shot("directory-idle-subtle-divider", app)
+        try blueHoverShot("directory-blue-hover-divider", app)
+        let point = divider.coordinate(withNormalizedOffset: CGVector(dx: 0.5,dy: 0.5))
+        try ownDesktop(); point.click(forDuration: 0.15,thenDragTo: point.withOffset(CGVector(dx: 24,dy: 0)))
+        try uiWait("Physical panel drag updates width") { abs(width() - (initial - 24)) < 5 }
+        XCTAssertGreaterThan(viewport(app).frame.width,before+12)
+        let changed = width()
+        for id in ["reader-ai", "reader-notes", "reader-bookmarks"] {
+            try click(ui(id, app)); XCTAssertEqual(width(),changed,accuracy: 5)
+            try blueHoverShot(id + "-shared-blue-divider", app)
+        }
+        try click(ui("reader-ai", app))
+        let start = app.buttons["开始对话"].firstMatch, card = ui("document-ai-document-card", app)
+        XCTAssertTrue(start.waitForExistence(timeout: 10)); XCTAssertTrue(start.isEnabled)
+        XCTAssertEqual(start.frame.midX,card.frame.midX,accuracy: 3)
+        XCTAssertGreaterThanOrEqual(start.frame.height,44)
+        XCTAssertGreaterThan(card.frame.minY,app.windows.firstMatch.frame.midY)
+        XCTAssertFalse(ui("document-ai-answer", app).exists); XCTAssertFalse(ui("document-ai-consent", app).exists)
+        try shot("whole-document-initial-bottom-card-and-centered-start", app)
+        try click(start)
+        let confirmSend = app.windows.buttons["发送并开始对话"].firstMatch
+        let cancelSend = app.windows.buttons["取消"].firstMatch
+        XCTAssertTrue(confirmSend.waitForExistence(timeout: 5))
+        XCTAssertFalse(ui("document-ai-answer", app).exists, "Start shows consent and cannot send")
+        try shot("whole-document-explicit-consent-before-send", app)
+        try click(cancelSend)
+        XCTAssertFalse(ui("document-ai-answer", app).exists)
+        try sample(app,epub: true); try click(ui("epub-aa", app)); XCTAssertEqual(width(),changed,accuracy: 5)
+        try blueHoverShot("Aa-shared-blue-divider", app)
+        try ownDesktop(); app.terminate(); app.launch(); try openOwnWindow(app); try sample(app)
+        try click(ui("reader-navigation", app)); XCTAssertEqual(width(),changed,accuracy: 5, "Changed shared width survives this offline App restart")
+        try click(ui("reader-ai", app)); try click(app.buttons["开始对话"].firstMatch); try click(confirmSend)
+        XCTAssertTrue(ui("document-ai-answer", app).waitForExistence(timeout: 10))
+        XCTAssertEqual(try uiAnnotations(app).count,1)
+        print("PDFnoFourUI: large bottom-centered Start; no answer before consent; local answer only after confirmation; actual drag/shared widths/restart and five blue cues passed")
+        // Leave the dedicated preview at its initial layout without touching either live-Key App.
+        try ownDesktop(); app.terminate(); app.launch(); try openOwnWindow(app); try sample(app); try click(ui("reader-ai", app))
+    }
+}
+#endif
+
+#if os(macOS)
+final class MacFourLiveUITests: XCTestCase {
+    private var bundle = ""
+    private var metadataPath = ""
+    @MainActor private func ownDesktop() throws {
+        guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundle else {
+            throw XCTSkip("FOUR_LIVE_DESKTOP_CHANGED: stop input; retain existing Key process")
+        }
+    }
+    @MainActor private func click(_ target: XCUIElement) throws {
+        XCTAssertTrue(target.waitForExistence(timeout: 8)); XCTAssertTrue(target.isEnabled && target.isHittable)
+        try ownDesktop(); target.click()
+    }
+    private func events() throws -> [[String: Any]] {
+        let data = try Data(contentsOf: URL(fileURLWithPath: metadataPath))
+        let allowed = Set(["event", "atUTC", "requestID", "httpStatus"])
+        return String(decoding: data,as: UTF8.self).split(separator: "\n").compactMap { line in
+            guard let value = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
+                  Set(value.keys).isSubset(of: allowed),value["event"] is String else { return nil }
+            return value
+        }
+    }
+    private func count(_ event: String) throws -> Int { try events().filter { $0["event"] as? String == event }.count }
+    @MainActor private func shot(_ name: String,_ app: XCUIApplication) throws {
+        try ownDesktop(); let a = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        a.name=name;a.lifetime = .keepAlways;add(a)
+    }
+    @MainActor private func reveal(_ target: XCUIElement,_ app: XCUIApplication) throws {
+        let scroll=ui("ai-conversation-messages",app)
+        for _ in 0..<12 {
+            if scroll.frame.insetBy(dx: 3,dy: 5).contains(target.frame) && target.isHittable { return }
+            try ownDesktop();scroll.scroll(byDeltaX: 0,deltaY: target.frame.minY < scroll.frame.minY ? 220 : -220)
+        }
+        XCTAssertTrue(target.isHittable)
+    }
+    @MainActor func testFinalFourUIRealSelectionAndFullDocumentConsent() throws {
+        continueAfterFailure=false
+        let env=ProcessInfo.processInfo.environment
+        guard env["PDFNO_FOUR_LIVE_AUTHORIZATION"] == "explicit-user-authorized",
+              let id=env["PDFNO_FOUR_LIVE_BUNDLE"],id.contains(".qaMacFourLive20261013."),
+              let token=env["PDFNO_FOUR_LIVE_SESSION"],UUID(uuidString: token) != nil,
+              let path=env["PDFNO_FOUR_LIVE_METADATA"],path.hasSuffix("/LiveAPI/APP.stdout") else {
+            throw XCTSkip("Explicit authorization and original-only dedicated live QA required")
+        }
+        bundle=id;metadataPath=path
+        let app=XCUIApplication(bundleIdentifier: id)
+        XCTAssertNotEqual(app.state,.notRunning,"Never relaunch or recreate the user-entered credential session")
+        app.launchEnvironment["PDFNO_UI_TEST_SESSION"]=token // own-fixture storage assertions only
+        app.activate();try ownDesktop()
+        XCTAssertEqual(try count("unlimited_selection_session"),1,"No QA request ceiling")
+        XCTAssertEqual(try count("transport_dispatch"),0);XCTAssertEqual(try count("document_transport_dispatch"),0)
+        print("PDFnoFourLive public credential status: " + uiText(ui("ai-credential-status",app)))
+        print("PDFnoFourLive public connection status: " + uiText(ui("ai-connection-status",app)))
+        try uiContains(ui("ai-credential-status",app),"已配置") // never inspect SecureField value
+        XCTAssertEqual(ui("ai-endpoint",app).value as? String,"https://api.deepseek.com")
+        XCTAssertEqual(ui("ai-model",app).value as? String,"deepseek-flash")
+        XCTAssertFalse(ui("settings-japanese-card",app).exists)
+        try click(ui("settings-category-aiTools",app))
+        XCTAssertFalse(ui("ai-endpoint",app).exists)
+        XCTAssertTrue(ui("settings-japanese-card",app).exists && ui("settings-english-card",app).exists)
+        try click(ui("settings-category-ai",app));try uiContains(ui("ai-credential-status",app),"已配置")
+        try click(ui("settings-return",app));try click(ui("workspace-help",app));try click(ui("open-sample",app))
+        XCTAssertTrue(app.scrollViews.containing(NSPredicate(format:"label == %@","document")).firstMatch.waitForExistence(timeout:12))
+        XCTAssertEqual(try uiAnnotations(app).count,0)
+        try ownDesktop();try uiSelectPDFWindow(app)
+        try click(ui("selection-ai-menu",app));try click(ui("selection-ai-explain",app))
+        func answers() -> [XCUIElement] { app.descendants(matching:.any).matching(NSPredicate(format:"identifier BEGINSWITH 'ai-conversation-answer-'" )).allElementsBoundByIndex }
+        try uiWait("Real explanation accepted; no automatic retry",timeout:35) { !answers().isEmpty || self.ui("ai-conversation-status",app).exists }
+        XCTAssertFalse(ui("ai-conversation-status",app).exists)
+        let first=try XCTUnwrap(answers().first),text=uiText(first)
+        let firstIdentifier=first.identifier
+        XCTAssertFalse(text.isEmpty || text.contains("本地 mock") || text.contains("离线 DeepSeek UI 替身"))
+        XCTAssertFalse(ui("ai-conversation-source-toggle",app).exists);XCTAssertFalse(ui("ai-conversation-source",app).exists)
+        XCTAssertEqual(try count("transport_dispatch"),1);XCTAssertEqual(try count("server_response"),1)
+        XCTAssertEqual(try events().filter { $0["event"] as? String == "server_response" }.last?["httpStatus"] as? Int,200)
+        let firstID=first.identifier.replacingOccurrences(of:"ai-conversation-answer-",with:"")
+        let save=ui("ai-conversation-save-"+firstID,app);try reveal(save,app);try click(save)
+        try uiWait("Explicit real AI note commit") { (try? self.uiAnnotations(app).count)==1 }
+        let note=try uiOnlyAnnotation(app),result=try XCTUnwrap(note["aiResult"] as? [String:Any])
+        XCTAssertEqual(try uiAnchorPayload(note)["quote"] as? String,"window")
+        XCTAssertEqual(note["userText"] as? String,"");XCTAssertEqual(result["text"] as? String,text)
+        XCTAssertEqual(result["fromCache"] as? Bool,false)
+        let input=ui("ai-conversation-input",app);try click(input)
+        try ownDesktop();app.typeKey("a",modifierFlags:.command)
+        NSPasteboard.general.clearContents();XCTAssertTrue(NSPasteboard.general.setString("Give one short example using this word.",forType:.string))
+        try ownDesktop();app.typeKey("v",modifierFlags:.command)
+        XCTAssertEqual(input.value as? String,"Give one short example using this word.")
+        try click(ui("ai-conversation-send",app))
+        try uiWait("Real follow-up accepted; no automatic retry",timeout:35) { answers().contains { $0.identifier != firstIdentifier } || self.ui("ai-conversation-status",app).exists }
+        XCTAssertFalse(ui("ai-conversation-status",app).exists)
+        let followup=try XCTUnwrap(answers().first { $0.identifier != firstIdentifier })
+        XCTAssertFalse(uiText(followup).isEmpty || uiText(followup).contains("本地 mock"))
+        XCTAssertEqual(try count("transport_dispatch"),2);XCTAssertEqual(try count("server_response"),2)
+        XCTAssertTrue(try events().filter { $0["event"] as? String == "server_response" }.allSatisfy { $0["httpStatus"] as? Int == 200 })
+        XCTAssertEqual(try uiAnnotations(app).count,1,"Follow-up never auto-saves")
+        XCTAssertEqual(try uiAnchorPayload(try uiOnlyAnnotation(app))["quote"] as? String,"window")
+        try shot("real-selection-explanation-followup-explicit-note-no-source-header",app)
+        try click(ui("ai-close",app));try click(ui("reader-ai",app))
+        let start=app.windows.buttons["开始对话"].firstMatch
+        XCTAssertTrue(start.waitForExistence(timeout:10));XCTAssertTrue(start.isEnabled)
+        XCTAssertFalse(ui("document-ai-answer",app).exists)
+        XCTAssertEqual(try count("document_transport_dispatch"),0,"Opening full AI cannot send")
+        try shot("real-full-document-initial-no-send",app);try click(start)
+        let confirm=app.windows.buttons["发送并开始对话"].firstMatch,cancel=app.windows.buttons["取消"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout:5));XCTAssertFalse(ui("document-ai-answer",app).exists)
+        XCTAssertEqual(try count("document_transport_dispatch"),0,"Start only requests consent")
+        try shot("real-full-document-confirmation-zero-dispatch",app);try click(cancel)
+        XCTAssertEqual(try count("document_transport_dispatch"),0);XCTAssertFalse(ui("document-ai-answer",app).exists)
+        try click(start);try click(confirm)
+        try uiWait("Real full document response accepted",timeout:35) { self.ui("document-ai-answer",app).exists || self.ui("document-ai-error",app).exists }
+        XCTAssertFalse(ui("document-ai-error",app).exists)
+        let documentText=uiText(ui("document-ai-answer",app))
+        XCTAssertFalse(documentText.isEmpty || documentText.contains("本地示例") || documentText.contains("未联网"))
+        XCTAssertEqual(try count("document_transport_dispatch"),1);XCTAssertEqual(try count("document_server_response"),1)
+        XCTAssertEqual(try events().filter { $0["event"] as? String == "document_server_response" }.last?["httpStatus"] as? Int,200)
+        XCTAssertEqual(try uiAnnotations(app).count,1)
+        try shot("real-full-document-answer-only-after-confirmation",app)
+        print("PDFnoFourLive: actual selection explanation and follow-up HTTP200; one explicit note; original window quote; settings retains connection; full document zero sends through Start/cancel and HTTP200 only after confirm; no request ceiling")
+    }
+}
+#endif

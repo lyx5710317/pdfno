@@ -27,25 +27,22 @@ struct PDFPageTranslationWorkspace: View {
                         PDFnoSettingsCard("来源、接收方与现有范围", symbol: "doc.text") {
                         Text("PDF 第 \(plan.snapshot.pageIndex + 1) 页 · 完整可提取文本 \(plan.snapshot.text.utf16.count) UTF-16 单位 · \(plan.sources.count) 段")
                             .font(.headline).accessibilityIdentifier("page-scope")
-                        Text("接收方：api.deepseek.com · deepseek-flash · 简体中文。仅按下列完整计划发送 sourceText/task，不上传 PDF、图片、文件名、笔记或其他页面。")
+                        Text("接收方：\(learning.config.label) · \(learning.config.model)。仅发送当前页可提取文字。").font(.caption)
                         Text("本页最多 \(plan.sources.count) 次请求，每段 ≤500 UTF-16、1024 输出 tokens、30 秒；本页合计 ≤\(plan.maxOutputTokens) 输出 tokens，请求超时预算合计 \(plan.maxDurationSeconds) 秒。整页会话额度已用 \(translation.attemptsUsed) / 6；失败和取消也计入。费用未知，取消后已发请求可能仍收费。无自动重试。")
                             .font(.callout).accessibilityIdentifier("page-limits")
                         DisclosureGroup("完整原文预览（全部分段也在下方）") {
                             Text(plan.snapshot.text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                                 .accessibilityIdentifier("page-full-preview")
                         }
-                        SecureField("亲自输入本次临时密钥", text: $translation.temporarySecret)
-                            .accessibilityIdentifier("page-session-key").disabled(translation.busy)
-                        Text("密钥仅用于本次发送；发送后输入框清空，完成、取消或关闭清除会话凭据，不保存到文件或 Keychain。")
-                            .font(.caption).foregroundStyle(.secondary)
+                        if !learning.conversationConnectionAvailable { Text("请先在设置 → AI 配置api。").foregroundStyle(.secondary) }
                         Toggle("我确认发送本页全部分段及以上接收方、上限和可能费用", isOn: $confirmed)
                             .disabled(translation.busy).accessibilityIdentifier("page-scope-consent")
                         PDFnoAdaptiveActions {
                             Button("发送本页全部 \(plan.sources.count) 段") {
-                                translation.start(confirmed: confirmed, sourceIsCurrent: library.isCurrentAISource)
+                                translation.start(confirmed: confirmed, sourceIsCurrent: library.isCurrentAISource, connection: learning)
                                 confirmed = false
                             }.buttonStyle(PDFnoActionStyle(role: .primary)).accessibilityIdentifier("page-start")
-                                .disabled(!confirmed || translation.temporarySecret.isEmpty || translation.busy || translation.segments.contains(where: { $0.result != nil }) || plan.sources.count > 6 - translation.attemptsUsed)
+                                .disabled(!confirmed || !learning.conversationConnectionAvailable || translation.busy || translation.segments.contains(where: { $0.result != nil }) || plan.sources.count > 6 - translation.attemptsUsed)
                             if translation.busy { Button("取消剩余分段") { translation.cancel(); confirmed = false }.accessibilityIdentifier("page-cancel") }
                             Button("回到原 PDF 页") {
                                 Task { translation.cancel(); if let source = plan.sources.first, await library.returnToAISource(source) { dismiss() } }

@@ -29,6 +29,12 @@ public actor BYOKProviderSession: AICredentialStore {
         return snapshot()
     }
     public func clearCredential() { revoke() }
+    /// Transfers an existing in-memory credential without exposing it to UI or persistence.
+    public func transferCredential(to store: any AICredentialStore, reference: UUID,
+                                   expected: AIProviderConfig) async throws {
+        guard config == expected, let secret, CredentialValidation.valid(secret) else { throw AIFailure.stale }
+        try await store.put(secret, reference: reference)
+    }
     private func revoke() {
         secret = nil; reference = UUID()
         if config.generation < Int.max - 1 { config.generation += 1 }
@@ -62,6 +68,17 @@ public struct BYOKSelectionPreview: Sendable, Equatable {
 }
 /// No credential read or network request during factory/preview construction.
 public enum BYOKProviderFactory {
+    public static func configuredSelection(configuration: AIProviderConfig, credentials: any AICredentialStore,
+        reference: UUID, transport: any AIHTTPTransport, budget: DeepSeekSelectionBudget,
+        batchID: UUID? = nil) throws -> any AIProvider {
+        _ = try BYOKSelectionPolicy.finalURL(configuration)
+        if DeepSeekSelectionPolicy.supports(configuration) {
+            return DeepSeekSelectionProvider(transport: transport, credentials: credentials,
+                credentialReference: reference, budget: budget, chapterBatchID: batchID)
+        }
+        return BYOKChatSelectionAdapter(transport: transport, credentials: credentials,
+                                       reference: reference, budget: budget, batchID: batchID, permitsContentUnits: true)
+    }
     public static func selection(snapshot: BYOKSessionSnapshot, session: BYOKProviderSession,
                                  transport: any AIHTTPTransport = URLSessionAITransport(),
                                  aiSession: AppAISession = .shared) throws -> any AIProvider {
@@ -102,8 +119,18 @@ private struct BYOKChatSelectionAdapter: AIProvider {
     let credentials: any AICredentialStore
     let reference: UUID
     let budget: DeepSeekSelectionBudget
+    var batchID: UUID? = nil
+    var permitsContentUnits = false
     func analyze(_ request: AIRequest) async throws -> AIProviderOutput {
-        try BYOKSelectionPolicy.validate(request); try Task.checkCancellation()
+        if permitsContentUnits {
+            guard request.source.isValid, request.provider.isValid, request.source.anchor.quote.utf16.count <= 500 else { throw AIFailure.remoteInputLimit }
+            switch request.source.anchor {
+            case .pdf, .epub: try BYOKSelectionPolicy.validate(request)
+            case .pdfPage: guard request.kind == .translate else { throw AIFailure.configuration }
+            case .epubChapter: guard request.kind == .translate, batchID != nil else { throw AIFailure.configuration }
+            }
+        } else { try BYOKSelectionPolicy.validate(request) }
+        try Task.checkCancellation()
         guard let key = try await credentials.read(reference), CredentialValidation.valid(key) else { throw AIFailure.credentials }
         let input = request.profile == .paragraphExplanation ? try ParagraphExplanationPrompt.input(request) : try JSONSerialization.data(withJSONObject: ["sourceText": request.source.anchor.quote,
             "task": request.kind.rawValue, "targetLanguage": "zh-Hans"], options: [.sortedKeys])
@@ -118,7 +145,7 @@ private struct BYOKChatSelectionAdapter: AIProvider {
             "max_tokens": BYOKSelectionPolicy.maxOutputTokens, "response_format": ["type": "json_object"], "messages": [
                 ["role": "system", "content": system], ["role": "user", "content": String(decoding: input, as: UTF8.self)]
             ]], options: [.sortedKeys])
-        try await budget.reserve()
+        try await budget.reserve(batchID: batchID)
         return try SelectionHTTPCodec.decode(await transport.send(http), sourceQuote: request.source.anchor.quote, requireCompletedChoice: true, paragraphSource: request.profile == .paragraphExplanation ? request.source : nil)
     }
 }

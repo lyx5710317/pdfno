@@ -12,7 +12,7 @@ public struct BYOKSettingsView: View {
         #if os(macOS)
         ScrollView {
             VStack(alignment: .leading, spacing: PDFnoDesign.Space.regular) {
-                PDFnoStatusMessage(text: "配置只在本次会话保存；填写不会发送请求。此身份仅供独立 HTTPS BYOK 选文入口，不切换其他阅读工具。持久 Keychain 尚未启用。")
+                PDFnoStatusMessage(text: "配置只在本次会话保存；填写不会发送请求。此身份仅供独立 HTTPS 配置api 选文入口，不切换其他阅读工具。持久 Keychain 尚未启用。")
                 PDFnoSettingsCard("独立 HTTPS 服务与模型", symbol: "network") {
                     Button("使用官方 DeepSeek 默认配置") { model.draft = DeepSeekSelectionPolicy.configuration() }
                         .accessibilityIdentifier("byok-deepseek-default")

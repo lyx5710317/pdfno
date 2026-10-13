@@ -64,17 +64,17 @@ public final class PDFPageTranslationModel: ObservableObject {
             attemptsUsed = max(attemptsUsed, await budget.attemptsUsed())
         }
     }
-    func start(confirmed: Bool, sourceIsCurrent: @escaping @MainActor (AISourceSnapshot) -> Bool) {
+    func start(confirmed: Bool, sourceIsCurrent: @escaping @MainActor (AISourceSnapshot) -> Bool, connection: AILearningModel? = nil) {
         guard !busy, let plan else { return }
         guard confirmed else { error = AIFailure.consent.localizedDescription; return }
         guard plan.sources.allSatisfy(sourceIsCurrent) else { error = AIFailure.stale.localizedDescription; return }
         guard segments.allSatisfy({ $0.result == nil }) else { error = "已有完成分段；本首片不重发或恢复，请保留已有结果。"; return }
-        guard CredentialValidation.valid(temporarySecret) else { error = AIFailure.credentials.localizedDescription; return }
+        guard connection?.conversationConnectionAvailable ?? CredentialValidation.valid(temporarySecret) else { error = AIFailure.credentials.localizedDescription; return }
         guard plan.sources.count <= PDFPageTranslationPolicy.maxSessionRequests - attemptsUsed else { error = PDFPageTranslationFailure.budget.localizedDescription; return }
         // Copy only after the explicit send action. Never persist or share selection/probe keys.
         let secret = temporarySecret; temporarySecret = ""; generation = UUID(); let token = generation
         let reference = UUID(); credentialReference = reference
-        let providerConfig = DeepSeekSelectionPolicy.configuration() // One immutable profile per explicit page submission.
+        let providerConfig = connection?.config ?? DeepSeekSelectionPolicy.configuration()
         busy = true; error = nil; segments.indices.forEach { segments[$0].failure = nil }
         status = "发送前核对完整计划 · 不自动重试"
         task = Task { [weak self] in
@@ -88,18 +88,24 @@ public final class PDFPageTranslationModel: ObservableObject {
                 guard generation == token, !Task.isCancelled else { return }
                 attemptsUsed = max(attemptsUsed, used)
                 guard plan.sources.count <= PDFPageTranslationPolicy.maxSessionRequests - used else { throw PDFPageTranslationFailure.budget }
-                try await credentials.put(secret, reference: reference)
-                let provider = DeepSeekSelectionProvider(transport: transport, credentials: credentials, credentialReference: reference, budget: budget)
+                let provider: any AIProvider
+                if let connection {
+                    guard connection.conversationConnectionAvailable, ReadingSkillIdentity.matches(connection.config, providerConfig) else { throw AIFailure.stale }
+                    provider = try connection.configuredSelectionProvider(budget: budget)
+                } else {
+                    try await credentials.put(secret, reference: reference)
+                    provider = DeepSeekSelectionProvider(transport: transport, credentials: credentials, credentialReference: reference, budget: budget)
+                }
                 for (index, source) in plan.sources.enumerated() {
                     try Task.checkCancellation()
-                    guard generation == token, sourceIsCurrent(source) else { throw AIFailure.stale }
+                    guard generation == token, sourceIsCurrent(source), connection.map({ $0.conversationConnectionAvailable && ReadingSkillIdentity.matches($0.config, providerConfig) }) ?? true else { throw AIFailure.stale }
                     status = "正在处理第 \(index + 1) / \(plan.sources.count) 段 · 仅本页"
                     let request = AIRequest(source: source, provider: providerConfig, kind: .translate, timeoutSeconds: timeoutSeconds)
                     do {
                         let consent = AIConsent(requestID: request.id, scopeFingerprint: try AIJobCoordinator.fingerprint(request))
                         let result = try await coordinator.run(request, consent: consent, provider: provider)
                         guard generation == token, !Task.isCancelled else { return }
-                        guard sourceIsCurrent(source), result.source == source else { throw AIFailure.stale }
+                        guard sourceIsCurrent(source), result.source == source, connection.map({ $0.conversationConnectionAvailable && ReadingSkillIdentity.matches($0.config, providerConfig) }) ?? true else { throw AIFailure.stale }
                         segments[index].result = result
                     } catch {
                         guard generation == token else { return }

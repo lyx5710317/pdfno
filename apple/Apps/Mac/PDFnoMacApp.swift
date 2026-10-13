@@ -4,11 +4,29 @@ import AppKit
 import PDFnoUI
 
 @main struct PDFnoMacApp: App {
-    @State private var settingsRequest = 0
+    @State private var settingsRequest = Self.isFourLiveQA ? 1 : 0
     @AppStorage(PDFnoAppAppearance.preferenceKey) private var appearancePreference = ""
     @Environment(\.openWindow) private var openWindow
+    private static var isFourLiveQA: Bool {
+        let args = ProcessInfo.processInfo.arguments
+        return Bundle.main.bundleIdentifier?.hasPrefix("org.pdfno.integration.professionala20261007.qaMacFourLive20261013.") == true
+            && args.contains("--ui-testing") && args.contains("--ui-test-four-live-preview")
+    }
+    private var windowTitle: String {
+        let arguments = ProcessInfo.processInfo.arguments
+        if Self.isFourLiveQA { return "PDFno · 四项真实API验证" }
+        if Bundle.main.bundleIdentifier?.hasPrefix("org.pdfno.integration.professionala20261007.qa") == true,
+           arguments.contains("--ui-testing"), arguments.contains("--ui-test-four-layout-preview") {
+            return "PDFno · 四项界面验证"
+        }
+        if Bundle.main.bundleIdentifier?.hasPrefix("org.pdfno.integration.professionala20261007.qa") == true,
+           arguments.contains("--ui-testing"), arguments.contains("--ui-test-unlimited-reading-requests") {
+            return "PDFno · 无次数限制验证"
+        }
+        return "PDFno"
+    }
     var body: some Scene {
-        Window("PDFno", id: "library") {
+        Window(windowTitle, id: "library") {
             LibraryWorkspace(settingsRequest: settingsRequest).frame(minWidth: 720, minHeight: 468)
                 .preferredColorScheme(PDFnoAppearanceMode(rawValue: appearancePreference)?.colorScheme)
                 .onChange(of: appearancePreference, initial: true) { _, value in PDFnoAppAppearance.apply(value) }

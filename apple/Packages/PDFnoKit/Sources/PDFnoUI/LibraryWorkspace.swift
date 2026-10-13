@@ -76,7 +76,7 @@ public struct LibraryWorkspace: View {
         .onChange(of: localRecovery) { _, value in if value { localRecovery = false; workspaceNavigation.showTool(.recovery) } }
         .onChange(of: booknoPreview) { _, value in if value { booknoPreview = false; workspaceNavigation.showTool(.bookno) } }
         .onChange(of: conversion) { _, value in if value { conversion = false; workspaceNavigation.showTool(.conversion) } }
-        .onChange(of: aiTools) { _, value in if value { aiTools = false; workspaceNavigation.showTool(.tools) } }
+        .onChange(of: aiTools) { _, value in if value { aiTools = false; workspaceNavigation.showSettings() } }
         .onChange(of: settingsRequest, initial: true) { _, request in if request > 0 && !navigationBusy { workspaceNavigation.showSettings() } }
         .onPreferenceChange(PDFnoWorkspaceBusyKey.self) { navigationBusy = $0 }
         #endif
@@ -109,7 +109,7 @@ public struct LibraryWorkspace: View {
                     .disabled(workspaceNavigation.route != .settings)
                     .accessibilityHidden(workspaceNavigation.route != .settings)
             }
-        }.tint(.blue).navigationTitle("PDFno")
+        }.tint(.blue).accentColor(PDFnoDesign.Palette.accent).navigationTitle("PDFno")
             .background(PDFnoWorkspaceWindowTitle(title: workspaceWindowTitle))
             .environment(\.pdfnoWorkspaceNavigation, workspaceNavigation)
         #else
@@ -182,7 +182,7 @@ public struct LibraryWorkspace: View {
                 case .cover: if let coverEditor { LibraryCoverEditor(covers: model.covers, item: coverEditor) }
                 case .conversion: ConversionWorkspace()
                 case .bookno: BooknoPreviewWorkspace(model: model.booknoPreview)
-                case .tools: ReadingToolsWorkspace(library: model)
+                case .tools: AISettingsView(learning: model.learning, byok: model.byok, library: model, initialCategory: .aiTools)
                 case .help: FeatureStatusView()
                 case .recovery:
                     NavigationStack {
@@ -254,7 +254,7 @@ public struct LibraryWorkspace: View {
                         Text("\(libraryBookCount) 本").font(PDFnoDesign.TypeStyle.metadata).foregroundStyle(.secondary)
                     }
                     PDFnoLibraryLayoutPicker(grid: $grid)
-                    Button { aiSettings = true } label: { Label("模型与 BYOK 设置", systemImage: "slider.horizontal.3") }
+                    Button { aiSettings = true } label: { Label("模型与 配置api 设置", systemImage: "slider.horizontal.3") }
                         .buttonStyle(PDFnoActionStyle(role: .quiet)).accessibilityIdentifier("ai-settings")
                         .help("配置模型与会话临时密钥")
                 }.padding(PDFnoDesign.Space.regular)
@@ -478,7 +478,7 @@ public struct FeatureStatusView: View {
                     Label("CBZ / CBT / 有限 CB7 / CBR 漫画：导入、页序、左右方向、单双页与进度恢复", systemImage: "checkmark.circle")
                     Label("DOCX 正文转 TXT / 简化 HTML（有损副本）", systemImage: "checkmark.circle")
                     Text("DOCX 阅读版PDF：本机语义正文重新分页，不能还原Word原版式；独立导出入口已接，实际UI待验收")
-                    Text("有限HTTPS BYOK选文：PDF/EPUB最多500 UTF-16，逐次确认域名/模型/完整原文；仅会话密钥，实际服务质量待验收")
+                    Text("有限HTTPS 配置api选文：PDF/EPUB最多500 UTF-16，逐次确认域名/模型/完整原文；仅会话密钥，实际服务质量待验收")
                     #endif
                 }
                 Section("后续接入") {
@@ -555,7 +555,7 @@ struct ReaderWorkspace: View {
                             if inspector == .bookmarks {
                                 BookmarkList(model: model.bookmarks,close: { panels.notes=false },closeIdentifier: "reader-close-bookmarks")
                             } else if inspector == .learning {
-                                ReadingSelectionWorkspace(library: model) { panels.notes = false }
+                                DocumentConversationWorkspace(library: model) { panels.notes = false }
                             } else {
                                 PDFnoPanel(title: "文档标注", icon: "note.text", closeIdentifier: "close-notes", close: closeNotes,showsHeader: false) { notesContent }
                             }
@@ -620,7 +620,7 @@ struct ReaderWorkspace: View {
         .sheet(isPresented: $legacyNotes) { NavigationStack { List { savedNotesContent }.accessibilityIdentifier("pdf-notes-list").navigationTitle("旧笔记与学习记录").toolbar { ToolbarItem { Button("完成") { legacyNotes = false }.accessibilityIdentifier("legacy-notes-close") } } } }
         #endif
         .sheet(isPresented: $byokLearning) { BYOKLearningWorkspace(library: model, model: model.byok) }
-        .sheet(isPresented: $aiTools) { ReadingToolsWorkspace(library: model) }
+        .sheet(isPresented: $aiTools) { AISettingsView(learning: model.learning, byok: model.byok, library: model, initialCategory: .aiTools) }
         #endif
     }
     private var navigationVisible: Bool {
@@ -825,7 +825,7 @@ struct ReaderWorkspace: View {
                 if inspector == .bookmarks { panels.toggle(.notes,width: readerWidth,profile: .professional) }
                 else { inspector = .bookmarks;panels.show(.notes,profile: .professional) }
             }
-            PDFnoReaderRailButton(title: "AI", symbol: "brain.head.profile", identifier: "reader-ai", accessibilityTitle: "选文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.capturedSelection == nil && model.conversation.current == nil, hint: "打开或收起本文件的选文对话") {
+            PDFnoReaderRailButton(title: "AI", symbol: "brain.head.profile", identifier: "reader-ai", accessibilityTitle: "全文 AI", active: panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning, disabled: session.book == nil, hint: "打开或收起当前文档的全文对话") {
                 if panels.placement(width: readerWidth, profile: .professional).showNotes && inspector == .learning { panels.notes = false }
                 else { inspector = .learning; panels.show(.notes, profile: .professional) }
             }

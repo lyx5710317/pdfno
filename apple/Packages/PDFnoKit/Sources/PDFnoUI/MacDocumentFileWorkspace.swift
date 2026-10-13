@@ -5,7 +5,7 @@ import PDFnoDomain
 import PDFnoServices
 import PDFnoReaders
 
-enum MacDocumentFileAction { case settings, tools, japanese, english, page, spine, trash }
+enum MacDocumentFileAction { case settings, tools, japanese, english, page, spine, translation, trash }
 struct MacDocumentFilePanel: Identifiable {
     let id = UUID()
     let model: LibraryModel
@@ -24,15 +24,9 @@ struct MacDocumentMoreMenu: View {
             Text(model.displayedDocumentTitle)
             Button("文件设置…") { open(.settings) }.disabled(model.currentDocumentCover == nil)
                 .accessibilityIdentifier("document-file-settings")
-            Button("阅读与 AI 工具…") { open(.tools) }.accessibilityIdentifier("document-reading-tools")
-            Divider()
-            Button("翻译当前 PDF 物理页…") { open(.page) }
-                .disabled(PDFnoReadingToolContext(library: model).format != .pdf || model.reader.book == nil)
-                .accessibilityIdentifier("document-page-translation")
-            Button("翻译当前 EPUB spine 文档…") { open(.spine) }
-                .disabled(PDFnoReadingToolContext(library: model).format != .epub || epub.book == nil || epub.busy)
-                .accessibilityIdentifier("document-spine-translation")
-            Text("需活动的 PDF / EPUB；其他格式不可用")
+            Button("阅读翻译…") { open(.translation) }
+                .disabled(![PDFnoReadingToolContext.Format.pdf, .epub].contains(PDFnoReadingToolContext(library: model).format))
+                .accessibilityIdentifier("document-reading-translation")
             Divider()
             Button("移至回收站…") { open(.trash) }.accessibilityIdentifier("document-move-to-trash")
         } label: { Image(systemName: "ellipsis").frame(width: 22, height: 28) }
@@ -52,6 +46,7 @@ struct MacDocumentFileWorkspace: View {
             case .english: EnglishLearningSheet(library: panel.model)
             case .page: PDFPageTranslationWorkspace(library: panel.model, translation: panel.model.pageTranslation, learning: panel.model.learning)
             case .spine: EPUBChapterTranslationWorkspace(library: panel.model, translation: panel.model.chapterTranslation, learning: panel.model.learning)
+            case .translation: ReadingTranslationWorkspace(library: panel.model)
             case .settings:
                 if let cover = panel.model.currentDocumentCover {
                     VStack(spacing: 0) {

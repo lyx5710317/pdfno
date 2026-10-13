@@ -40,7 +40,7 @@ struct ReadingLayoutPanel: View {
     }
     private func choice(_ title: String,selected: Bool,identifier: String,action: @escaping () -> Void) -> some View {
         Button(action: action) { Text(title).font(.system(size: 12)).frame(maxWidth: .infinity).padding(.vertical,8)
-            .background(selected ? Color.accentColor.opacity(0.12) : .clear,in: RoundedRectangle(cornerRadius: 6)) }
+            .background(selected ? PDFnoDesign.Palette.accent.opacity(0.12) : .clear,in: RoundedRectangle(cornerRadius: 6)) }
             .buttonStyle(.plain).accessibilityIdentifier(identifier).accessibilityValue(selected ? "已选中" : "未选中")
     }
 }

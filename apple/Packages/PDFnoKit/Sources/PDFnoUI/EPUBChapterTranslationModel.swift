@@ -76,17 +76,17 @@ public final class EPUBChapterTranslationModel: ObservableObject {
             attemptsUsed = max(attemptsUsed, await budget.attemptsUsed())
         }
     }
-    func start(confirmed: Bool, sourceIsCurrent: @escaping @MainActor (AISourceSnapshot) -> Bool) {
+    func start(confirmed: Bool, sourceIsCurrent: @escaping @MainActor (AISourceSnapshot) -> Bool, connection: AILearningModel? = nil) {
         guard !busy, let plan else { return }
         guard confirmed else { error = AIFailure.consent.localizedDescription; return }
         guard plan.sources.allSatisfy(sourceIsCurrent) else { error = AIFailure.stale.localizedDescription; return }
         guard !submitted else { error = "此批次已发起；本首片不重发或恢复，已完成分段保留。"; return }
-        guard CredentialValidation.valid(temporarySecret) else { error = AIFailure.credentials.localizedDescription; return }
+        guard connection?.conversationConnectionAvailable ?? CredentialValidation.valid(temporarySecret) else { error = AIFailure.credentials.localizedDescription; return }
         guard plan.sources.count <= EPUBChapterTranslationPolicy.maxSessionRequests - attemptsUsed else { error = EPUBChapterTranslationFailure.budget.localizedDescription; return }
         // Copy only after the explicit send action. Never persist or share selection/probe keys.
         let secret = temporarySecret; temporarySecret = ""; generation = UUID(); let token = generation
         let reference = UUID(); credentialReference = reference
-        let providerConfig = DeepSeekSelectionPolicy.configuration() // One immutable profile per explicit chapter submission.
+        let providerConfig = connection?.config ?? DeepSeekSelectionPolicy.configuration()
         submitted = true; busy = true; error = nil; segments.indices.forEach { segments[$0].failure = nil }
         status = "发送前核对完整计划 · 不自动重试"
         task = Task { [weak self] in
@@ -104,20 +104,26 @@ public final class EPUBChapterTranslationModel: ObservableObject {
                 guard generation == token, !Task.isCancelled else { return }
                 attemptsUsed = max(attemptsUsed, used)
                 guard plan.sources.count <= EPUBChapterTranslationPolicy.maxSessionRequests - used else { throw EPUBChapterTranslationFailure.budget }
-                try await credentials.put(secret, reference: reference)
+                if connection == nil { try await credentials.put(secret, reference: reference) }
                 batchID = try await budget.claimChapterBatch(count: plan.sources.count)
                 guard generation == token, !Task.isCancelled else { return }
-                let provider = DeepSeekSelectionProvider(transport: transport, credentials: credentials, credentialReference: reference, budget: budget, chapterBatchID: batchID)
+                let provider: any AIProvider
+                if let connection {
+                    guard connection.conversationConnectionAvailable, ReadingSkillIdentity.matches(connection.config, providerConfig) else { throw AIFailure.stale }
+                    provider = try connection.configuredSelectionProvider(budget: budget, batchID: batchID)
+                } else {
+                    provider = DeepSeekSelectionProvider(transport: transport, credentials: credentials, credentialReference: reference, budget: budget, chapterBatchID: batchID)
+                }
                 for (index, source) in plan.sources.enumerated() {
                     try Task.checkCancellation()
-                    guard generation == token, sourceIsCurrent(source) else { throw AIFailure.stale }
+                    guard generation == token, sourceIsCurrent(source), connection.map({ $0.conversationConnectionAvailable && ReadingSkillIdentity.matches($0.config, providerConfig) }) ?? true else { throw AIFailure.stale }
                     status = "正在处理第 \(index + 1) / \(plan.sources.count) 段 · 仅当前 spine 文档"
                     let request = AIRequest(source: source, provider: providerConfig, kind: .translate, timeoutSeconds: timeoutSeconds)
                     do {
                         let consent = AIConsent(requestID: request.id, scopeFingerprint: try AIJobCoordinator.fingerprint(request))
                         let result = try await coordinator.run(request, consent: consent, provider: provider)
                         guard generation == token, !Task.isCancelled else { return }
-                        guard sourceIsCurrent(source), result.source == source else { throw AIFailure.stale }
+                        guard sourceIsCurrent(source), result.source == source, connection.map({ $0.conversationConnectionAvailable && ReadingSkillIdentity.matches($0.config, providerConfig) }) ?? true else { throw AIFailure.stale }
                         segments[index].result = result
                     } catch {
                         guard generation == token else { return }

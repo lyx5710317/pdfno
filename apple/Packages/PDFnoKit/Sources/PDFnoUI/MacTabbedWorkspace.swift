@@ -56,7 +56,7 @@ struct MacTabbedWorkspace: View {
                     }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-        }.tint(.blue).background(PDFnoDesign.Palette.canvas)
+        }.tint(.blue).accentColor(PDFnoDesign.Palette.accent).background(PDFnoDesign.Palette.canvas)
             // SwiftUI owns its toolbar and appearance observers. The document
             // band is a native titlebar accessory, independent of route toolbars.
             .environment(\.pdfnoWorkspaceNavigation, navigation)
@@ -173,7 +173,7 @@ struct MacTabbedWorkspace: View {
                             guard let book = recovery.books.first(where: { $0.id == active.id }) else { documents.error = "当前文件已不可用，请刷新书库。"; return }
                             await recovery.preview(.book(book))
                             guard recovery.changePreview != nil else { documents.error = recovery.message; return }
-                        case .settings: break
+                        case .settings, .translation: break
                         }
                         guard documents.activeID == active.id, navigation.route == .reader else { return }
                         filePanel = MacDocumentFilePanel(model: active.model, action: action, recovery: model.recoveryManagement)

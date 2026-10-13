@@ -1,5 +1,6 @@
 // Copyright (C) 2026 PDFno contributors. SPDX-License-Identifier: AGPL-3.0-or-later
 import Foundation
+import Combine
 import SwiftUI
 import PDFnoDomain
 import PDFnoServices
@@ -41,11 +42,27 @@ import PDFnoServices
     var paragraphCommitFence: EnglishLearningSourceCommitFence?
     private var synchronizing = false
     var sessionDidChange: (@MainActor () -> Void)?
+    private weak var connection: AILearningModel?
+    private var connectionChanges: AnyCancellable?
+    func bindConnection(_ owner: AILearningModel) {
+        connection = owner
+        connectionChanges = owner.$config.combineLatest(owner.$hasSessionCredential).sink { [weak self] config, credential in
+            guard let self else { return }
+            let changed = !ReadingSkillIdentity.matches(draft, config)
+            if changed || hasSessionCredential != credential { invalidate() }
+            synchronizing = true; draft = config; synchronizing = false; hasSessionCredential = credential
+        }
+    }
     public init(session: BYOKProviderSession = BYOKProviderSession(),
                 transport: any AIHTTPTransport = URLSessionAITransport(), aiSession: AppAISession = .shared) {
         self.session = session; self.transport = transport; self.aiSession = aiSession
     }
     public func load() async {
+        if let connection {
+            await connection.reconcileLegacyConnection(session)
+            synchronizing = true; draft = connection.config; synchronizing = false
+            hasSessionCredential = connection.hasSessionCredential; return
+        }
         let token = generation
         await credentialClearTask?.value
         let snapshot = await session.snapshot()
@@ -56,6 +73,11 @@ import PDFnoServices
         attemptsUsed = max(attemptsUsed, count)
     }
     @discardableResult public func apply() async -> Bool {
+        if let connection {
+            let value = temporarySecret; temporarySecret = ""
+            let applied = await connection.applyConnection(draft, temporarySecret: value)
+            await load(); error = connection.error; sessionDidChange?(); return applied
+        }
         invalidate(); let token = generation
         await credentialClearTask?.value
         guard generation == token else { return false }
@@ -73,6 +95,7 @@ import PDFnoServices
         }
     }
     public func clearCredential() async {
+        if let connection { await connection.clearSessionCredential(); await load(); return }
         temporarySecret = ""; invalidate(); hasSessionCredential = false
         await credentialClearTask?.value; await session.clearCredential()
         draft = (await session.snapshot()).configuration
@@ -86,9 +109,10 @@ import PDFnoServices
         do {
             let snapshot = await session.snapshot()
             guard generation == token else { return }
-            guard ReadingSkillIdentity.matches(draft, snapshot.configuration) else { throw AIFailure.stale }
-            preview = try BYOKSelectionPreview(request: AIRequest(source: source, provider: snapshot.configuration, kind: kind, profile: kind == .explain ? .paragraphExplanation : .legacy))
-            hasSessionCredential = snapshot.hasSessionCredential; result = nil; error = nil
+            let config = connection?.config ?? snapshot.configuration
+            guard ReadingSkillIdentity.matches(draft, config) else { throw AIFailure.stale }
+            preview = try BYOKSelectionPreview(request: AIRequest(source: source, provider: config, kind: kind, profile: kind == .explain ? .paragraphExplanation : .legacy))
+            hasSessionCredential = connection?.hasSessionCredential ?? snapshot.hasSessionCredential; result = nil; error = nil
             status = "核对实际域名与下方完整选文 · 不会自动发送"
         } catch { self.error = Self.message(error) }
     }
@@ -102,15 +126,21 @@ import PDFnoServices
             do {
                 await credentialClearTask?.value
                 let snapshot = await session.snapshot()
-                guard generation == token, ReadingSkillIdentity.matches(snapshot.configuration, preview.request.provider),
+                guard generation == token, ReadingSkillIdentity.matches(connection?.config ?? snapshot.configuration, preview.request.provider),
                       sourceIsCurrent(preview.request.source) else { throw AIFailure.stale }
-                let provider = try BYOKProviderFactory.selection(snapshot: snapshot, session: session, transport: transport, aiSession: aiSession)
+                let provider = try connection?.configuredSelectionProvider() ?? BYOKProviderFactory.selection(snapshot: snapshot, session: session, transport: transport, aiSession: aiSession)
                 let plan = try ReadingSkillInputPlan(request: .text(preview.request))
                 readingSkillPlan = plan
                 let envelope = try await ReadingSkillSelectionAdapter.runText(plan,
                     consent: ReadingSkillConsent(taskID: plan.taskID, planFingerprint: plan.confirmationFingerprint),
                     hostConsent: preview.consent, coordinator: coordinator, provider: provider,
                     sourceAndConfigurationAreCurrent: { [weak self, session] source, config in
+                        if let connection = await MainActor.run(body: { self?.connection }) {
+                            return await MainActor.run {
+                                self?.generation == token && connection.conversationConnectionAvailable &&
+                                ReadingSkillIdentity.matches(connection.config, config) && sourceIsCurrent(source)
+                            }
+                        }
                         let current = await session.snapshot()
                         guard ReadingSkillIdentity.matches(current.configuration, config), current.hasSessionCredential else { return false }
                         return await MainActor.run {
@@ -143,7 +173,7 @@ import PDFnoServices
     func discardDocumentPresentation() { invalidate(); result = nil; error = nil }
     public static func message(_ error: Error) -> String {
         let failure = ReadingSkillSelectionAdapter.hostFailure(error)
-        if failure == .configuration { return "此 BYOK 首片仅接受有效 HTTPS 地址和模型；不允许本地 HTTP、URL 凭据、查询、片段或重定向。" }
+        if failure == .configuration { return "此 配置api 首片仅接受有效 HTTPS 地址和模型；不允许本地 HTTP、URL 凭据、查询、片段或重定向。" }
         if failure == .remoteInputLimit { return "仅接受最多500 UTF-16单位的 PDF/EPUB 固定选文；不会截断或扩范围。" }
         return failure.localizedDescription
     }

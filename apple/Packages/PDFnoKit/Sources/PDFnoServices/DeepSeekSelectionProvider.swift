@@ -4,15 +4,22 @@ import PDFnoDomain
 
 public actor DeepSeekSelectionBudget {
     private var attempts = 0
-    private let limit: Int
+    public nonisolated let requestLimit: Int?
     private var chapterBatch: (id: UUID, remaining: Int)?
     public init(maxAttempts: Int = DeepSeekSelectionPolicy.maxAttempts) {
-        limit = min(max(maxAttempts, 0), PDFPageTranslationPolicy.maxSessionRequests)
+        requestLimit = min(max(maxAttempts, 0), PDFPageTranslationPolicy.maxSessionRequests)
+    }
+    private init(unlimited: Void) { requestLimit = nil }
+    /// Explicitly injected QA sessions can count attempts without enforcing a ceiling.
+    /// Normal sessions still use their existing bounded initializer.
+    public static func unlimitedForExplicitQA() -> DeepSeekSelectionBudget {
+        DeepSeekSelectionBudget(unlimited: ())
     }
     public func attemptsUsed() -> Int { attempts }
     public func claimChapterBatch(count: Int) throws -> UUID {
         try Task.checkCancellation()
-        guard chapterBatch == nil, count > 0, count <= limit - attempts else { throw EPUBChapterTranslationFailure.budget }
+        guard chapterBatch == nil, count > 0,
+              requestLimit.map({ count <= $0 - attempts }) ?? true else { throw EPUBChapterTranslationFailure.budget }
         let id = UUID(); chapterBatch = (id, count); return id
     }
     public func releaseChapterBatch(_ id: UUID) {
@@ -24,7 +31,7 @@ public actor DeepSeekSelectionBudget {
             guard let batch = chapterBatch, batch.id == batchID, batch.remaining > 0 else { throw EPUBChapterTranslationFailure.budget }
             chapterBatch = (batch.id, batch.remaining - 1)
         } else if chapterBatch != nil { throw EPUBChapterTranslationFailure.budget }
-        guard attempts < limit else { throw AIFailure.attemptLimit }
+        guard requestLimit.map({ attempts < $0 }) ?? true else { throw AIFailure.attemptLimit }
         attempts += 1 // Conservatively includes submissions later cancelled or rejected.
     }
 }

@@ -55,7 +55,9 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
     private var generation = UUID()
     public private(set) var documentVersion = 0
     public private(set) var spineIndex = 0
+    public private(set) var chapterCount = 0
     public var translationScopeDidChange: (@MainActor () -> Void)?
+    public var documentSessionDidChange: (@MainActor (UUID) -> Void)?
     public var readerSessionID: UUID { generation }
     private var pendingOpen: [String: Any]?
     private var pending: [UUID: CheckedContinuation<String, Error>] = [:]
@@ -64,13 +66,14 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
         readingLayout=ReadingLayout();hasPreviousPage=false;hasNextPage=false;vertical=false
         translationScopeDidChange?()
         generation = UUID(); pendingOpen = nil
+        documentSessionDidChange?(generation)
         navigationHistory.clear(); canReturnToPreviousLocation = false; returningToPreviousLocation = false
         let requests = pending; pending.removeAll()
         for continuation in requests.values { continuation.resume(throwing: EPUBError.cancelled) }
         webView?.stopLoading(); webView?.configuration.userContentController.removeScriptMessageHandler(forName: "epub")
         webView?.navigationDelegate = nil; webView = nil; book = nil
         writingLanguage = .unknown
-        selection = nil; progress = nil; outline = []; position = ""; busy = false; documentVersion = 0; spineIndex = 0
+        selection = nil; progress = nil; outline = []; position = ""; busy = false; documentVersion = 0; spineIndex = 0; chapterCount = 0
     }
     public func open(data: Data, book: EPUBBook, notes: [EPUBNote]) async throws {
         let names = try EPUBArchive.validate(data)
@@ -147,6 +150,7 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
               let state = object["payload"] as? [String: Any], state["kind"] as? String == "state" else { throw EPUBError.bridge }
         if documentVersion != version { translationScopeDidChange?() }
         documentVersion = version; selection = nil
+        if let count = state["chapterCount"] as? Int { chapterCount = count }
         if let anchor = state["progress"] as? [String: Any] { progress = try anchorValue(anchor) }
         else if state["progress"] is NSNull { progress = nil }
         else { throw EPUBError.bridge }
@@ -262,6 +266,33 @@ public final class EPUBReaderSession: NSObject, ObservableObject, WKNavigationDe
             guard generation==token,let value=result["capturedSelection"] as? [String: Any] else { return nil }
             let captured=try anchorValue(value);selection=captured;return captured
         } catch { return nil }
+    }
+    /// Exports every mounted canonical spine in order, without moving the reader or truncating.
+    public func captureCompleteDocumentText() async throws -> String {
+        guard !busy, let view = webView, let book, chapterCount > 0 else { throw EPUBError.unavailable }
+        let token = generation, count = chapterCount
+        let value = try await view.callAsyncJavaScript("""
+          const d=document.querySelector('iframe')?.contentDocument;
+          if(!d)throw Error('No document');
+          const roots=[...d.querySelectorAll('[data-pdfno-spine]')];
+          if(roots.length!==count||roots.some((r,i)=>Number(r.dataset.pdfnoSpine)!==i))throw Error('Incomplete document');
+          let texts=[],length=0;
+          for(const root of roots){
+            const w=d.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement.closest('rt,rp,script,style,noscript,title')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+            let text='';while(w.nextNode())text+=w.currentNode.data;
+            if(!text.trim())throw Error('Empty content unit');
+            length+=text.length+(texts.length?2:0);
+            if(length>limit)return {count:roots.length,length,text:null};
+            texts.push(text);
+          }
+          return {count:roots.length,length,text:texts.join('\\n\\n')};
+          """, arguments: ["count": count, "limit": DocumentConversationSource.maxTextUTF16], in: nil, contentWorld: .page)
+        guard generation == token, self.book?.id == book.id, webView === view,
+              let result = value as? [String: Any], result["count"] as? Int == count,
+              let length = result["length"] as? Int else { throw EPUBError.sourceMismatch }
+        guard length <= DocumentConversationSource.maxTextUTF16 else { throw DocumentConversationFailure.tooLarge }
+        guard let text = result["text"] as? String, text.utf16.count == length else { throw DocumentConversationFailure.incomplete }
+        return text
     }
     public func projectAnnotations(_ records: [AnchoredAnnotation]) async {
         guard !busy,let book else { return }

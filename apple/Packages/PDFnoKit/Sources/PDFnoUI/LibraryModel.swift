@@ -57,6 +57,7 @@ public final class LibraryModel: ObservableObject {
     let annotations: AnnotationModel
     lazy var bookmarks = BookmarkModel(root: recordRoot,library: self)
     lazy var conversation = ReadingConversationModel(library: self)
+    lazy var documentConversation = DocumentConversationModel(library: self)
     @Published var selectionAIRoute: SelectionAIRoute?
     @Published var addingAIToNotes = false
     let recordRoot: URL
@@ -156,13 +157,15 @@ public final class LibraryModel: ObservableObject {
         }
         #if os(macOS)
         // The sidebar reads this nested model even while its reader is inactive.
+        byok.bindConnection(learning)
         // Forward asynchronous load/restart changes as well as routed imports.
         ebookChanges = ebook.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         // The independent BYOK owner has its own source/session/configuration fences.
         // Hiding or cancelling the reading provider must not revoke a BYOK result.
         learning.japaneseScopeDidInvalidate = { [weak self] in self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning() }
-        epub.translationScopeDidChange = { [weak self] in self?.conversation.sourceDidChange(); self?.learning.invalidateParagraphSource(); self?.chapterTranslation.cancel(); self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
-        japanesePDFSessionChanges = reader.$readerSessionID.dropFirst().sink { [weak self] _ in self?.conversation.sourceDidChange(); self?.learning.invalidateParagraphSource(); self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
+        epub.translationScopeDidChange = { [weak self] in self?.conversation.sourceDidChange(); self?.documentConversation.sourceDidChange(); self?.learning.invalidateParagraphSource(); self?.chapterTranslation.cancel(); self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
+        epub.documentSessionDidChange = { [weak self] sessionID in self?.documentConversation.readerSessionDidChange(sessionID) }
+        japanesePDFSessionChanges = reader.$readerSessionID.dropFirst().sink { [weak self] sessionID in self?.conversation.sourceDidChange(); self?.documentConversation.readerSessionDidChange(sessionID); self?.learning.invalidateParagraphSource(); self?.invalidateJapaneseLearning(); self?.invalidateEnglishLearning(); self?.invalidateBYOKSelection() }
         japanesePDFSelectionChanges = reader.$capturedSelection.dropFirst().sink { [weak self] anchor in
             self?.conversation.selectionDidChange(anchor.map(AISelectionAnchor.pdf))
             self?.japaneseSelectionDidChange(anchor.map(AISelectionAnchor.pdf)); self?.byokSelectionDidChange(anchor.map(AISelectionAnchor.pdf))
@@ -220,6 +223,9 @@ public final class LibraryModel: ObservableObject {
             try await ebook.load()
             #endif
             await learning.load()
+            #if os(macOS)
+            await byok.load()
+            #endif
             #if os(macOS)
             await loadJapaneseLearningNotes()
             await loadEnglishLearningNotes()
