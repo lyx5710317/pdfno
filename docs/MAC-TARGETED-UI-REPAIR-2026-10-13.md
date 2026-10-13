@@ -1,5 +1,8 @@
 # Mac targeted UI repair, 2026-10-13
 
+
+**Latest accepted directed result:** the unchanged current App/PID68526 passed the real API case on2026-10-13. Explanation and follow-up produced2 HTTP200 responses; full-document dialogue produced1 HTTP200 response only after confirmation. One explicit note was saved; follow-up/full-document responses did not auto-save. Full-document open/Start/cancel each had0 dispatches. Official1 method executed,1 passed,0 failed,0 skipped. Desk released15:56:40 UTC /23:56:40 Asia/Shanghai. This supplements the separate2/2 offline repair result and does not establish all73/global acceptance. Earlier blocked/failed rounds below remain historical evidence.
+
 Current repairs compile and pass four directed background checks and both affected GUI cases. The latest official result is **2 executed,2 passed,0 failed,0 skipped,0 expected failures**, with exact source/product bindings. The desk was released at **13:55:14 UTC / 21:55:14 Asia/Shanghai**. Reconnection did not restart or duplicate completed tests.
 
 The implementation is uploaded in main commit `d0575b2c2299367e6675105d3b57e747b7403e36`, based on `40bfbcbdebe833cf8c0dcbf32b57039ede07828f`. No new full regression, iOS build/test, merge or App publication occurred in this repair phase. These results do not establish global GUI, all68/73, gate12/17 or live API acceptance.
@@ -80,3 +83,14 @@ The authorized main repair upload uses `[skip ci]` to honor the current no-full-
 `LIVE-04.xcresult` then reached the actual foreground window and read its public status. The original “已配置” assertion failed after15.827 seconds: “填写后点击应用连接；所有 AI 功能共用此配置。” and “尚未测试连接”. Official count1 executed,0 passed,1 failed,0 skipped. Requests0, responses0; explanation/follow-up/save/full-document assertions never executed. Desk released15:06:44 UTC /23:06:44 Asia/Shanghai. The earlier background-state ambiguity is now corroborated by the real foreground UI. User reported configured, but cause of that discrepancy remains unproved. No further automatic retry or repeated Key-entry question is pending. Same App remains open. Real API acceptance stays blocked until this exact window actually applies its configuration.
 
 Authoritative compact record: `.build/MacGlobal/2026-10-13/CurrentRepair/LiveAPI/REAL-API-OUTCOME.json`; official result exports and original failure evidence remain local. This failure does not invalidate the separately accepted2/2 offline repair result, nor establish all73/global acceptance.
+
+
+## Real API completion on the same current process
+
+The user clarified at15:27 UTC that configuration had not yet been entered, so the earlier unconfigured readings and0 requests were expected. The contradiction diagnosis stopped; no configuration-code change was made from that hypothesis. The user subsequently configured the existing window. Read-only checks found “本次会话已配置 API Key” and “连接成功 · 已验证本次模型与返回格式”, correct DeepSeek URL/model, PID68526 and one normal window. No App restart or Key read/transfer/re-entry request occurred.
+
+The user explicitly permitted only our original samples to be sent to configured `api.deepseek.com` and provided the current desktop handoff at15:54 UTC. `LIVE-05.xcresult` then passed `MacFourLiveUITests/testFinalFourUIRealSelectionAndFullDocumentConsent()` in45.998 seconds. Exact official method, original assertions, compiled product hashes and0 skips were verified. Scenario requests:2 selected-text requests plus1 confirmed whole-document request; responses200/200/200. This count covers the directed reading scenario and excludes any earlier user-operated connection probe. No artificial QA request ceiling or backend cost settings were imposed.
+
+The original “window” quote, saved AI result, empty independent user body, noncached response, explicit1-note commit, same-source follow-up and no automatic save assertions passed. Settings kept the shared connection across AI/tools categories. Full-document panel open and Start/cancel sent nothing; confirmation sent the original2-page sample and accepted the actual response. No private books/notes were used.
+
+The App remained the same process with unchanged executable/debug-library hashes; only the previously repaired Runner was used. No global or offline GUI rerun occurred. Desk release receipt is `CurrentRepair/LiveAPI/LIVE-05-EXECUTION.json`; exact official summary/tests and `REAL-API-OUTCOME-SUCCESS.json` are retained locally. Earlier failure evidence is not overwritten. Current original13/18 method coverage remains as individually listed: this additional live method is not substituted for unexecuted batch, typed-paragraph, language or wider regression methods.
